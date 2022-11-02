@@ -19,5 +19,9 @@ module Command
     def progress
       $stderr
     end
+
+    def cp
+      @cp ||= Controlplane.new(config)
+    end
   end
 end

@@ -6,7 +6,7 @@ LOCATION="${CPL_REVIEW_LOCATION:-$CPL_DEFAULT_LOCATION}"
 IMAGE=$CPL_GVC:latest
 
 for arg in "$@"; do
-  TEMPLATE="$CPL_CONFIG_PATH/templates/$arg.yaml"
+  TEMPLATE="$CPL_CONFIG_PATH/templates/$arg.yml"
 
   if [ -f "$TEMPLATE" ]; then
     cat "$TEMPLATE" |

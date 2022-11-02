@@ -3,24 +3,17 @@
 module Command
   class Build < Base
     def call
-      abort("ERROR: atm for review apps only") unless config.review_app?
+      abort("ERROR: atm only :latest image_tagging implemented") if config[:image_tagging] != "latest"
 
-      cp.build_image(image: image)
+      image = "#{config.app}:latest"
+      dockerfile = "#{config.app_cpln_dir}/Dockerfile"
 
-      config.review_apps[:workloads].each do |workload|
+      cp.build_image(image: image, dockerfile: dockerfile)
+
+      config[:app_workloads].each do |workload|
         cp.update_image_ref(workload: workload, image: image)
-        cp.force_redeployment(workload: workload) if image.match(/:latest$/)
+        cp.force_redeployment(workload: workload) if config[:image_tagging] == "latest"
       end
-    end
-
-    private
-
-    def cp
-      @cp ||= Controlplane.new(config, org: config.review_apps.fetch(:org))
-    end
-
-    def image
-      cp.review_app_image
     end
   end
 end

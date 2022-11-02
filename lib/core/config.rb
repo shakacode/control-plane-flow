@@ -5,34 +5,29 @@ require "yaml"
 require "pathname"
 
 class Config
-  attr_reader :app_dir, :app_config, :app_cp_dir,
+  attr_reader :config, :current,
+              :app, :app_dir,
+              # command line options
               :cmd, :args, :options
 
-  CONFIG_FILE_LOCATIION = ".controlplane/controlplane.yaml"
+  CONFIG_FILE_LOCATIION = ".controlplane/controlplane.yml"
 
   def initialize
     load_app_config
     parse_argv
+    pick_current_config
   end
 
-  def review_apps
-    app_config.fetch(:review_apps)
-  end
-
-  def review_app?
-    options[:app].start_with?(review_apps.fetch(:prefix))
-  end
-
-  def one_off
-    app_config.fetch(:one_off)
-  end
-
-  def dockerfile
-    "#{app_cp_dir}/Dockerfile"
+  def [](key)
+    current.fetch(key)
   end
 
   def script_path
     Pathname.new(__dir__).parent.parent
+  end
+
+  def app_cpln_dir
+    "#{app_dir}/.controlplane"
   end
 
   private
@@ -45,15 +40,24 @@ class Config
     end
     option_parser.parse!(into: options)
 
-    @cmd = ARGV[0].to_sym
+    @cmd = ARGV[0]&.to_sym
     @args = ARGV[1..]
+    @app = options[:app]
+  end
+
+  def pick_current_config
+    config[:apps].each do |c_app, c_data|
+      if c_app.to_s == app || (c_data[:prefix] && app.start_with?(c_app.to_s))
+        @current = c_data
+        break
+      end
+    end
   end
 
   def load_app_config
     config_file = find_app_config_file
-    @app_config = YAML.safe_load_file(config_file, symbolize_names: true)
-    @app_cp_dir = File.dirname(config_file)
-    @app_dir = Pathname.new(@app_cp_dir).parent.to_s
+    @config = YAML.safe_load_file(config_file, symbolize_names: true, aliases: true)
+    @app_dir = Pathname.new(config_file).parent.parent.to_s
   end
 
   def find_app_config_file

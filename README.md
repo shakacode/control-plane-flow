@@ -21,7 +21,7 @@ alias cpl="~/projects/heroku-to-control-plane/cpl"
 ```sh
 app_main_folder
   .controlplane
-    controlplane.yaml
+    controlplane.yml
     Dockerfile          # this is your app Dockerfile, with some CPLN changes
     entrypoint.sh       # app specific, edit as needed
     runner.sh           # wrapper needed for `run` command, no need to edit
@@ -43,21 +43,27 @@ CMD ["rails", "s"]
 ```
 > NOTE: `netcat` and `runner.sh` are needed to enable `run` command functionality
 
-3. edit `controlplane.yaml` where necessary, e.g.:
+3. edit `controlplane.yml` where necessary, e.g.:
 ```yaml
-# config options for one-off containers via `run` command
-one_off:
-  org: shakacode-staging
-  location: aws-us-east-2
-  workload: rails
-# config options for review-apps
-review_apps:
-  prefix: ror-tutorial
-  org: shakacode-staging
-  location: aws-us-east-2
-  workloads:
-    - rails
-    # - sidekiq
+aliases:
+  common: &common
+    org: shakacode-staging
+    location: aws-us-east-2
+    one_off_workload: rails
+    app_workloads:
+      - rails
+    additional_workloads:
+      - redis
+      - postgres
+
+apps:
+  ror-tutorial:
+    <<: *common
+    image_tagging: latest
+  ror-tutorial-review:
+    <<: *common
+    prefix: true
+    image_tagging: latest
 ```
 
 ## Commands:
@@ -94,6 +100,15 @@ cpl logs -a ror-tutorial
 
 # display logs for other workload
 cpl logs -a ror-tutorial -w postgres
+```
+
+### `ps`
+```sh
+# starts all workloads in app
+cpl ps start -a ror-tutorial
+
+# stops all workloads in app
+cpl ps stop -a ror-tutorial
 ```
 
 ### `run`

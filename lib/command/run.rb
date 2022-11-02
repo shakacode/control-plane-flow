@@ -26,10 +26,13 @@ module Command
       # Needed to avoid execution of ENDTRYPOINT and CMD of Dockerfile
       port = container_data["ports"][0]["number"]
       container_data["command"] = "nc"
-      container_data["args"] = ["-k", "-l", port]
+      container_data["args"] = ["-k", "-l", port.to_s]
 
       # Pass actual command to runner script via ENV
-      workload_data["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => config.args.shelljoin } if runner
+      container_data["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => config.args.shelljoin } if runner
+
+      # Ensure one-off workload will be running
+      new_data["spec"]["defaultOptions"]["suspend"] = false
 
       # Create workload clone
       cp.apply(new_data)
@@ -55,16 +58,12 @@ module Command
       cp.delete_workload(one_off)
     end
 
-    def cp
-      @cp ||= Controlplane.new(config, org: config.one_off.fetch(:org))
-    end
-
     def workload
-      config.one_off[:workload]
+      config[:one_off_workload]
     end
 
     def location
-      config.one_off[:location]
+      config[:location]
     end
 
     def one_off

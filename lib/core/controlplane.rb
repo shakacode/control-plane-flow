@@ -4,27 +4,14 @@ require "yaml"
 require "open3"
 
 class Controlplane
-  attr_reader :config, :org
+  attr_reader :config
 
-  def initialize(config, org:)
+  def initialize(config)
     @config = config
-    @org = org
   end
 
-  def app_dir
-    config.app_dir
-  end
-
-  def dockerfile
-    config.dockerfile
-  end
-
-  def gvc
-    config.options.fetch(:app)
-  end
-
-  def build_image(image:, push: true)
-    cmd = "cpln image build --name #{image} --dir #{app_dir} --dockerfile #{dockerfile}"
+  def build_image(image:, dockerfile:, push: true)
+    cmd = "cpln image build --name #{image} --dir #{config.app_dir} --dockerfile #{dockerfile}"
     cmd += " --push" if push
     perform(cmd)
   end
@@ -32,7 +19,7 @@ class Controlplane
   def update_image_ref(workload:, image:, container: nil)
     container ||= workload
     cmd = "cpln workload update #{workload}"
-    cmd += " --set spec.containers.#{container}.image=/org/#{org}/image/#{image}"
+    cmd += " --set spec.containers.#{container}.image=/org/#{config[:org]}/image/#{image}"
     cmd += " --gvc #{gvc}"
     perform(cmd)
   end
@@ -41,15 +28,6 @@ class Controlplane
     cmd = "cpln workload force-redeployment #{workload} --gvc #{gvc}"
     perform(cmd)
   end
-
-  def review_app_image
-    "#{gvc}:latest"
-  end
-
-  # def clone_workload(workload:, new_workload:)
-  #   cmd = "cpln workload clone #{workload} --name #{new_workload} --gvc #{gvc} > /dev/null"
-  #   perform(cmd)
-  # end
 
   def delete_workload(workload)
     # TODO: check if workload exists before deleting
@@ -64,13 +42,13 @@ class Controlplane
   end
 
   def get_workload(workload)
-    result = `cpln workload get #{workload} --gvc #{gvc} -o yaml`
-    YAML.safe_load(result)
+    cmd = "cpln workload get #{workload} --gvc #{gvc} -o yaml"
+    perform(cmd, result: :yaml)
   end
 
   def get_replicas(workload, location:)
     cmd = "cpln workload get-replicas #{workload} --location #{location} --gvc #{gvc} -o yaml 2> /dev/null"
-    YAML.safe_load(`#{cmd}`)
+    perform(cmd, result: :yaml)
   end
 
   def apply(data)
@@ -83,10 +61,24 @@ class Controlplane
     perform(cmd)
   end
 
+  def set_workload_suspend(workload, value)
+    yaml = get_workload(workload)
+    yaml["spec"]["defaultOptions"]["suspend"] = value
+    apply(yaml)
+  end
+
   private
 
-  def perform(cmd)
+  def perform(cmd, result: nil)
     # puts cmd
-    system(cmd)
+    case result
+    when nil then system(cmd)
+    when :yaml then YAML.safe_load(`#{cmd}`)
+    else raise("Unknown result type '#{result}'")
+    end
+  end
+
+  def gvc
+    config.app
   end
 end
