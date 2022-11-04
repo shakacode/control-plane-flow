@@ -1,70 +1,86 @@
 # frozen_string_literal: true
 
-require "yaml"
-require "open3"
-
 class Controlplane
-  attr_reader :config
+  attr_reader :config, :api
 
   def initialize(config)
     @config = config
+    @api = ControlplaneApi.new
   end
 
-  def build_image(image:, dockerfile:, push: true)
+  # image
+
+  def image_build(image, dockerfile:, push: true)
     cmd = "cpln image build --name #{image} --dir #{config.app_dir} --dockerfile #{dockerfile}"
     cmd += " --push" if push
     perform(cmd)
   end
 
-  def update_image_ref(workload:, image:, container: nil)
-    container ||= workload
-    cmd = "cpln workload update #{workload}"
+  # workload
+
+  def workload_get(workload)
+    api.workload_get(workload: workload, gvc: gvc, org: org)
+    # cmd = "cpln workload get #{workload} #{gvc_org} -o yaml"
+    # perform(cmd, result: :yaml)
+  end
+
+  def workload_get_replicas(workload, location:)
+    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml 2> /dev/null"
+    perform(cmd, result: :yaml)
+  end
+
+  def workload_set_image_ref(workload, container:, image:)
+    cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config[:org]}/image/#{image}"
-    cmd += " --gvc #{gvc}"
     perform(cmd)
   end
 
-  def force_redeployment(workload:)
-    cmd = "cpln workload force-redeployment #{workload} --gvc #{gvc}"
+  def workload_set_suspend(workload, value)
+    data = workload_get(workload)
+    data["spec"]["defaultOptions"]["suspend"] = value
+    apply(data)
+  end
+
+  def workload_force_redeployment(workload)
+    cmd = "cpln workload force-redeployment #{workload} #{gvc_org}"
     perform(cmd)
   end
 
-  def delete_workload(workload)
-    # TODO: check if workload exists before deleting
-    cmd = "cpln workload delete #{workload} --gvc #{gvc} 2> /dev/null"
+  def workload_delete(workload)
+    cmd = "cpln workload delete #{workload} #{gvc_org} 2> /dev/null"
     perform(cmd)
   end
 
-  def connect_workload(workload, location:, runner: nil)
-    cmd = "cpln workload connect #{workload} --gvc #{gvc} --location #{location}"
-    cmd += " -c #{runner}" if runner
+  def workload_connect(workload, location:, container: nil, shell: nil)
+    cmd = "cpln workload connect #{workload} #{gvc_org} --location #{location}"
+    cmd += " --container #{container}" if container
+    cmd += " --shell #{shell}" if shell
     perform(cmd)
   end
 
-  def get_workload(workload)
-    cmd = "cpln workload get #{workload} --gvc #{gvc} -o yaml"
-    perform(cmd, result: :yaml)
+  def workload_exec(workload, location:, container: nil, command: nil)
+    cmd = "cpln workload exec #{workload} #{gvc_org} --location #{location}"
+    cmd += " --container #{container}" if container
+    cmd += " -- #{command}"
+    perform(cmd)
   end
 
-  def get_replicas(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} --location #{location} --gvc #{gvc} -o yaml 2> /dev/null"
-    perform(cmd, result: :yaml)
+  # logs
+
+  def logs(workload:)
+    cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw"
+    perform(cmd)
   end
+
+  # apply
 
   def apply(data)
-    cmd = "cpln apply --gvc #{gvc} -v -d --file -"
-    Open3.capture3(cmd, stdin_data: data.to_yaml)
-  end
-
-  def show_logs(workload)
-    cmd = "cpln logs '{workload=\"#{workload}\"}' -t -o raw"
-    perform(cmd)
-  end
-
-  def set_workload_suspend(workload, value)
-    yaml = get_workload(workload)
-    yaml["spec"]["defaultOptions"]["suspend"] = value
-    apply(yaml)
+    Tempfile.create do |f|
+      f.write(data.to_yaml)
+      f.rewind
+      cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
+      perform(cmd)
+    end
   end
 
   private
@@ -78,7 +94,15 @@ class Controlplane
     end
   end
 
+  def gvc_org
+    "--gvc #{gvc} --org #{org}"
+  end
+
   def gvc
     config.app
+  end
+
+  def org
+    config[:org]
   end
 end

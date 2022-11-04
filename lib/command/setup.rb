@@ -3,12 +3,25 @@
 module Command
   class Setup < Base
     def call
-      ENV["CPL_GVC"] = config.app
-      ENV["CPL_CONFIG_PATH"] = config.app_cpln_dir
-      ENV["CPL_REVIEW_LOCATION"] = config[:location]
-      ENV["CPL_ORG"] = config[:org]
+      config.args.each do |template|
+        filename = "#{config.app_cpln_dir}/templates/#{template}.yml"
+        abort("ERROR: Can't find template for '#{template}' at #{filename}") unless File.exist?(filename)
 
-      exec("#{config.script_path}/old_commands/setup.sh", *config.args)
+        apply_template(filename)
+        progress.puts(template)
+      end
+    end
+
+    private
+
+    def apply_template(filename)
+      data = File.read(filename)
+                 .gsub("APP_GVC", config.app)
+                 .gsub("APP_LOCATION", config[:location])
+                 .gsub("APP_ORG", config[:org])
+                 .gsub("APP_IMAGE", "#{config.app}:latest") # TODO: add better logic
+
+      cp.apply(YAML.safe_load(data))
     end
   end
 end

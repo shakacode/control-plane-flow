@@ -8,11 +8,12 @@ module Command
       image = "#{config.app}:latest"
       dockerfile = "#{config.app_cpln_dir}/Dockerfile"
 
-      cp.build_image(image: image, dockerfile: dockerfile)
+      cp.image_build(image, dockerfile: dockerfile)
 
       config[:app_workloads].each do |workload|
-        cp.update_image_ref(workload: workload, image: image)
-        cp.force_redeployment(workload: workload) if config[:image_tagging] == "latest"
+        # NOTE: atm, container name == workload name (maybe need better logic here)
+        cp.workload_set_image_ref(workload, container: workload, image: image)
+        cp.workload_force_redeployment(workload) if config[:image_tagging] == "latest"
       end
     end
   end

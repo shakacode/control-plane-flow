@@ -1,9 +1,5 @@
 # frozen_string_literal: true
 
-require "optparse"
-require "yaml"
-require "pathname"
-
 class Config
   attr_reader :config, :current,
               :app, :app_dir,
@@ -15,11 +11,11 @@ class Config
   def initialize
     load_app_config
     parse_argv
-    pick_current_config
+    pick_current_config if app
   end
 
   def [](key)
-    current.fetch(key)
+    app ? current.fetch(key) : abort("ERROR: should specify app")
   end
 
   def script_path

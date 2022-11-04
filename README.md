@@ -24,7 +24,6 @@ app_main_folder
     controlplane.yml
     Dockerfile          # this is your app Dockerfile, with some CPLN changes
     entrypoint.sh       # app specific, edit as needed
-    runner.sh           # wrapper needed for `run` command, no need to edit
 ```
 
 2. copy your `Dockerfile` to `.controlplane/Dockerfile` and apply following changes:
@@ -32,8 +31,8 @@ app_main_folder
 # adds `netcat` package (or whatever alternative way)
 RUN apt-get update && apt-get install -y netcat
 
-# copies `entrypoint.sh` and `runner.sh` to `/app` (or whatever alternative way)
-COPY .controlplane/entrypoint.sh .controlplane/runner.sh /app
+# copies `entrypoint.sh` to `/app` (or whatever alternative way)
+COPY .controlplane/entrypoint.sh /app
 
 # specify entrypoint script
 ENTRYPOINT ["/app/entrypoint.sh"]
@@ -41,7 +40,7 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 # run rails (or whatever alternative way)
 CMD ["rails", "s"]
 ```
-> NOTE: `netcat` and `runner.sh` are needed to enable `run` command functionality
+> NOTE: `netcat` is needed to enable correct `run` command functionality
 
 3. edit `controlplane.yml` where necessary, e.g.:
 ```yaml
@@ -104,6 +103,9 @@ cpl logs -a ror-tutorial -w postgres
 
 ### `ps`
 ```sh
+# shows running replicas in app
+cpl ps -a ror-tutorial
+
 # starts all workloads in app
 cpl ps start -a ror-tutorial
 
@@ -111,9 +113,14 @@ cpl ps start -a ror-tutorial
 cpl ps stop -a ror-tutorial
 ```
 
+### `open`
+```sh
+# opens app endpoint url in browser
+cpl open -a ror-tutorial
+```
+
 ### `run`
 - runs one-off replicas (analogue of `heroku run`)
-- limitation: atm, there is no way to exectute command with arbitrary args via native `cpln` cli, so it uses workaround with `runner.sh` and injected env var
 
 ```sh
 # opens shell (bash by default)

@@ -2,6 +2,14 @@
 
 SCRIPT_DIR=$(dirname $(realpath $0))
 
-# exec $SCRIPT_DIR/old_commands/main.sh "$@"
+# exports .env to vars
+#
+# Example .env:
+# CPLN_TOKEN=xxx
+#
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  export $(grep -v '^#' $SCRIPT_DIR/.env | xargs -0)
+fi
 
+# exec $SCRIPT_DIR/old_commands/main.sh "$@"
 exec ruby $SCRIPT_DIR/lib/main.rb "$@"

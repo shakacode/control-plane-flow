@@ -10,11 +10,11 @@ for arg in "$@"; do
 
   if [ -f "$TEMPLATE" ]; then
     cat "$TEMPLATE" |
-      sed "s/APP_GVC/$CPL_GVC/" |
-      sed "s/APP_LOCATION/$LOCATION/" |
-      sed "s/APP_ORG/$CPL_ORG/" |
-      sed "s/APP_IMAGE/$IMAGE/" |
-      cpln apply --gvc $CPL_GVC --file -
+      sed "s/APP_GVC/$CPL_GVC/g" |
+      sed "s/APP_LOCATION/$LOCATION/g" |
+      sed "s/APP_ORG/$CPL_ORG/g" |
+      sed "s/APP_IMAGE/$IMAGE/g" |
+      cpln apply --gvc $CPL_GVC --org $CPL_ORG --file -
   else
     echo "Can't find template for '$arg' at $TEMPLATE"
     exit -1
