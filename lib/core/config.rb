@@ -36,7 +36,7 @@ class Config
     end
     option_parser.parse!(into: options)
 
-    @cmd = ARGV[0]&.to_sym
+    @cmd = ARGV[0].tr(":", "_").to_sym if ARGV[0]
     @args = ARGV[1..]
     @app = options[:app]
   end

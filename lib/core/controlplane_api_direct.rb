@@ -14,6 +14,8 @@ class ControlplaneApiDirect
     case response
     when Net::HTTPOK
       JSON.parse(response.body)
+    when Net::HTTPNotFound
+      nil
     else
       raise("#{response} #{response.body}")
     end

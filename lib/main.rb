@@ -5,7 +5,6 @@ require "json"
 require "net/http"
 require "optparse"
 require "pathname"
-require "shellwords"
 require "tempfile"
 require "yaml"
 

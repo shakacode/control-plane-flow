@@ -16,6 +16,12 @@ class Controlplane
     perform(cmd)
   end
 
+  # gvc
+
+  def gvc_get(a_gvc = gvc)
+    api.gvc_get(gvc: a_gvc, org: org)
+  end
+
   # workload
 
   def workload_get(workload)
@@ -68,7 +74,7 @@ class Controlplane
   # logs
 
   def logs(workload:)
-    cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw"
+    cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw --limit 200"
     perform(cmd)
   end
 
@@ -81,6 +87,16 @@ class Controlplane
       cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
       perform(cmd)
     end
+  end
+
+  # props
+
+  def gvc
+    config.app
+  end
+
+  def org
+    config[:org]
   end
 
   private
@@ -96,13 +112,5 @@ class Controlplane
 
   def gvc_org
     "--gvc #{gvc} --org #{org}"
-  end
-
-  def gvc
-    config.app
-  end
-
-  def org
-    config[:org]
   end
 end

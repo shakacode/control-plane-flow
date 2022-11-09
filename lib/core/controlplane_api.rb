@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 class ControlplaneApi
+  def gvc_get(org:, gvc:)
+    api_json("/org/#{org}/gvc/#{gvc}", method: :get)
+  end
+
   def workload_get(org:, gvc:, workload:)
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :get)
   end

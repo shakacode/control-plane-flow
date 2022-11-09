@@ -4,7 +4,7 @@ module Command
   class Run < Base
     def call
       clone_workload
-      wait_for_replica
+      wait_for("replica") { cp.workload_get_replicas(one_off, location: location)&.dig("items", 0) }
       run_in_replica
     ensure
       delete_workload
@@ -12,8 +12,8 @@ module Command
 
     private
 
-    def clone_workload
-      progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}'"
+    def clone_workload # rubocop:disable Metrics/MethodLength
+      progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
 
       # Create a base copy of workload props
       old_data = cp.workload_get(workload)
@@ -29,17 +29,12 @@ module Command
       # Ensure one-off workload will be running
       new_data["spec"]["defaultOptions"]["suspend"] = false
 
+      @expand_secrets = container_data["env"].find { _1["name"] = "CONTROLPLANE_COMMON_ENV" }
+
+      container_data["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => args_join(config.args) }
+
       # Create workload clone
       cp.apply(new_data)
-    end
-
-    def wait_for_replica
-      progress.print "- Waiting for replica"
-      until cp.workload_get_replicas(one_off, location: location)&.dig("items", 0)
-        progress.print "."
-        sleep(1)
-      end
-      progress.puts
     end
 
     def run_in_replica
@@ -48,11 +43,13 @@ module Command
       if config.args.empty?
         cp.workload_connect(one_off, location: location, container: workload)
       else
-        cp.workload_exec(one_off, location: location, container: workload, command: config.args.shelljoin)
+        command = args_join(config.args)
+        command = "/app/entrypoint.sh" if @expand_secrets
+
+        cp.workload_exec(one_off, location: location, container: workload, command: command)
       end
     end
 
-    # TODO: add check if workload exists
     def delete_workload
       progress.puts "- Deleting workload"
       cp.workload_delete(one_off)
@@ -67,7 +64,7 @@ module Command
     end
 
     def one_off
-      @one_off ||= "#{workload}-run#{rand(1000..9999)}"
+      @one_off ||= "#{workload}-run-#{rand(1000..9999)}"
     end
   end
 end

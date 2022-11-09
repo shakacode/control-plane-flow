@@ -1,0 +1,43 @@
+build-review-app:
+  docker:
+    - image: cimg/ruby:3.1-node
+  resource_class: large
+  environment:
+    CPLN_ORG: shakacode-staging
+  steps:
+    - run:
+        name: Setup environment
+        command: |
+          PR_NUM=$(echo $CIRCLE_PULL_REQUEST | grep -Eo '[0-9]+$')
+          echo "export APP_NAME=hichee-review-$PR_NUM" >> $BASH_ENV
+    - checkout
+    - setup_remote_docker:
+        docker_layer_caching: true
+    - run:
+        name: Install Control Plane tools
+        command: |
+          sudo npm install -g @controlplane/cli && cpln --version
+          cpln profile create default --token ${CPLN_TOKEN} --org ${CPLN_ORG} --gvc ${APP_NAME}
+          cpln image docker-login
+
+          git clone https://github.com/shakacode/heroku-to-control-plane ~/heroku-to-control-plane
+          sudo ln -s ~/heroku-to-control-plane/cpl /usr/local/bin/cpl
+    - run:
+        name: Provision review app if needed
+        command: |
+          if ! cpl exist -a ${APP_NAME}; then
+            cpl setup gvc identity postgres redis memcached rails sidekiq -a ${APP_NAME}
+            echo "export SHOULD_RESET_DATABASE=true" >> $BASH_ENV
+          fi
+    - run:
+        name: Containerize, push, promote and redeploy
+        command: |
+          cpl build -a ${APP_NAME}
+    - run:
+        name: Database tasks
+        command: |
+          if [ -n "${SHOULD_RESET_DATABASE}" ]; then
+            cpl runner rails db:reset -a ${APP_NAME}
+          else
+            cpl runner rails db:migrate -a ${APP_NAME}
+          fi
