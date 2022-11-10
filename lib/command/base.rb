@@ -11,7 +11,7 @@ module Command
     def self.all_commands
       Dir["#{__dir__}/*.rb"].each_with_object({}) do |file, result|
         filename = File.basename(file, ".rb")
-        classname = File.read(file).match(/^\s+class (\w+) < Base$/)&.captures&.first
+        classname = File.read(file).match(/^\s+class (\w+) < Base($| .*$)/)&.captures&.first
         result[filename.to_sym] = Object.const_get("::Command::#{classname}") if classname
       end
     end

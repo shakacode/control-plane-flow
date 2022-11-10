@@ -15,4 +15,10 @@ commands = Command::Base.all_commands
 
 abort("ERROR: Unknown command '#{config.cmd}'") unless commands[config.cmd]
 
+# nice Ctrl+C
+trap "INT" do
+  puts
+  exit(1)
+end
+
 commands[config.cmd].new(config).call

@@ -37,7 +37,7 @@ build-review-app:
         name: Database tasks
         command: |
           if [ -n "${SHOULD_RESET_DATABASE}" ]; then
-            cpl runner rails db:reset -a ${APP_NAME}
+            cpl 'LOG_LEVEL=warn runner rails db:reset' -a ${APP_NAME}
           else
             cpl runner rails db:migrate -a ${APP_NAME}
           fi
