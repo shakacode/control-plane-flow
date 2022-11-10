@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 module Command
-  class Runner < Base
+  class Runner < Base # rubocop:disable Metrics/ClassLength
+    WORKLOAD_SLEEP_CHECK = 2
+
     def call
       clone_workload
       wait_for("workload to start") { cp.workload_get(one_off) }
-      show_logs_waiting
+      config.options[:altlog] ? show_logs_alternative : show_logs_waiting
     ensure
       delete_workload
     end
@@ -106,7 +108,7 @@ module Command
       logger = Thread.new { system(cmd) }
 
       while cp.workload_get(one_off)
-        sleep(2)
+        sleep(WORKLOAD_SLEEP_CHECK)
         next if logger.alive?
 
         progress.puts("Logger crashed, restarting logger...")
@@ -114,11 +116,37 @@ module Command
       end
 
       progress.puts "- Finished workload"
-      sleep(2) # final wait for logs to catch up
+      sleep(WORKLOAD_SLEEP_CHECK) # final wait for logs to catch up
       Thread.kill(logger)
       sleep(0.5) while logger.alive?
       $stdout.sync
       progress.puts "- Finished logger"
+    end
+
+    def show_logs_alternative # rubocop:disable Metrics/MethodLength
+      progress.puts "- Started, fetching logs (alternative implementation)"
+      while cp.workload_get(one_off)
+        sleep(WORKLOAD_SLEEP_CHECK)
+        print_uniq_logs
+      end
+      progress.puts "- Finished workload"
+      2.times do
+        sleep(WORKLOAD_SLEEP_CHECK)
+        print_uniq_logs
+      end
+      progress.puts "- Finished logger"
+    end
+
+    def print_uniq_logs
+      @printed_log_entries ||= []
+      ts_to = Time.now.to_i
+      ts_from = ts_to - 60
+      log = cp.log_get(workload: one_off, from: ts_from, to: ts_to)
+      entries = log["data"]["result"]
+                .each_with_object([]) { |obj, result| result.concat(obj["values"]) }
+                .select { |ts, _val| ts[..-10].to_i > ts_from }
+      (entries - @printed_log_entries).sort.each { |(_ts, val)| puts val }
+      @printed_log_entries = entries # as well truncate old entries if any
     end
 
     def one_off

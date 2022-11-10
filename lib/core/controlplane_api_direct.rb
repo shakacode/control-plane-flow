@@ -2,9 +2,10 @@
 
 class ControlplaneApiDirect
   API_METHODS = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put }.freeze
+  API_HOSTS = { api: "https://api.cpln.io", logs: "https://logs.cpln.io" }.freeze
 
-  def call(url, method:) # rubocop:disable Metrics/MethodLength
-    uri = URI("https://api.cpln.io#{url}")
+  def call(url, method:, host: :api) # rubocop:disable Metrics/MethodLength
+    uri = URI("#{API_HOSTS[host]}#{url}")
     request = API_METHODS[method].new(uri)
     request["Content-Type"] = "application/json"
     request["Authorization"] = api_token

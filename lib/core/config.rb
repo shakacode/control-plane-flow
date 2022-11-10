@@ -33,6 +33,7 @@ class Config
     option_parser = OptionParser.new do |opts|
       opts.on "-a", "--app APP"
       opts.on "-w", "--workload WORKLOAD"
+      opts.on "--altlog"
     end
     option_parser.parse!(into: options)
 

@@ -26,8 +26,6 @@ class Controlplane
 
   def workload_get(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
-    # cmd = "cpln workload get #{workload} #{gvc_org} -o yaml"
-    # perform(cmd, result: :yaml)
   end
 
   def workload_get_replicas(workload, location:)
@@ -76,6 +74,10 @@ class Controlplane
   def logs(workload:)
     cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw --limit 200"
     perform(cmd)
+  end
+
+  def log_get(workload:, from:, to:)
+    api.log_get(org: org, gvc: gvc, workload: workload, from: from, to: to)
   end
 
   # apply
