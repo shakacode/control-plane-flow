@@ -1,6 +1,6 @@
 aliases:
   common: &common
-    org: shakacode-staging
+    org: my-org-name
     location: aws-us-east-2
     one_off_workload: rails
     app_workloads:
@@ -10,8 +10,8 @@ aliases:
       - postgres
 
 apps:
-  ror-tutorial:
+  my-app-name:
     <<: *common
-  ror-tutorial-review:
+  my-app-name-review:
     <<: *common
     prefix: true

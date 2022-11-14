@@ -46,38 +46,44 @@ CMD ["rails", "s"]
 ```yaml
 aliases:
   common: &common
-    org: shakacode-staging
+    org: my-org-name
     location: aws-us-east-2
     one_off_workload: rails
     app_workloads:
       - rails
+      - sidekiq
     additional_workloads:
+      # - postgres # atm deployed and started manually
       - redis
-      - postgres
+      - memcached
 
 apps:
-  ror-tutorial:
+  my-app-name:
     <<: *common
-  ror-tutorial-review:
+  my-app-name-review:
     <<: *common
     prefix: true
 ```
 
 ## Commands:
 
-### common options
-```
+### possible options
+```sh
 -a, --app XXX         app ref on CPLN (== GVC)
 -w, --workload XXX    workload, where applicable
+
+# applicable to some commands
+--altlog              alternative non-streaming log implementation
+--image XXX           use XXX image
 ```
 
 ### `build`
-- builds and deploys image to CPLN
+- builds and pushes image to CPLN
+- atomatically assigns image numbers as `app:1`, `app:2`, etc
 
 ```sh
-cpl build -a ror-tutorial
+cpl build -a $APP_NAME
 ```
-
 
 ### `config`
 - display current configs (global and project specific)
@@ -86,48 +92,84 @@ cpl build -a ror-tutorial
 cpl config
 ```
 
+### `exist`
+```sh
+# check if app (GVC) exists, useful in scripts, e.g.:
+if [ cpl exist -a $APP_NAME ]; ...
+```
+
 ### `logs`
 - light wrapper to display tailed raw logs for app/workload syntax
 
 ```sh
 # display logs for default workload (== one_off.workload)
-cpl logs -a ror-tutorial
+cpl logs -a $APP_NAME
 
 # display logs for other workload
-cpl logs -a ror-tutorial -w postgres
-```
-
-### `ps`
-```sh
-# shows running replicas in app
-cpl ps -a ror-tutorial
-
-# starts all workloads in app
-cpl ps start -a ror-tutorial
-
-# stops all workloads in app
-cpl ps stop -a ror-tutorial
+cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `open`
 ```sh
 # opens app endpoint url in browser
-cpl open -a ror-tutorial
+cpl open -a $APP_NAME
+```
+
+### `promote`
+```sh
+# promotes latest image to app workloads
+cpl promote -a $APP_NAME
+```
+
+### `ps`
+```sh
+# shows running replicas in app
+cpl ps -a $APP_NAME
+
+# starts all workloads in app
+cpl ps:start -a $APP_NAME
+
+# stops all workloads in app
+cpl ps:stop -a $APP_NAME
 ```
 
 ### `run`
 - runs one-off replicas (analogue of `heroku run`)
+- creates one-off workloads
+- uses `cpln connect/exec` as execution method
+
+> IMPORTANT: useful for development where needed interaction and network connection drops (and
+> task crashing) is toleratable. For production tasks use `cpl runner`
 
 ```sh
 # opens shell (bash by default)
-cpl run -a ror-tutorial
+cpl run -a $APP_NAME
 
 # runs commmand, displays output, quits (as command quits)
-cpl run ls / -a ror-tutorial
-cpl run rails db:migrate:status -a ror-tutorial
+cpl run ls / -a $APP_NAME
+cpl run rails db:migrate:status -a $APP_NAME
 
 # runs command, keeps shell opened
-cpl run rails c -a ror-tutorial
+cpl run rails c -a $APP_NAME
+```
+
+### `runner`
+- stable detached implementation, uses CPLN cron type of workloads and log streaming
+- uses only async execution methods, more suitable for prod tasks
+- has `altlog` log streaming implementation with only json-polling and no websockets. Less responsive but more stable, useful for CI tasks
+
+```sh
+cpl runner rails db:prepare -a $APP_NAME
+cpl runner 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
+
+# uses more stable log streaming implementation
+cpl runner rails db:prepare -a $APP_NAME --altlog
+
+# uses other image
+cpl runner rails db:migrate -a $APP_NAME --image /some/full/image/path
+
+# uses latest app image (which may be not promoted yet)
+cpl runner rails db:migrate -a $APP_NAME --image latest
 ```
 
 ### `setup`
@@ -135,10 +177,10 @@ cpl run rails c -a ror-tutorial
 - publishes (creates/updates) those at CPLN
 ```sh
 # applies single template
-cpl setup redis -a ror-tutorial
+cpl setup redis -a $APP_NAME
 
 # applies several templates (practically creating full app)
-cpl setup gvc postgres redis rails -a ror-tutorial
+cpl setup gvc postgres redis rails -a $APP_NAME
 ```
 - template variables
 ```
@@ -147,3 +189,7 @@ APP_LOCATION - default location
 APP_ORG      - org
 APP_IMAGE    - image
 ```
+
+## Examples
+
+See `examples/` and `templates/` folders of this repo.

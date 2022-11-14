@@ -3,7 +3,7 @@ build-review-app:
     - image: cimg/ruby:3.1-node
   resource_class: large
   environment:
-    CPLN_ORG: shakacode-staging
+    CPLN_ORG: my-org-name
   steps:
     - run:
         name: Setup environment
@@ -26,18 +26,22 @@ build-review-app:
         name: Provision review app if needed
         command: |
           if ! cpl exist -a ${APP_NAME}; then
-            cpl setup gvc identity postgres redis memcached rails sidekiq -a ${APP_NAME}
-            echo "export SHOULD_RESET_DATABASE=true" >> $BASH_ENV
+            cpl setup gvc postgres redis memcached rails sidekiq -a ${APP_NAME}
+            echo "export NEW_APP=true" >> $BASH_ENV
           fi
     - run:
-        name: Containerize, push, promote and redeploy
+        name: Containerize and push image
         command: |
           cpl build -a ${APP_NAME}
     - run:
         name: Database tasks
         command: |
-          if [ -n "${SHOULD_RESET_DATABASE}" ]; then
-            cpl runner 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --altlog
+          if [ -n "${NEW_APP}" ]; then
+            cpl runner 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --altlog --image latest
           else
-            cpl runner 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --altlog
+            cpl runner 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --altlog --image latest
           fi
+    - run:
+        name: Promote image
+        command: cpl promote -a ${APP_NAME}
+
