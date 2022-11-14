@@ -16,6 +16,11 @@ class Controlplane
     perform(cmd)
   end
 
+  def image_query
+    cmd = "cpln image query --org #{org} -o yaml"
+    perform(cmd, result: :yaml)
+  end
+
   # gvc
 
   def gvc_get(a_gvc = gvc)

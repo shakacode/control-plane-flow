@@ -19,7 +19,7 @@ module Command
                  .gsub("APP_GVC", config.app)
                  .gsub("APP_LOCATION", config[:location])
                  .gsub("APP_ORG", config[:org])
-                 .gsub("APP_IMAGE", "#{config.app}:latest") # TODO: add better logic
+                 .gsub("APP_IMAGE", latest_image)
 
       cp.apply(YAML.safe_load(data))
     end

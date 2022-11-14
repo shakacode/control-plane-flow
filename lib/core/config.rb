@@ -28,11 +28,12 @@ class Config
 
   private
 
-  def parse_argv
+  def parse_argv # rubocop:disable Metrics/MethodLength
     @options = {}
     option_parser = OptionParser.new do |opts|
       opts.on "-a", "--app APP"
       opts.on "-w", "--workload WORKLOAD"
+      opts.on "--image IMAGE"
       opts.on "--altlog"
     end
     option_parser.parse!(into: options)

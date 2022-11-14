@@ -58,11 +58,9 @@ aliases:
 apps:
   ror-tutorial:
     <<: *common
-    image_tagging: latest
   ror-tutorial-review:
     <<: *common
     prefix: true
-    image_tagging: latest
 ```
 
 ## Commands:
@@ -75,8 +73,6 @@ apps:
 
 ### `build`
 - builds and deploys image to CPLN
-- for simplicity review apps are build with `:latest` tag, no versioning
-- force restarts workload after build (for `:latest`)
 
 ```sh
 cpl build -a ror-tutorial

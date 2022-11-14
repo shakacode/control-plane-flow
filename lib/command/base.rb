@@ -25,6 +25,16 @@ module Command
       progress.puts
     end
 
+    def latest_image
+      @latest_image ||= cp.image_query["items"]
+                          .filter_map { _1["name"] if _1["name"].start_with?("#{config.app}:") }
+                          .max_by(&method(:extract_image_number)) || "#{config.app}:0"
+    end
+
+    def latest_image_next
+      @latest_image_next ||= "#{latest_image.split(':').first}:#{extract_image_number(latest_image) + 1}"
+    end
+
     # NOTE: use simplified variant atm, as shelljoin do different escaping
     # TODO: most probably need better logic for escaping various quotes
     def args_join(args)
@@ -37,6 +47,12 @@ module Command
 
     def cp
       @cp ||= Controlplane.new(config)
+    end
+
+    private
+
+    def extract_image_number(image_name)
+      image_name.match(/:(\d+)/)&.captures&.first.to_i
     end
   end
 end
