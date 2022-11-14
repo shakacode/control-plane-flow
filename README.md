@@ -3,6 +3,30 @@ Playbook for migrating from Heroku to Control Plane, controlplane.com
 
 Adds `cpl` command to complement default CPLN cli `cpln` with "heroku style" scripting
 
+## How flow will look like with our helpers?
+```sh
+# provision infrastructure (for new apps only)
+cpl setup postgres redis memcached rails sidekiq -a myapp
+
+# build and push image with auto-tagging 'myapp:1_456'
+cpl build -a myapp --commit 456
+
+# prepare database
+cpl runner rails db:prepare -a myapp --altlog --image latest
+
+# promote latest image
+cpl promote -a myapp
+
+# open app in browser
+cpl open -a myapp
+```
+## Key features
+- easy to understand Heroku to CPLN conventions in setup, naming and cli
+- `heroku run` and `heroku run:detached` **safe, production-ready** implementations for CPLN
+- automatic sequential image tagging
+- project-aware cli - makes easy to work with multiple projects from their own folders
+- simplified `cpl` cli layer for "easy conventions" and default `cpln` cli for in-depth power
+
 ## Instalation (atm just as local clone, not as gem)
 - install CPLN cli (adds `cpln` command)
 - install this repo locally, e.g.:

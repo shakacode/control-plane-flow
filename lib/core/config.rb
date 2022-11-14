@@ -35,6 +35,7 @@ class Config
       opts.on "-w", "--workload WORKLOAD"
       opts.on "--image IMAGE"
       opts.on "--altlog"
+      opts.on "--commit COMMIT"
     end
     option_parser.parse!(into: options)
 

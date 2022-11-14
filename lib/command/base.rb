@@ -32,7 +32,12 @@ module Command
     end
 
     def latest_image_next
-      @latest_image_next ||= "#{latest_image.split(':').first}:#{extract_image_number(latest_image) + 1}"
+      @latest_image_next ||= begin
+        image = latest_image.split(":").first
+        image += ":#{extract_image_number(latest_image) + 1}"
+        image += "_#{config.options[:commit]}" if config.options[:commit]
+        image
+      end
     end
 
     # NOTE: use simplified variant atm, as shelljoin do different escaping
