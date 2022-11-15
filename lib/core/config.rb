@@ -33,9 +33,9 @@ class Config
     option_parser = OptionParser.new do |opts|
       opts.on "-a", "--app APP"
       opts.on "-w", "--workload WORKLOAD"
-      opts.on "--image IMAGE"
-      opts.on "--altlog"
-      opts.on "--commit COMMIT"
+      opts.on "-i", "--image IMAGE"
+      opts.on "--altlog" # to be removed, obsolete
+      opts.on "-c", "--commit COMMIT"
     end
     option_parser.parse!(into: options)
 

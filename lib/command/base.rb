@@ -25,6 +25,21 @@ module Command
       progress.puts
     end
 
+    def wait_for_workload(workload)
+      wait_for("workload to start") { cp.workload_get(workload) }
+    end
+
+    def wait_for_replica(workload, location)
+      wait_for("replica") do
+        cp.workload_get_replicas(workload, location: location)&.dig("items", 0)
+      end
+    end
+
+    def ensure_workload_deleted(workload)
+      progress.puts "- Ensure workload is deleted"
+      cp.workload_delete(workload, no_raise: true)
+    end
+
     def latest_image
       @latest_image ||= cp.image_query["items"]
                           .filter_map { _1["name"] if _1["name"].start_with?("#{config.app}:") }

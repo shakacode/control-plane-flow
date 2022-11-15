@@ -2,69 +2,58 @@
 
 module Command
   class Run < Base
+    attr_reader :location, :workload, :one_off
+
     def call
+      abort("ERROR: should specify a command to execute") if config.args.empty?
+
+      @location = config[:location]
+      @workload = config[:one_off_workload]
+      @one_off = "#{workload}-run-#{rand(1000..9999)}"
+
       clone_workload
-      wait_for("replica") { cp.workload_get_replicas(one_off, location: location)&.dig("items", 0) }
+      wait_for_workload(one_off)
+      wait_for_replica(one_off, location)
       run_in_replica
     ensure
-      delete_workload
+      ensure_workload_deleted(one_off)
     end
 
     private
 
-    def clone_workload # rubocop:disable Metrics/MethodLength
+    def clone_workload
       progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
 
       # Create a base copy of workload props
-      old_data = cp.workload_get(workload)
-      new_data = { "kind" => "workload", "name" => one_off, "spec" => old_data.fetch("spec") }
-      container_data = new_data["spec"]["containers"].detect { _1["name"] == workload }
+      spec = cp.workload_get(workload).fetch("spec")
+      container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
 
       # Stub workload command with dummy server that just responds to port
-      # Needed to avoid execution of ENDTRYPOINT and CMD of Dockerfile
-      port = container_data["ports"][0]["number"]
-      container_data["command"] = "nc"
-      container_data["args"] = ["-k", "-l", port.to_s]
+      # Needed to avoid execution of ENTRYPOINT and CMD of Dockerfile
+      container["command"] = "ruby"
+      container["args"] = ["-e", Scripts.http_dummy_server_ruby]
 
       # Ensure one-off workload will be running
-      new_data["spec"]["defaultOptions"]["suspend"] = false
+      spec["defaultOptions"]["suspend"] = false
 
-      @expand_secrets = container_data["env"].find { _1["name"] = "CONTROLPLANE_COMMON_ENV" }
-
-      container_data["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => args_join(config.args) }
+      # Set runner
+      container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
-      cp.apply(new_data)
+      cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
+    end
+
+    def runner_script
+      script = Scripts.expand_common_env_secret
+      script += Scripts.helpers_cleanup
+      script += args_join(config.args)
+      script
     end
 
     def run_in_replica
       progress.puts "- Connecting"
-
-      if config.args.empty?
-        cp.workload_connect(one_off, location: location, container: workload)
-      else
-        command = args_join(config.args)
-        command = "/app/entrypoint.sh" if @expand_secrets
-
-        cp.workload_exec(one_off, location: location, container: workload, command: command)
-      end
-    end
-
-    def delete_workload
-      progress.puts "- Deleting workload"
-      cp.workload_delete(one_off)
-    end
-
-    def workload
-      config[:one_off_workload]
-    end
-
-    def location
-      config[:location]
-    end
-
-    def one_off
-      @one_off ||= "#{workload}-run-#{rand(1000..9999)}"
+      command = %(bash -c 'eval "$CONTROLPLANE_RUNNER"')
+      cp.workload_exec(one_off, location: location, container: workload, command: command)
     end
   end
 end

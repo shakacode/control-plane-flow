@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 class Controlplane
-  attr_reader :config, :api
+  attr_reader :config, :api, :gvc, :org
 
   def initialize(config)
     @config = config
     @api = ControlplaneApi.new
+    @gvc = config.app
+    @org = config[:org]
   end
 
   # image
@@ -18,7 +20,7 @@ class Controlplane
 
   def image_query
     cmd = "cpln image query --org #{org} -o yaml"
-    perform(cmd, result: :yaml)
+    perform_yaml(cmd)
   end
 
   # gvc
@@ -34,8 +36,8 @@ class Controlplane
   end
 
   def workload_get_replicas(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml 2> /dev/null"
-    perform(cmd, result: :yaml)
+    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
+    perform_yaml(cmd)
   end
 
   def workload_set_image_ref(workload, container:, image:)
@@ -55,9 +57,10 @@ class Controlplane
     perform(cmd)
   end
 
-  def workload_delete(workload)
-    cmd = "cpln workload delete #{workload} #{gvc_org} 2> /dev/null"
-    perform(cmd)
+  def workload_delete(workload, no_raise: false)
+    cmd = "cpln workload delete #{workload} #{gvc_org}"
+    cmd += " 2> /dev/null" if no_raise
+    no_raise ? perform_no_raise(cmd) : perform(cmd)
   end
 
   def workload_connect(workload, location:, container: nil, shell: nil)
@@ -96,25 +99,19 @@ class Controlplane
     end
   end
 
-  # props
-
-  def gvc
-    config.app
-  end
-
-  def org
-    config[:org]
-  end
-
   private
 
-  def perform(cmd, result: nil)
-    # puts cmd
-    case result
-    when nil then system(cmd)
-    when :yaml then YAML.safe_load(`#{cmd}`)
-    else raise("Unknown result type '#{result}'")
-    end
+  def perform(cmd)
+    system(cmd) || exit(false)
+  end
+
+  def perform_no_raise(cmd)
+    system(cmd)
+  end
+
+  def perform_yaml(cmd)
+    result = `#{cmd}`
+    $?.success? ? YAML.safe_load(result) : exit(false) # rubocop:disable Style/SpecialGlobalVars
   end
 
   def gvc_org

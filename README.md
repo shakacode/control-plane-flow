@@ -12,7 +12,7 @@ cpl setup postgres redis memcached rails sidekiq -a myapp
 cpl build -a myapp --commit 456
 
 # prepare database
-cpl runner rails db:prepare -a myapp --altlog --image latest
+cpl runner rails db:prepare -a myapp --image latest
 
 # promote latest image
 cpl promote -a myapp
@@ -50,23 +50,7 @@ app_main_folder
     entrypoint.sh       # app specific, edit as needed
 ```
 
-2. copy your `Dockerfile` to `.controlplane/Dockerfile` and apply following changes:
-```dockerfile
-# adds `netcat` package (or whatever alternative way)
-RUN apt-get update && apt-get install -y netcat
-
-# copies `entrypoint.sh` to `/app` (or whatever alternative way)
-COPY .controlplane/entrypoint.sh /app
-
-# specify entrypoint script
-ENTRYPOINT ["/app/entrypoint.sh"]
-
-# run rails (or whatever alternative way)
-CMD ["rails", "s"]
-```
-> NOTE: `netcat` is needed to enable correct `run` command functionality
-
-3. edit `controlplane.yml` where necessary, e.g.:
+2. edit `controlplane.yml` where necessary, e.g.:
 ```yaml
 aliases:
   common: &common
@@ -92,13 +76,11 @@ apps:
 ## Commands:
 
 ### possible options
-```sh
+```
 -a, --app XXX         app ref on CPLN (== GVC)
 -w, --workload XXX    workload, where applicable
-
-# applicable to some commands
---altlog              alternative non-streaming log implementation
---image XXX           use XXX image
+-i, --image XXX       use XXX image
+-c, --commit XXX      specify XXX as commit hash
 ```
 
 ### `build`
@@ -158,12 +140,13 @@ cpl ps:stop -a $APP_NAME
 ```
 
 ### `run`
-- runs one-off replicas (analogue of `heroku run`)
+- runs one-off *ineractive* replicas (close analogue of `heroku run`)
 - creates one-off workloads
 - uses `cpln connect/exec` as execution method
+- may not work correctly with tasks over 5 min (CPLN scaling bug atm)
 
 > IMPORTANT: useful for development where needed interaction and network connection drops (and
-> task crashing) is toleratable. For production tasks use `cpl runner`
+> task crashing) is toleratable. For production tasks better use `cpl runner`
 
 ```sh
 # opens shell (bash by default)
@@ -178,16 +161,14 @@ cpl run rails c -a $APP_NAME
 ```
 
 ### `runner`
+- runs one-off *non-interactive* replicas (close analogue of `heroku run:detached`)
 - stable detached implementation, uses CPLN cron type of workloads and log streaming
 - uses only async execution methods, more suitable for prod tasks
-- has `altlog` log streaming implementation with only json-polling and no websockets. Less responsive but more stable, useful for CI tasks
+- has alternative log fetch implementation with only json-polling and no websockets. Less responsive but more stable, useful for CI tasks
 
 ```sh
 cpl runner rails db:prepare -a $APP_NAME
 cpl runner 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-# uses more stable log streaming implementation
-cpl runner rails db:prepare -a $APP_NAME --altlog
 
 # uses other image
 cpl runner rails db:migrate -a $APP_NAME --image /some/full/image/path

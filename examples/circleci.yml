@@ -28,7 +28,7 @@ build-staging:
         command: cpl build -a ${APP_NAME}
     - run:
         name: Database tasks
-        command: cpl runner rails db:migrate -a ${APP_NAME} --altlog --image latest
+        command: cpl runner rails db:migrate -a ${APP_NAME} --image latest
     - run:
         name: Promote image
         command: cpl promote -a ${APP_NAME}
@@ -77,9 +77,9 @@ build-review-app:
         name: Database tasks
         command: |
           if [ -n "${NEW_APP}" ]; then
-            cpl runner 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --altlog --image latest
+            cpl runner 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --image latest
           else
-            cpl runner 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --altlog --image latest
+            cpl runner 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --image latest
           fi
     - run:
         name: Promote image

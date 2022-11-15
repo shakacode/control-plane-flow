@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "benchmark"
 require "cgi"
 require "json"
 require "net/http"

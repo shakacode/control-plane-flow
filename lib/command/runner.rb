@@ -1,15 +1,24 @@
 # frozen_string_literal: true
 
 module Command
-  class Runner < Base # rubocop:disable Metrics/ClassLength
+  class Runner < Base
     WORKLOAD_SLEEP_CHECK = 2
 
+    attr_reader :location, :workload, :one_off
+
     def call
+      abort("ERROR: should specify a command to execute") if config.args.empty?
+
+      @location = config[:location]
+      @workload = config[:one_off_workload]
+      @one_off = "#{workload}-runner-#{rand(1000..9999)}"
+
       clone_workload
-      wait_for("workload to start") { cp.workload_get(one_off) }
-      config.options[:altlog] ? show_logs_alternative : show_logs_waiting
+      wait_for_workload(one_off)
+      show_logs_waiting
     ensure
-      delete_workload
+      ensure_workload_deleted(one_off)
+      exit(1) if @crashed
     end
 
     private
@@ -21,6 +30,7 @@ module Command
       spec = cp.workload_get(workload).fetch("spec")
       container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
 
+      # Set runner
       container["command"] = "bash"
       container["args"] = ["-c", 'eval "$CONTROLPLANE_RUNNER"']
 
@@ -32,26 +42,11 @@ module Command
       image = "/org/#{config[:org]}/image/#{latest_image}" if image == "latest"
       container["image"] = image if image
 
-      @type = :cron
-
-      case @type
-      when :standard
-        spec["type"] = "standard"
-        # spec["defaultOptions"]["autoscaling"] = { "metric" => "cpu", "target" => 100, "maxScale" => 1 }
-        # spec["defaultOptions"]["autoscaling"] = { "metric" => "latency", "maxScale" => 1 }
-        # container["cpu"] = "50m"
-        # container["memory"] = "512Mi"
-        # container["ports"][0]["protocol"] = "tcp"
-        # spec["firewallConfig"]["external"]["inboundAllowCIDR"] = []
-        # spec["firewallConfig"]["internal"] = { "inboundAllowType" => "same-gvc" }
-      when :cron
-        spec["type"] = "cron"
-        spec["job"] = { "schedule" => "* * * * *", "restartPolicy" => "Never" }
-        spec["defaultOptions"]["autoscaling"] = {}
-        container.delete("ports")
-      else
-        raise("Unknown container type :#{type}")
-      end
+      # Set cron job props
+      spec["type"] = "cron"
+      spec["job"] = { "schedule" => "* * * * *", "restartPolicy" => "Never" }
+      spec["defaultOptions"]["autoscaling"] = {}
+      container.delete("ports")
 
       container["env"] << { "name" => "CONTROLPLANE_TOKEN", "value" => ControlplaneApiDirect.new.api_token }
       container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
@@ -60,46 +55,16 @@ module Command
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
     end
 
-    # NOTE: please escape all '/' as '//' (as it is ruby interpolation here as well)
     def runner_script # rubocop:disable Metrics/MethodLength
-      script = <<~SHELL
-        echo "-- START RUNNER SCRIPT --"
-      SHELL
-
-      script += <<~SHELL if @type == :standard
-        REPLICAS_QTY=$( \
-          curl ${CPLN_ENDPOINT}/org/shakacode-staging/gvc/#{config.app}/workload/#{one_off}/deployment/#{location} \
-          -H "Authorization: ${CONTROLPLANE_TOKEN}" -s | grep -o '"replicas":[0-9]*' | grep -o '[0-9]*')
-
-        if [ "$REPLICAS_QTY" -gt 0 ]; then
-          echo "-- MULTIPLE REPLICAS ATTEMPT !!!! replicas: $REPLICAS_QTY"
-          exit -1
-        fi
-      SHELL
-
-      script += <<~SHELL if @type == :standard
-        ruby -e 'require "socket"; s=TCPServer.new(ENV["PORT"]); loop do c=s.accept;c.puts("HTTP/1.1 200 OK\\nContent-Length: 2\\n\\nOk");c.close end' &
-      SHELL
-
-      script += <<~SHELL if @type == :disabled
-        ruby -e 'require "net/http"; uri = URI(ENV["CPLN_GLOBAL_ENDPOINT"]); loop do puts Net::HTTP.get(uri); sleep(5); end' &
-      SHELL
+      script = "echo '-- STARTED RUNNER SCRIPT --'\n"
+      script += Scripts.expand_common_env_secret
+      script += Scripts.helpers_cleanup
 
       script += <<~SHELL
-        # expand common env from secret
-        if [ -n "$CONTROLPLANE_COMMON_ENV" ]; then
-          echo "$CONTROLPLANE_COMMON_ENV" |
-            sed -e 's/^{"//' -e 's/"}$//' -e 's/","/\\n/g' |
-            sed 's/\\(.*\\)":"\\(.*\\)/export \\1="${\\1:-\\2}"/g' > ~/.controlplane_common_env
+        if ! eval "#{args_join(config.args)}"; then echo "----- CRASHED -----"; fi
 
-          . ~/.controlplane_common_env
-        fi
-
-        if ! eval "#{args_join(config.args)}"; then
-          echo "----- CRASHED -----"
-        fi
-
-        echo "-- FINISH RUNNER SCRIPT, DELETING WORKLOAD --"
+        echo "-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --"
+        sleep 10 # grace time for logs propagation
         curl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H "Authorization: ${CONTROLPLANE_TOKEN}" -X DELETE -s -o /dev/null
         while true; do sleep 1; done # wait for SIGTERM
       SHELL
@@ -107,68 +72,34 @@ module Command
       script
     end
 
-    def show_logs_waiting # rubocop:disable Metrics/MethodLength
-      progress.puts "- Started, connecting to logs"
-      cmd = %(cpln logs '{gvc="#{cp.gvc}",workload="#{one_off}"}' --org #{cp.org} -o raw -t --since 10s)
-      logger = Thread.new { system(cmd) }
-
-      while cp.workload_get(one_off)
-        sleep(WORKLOAD_SLEEP_CHECK)
-        next if logger.alive?
-
-        progress.puts("Logger crashed, restarting logger...")
-        logger = Thread.new { system(cmd) }
-      end
-
-      progress.puts "- Finished workload"
-      sleep(WORKLOAD_SLEEP_CHECK) # final wait for logs to catch up
-      Thread.kill(logger)
-      sleep(0.5) while logger.alive?
-      $stdout.sync
-      progress.puts "- Finished logger"
-    end
-
-    def show_logs_alternative # rubocop:disable Metrics/MethodLength
-      progress.puts "- Started, fetching logs (alternative implementation)"
+    def show_logs_waiting
+      progress.puts "- Scheduled, fetching logs (it is cron job, so it may take up to a minute to start)"
       while cp.workload_get(one_off)
         sleep(WORKLOAD_SLEEP_CHECK)
         print_uniq_logs
       end
-      progress.puts "- Finished workload"
-      2.times do
-        sleep(WORKLOAD_SLEEP_CHECK)
-        print_uniq_logs
-      end
-      progress.puts "- Finished logger"
+      progress.puts "- Finished workload and logger"
     end
 
     def print_uniq_logs
       @printed_log_entries ||= []
-      ts_to = Time.now.to_i
-      ts_from = ts_to - 60
-      log = cp.log_get(workload: one_off, from: ts_from, to: ts_to)
-      entries = log["data"]["result"]
-                .each_with_object([]) { |obj, result| result.concat(obj["values"]) }
-                .select { |ts, _val| ts[..-10].to_i > ts_from }
-      (entries - @printed_log_entries).sort.each { |(_ts, val)| puts val }
+      ts = Time.now.to_i
+      entries = normalized_log_entries(from: ts - 60, to: ts)
+
+      (entries - @printed_log_entries).sort.each do |(_ts, val)|
+        @crashed = true if val.match?(/^----- CRASHED -----$/)
+        puts val
+      end
+
       @printed_log_entries = entries # as well truncate old entries if any
     end
 
-    def one_off
-      @one_off ||= "#{workload}-runner-#{rand(1000..9999)}"
-    end
+    def normalized_log_entries(from:, to:)
+      log = cp.log_get(workload: one_off, from: from, to: to)
 
-    def workload
-      config[:one_off_workload]
-    end
-
-    def location
-      config[:location]
-    end
-
-    def delete_workload
-      progress.puts "- Ensure workload is deleted"
-      cp.workload_delete(one_off)
+      log["data"]["result"]
+        .each_with_object([]) { |obj, result| result.concat(obj["values"]) }
+        .select { |ts, _val| ts[..-10].to_i > from }
     end
   end
 end
