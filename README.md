@@ -98,6 +98,12 @@ cpl build -a $APP_NAME
 cpl config
 ```
 
+### `delete`
+```sh
+# deletes whole app (gvc and images)
+cpl delete -a $APP_NAME
+```
+
 ### `exist`
 ```sh
 # check if app (GVC) exists, useful in scripts, e.g.:

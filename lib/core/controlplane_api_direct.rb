@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class ControlplaneApiDirect
-  API_METHODS = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put }.freeze
+  API_METHODS = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put, delete: Net::HTTP::Delete }.freeze
   API_HOSTS = { api: "https://api.cpln.io", logs: "https://logs.cpln.io" }.freeze
 
   def call(url, method:, host: :api) # rubocop:disable Metrics/MethodLength
@@ -15,6 +15,8 @@ class ControlplaneApiDirect
     case response
     when Net::HTTPOK
       JSON.parse(response.body)
+    when Net::HTTPAccepted
+      true
     when Net::HTTPNotFound
       nil
     else

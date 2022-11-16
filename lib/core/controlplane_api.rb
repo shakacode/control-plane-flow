@@ -5,6 +5,14 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}", method: :get)
   end
 
+  def gvc_delete(org:, gvc:)
+    api_json("/org/#{org}/gvc/#{gvc}", method: :delete)
+  end
+
+  def image_delete(org:, image:)
+    api_json("/org/#{org}/image/#{image}", method: :delete)
+  end
+
   def log_get(org:, gvc:, workload: nil, from: nil, to: nil)
     query = { gvc: gvc }
     query[:workload] = workload if workload

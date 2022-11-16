@@ -23,10 +23,18 @@ class Controlplane
     perform_yaml(cmd)
   end
 
+  def image_delete(image)
+    api.image_delete(org: org, image: image)
+  end
+
   # gvc
 
   def gvc_get(a_gvc = gvc)
     api.gvc_get(gvc: a_gvc, org: org)
+  end
+
+  def gvc_delete(a_gvc = gvc)
+    api.gvc_delete(gvc: a_gvc, org: org)
   end
 
   # workload
