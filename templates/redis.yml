@@ -1,0 +1,20 @@
+kind: workload
+name: redis
+spec:
+  type: standard
+  containers:
+    - name: redis
+      cpu: 3m
+      memory: 20Mi
+      image: 'redis:latest'
+      ports:
+        - number: 6379
+          protocol: tcp
+  defaultOptions:
+    autoscaling:
+      metric: latency
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    internal:
+      inboundAllowType: same-gvc

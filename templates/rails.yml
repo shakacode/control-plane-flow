@@ -1,0 +1,33 @@
+kind: workload
+name: rails
+spec:
+  type: standard
+  containers:
+    - name: rails
+      cpu: 512m
+      env:
+        - name: CONTROLPLANE_COMMON_ENV
+          value: 'cpln://secret/myapp-review-common'
+        - name: MEMCACHE_SERVERS
+          value: memcached.APP_GVC.cpln.local
+        - name: REDIS_URL
+          value: redis://redis.APP_GVC.cpln.local:6379
+        - name: DATABASE_URL
+          value: postgres://postgres:password123@postgres.APP_GVC.cpln.local:5432/APP_GVC
+      image: '/org/APP_ORG/image/APP_IMAGE'
+      memory: 1Gi
+      ports:
+        - number: 3000
+          protocol: http
+  defaultOptions:
+    autoscaling:
+      maxScale: 1
+    capacityAI: false
+    timeoutSeconds: 60
+  firewallConfig:
+    external:
+      inboundAllowCIDR:
+        - 0.0.0.0/0
+      outboundAllowCIDR:
+        - 0.0.0.0/0
+  identityLink: /org/APP_ORG/gvc/APP_GVC/identity/APP_GVC-identity

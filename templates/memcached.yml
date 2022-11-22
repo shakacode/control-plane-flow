@@ -1,0 +1,23 @@
+kind: workload
+name: memcached
+spec:
+  type: standard
+  containers:
+    - name: memcached
+      cpu: 3m
+      memory: 10Mi
+      args:
+        - '-l'
+        - 0.0.0.0
+      image: 'memcached:alpine'
+      ports:
+        - number: 11211
+          protocol: tcp
+  defaultOptions:
+    autoscaling:
+      metric: latency
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    internal:
+      inboundAllowType: same-gvc
