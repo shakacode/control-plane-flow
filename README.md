@@ -1,12 +1,72 @@
 # heroku-to-control-plane
 Playbook for migrating from Heroku to Control Plane, controlplane.com
 
-Adds `cpl` command to complement default CPLN cli `cpln` with "heroku style" scripting
+Idea of this playbook is to show how to move "heroku apps" to Controlplane and have some "heroku-style" cli
+experience either temporary (while testing/migrating) or permanently.
 
-## How flow will look like with our helpers?
+From the higher perspective, heroku and heroku-cli are designed to make user life simple (as it can be), which hides
+many implementation details under "heroku" abstractions. Controlplane and cpln-cli on the other side, gives you all the
+raw power immediately to your fingers, which, however, you should know exactly how to use. And to have both worlds
+simultaneously we are proposing a **mapping of ideas** and some **helper cli** based on templates to save lots
+of cli typing.
+
+## Concept mapping
+
+On heroku everything runs as apps which mean an entity 1) running several process types, which heroku calls dynos
+2) having addons - database, or some services 3) having common environment.
+On Controlplane this can be mapped with GVC (Global Virtual Cloud). Such a cloud consists of Workloads, which can
+practically be anything that can run as a container.
+
+Lets set some main concepts (how we propose to map it):
+
+| heroku | controlplane |
+| --- | --- |
+| *app* | *GVC* (Global Virutal Cloud) |
+| *dyno* | *workload* |
+| *addon* | either *workload* or external resource |
+| *review app* | *GVC (app)* in staging *organization* |
+| *staging env* | *GVC (app)* in staging *organization* |
+| *production env* | *GVC (app)* in production *organization* |
+
+On heroku dynos are specified in `Procfile` and configured in cli/ui, addons are configured only in cli/ui.
+On Controlplane workloads are created either by *templates* (preferred way) or via cli/ui.
+
+Which for typical rails app mean:
+
+| function | examples | on heroku | on controlplane |
+| --- | --- | --- | --- |
+| web traffic | `rails`, `sinatra` | `web` dyno | workload with app image |
+| background jobs | `sidekiq`, `resque` | `worker` dyno | workload with app image |
+| db | `postgres`, `mysql` | addon | external provider or can be set up for dev/test with docker image (lacks persistence) |
+| in-memory db | `redis`, `memcached` | addon | external provider or can be set up for dev/test with docker image (lacks persistence) |
+| special something | `mailtrap` | addon | external provider or can be set up for dev/test with docker image (lacks persistence) |
+
+
+## Installation (atm just as local clone, not as gem)
+- install `node` (needed for cpln cli)
+
+- install `ruby` (needed for this helpers)
+
+- install controlplane cli (adds `cpln` command) and configure credentials
 ```sh
-# provision infrastructure (for new apps only)
-cpl setup postgres redis memcached rails sidekiq -a myapp
+npm install -g @controlplane/cli
+cpln login
+```
+
+- install this repo locally, alias `cpl` command globally for easier access, e.g.:
+```sh
+git clone https://github.com/shakacode/heroku-to-control-plane
+
+# in some local shell startup script - .profile, .bashrc, etc.
+alias cpl="~/projects/heroku-to-control-plane/cpl"
+```
+- project specific configs are kept in `.controlplane/` directory. `cpl` will pick those depending from which project folder tree it is executed. So, it is ok to run several projects with different configs w/o explicitly switching.
+
+
+## Example flow for app build/deploy (with our helpers)
+```sh
+# provision infrastructure (one-time for new apps only)
+cpl setup gvc postgres redis memcached rails sidekiq -a myapp
 
 # build and push image with auto-tagging 'myapp:1_456'
 cpl build -a myapp --commit 456
@@ -20,25 +80,14 @@ cpl promote -a myapp
 # open app in browser
 cpl open -a myapp
 ```
+
 ## Key features
+- adds `cpl` command to complement default CPLN cli `cpln` with "heroku style" scripting
 - easy to understand Heroku to CPLN conventions in setup, naming and cli
 - `heroku run` and `heroku run:detached` **safe, production-ready** implementations for CPLN
 - automatic sequential image tagging
 - project-aware cli - makes easy to work with multiple projects from their own folders
 - simplified `cpl` cli layer for "easy conventions" and default `cpln` cli for in-depth power
-
-## Instalation (atm just as local clone, not as gem)
-- install CPLN cli (adds `cpln` command)
-- install this repo locally, e.g.:
-```sh
-git clone https://github.com/shakacode/heroku-to-control-plane
-```
-- alias `cpl` command globally for easier access, e.g.:
-```sh
-# in some local shell startup scripts - .profile, .bashrc, etc.
-alias cpl="~/projects/heroku-to-control-plane/cpl"
-```
-- project specific configs are kept in `.controlplane/` directory. `cpl` will pick those depending from which project folder tree it is executed. So, it is ok to run several projects with different configs w/o explicitly switching.
 
 ## Project changes
 1. create `.controlplane` directory in your project and copy files from `templates` directory of this repo to something as following:
