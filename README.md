@@ -122,6 +122,47 @@ apps:
     prefix: true
 ```
 
+## Environment
+
+There are 2 major places where environment variables can be set up in controlplane:
+
+- in `workload/container/env` - those are container specific and need to be set up individually for each container
+
+- in `gvc/env` - this is a "common" place to keep env vars which can be shared among different workloads. Those
+common vars by default are not visible and should be explicitly enabled via `inheritEnv` property.
+
+In general, `gvc/env` vars are useful for "app" type of workloads, e.g. `rails`, `sidekiq` as they can easily share
+common configs (exactly same way as on heroku). And for non-app workloads e.g. `redis`, `memcached` are not needed.
+
+It is ok to keep most of env values for non-production environments in app templates as in general they are not a
+secret and can be committed to repo.
+
+As well, if needed, it is possible to set up a Secret store (type Dictionary), which can be referenced as
+e.g. `cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR`. In such a case, it is also needed to set up app Identity and
+proper Policy to access such secret.
+
+```yaml
+# in 'templates/gvc.yml'
+spec:
+  env:
+    - name: MY_GOBAL_VAR
+      value: 'value'
+    - name: MY_SECRET_GLOBAL_VAR
+      value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR'
+
+# in 'templates/rails.yml'
+spec:
+  containers:
+    - name: rails
+      env:
+        - name: MY_LOCAL_VAR
+          value: 'value'
+        - name: MY_SECRET_LOCAL_VAR
+          value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR'
+      inheritEnv: true # to enable global env inheritance
+```
+
+
 ## Commands:
 
 ### possible options

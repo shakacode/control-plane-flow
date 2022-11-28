@@ -37,6 +37,7 @@ module Command
       spec["defaultOptions"]["suspend"] = false
 
       # Set runner
+      container["env"] ||= []
       container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
@@ -44,8 +45,7 @@ module Command
     end
 
     def runner_script
-      script = Scripts.expand_common_env_secret
-      script += Scripts.helpers_cleanup
+      script = Scripts.helpers_cleanup
       script += args_join(config.args)
       script
     end

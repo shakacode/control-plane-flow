@@ -16,22 +16,9 @@ module Scripts
     SHELL
   end
 
-  def expand_common_env_secret
-    <<~SHELL
-      if [ -n "$CONTROLPLANE_COMMON_ENV" ]; then
-        echo "$CONTROLPLANE_COMMON_ENV" |
-          sed -e 's/^{"//' -e 's/"}$//' -e 's/","/\\n/g' |
-          sed 's/\\(.*\\)":"\\(.*\\)/export \\1="${\\1:-\\2}"/g' > ~/.controlplane_common_env
-
-        . ~/.controlplane_common_env
-      fi
-    SHELL
-  end
-
   def helpers_cleanup
     <<~SHELL
       unset CONTROLPLANE_RUNNER
-      unset CONTROLPLANE_COMMON_ENV
     SHELL
   end
 

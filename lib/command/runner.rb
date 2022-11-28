@@ -48,6 +48,7 @@ module Command
       spec["defaultOptions"]["autoscaling"] = {}
       container.delete("ports")
 
+      container["env"] ||= []
       container["env"] << { "name" => "CONTROLPLANE_TOKEN", "value" => ControlplaneApiDirect.new.api_token }
       container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
@@ -55,9 +56,8 @@ module Command
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
     end
 
-    def runner_script # rubocop:disable Metrics/MethodLength
+    def runner_script
       script = "echo '-- STARTED RUNNER SCRIPT --'\n"
-      script += Scripts.expand_common_env_secret
       script += Scripts.helpers_cleanup
 
       script += <<~SHELL
