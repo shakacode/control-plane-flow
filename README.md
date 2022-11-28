@@ -92,11 +92,18 @@ cpl open -a myapp
 ## Project changes
 1. create `.controlplane` directory in your project and copy files from `templates` directory of this repo to something as following:
 ```sh
-app_main_folder
-  .controlplane
+app_main_folder/
+  .controlplane/
     controlplane.yml
     Dockerfile          # this is your app Dockerfile, with some CPLN changes
     entrypoint.sh       # app specific, edit as needed
+    templates/
+      gvc.yml
+      memcached.yml
+      postgres.yml
+      rails.yml
+      redis.yml
+      sidekiq.yml
 ```
 
 2. edit `controlplane.yml` where necessary, e.g.:
@@ -115,7 +122,7 @@ aliases:
       - memcached
 
 apps:
-  my-app-name:
+  my-app-name-staging:
     <<: *common
   my-app-name-review:
     <<: *common
@@ -148,7 +155,7 @@ spec:
     - name: MY_GOBAL_VAR
       value: 'value'
     - name: MY_SECRET_GLOBAL_VAR
-      value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR'
+      value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_GLOBAL_VAR'
 
 # in 'templates/rails.yml'
 spec:
@@ -158,16 +165,21 @@ spec:
         - name: MY_LOCAL_VAR
           value: 'value'
         - name: MY_SECRET_LOCAL_VAR
-          value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR'
+          value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_LOCAL_VAR'
       inheritEnv: true # to enable global env inheritance
 ```
 
 
 ## Commands:
 
-### possible options
+### Common Options
 ```
 -a, --app XXX         app ref on CPLN (== GVC)
+```
+
+### Other options
+_Move to commands below._
+```
 -w, --workload XXX    workload, where applicable
 -i, --image XXX       use XXX image
 -c, --commit XXX      specify XXX as commit hash
@@ -189,14 +201,14 @@ cpl config
 ```
 
 ### `delete`
+* deletes whole app (gvc and images)
 ```sh
-# deletes whole app (gvc and images)
 cpl delete -a $APP_NAME
 ```
 
 ### `exist`
+* check if app (GVC) exists, useful in scripts, e.g.:
 ```sh
-# check if app (GVC) exists, useful in scripts, e.g.:
 if [ cpl exist -a $APP_NAME ]; ...
 ```
 
@@ -212,14 +224,14 @@ cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `open`
+* opens app endpoint url in browser
 ```sh
-# opens app endpoint url in browser
 cpl open -a $APP_NAME
 ```
 
 ### `promote`
+* promotes latest image to app workloads
 ```sh
-# promotes latest image to app workloads
 cpl promote -a $APP_NAME
 ```
 
@@ -236,7 +248,7 @@ cpl ps:stop -a $APP_NAME
 ```
 
 ### `run`
-- runs one-off *ineractive* replicas (close analogue of `heroku run`)
+- runs one-off **_interactive_** replicas (close analogue of `heroku run`)
 - creates one-off workloads
 - uses `cpln connect/exec` as execution method
 - may not work correctly with tasks over 5 min (CPLN scaling bug atm)
@@ -257,7 +269,7 @@ cpl run rails c -a $APP_NAME
 ```
 
 ### `runner`
-- runs one-off *non-interactive* replicas (close analogue of `heroku run:detached`)
+- runs one-off **_non-interactive_** replicas (close analogue of `heroku run:detached`)
 - stable detached implementation, uses CPLN cron type of workloads and log streaming
 - uses only async execution methods, more suitable for prod tasks
 - has alternative log fetch implementation with only json-polling and no websockets. Less responsive but more stable, useful for CI tasks
