@@ -36,6 +36,11 @@ module Command
       # Ensure one-off workload will be running
       spec["defaultOptions"]["suspend"] = false
 
+      # Override image if specified
+      image = config.options[:image]
+      image = "/org/#{config[:org]}/image/#{latest_image}" if image == "latest"
+      container["image"] = image if image
+
       # Set runner
       container["env"] ||= []
       container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }

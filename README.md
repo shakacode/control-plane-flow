@@ -1,25 +1,50 @@
 # heroku-to-control-plane
-Playbook for migrating from Heroku to Control Plane, controlplane.com
+Playbook for migrating from [Heroku](heroku.com) to [Control Plane](controlplane.com)
 
-Idea of this playbook is to show how to move "heroku apps" to Controlplane and have some "heroku-style" cli
-experience either temporary (while testing/migrating) or permanently.
+The idea of this playbook is to show how to move "Heroku apps" to "Control Plane apps" while keeping some "Heroku-style"
+simplified CLI experience either temporarily while testing/migrating or permanently.
 
-From the higher perspective, heroku and heroku-cli are designed to make user life simple (as it can be), which hides
-many implementation details under "heroku" abstractions. Controlplane and cpln-cli on the other side, gives you all the
-raw power immediately to your fingers, which, however, you should know exactly how to use. And to have both worlds
-simultaneously we are proposing a **mapping of ideas** and some **helper cli** based on templates to save lots
-of cli typing.
+From a higher perspective, Heroku has designed its CLI to simplify user life (as possible :wink:), which hides
+many implementation details under "Heroku" abstractions and naming conventions.
+Control Plane and Control Plane CLI, on the other side, give you all the raw power immediately to your fingers.
+However, you should know precisely how to use it.
+
+Thus to have both worlds simultaneously, we propose **concept mapping** and some **helper CLI** based
+on templates to save lots of day-to-day typing (and human errors).
+
+1. [Key features](#key-features)
+2. [Concept mapping](#concept-mapping)
+3. [Installation](#installation)
+4. [Example CLI flow for application build/deployment](#example-cli-flow-for-application-builddeployment)
+5. [Example project changes](#example-project-changes)
+6. [Environment](#environment)
+7. [Database](#database)
+8. [In-memory databases](#in-memory-databases)
+9. [CLI commands reference](#cli-commands-reference)
+10. [Examples](#examples)
+
+## Key features
+
+- adds `cpl` command to complement default Control Plane CLI (`cpln`) with "Heroku style scripting"
+- easy to understand Heroku to Control Plane conventions in setup, naming, and cli
+- `heroku run` and `heroku run:detached` **safe, production-ready** implementations for Control Plane
+- automatic sequential release tagging for images
+- project-aware CLI - makes it easy to work with multiple projects from their dedicated folders
+- simplified `cpl` CLI layer for "easy conventions" and default `cpln` CLI for in-depth power
 
 ## Concept mapping
 
-On heroku everything runs as apps which mean an entity 1) running several process types, which heroku calls dynos
-2) having addons - database, or some services 3) having common environment.
-On Controlplane this can be mapped with GVC (Global Virtual Cloud). Such a cloud consists of Workloads, which can
-practically be anything that can run as a container.
+On Heroku, everything runs as an app which means an entity that:
+1) runs several process types, which Heroku calls dynos
+2) has add-ons - database or some services
+3) has common environment
 
-Lets set some main concepts (how we propose to map it):
+On Control Plane, we can map Heroku app to GVC (Global Virtual Cloud). Such a cloud consists of Workloads, which can
+be anything that can run as a container.
 
-| heroku | controlplane |
+Let's set some main concepts (how we propose to map it):
+
+| Heroku | Control Plane |
 | --- | --- |
 | *app* | *GVC* (Global Virutal Cloud) |
 | *dyno* | *workload* |
@@ -28,26 +53,29 @@ Lets set some main concepts (how we propose to map it):
 | *staging env* | *GVC (app)* in staging *organization* |
 | *production env* | *GVC (app)* in production *organization* |
 
-On heroku dynos are specified in `Procfile` and configured in cli/ui, addons are configured only in cli/ui.
-On Controlplane workloads are created either by *templates* (preferred way) or via cli/ui.
+On Heroku, dynos are specified in `Procfile` and configured in CLI/UI; addons are configured only in CLI/UI.
+On Controlplanem, workloads are created either by *templates* (preferred way) or via CLI/UI.
 
-Which for typical rails app mean:
+Which for the typical rails app means:
 
-| function | examples | on heroku | on controlplane |
+| function | examples | on Heroku | on Control Plane |
 | --- | --- | --- | --- |
 | web traffic | `rails`, `sinatra` | `web` dyno | workload with app image |
 | background jobs | `sidekiq`, `resque` | `worker` dyno | workload with app image |
-| db | `postgres`, `mysql` | addon | external provider or can be set up for dev/test with docker image (lacks persistence) |
-| in-memory db | `redis`, `memcached` | addon | external provider or can be set up for dev/test with docker image (lacks persistence) |
-| special something | `mailtrap` | addon | external provider or can be set up for dev/test with docker image (lacks persistence) |
+| db | `postgres`, `mysql` | addon | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
+| in-memory db | `redis`, `memcached` | addon | external provider or can be set up for dev/test with docker image (lacks persistence restarts) |
+| special something | `mailtrap` | addon | external provider or can be set up for dev/test with docker image (lacks persistence restarts) |
 
 
-## Installation (atm just as local clone, not as gem)
-- install `node` (needed for cpln cli)
+## Installation
 
-- install `ruby` (needed for this helpers)
+Note: Atm is just a local clone, not a ruby gem or node package
 
-- install controlplane cli (adds `cpln` command) and configure credentials
+- install `node` (required for Control Plane CLI)
+
+- install `ruby` (required for these helpers)
+
+- install Control Plane CLI (adds `cpln` command) and configure credentials
 ```sh
 npm install -g @controlplane/cli
 cpln login
@@ -60,10 +88,11 @@ git clone https://github.com/shakacode/heroku-to-control-plane
 # in some local shell startup script - .profile, .bashrc, etc.
 alias cpl="~/projects/heroku-to-control-plane/cpl"
 ```
-- project specific configs are kept in `.controlplane/` directory. `cpl` will pick those depending from which project folder tree it is executed. So, it is ok to run several projects with different configs w/o explicitly switching.
 
+- copy project-specific configs to the `.controlplane/` directory. `cpl` will pick those depending on which project
+folder tree it runs. So, running several projects with different configs w/o explicitly switching is automated.
 
-## Example flow for app build/deploy (with our helpers)
+## Example CLI flow for application build/deployment
 ```sh
 # provision infrastructure (one-time for new apps only)
 cpl setup gvc postgres redis memcached rails sidekiq -a myapp
@@ -81,16 +110,9 @@ cpl promote -a myapp
 cpl open -a myapp
 ```
 
-## Key features
-- adds `cpl` command to complement default CPLN cli `cpln` with "heroku style" scripting
-- easy to understand Heroku to CPLN conventions in setup, naming and cli
-- `heroku run` and `heroku run:detached` **safe, production-ready** implementations for CPLN
-- automatic sequential image tagging
-- project-aware cli - makes easy to work with multiple projects from their own folders
-- simplified `cpl` cli layer for "easy conventions" and default `cpln` cli for in-depth power
-
-## Project changes
-1. create `.controlplane` directory in your project and copy files from `templates` directory of this repo to something as following:
+## Example project changes
+1. Create the `.controlplane` directory in your project and copy files from the `templates` directory of this repo to
+something as follows:
 ```sh
 app_main_folder/
   .controlplane/
@@ -106,7 +128,7 @@ app_main_folder/
       sidekiq.yml
 ```
 
-2. edit `controlplane.yml` where necessary, e.g.:
+2. Edit `controlplane.yml` where necessary, e.g.:
 ```yaml
 aliases:
   common: &common
@@ -131,22 +153,23 @@ apps:
 
 ## Environment
 
-There are 2 major places where environment variables can be set up in controlplane:
+There are two main places where we can set up environment variables in Control Plane:
 
-- in `workload/container/env` - those are container specific and need to be set up individually for each container
+- In `workload/container/env` - those are container specific and need to be set up individually for each container
 
-- in `gvc/env` - this is a "common" place to keep env vars which can be shared among different workloads. Those
-common vars by default are not visible and should be explicitly enabled via `inheritEnv` property.
+- In `gvc/env` - this is a "common" place to keep env vars which we can share among different workloads.
+Those common variables are not visible by default, and we should explicitly enable them via `inheritEnv` property.
 
-In general, `gvc/env` vars are useful for "app" type of workloads, e.g. `rails`, `sidekiq` as they can easily share
-common configs (exactly same way as on heroku). And for non-app workloads e.g. `redis`, `memcached` are not needed.
+In general, `gvc/env` vars are useful for "app" types of workloads, e.g., `rails`, `sidekiq`, as they can easily share
+common configs (the same way as on Heroku). And they are not needed for non-app workloads,
+e.g., `redis`, `memcached`.
 
-It is ok to keep most of env values for non-production environments in app templates as in general they are not a
-secret and can be committed to repo.
+It is ok to keep most of the environment variables for non-production environments in the app templates as, in general,
+they are not secret and can be committed to the repository.
 
-As well, if needed, it is possible to set up a Secret store (type Dictionary), which can be referenced as
-e.g. `cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR`. In such a case, it is also needed to set up app Identity and
-proper Policy to access such secret.
+It is also possible to set up a Secret store (of type Dictionary), which we can reference as,
+e.g., `cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR_NAME`.
+In such a case, we also need to set up an app Identity and proper Policy to access the secret.
 
 ```yaml
 # in 'templates/gvc.yml'
@@ -169,50 +192,101 @@ spec:
       inheritEnv: true # to enable global env inheritance
 ```
 
+## Database
 
-## Commands:
+There are several options for a database setup on Control Plane.
+
+1. Heroku Postgres. It is the least recommended but dead easy. We only need to provision the Postgres addon on Heroku and
+pick its `XXXXXX_URL` connection string. Good for quick testing, but not suitable long term.
+
+2. Control Plane container. We can set it up as a workload using one of the default Dockerhub images.
+However, atm, such a setup lacks persistence between container restarts.
+We can use this only for a pet, tutorial, or even review app project,
+where the database doesn't keep any serious data and where such data is restorable.
+
+3. Any other cloud provider Postgres, e.g., Amazon's RDS can be a quick go-to.
+
+Tip: if you are using RDS for dev/testing purposes, you might consider running such a database publically
+accessible (actually, Heroku does for all its Postgres databases unless private spaces). Then we can connect to
+such a database from everywhere with only the correct username/password.
+
+By default, we have structured our templates to accomplish this with only a single free-tier or low-tier AWS RDS instance
+that can serve all your dev/qa needs for small-medium applications, e.g., as follows:
+```
+aws-rds-single-pg-instance
+  mydb-staging
+  mydb-review-111
+  mydb-review-222
+  mydb-review-333
+```
+
+Additionally, we provide default `postgres` template in this repo optimized for Control Plane and suitable
+for development purposes.
+
+## In-memory databases
+
+E.g. Redis, Memcached.
+
+For development purposes it is useful to set up those as a Control Plane workloads as in most cases they don't keep any
+valuable datas and can be safely restarted (sometimes), which doesn't affect application performance.
+
+For production purposes or where restarts is totally not an option, it should be used external cloud services.
+
+We provide default `redis` and `memcached` templates in this repo optimized for Control Plane and suitable
+for development purposes.
+
+## CLI commands reference:
 
 ### Common Options
+
 ```
--a, --app XXX         app ref on CPLN (== GVC)
+-a, --app XXX         app ref on Control Plane (== GVC)
 ```
 
-### Other options
-_Move to commands below._
-```
--w, --workload XXX    workload, where applicable
--i, --image XXX       use XXX image
--c, --commit XXX      specify XXX as commit hash
-```
+This `-a` option is used in most of the commands and will pick all other app configurations from the project-specific
+`controlplane.yml` template.
 
 ### `build`
-- builds and pushes image to CPLN
-- atomatically assigns image numbers as `app:1`, `app:2`, etc
+
+- builds and pushes the image to Control Plane
+- automatically assigns image numbers as `app:1`, `app:2`, etc
+- uses `.controlplane/Dockerfile`
 
 ```sh
 cpl build -a $APP_NAME
 ```
 
 ### `config`
-- display current configs (global and project specific)
+
+- displays current configs (global and project specific)
 
 ```sh
+# show global config
 cpl config
+
+# show global and app specific config
+cpl config -a $APP_NAME
 ```
 
 ### `delete`
-* deletes whole app (gvc and images)
+
+- deletes the whole app (gvc with all workloads and all images)
+- will ask for explicit user confirmation
+
 ```sh
 cpl delete -a $APP_NAME
 ```
 
 ### `exist`
-* check if app (GVC) exists, useful in scripts, e.g.:
+
+- shell check if an application (GVC) exists, useful in scripts, e.g.:
+
 ```sh
 if [ cpl exist -a $APP_NAME ]; ...
 ```
 
 ### `logs`
+
 - light wrapper to display tailed raw logs for app/workload syntax
 
 ```sh
@@ -224,18 +298,26 @@ cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `open`
-* opens app endpoint url in browser
+
+- opens app endpoint URL in the default browser
+
 ```sh
 cpl open -a $APP_NAME
+
+# open endpoint of other non-default workload
+cpl open -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `promote`
-* promotes latest image to app workloads
+
+- promotes the latest image to app workloads
+
 ```sh
 cpl promote -a $APP_NAME
 ```
 
 ### `ps`
+
 ```sh
 # shows running replicas in app
 cpl ps -a $APP_NAME
@@ -245,15 +327,18 @@ cpl ps:start -a $APP_NAME
 
 # stops all workloads in app
 cpl ps:stop -a $APP_NAME
+
+# force redeploy of all workloads in app
+cpl ps:restart -a $APP_NAME
 ```
 
 ### `run`
-- runs one-off **_interactive_** replicas (close analogue of `heroku run`)
-- creates one-off workloads
-- uses `cpln connect/exec` as execution method
-- may not work correctly with tasks over 5 min (CPLN scaling bug atm)
 
-> IMPORTANT: useful for development where needed interaction and network connection drops (and
+- runs one-off **_interactive_** replicas (analog of `heroku run`)
+- uses `Standard` workload type, `cpln exec` as the execution method with CLI streaming
+- may not work correctly with tasks over 5 min (Control Plane scaling bug atm)
+
+> IMPORTANT: useful for development where it is needed interaction and network connection drops (and
 > task crashing) is toleratable. For production tasks better use `cpl runner`
 
 ```sh
@@ -266,13 +351,19 @@ cpl run rails db:migrate:status -a $APP_NAME
 
 # runs command, keeps shell opened
 cpl run rails c -a $APP_NAME
+
+# use different image (which may be not promoted yet)
+cpl run xxx -a $APP_NAME --image appimage:123 # exact image name
+cpl run xxx -a $APP_NAME --image latest       # picks latest sequential image
 ```
 
 ### `runner`
-- runs one-off **_non-interactive_** replicas (close analogue of `heroku run:detached`)
-- stable detached implementation, uses CPLN cron type of workloads and log streaming
-- uses only async execution methods, more suitable for prod tasks
-- has alternative log fetch implementation with only json-polling and no websockets. Less responsive but more stable, useful for CI tasks
+
+- runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)
+- uses `Cron` workload type with log async fetching
+- implemented with only async execution methods, more suitable for prod tasks
+- has alternative log fetch implementation with only JSON-polling and no WebSockets.
+Less responsive but more stable, useful for CI tasks
 
 ```sh
 cpl runner rails db:prepare -a $APP_NAME
@@ -283,11 +374,19 @@ cpl runner rails db:migrate -a $APP_NAME --image /some/full/image/path
 
 # uses latest app image (which may be not promoted yet)
 cpl runner rails db:migrate -a $APP_NAME --image latest
+
+# use different image (which may be not promoted yet)
+cpl runner xxx -a $APP_NAME --image appimage:123 # exact image name
+cpl runner xxx -a $APP_NAME --image latest       # picks latest sequential image
 ```
 
 ### `setup`
-- applies app specific configs to general templates (e.g. for every review-app)
-- publishes (creates/updates) those at CPLN
+
+- applies application-specific configs from templates (e.g., for every review-app)
+- publishes (creates or updates) those at Control Plane infrastructure
+- picks templates from `.controlplane/templates` folder
+- templates are ordinary Control Plane templates but with variable preprocessing
+
 ```sh
 # applies single template
 cpl setup redis -a $APP_NAME
@@ -295,12 +394,14 @@ cpl setup redis -a $APP_NAME
 # applies several templates (practically creating full app)
 cpl setup gvc postgres redis rails -a $APP_NAME
 ```
-- template variables
+
+- preprocessed template variables
+
 ```
 APP_GVC      - basically gvc or app name
 APP_LOCATION - default location
 APP_ORG      - org
-APP_IMAGE    - image
+APP_IMAGE    - will use latest app image
 ```
 
 ## Examples
