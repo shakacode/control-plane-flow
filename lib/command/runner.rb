@@ -30,6 +30,9 @@ module Command
       spec = cp.workload_get(workload).fetch("spec")
       container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
 
+      # remove other containers if any
+      spec["containers"] = [container]
+
       # Set runner
       container["command"] = "bash"
       container["args"] = ["-c", 'eval "$CONTROLPLANE_RUNNER"']

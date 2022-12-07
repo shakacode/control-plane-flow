@@ -21,12 +21,15 @@ module Command
 
     private
 
-    def clone_workload
+    def clone_workload # rubocop:disable Metrics/MethodLength
       progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
 
       # Create a base copy of workload props
       spec = cp.workload_get(workload).fetch("spec")
       container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+
+      # remove other containers if any
+      spec["containers"] = [container]
 
       # Stub workload command with dummy server that just responds to port
       # Needed to avoid execution of ENTRYPOINT and CMD of Dockerfile

@@ -6,8 +6,12 @@ module Command
       image = latest_image
 
       config[:app_workloads].each do |workload|
-        # NOTE: atm, container name == workload name (maybe need better logic here)
-        cp.workload_set_image_ref(workload, container: workload, image: image)
+        cp.workload_get(workload).dig("spec", "containers").each do |container|
+          next unless container["image"].match?(%r{^/org/#{config[:org]}/image/#{config.app}:})
+
+          cp.workload_set_image_ref(workload, container: container["name"], image: image)
+          progress.puts "updated #{container['name']}"
+        end
       end
     end
   end

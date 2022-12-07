@@ -6,7 +6,7 @@ module Command
       workloads = [config.options[:workload]] if config.options[:workload]
       workloads ||= config[:app_workloads] + config[:additional_workloads]
 
-      workloads.each do |workload|
+      workloads.reverse_each do |workload|
         cp.workload_set_suspend(workload, false)
         progress.puts "#{workload} started"
       end
