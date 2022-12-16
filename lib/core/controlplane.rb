@@ -19,7 +19,7 @@ class Controlplane
   end
 
   def image_query
-    cmd = "cpln image query --org #{org} -o yaml"
+    cmd = "cpln image query --org #{org} -o yaml --max 0"
     perform_yaml(cmd)
   end
 

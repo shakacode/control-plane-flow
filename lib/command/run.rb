@@ -4,7 +4,7 @@ module Command
   class Run < Base
     attr_reader :location, :workload, :one_off
 
-    def call
+    def call # rubocop:disable Metrics/MethodLength
       abort("ERROR: should specify a command to execute") if config.args.empty?
 
       @location = config[:location]
@@ -13,6 +13,7 @@ module Command
 
       clone_workload
       wait_for_workload(one_off)
+      sleep 2 # sometimes replica query lags workload creation, despite ok by prev query
       wait_for_replica(one_off, location)
       run_in_replica
     ensure
