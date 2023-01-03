@@ -13,7 +13,7 @@ class Controlplane
   # image
 
   def image_build(image, dockerfile:, push: true)
-    cmd = "cpln image build --name #{image} --dir #{config.app_dir} --dockerfile #{dockerfile}"
+    cmd = "cpln image build --org #{org} --name #{image} --dir #{config.app_dir} --dockerfile #{dockerfile}"
     cmd += " --push" if push
     perform(cmd)
   end
