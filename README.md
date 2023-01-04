@@ -1,15 +1,13 @@
-# heroku-to-control-plane
-Playbook for migrating from [Heroku](heroku.com) to [Control Plane](controlplane.com)
+# Heroku to Control Plane
+_A playbook for migrating from [Heroku](heroku.com) to [Control Plane](controlplane.com)_
 
-The idea of this playbook is to show how to move "Heroku apps" to "Control Plane apps" while keeping some "Heroku-style"
-simplified CLI experience either temporarily while testing/migrating or permanently.
+This playbook shows how to move "Heroku apps" to "Control Plane apps" via a utility Heroku-lik CLI layer on top of Control Plane's CLI.
 
-From a higher perspective, Heroku has designed its CLI to simplify user life (as possible :wink:), which hides
-many implementation details under "Heroku" abstractions and naming conventions.
-Control Plane and Control Plane CLI, on the other side, give you all the raw power immediately to your fingers.
-However, you should know precisely how to use it.
+Heroku provides a CLI that hides many implementation details behind "Heroku" abstractions and naming conventions.
+Control Plane and Control Plane CLI, on the other side, give you the raw power the cloud computing. 
+However, you need to know precisely how to use it.
 
-Thus to have both worlds simultaneously, we propose **concept mapping** and some **helper CLI** based
+To have the best of both worlds, we have provided a **concept mapping** and a **helper CLI** based
 on templates to save lots of day-to-day typing (and human errors).
 
 1. [Key features](#key-features)
@@ -25,24 +23,25 @@ on templates to save lots of day-to-day typing (and human errors).
 
 ## Key features
 
-- adds `cpl` command to complement default Control Plane CLI (`cpln`) with "Heroku style scripting"
-- easy to understand Heroku to Control Plane conventions in setup, naming, and cli
-- `heroku run` and `heroku run:detached` **safe, production-ready** implementations for Control Plane
-- automatic sequential release tagging for images
-- project-aware CLI - makes it easy to work with multiple projects from their dedicated folders
-- simplified `cpl` CLI layer for "easy conventions" and default `cpln` CLI for in-depth power
+- `cpl` command to complement default Control Plane CLI (`cpln`) with "Heroku style scripting"
+- Easy to understand Heroku to Control Plane conventions in setup, naming, and CLI
+- **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane
+- Automatic sequential release tagging for images
+- Project-aware CLI - makes it easy to work with multiple projects from their dedicated folders
 
 ## Concept mapping
 
 On Heroku, everything runs as an app which means an entity that:
-1) runs several process types, which Heroku calls dynos
-2) has add-ons - database or some services
-3) has common environment
+1. Runs code from a Git repo.
+1. Runs several process types, as defined in the `/Procfile`
+1. Has dynos which are Linux containers that run these process types
+1. Has add-ons, including the database and other services
+1. Has common environment variables
 
-On Control Plane, we can map Heroku app to GVC (Global Virtual Cloud). Such a cloud consists of Workloads, which can
+On Control Plane, we can map Heroku app to a GVC (Global Virtual Cloud). Such a cloud consists of Workloads, which can
 be anything that can run as a container.
 
-Let's set some main concepts (how we propose to map it):
+Mapping of Concepts:
 
 | Heroku | Control Plane |
 | --- | --- |
@@ -53,10 +52,10 @@ Let's set some main concepts (how we propose to map it):
 | *staging env* | *GVC (app)* in staging *organization* |
 | *production env* | *GVC (app)* in production *organization* |
 
-On Heroku, dynos are specified in `Procfile` and configured in CLI/UI; addons are configured only in CLI/UI.
-On Controlplanem, workloads are created either by *templates* (preferred way) or via CLI/UI.
+On Heroku, dyno types are specified in the `Procfile` and configured in CLI/UI; addons are configured only in CLI/UI.
+On Control Plane, workloads are created either by *templates* (preferred way) or via the CLI or UI.
 
-Which for the typical rails app means:
+For the typical Rails app, this means:
 
 | function | examples | on Heroku | on Control Plane |
 | --- | --- | --- | --- |
@@ -69,28 +68,24 @@ Which for the typical rails app means:
 
 ## Installation
 
-Note: Atm is just a local clone, not a ruby gem or node package
+Note: `cpl` CLI is configured via a local clone clone of this repo. We may publish it later as a Ruby gem or Node package.
 
-- install `node` (required for Control Plane CLI)
-
-- install `ruby` (required for these helpers)
-
-- install Control Plane CLI (adds `cpln` command) and configure credentials
-```sh
-npm install -g @controlplane/cli
-cpln login
-```
-
+- Install `node` (required for Control Plane CLI)
+- Install `ruby` (required for these helpers)
+- Install Control Plane CLI (adds `cpln` command) and configure credentials
+  ```sh
+  npm install -g @controlplane/cli
+  cpln login
+  ```
 - install this repo locally, alias `cpl` command globally for easier access, e.g.:
-```sh
-git clone https://github.com/shakacode/heroku-to-control-plane
+  ```sh
+  git clone https://github.com/shakacode/heroku-to-control-plane
 
-# in some local shell startup script - .profile, .bashrc, etc.
-alias cpl="~/projects/heroku-to-control-plane/cpl"
-```
-
+  # in some local shell startup script - .profile, .bashrc, etc.
+  alias cpl="~/projects/heroku-to-control-plane/cpl"
+  ```
 - copy project-specific configs to the `.controlplane/` directory. `cpl` will pick those depending on which project
-folder tree it runs. So, running several projects with different configs w/o explicitly switching is automated.
+folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching.
 
 ## Example CLI flow for application build/deployment
 ```sh
