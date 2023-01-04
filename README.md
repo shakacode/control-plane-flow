@@ -20,6 +20,7 @@ on templates to save lots of day-to-day typing (and human errors).
 8. [In-memory databases](#in-memory-databases)
 9. [CLI commands reference](#cli-commands-reference)
 10. [Examples](#examples)
+11. [Migrating Postgres out of Heroku cloud](/postgres.md)
 
 ## Key features
 
