@@ -144,7 +144,12 @@ apps:
     <<: *common
   my-app-name-review:
     <<: *common
+    # 'prefix' option will handle group apps named `my-app-name-review-123`, `my-app-name-review-456`, etc.
     prefix: true
+  my-app-name-other:
+    <<: *common
+    # you can specify different dockerfile relative to .controlplane folder, default is just 'Dockerfile'
+    dockerfile: ../some_other/Dockerfile
 ```
 
 ## Environment
