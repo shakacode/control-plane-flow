@@ -1,14 +1,12 @@
 # Heroku to Control Plane
 _A playbook for migrating from [Heroku](heroku.com) to [Control Plane](controlplane.com)_
 
-This playbook shows how to move "Heroku apps" to "Control Plane apps" via a utility Heroku-lik CLI layer on top of Control Plane's CLI.
+This playbook shows how to move "Heroku apps" to "Control Plane workloads" via an open-source `cpl` CLI on top of Control Plane's `cpln` CLI.
 
-Heroku provides a CLI that hides many implementation details behind "Heroku" abstractions and naming conventions.
-Control Plane and Control Plane CLI, on the other side, give you the raw power the cloud computing. 
-However, you need to know precisely how to use it.
+Heroku provides a UX and CLI that enables easy publishing of Ruby on Rails and other apps. This ease of use comes via many "Heroku" abstractions and naming conventions.
+Control Plane, on the other hand, gives you access to raw cloud computing power. However, you need to know precisely how to use it.
 
-To have the best of both worlds, we have provided a **concept mapping** and a **helper CLI** based
-on templates to save lots of day-to-day typing (and human errors).
+To simplify migration to and usage of Control Plane for Heroku users, this repository provides a **concept mapping** and a **helper CLI** based on templates to save lots of day-to-day typing (and human errors).
 
 1. [Key features](#key-features)
 2. [Concept mapping](#concept-mapping)
@@ -24,11 +22,11 @@ on templates to save lots of day-to-day typing (and human errors).
 
 ## Key features
 
-- `cpl` command to complement default Control Plane CLI (`cpln`) with "Heroku style scripting"
-- Easy to understand Heroku to Control Plane conventions in setup, naming, and CLI
-- **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane
-- Automatic sequential release tagging for images
-- Project-aware CLI - makes it easy to work with multiple projects from their dedicated folders
+- A `cpl` command to complement the default Control Plane `cpln` command with "Heroku style scripting." The Ruby source can serve as inspiration for your own scripts.
+- Easy to understand Heroku to Control Plane conventions in setup and naming.
+- **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane.
+- Automatic sequential release tagging for Docker images.
+- A project-aware CLI which enables working on multiple projects.
 
 ## Concept mapping
 
@@ -39,32 +37,31 @@ On Heroku, everything runs as an app which means an entity that:
 1. Has add-ons, including the database and other services
 1. Has common environment variables
 
-On Control Plane, we can map Heroku app to a GVC (Global Virtual Cloud). Such a cloud consists of Workloads, which can
-be anything that can run as a container.
+On Control Plane, we can map a Heroku app to a GVC (Global Virtual Cloud). Such a cloud consists of workloads, which can be anything that can run as a container.
 
 Mapping of Concepts:
 
-| Heroku | Control Plane |
-| --- | --- |
-| *app* | *GVC* (Global Virutal Cloud) |
-| *dyno* | *workload* |
-| *addon* | either *workload* or external resource |
-| *review app* | *GVC (app)* in staging *organization* |
-| *staging env* | *GVC (app)* in staging *organization* |
-| *production env* | *GVC (app)* in production *organization* |
+| Heroku           | Control Plane                               |
+|------------------|---------------------------------------------|
+| *app*            | *GVC* (Global Virutal Cloud)                |
+| *dyno*           | *workload*                                  |
+| *addon*          | either a *workload* or an external resource |
+| *review app*     | *GVC (app)* in staging *organization*       |
+| *staging env*    | *GVC (app)* in staging *organization*       |
+| *production env* | *GVC (app)* in production *organization*    |
 
 On Heroku, dyno types are specified in the `Procfile` and configured in CLI/UI; addons are configured only in CLI/UI.
 On Control Plane, workloads are created either by *templates* (preferred way) or via the CLI or UI.
 
 For the typical Rails app, this means:
 
-| function | examples | on Heroku | on Control Plane |
-| --- | --- | --- | --- |
-| web traffic | `rails`, `sinatra` | `web` dyno | workload with app image |
-| background jobs | `sidekiq`, `resque` | `worker` dyno | workload with app image |
-| db | `postgres`, `mysql` | addon | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
-| in-memory db | `redis`, `memcached` | addon | external provider or can be set up for dev/test with docker image (lacks persistence restarts) |
-| special something | `mailtrap` | addon | external provider or can be set up for dev/test with docker image (lacks persistence restarts) |
+| function          | examples             | on Heroku     | on Control Plane                                                                                       |
+|-------------------|----------------------|---------------|--------------------------------------------------------------------------------------------------------|
+| web traffic       | `rails`, `sinatra`   | `web` dyno    | workload with app image                                                                                |
+| background jobs   | `sidekiq`, `resque`  | `worker` dyno | workload with app image                                                                                |
+| db                | `postgres`, `mysql`  | addon         | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
+| in-memory db      | `redis`, `memcached` | addon         | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
+| special something | `mailtrap`           | addon         | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
 
 
 ## Installation
@@ -78,19 +75,20 @@ Note: `cpl` CLI is configured via a local clone clone of this repo. We may publi
   npm install -g @controlplane/cli
   cpln login
   ```
-- install this repo locally, alias `cpl` command globally for easier access, e.g.:
+- Install this repo locally, alias `cpl` command globally for easier access, e.g.:
   ```sh
   git clone https://github.com/shakacode/heroku-to-control-plane
 
   # in some local shell startup script - .profile, .bashrc, etc.
   alias cpl="~/projects/heroku-to-control-plane/cpl"
   ```
-- copy project-specific configs to the `.controlplane/` directory. `cpl` will pick those depending on which project
+- Copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpl` will pick those depending on which project
 folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching.
 
 ## Example CLI flow for application build/deployment
 ```sh
-# provision infrastructure (one-time for new apps only)
+# Provision infrastructure (one-time for new apps only)
+# Note how the arguments correspond to files in the .controlplane/templates directory
 cpl setup gvc postgres redis memcached rails sidekiq -a myapp
 
 # build and push image with auto-tagging 'myapp:1_456'
@@ -106,15 +104,15 @@ cpl promote -a myapp
 cpl open -a myapp
 ```
 
-## Example project changes
+## Example project modifications for Control Plane
 1. Create the `.controlplane` directory in your project and copy files from the `templates` directory of this repo to
 something as follows:
 ```sh
 app_main_folder/
   .controlplane/
     controlplane.yml
-    Dockerfile          # this is your app Dockerfile, with some CPLN changes
-    entrypoint.sh       # app specific, edit as needed
+    Dockerfile          # Your app Dockerfile, with some CPLN changes.
+    entrypoint.sh       # App specific, edit as needed
     templates/
       gvc.yml
       memcached.yml
@@ -197,18 +195,18 @@ spec:
 
 There are several options for a database setup on Control Plane.
 
-1. Heroku Postgres. It is the least recommended but dead easy. We only need to provision the Postgres addon on Heroku and
-pick its `XXXXXX_URL` connection string. Good for quick testing, but not suitable long term.
+1. **Heroku Postgres**. It is the least recommended but simplest. We only need to provision the Postgres addon on Heroku and
+copy its `XXXXXX_URL` connection string. This is good for quick testing, but unsuitable for the long term.
 
-2. Control Plane container. We can set it up as a workload using one of the default Dockerhub images.
-However, atm, such a setup lacks persistence between container restarts.
-We can use this only for a pet, tutorial, or even review app project,
+2. **Control Plane container**. We can set it up as a workload using one of the default Dockerhub images.
+However, such a setup lacks persistence between container restarts.
+We can use this only for an example or test app
 where the database doesn't keep any serious data and where such data is restorable.
 
-3. Any other cloud provider Postgres, e.g., Amazon's RDS can be a quick go-to.
+3. Any other cloud provider Postgres, e.g., Amazon's RDS can be a quick go-to. Here are [instructions for setting up a free tier of RDS.](https://aws.amazon.com/premiumsupport/knowledge-center/free-tier-rds-launch/)
 
 Tip: if you are using RDS for dev/testing purposes, you might consider running such a database publically
-accessible (actually, Heroku does for all its Postgres databases unless private spaces). Then we can connect to
+accessible (actually, Heroku does for all its Postgres databases unless they are within private spaces). Then we can connect to
 such a database from everywhere with only the correct username/password.
 
 By default, we have structured our templates to accomplish this with only a single free-tier or low-tier AWS RDS instance
@@ -231,7 +229,7 @@ E.g. Redis, Memcached.
 For development purposes it is useful to set up those as a Control Plane workloads as in most cases they don't keep any
 valuable datas and can be safely restarted (sometimes), which doesn't affect application performance.
 
-For production purposes or where restarts is totally not an option, it should be used external cloud services.
+For production purposes or where restarts are not an option, you should use external cloud services.
 
 We provide default `redis` and `memcached` templates in this repo optimized for Control Plane and suitable
 for development purposes.
@@ -353,7 +351,7 @@ cpl run rails db:migrate:status -a $APP_NAME
 # runs command, keeps shell opened
 cpl run rails c -a $APP_NAME
 
-# use different image (which may be not promoted yet)
+# use different image (which may not be promoted yet)
 cpl run xxx -a $APP_NAME --image appimage:123 # exact image name
 cpl run xxx -a $APP_NAME --image latest       # picks latest sequential image
 ```
@@ -376,7 +374,7 @@ cpl runner rails db:migrate -a $APP_NAME --image /some/full/image/path
 # uses latest app image (which may be not promoted yet)
 cpl runner rails db:migrate -a $APP_NAME --image latest
 
-# use different image (which may be not promoted yet)
+# use a different image (which may be not promoted yet)
 cpl runner xxx -a $APP_NAME --image appimage:123 # exact image name
 cpl runner xxx -a $APP_NAME --image latest       # picks latest sequential image
 ```
@@ -407,4 +405,5 @@ APP_IMAGE    - will use latest app image
 
 ## Examples
 
-See `examples/` and `templates/` folders of this repo.
+1. See `examples/` and `templates/` folders of this repo.
+2. See `.controlplane` directory of this live example: [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) 
