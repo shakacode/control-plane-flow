@@ -1,5 +1,5 @@
 # Heroku to Control Plane
-_A playbook for migrating from [Heroku](heroku.com) to [Control Plane](controlplane.com)_
+_A playbook for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
 
 This playbook shows how to move "Heroku apps" to "Control Plane workloads" via an open-source `cpl` CLI on top of Control Plane's `cpln` CLI.
 
@@ -43,7 +43,7 @@ Mapping of Concepts:
 
 | Heroku           | Control Plane                               |
 |------------------|---------------------------------------------|
-| *app*            | *GVC* (Global Virutal Cloud)                |
+| *app*            | *GVC* (Global Virtual Cloud)                |
 | *dyno*           | *workload*                                  |
 | *addon*          | either a *workload* or an external resource |
 | *review app*     | *GVC (app)* in staging *organization*       |
@@ -105,6 +105,8 @@ cpl open -a myapp
 ```
 
 ## Example project modifications for Control Plane
+*See this [example project](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) for a complete example.*
+
 1. Create the `.controlplane` directory in your project and copy files from the `templates` directory of this repo to
 something as follows:
 ```sh
@@ -174,7 +176,7 @@ In such a case, we also need to set up an app Identity and proper Policy to acce
 # in 'templates/gvc.yml'
 spec:
   env:
-    - name: MY_GOBAL_VAR
+    - name: MY_GLOBAL_VAR
       value: 'value'
     - name: MY_SECRET_GLOBAL_VAR
       value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_GLOBAL_VAR'
@@ -205,7 +207,7 @@ where the database doesn't keep any serious data and where such data is restorab
 
 3. Any other cloud provider Postgres, e.g., Amazon's RDS can be a quick go-to. Here are [instructions for setting up a free tier of RDS.](https://aws.amazon.com/premiumsupport/knowledge-center/free-tier-rds-launch/)
 
-Tip: if you are using RDS for dev/testing purposes, you might consider running such a database publically
+Tip: if you are using RDS for dev/testing purposes, you might consider running such a database publicly
 accessible (actually, Heroku does for all its Postgres databases unless they are within private spaces). Then we can connect to
 such a database from everywhere with only the correct username/password.
 
@@ -227,7 +229,7 @@ for development purposes.
 E.g. Redis, Memcached.
 
 For development purposes it is useful to set up those as a Control Plane workloads as in most cases they don't keep any
-valuable datas and can be safely restarted (sometimes), which doesn't affect application performance.
+valuable data and can be safely restarted (sometimes), which doesn't affect application performance.
 
 For production purposes or where restarts are not an option, you should use external cloud services.
 
@@ -337,14 +339,14 @@ cpl ps:restart -a $APP_NAME
 - uses `Standard` workload type, `cpln exec` as the execution method with CLI streaming
 - may not work correctly with tasks over 5 min (Control Plane scaling bug atm)
 
-> IMPORTANT: useful for development where it is needed interaction and network connection drops (and
-> task crashing) is toleratable. For production tasks better use `cpl runner`
+> IMPORTANT: useful for development where it is needed for interaction and network connection drops and
+> task crashing are tolerable. For production tasks better use `cpl runner`
 
 ```sh
 # opens shell (bash by default)
 cpl run -a $APP_NAME
 
-# runs commmand, displays output, quits (as command quits)
+# runs command, displays output, quits (as command quits)
 cpl run ls / -a $APP_NAME
 cpl run rails db:migrate:status -a $APP_NAME
 
