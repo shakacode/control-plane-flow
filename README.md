@@ -41,13 +41,13 @@ On Control Plane, we can map a Heroku app to a GVC (Global Virtual Cloud). Such 
 
 Mapping of Concepts:
 
-| Heroku           | Control Plane                               |
-|------------------|---------------------------------------------|
-| *app*            | *GVC* (Global Virtual Cloud)                |
-| *dyno*           | *workload*                                  |
-| *addon*          | either a *workload* or an external resource |
-| *review app*     | *GVC (app)* in staging *organization*       |
-| *staging env*    | *GVC (app)* in staging *organization*       |
+| Heroku          | Control Plane                               |
+|-----------------|---------------------------------------------|
+| *app*           | *GVC* (Global Virtual Cloud)                |
+| *dyno*          | *workload*                                  |
+| *addon*         | either a *workload* or an external resource |
+| *review app*    | *GVC (app)* in staging *organization*       |
+| *staging env*   | *GVC (app)* in staging *organization*       |
 | *production env* | *GVC (app)* in production *organization*    |
 
 On Heroku, dyno types are specified in the `Procfile` and configured in CLI/UI; addons are configured only in CLI/UI.
@@ -68,26 +68,33 @@ For the typical Rails app, this means:
 
 Note: `cpl` CLI is configured via a local clone clone of this repo. We may publish it later as a Ruby gem or Node package.
 
-- Install `node` (required for Control Plane CLI)
-- Install `ruby` (required for these helpers)
-- Install Control Plane CLI (adds `cpln` command) and configure credentials
+1. Install `node` (required for Control Plane CLI)
+2. Install `ruby` (required for these helpers)
+3. Install Control Plane CLI (adds `cpln` command) and configure credentials
   ```sh
   npm install -g @controlplane/cli
   cpln login
   ```
-- Install this repo locally, alias `cpl` command globally for easier access, e.g.:
+4. Install this repo locally, alias `cpl` command globally for easier access, e.g.:
   ```sh
   git clone https://github.com/shakacode/heroku-to-control-plane
 
-  # in some local shell startup script - .profile, .bashrc, etc.
+  # Create an alias in some local shell startup script - .profile, .bashrc, etc.
   alias cpl="~/projects/heroku-to-control-plane/cpl"
   ```
-- Copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpl` will pick those depending on which project
-folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching.
+- For each git project that you want to deploy to Control Plane, copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpl` will pick those depending on which project
+folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching configs. 
+
+5. Create a `Dockerfile` for your production deployment. See [this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile).
 
 ## Example CLI flow for application build/deployment
+
+Notes:
+1. `myapp` is an app name defined in the the `.controlplane/controlplane.yml`, such as `ror-tutorial` in this [controlplane.yml](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml)
+2. Other files in the templates directory are used by the `cpl setup` command.
+
 ```sh
-# Provision infrastructure (one-time for new apps only)
+# Provision infrastructure (one-time for new apps only) using templates. 
 # Note how the arguments correspond to files in the .controlplane/templates directory
 cpl setup gvc postgres redis memcached rails sidekiq -a myapp
 
@@ -105,7 +112,9 @@ cpl open -a myapp
 ```
 
 ## Example project modifications for Control Plane
-*See this [example project](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) for a complete example.*
+*See this  for a complete example.*
+
+To learn how to migrate an app, we recommend that you first follow along with this [example project](https://github.com/shakacode/react-webpack-rails-tutorial).
 
 1. Create the `.controlplane` directory in your project and copy files from the `templates` directory of this repo to
 something as follows:
@@ -124,7 +133,10 @@ app_main_folder/
       sidekiq.yml
 ```
 
-2. Edit `controlplane.yml` where necessary, e.g.:
+The example [`.controlplane` directory](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) already contains these files.
+
+
+2. Edit your `controlplane.yml` file as needed. For example, see [`controlplane.yml`](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml):
 ```yaml
 aliases:
   common: &common
@@ -135,7 +147,7 @@ aliases:
       - rails
       - sidekiq
     additional_workloads:
-      # - postgres # atm deployed and started manually
+      # - postgres # atm deployed and started manually, simplest is to keep the Heroku URL for an example app
       - redis
       - memcached
 
@@ -152,17 +164,23 @@ apps:
     dockerfile: ../some_other/Dockerfile
 ```
 
+3. We recommend that you try out the commands listed in [the example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md). These steps will guide you through:
+   1. Provision the GVC and workloads 
+   2. Build the Docker image
+   3. Run Rails migrations, like in the Heroku release phase
+   4. Promote the lastest Docker image
+
 ## Environment
 
 There are two main places where we can set up environment variables in Control Plane:
 
-- In `workload/container/env` - those are container specific and need to be set up individually for each container
+- In `workload/container/env` - those are container specific and need to be set up individually for each container.
 
 - In `gvc/env` - this is a "common" place to keep env vars which we can share among different workloads.
-Those common variables are not visible by default, and we should explicitly enable them via `inheritEnv` property.
+Those common variables are not visible by default, and we should explicitly enable them via the `inheritEnv` property.
 
 In general, `gvc/env` vars are useful for "app" types of workloads, e.g., `rails`, `sidekiq`, as they can easily share
-common configs (the same way as on Heroku). And they are not needed for non-app workloads,
+common configs (the same way as on a Heroku app). They are not needed for non-app workloads,
 e.g., `redis`, `memcached`.
 
 It is ok to keep most of the environment variables for non-production environments in the app templates as, in general,
@@ -221,7 +239,7 @@ aws-rds-single-pg-instance
   mydb-review-333
 ```
 
-Additionally, we provide default `postgres` template in this repo optimized for Control Plane and suitable
+Additionally, we provide a default `postgres` template in this repo optimized for Control Plane and suitable
 for development purposes.
 
 ## In-memory databases
@@ -404,6 +422,20 @@ APP_LOCATION - default location
 APP_ORG      - org
 APP_IMAGE    - will use latest app image
 ```
+
+## Mapping of Heroku Commands to `cpl` and `cpln`
+**`[WIP]`**
+
+| Heroku Command | `cpl` or `cpln` |
+| `heroku ps` | `cpl ps` |
+| `heroku config` | ? |
+| heroku maintenance | ? |
+| heroku logs | `cpl logs` |
+| heroku pg | ? |
+| heroku pipelines:promote | `cpl promote` |
+| heroku psql | ? |
+| heroku redis | ? | 
+| heroku releases | ? |
 
 ## Examples
 
