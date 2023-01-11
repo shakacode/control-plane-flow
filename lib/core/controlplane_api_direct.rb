@@ -4,10 +4,12 @@ class ControlplaneApiDirect
   API_METHODS = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put, delete: Net::HTTP::Delete }.freeze
   API_HOSTS = { api: "https://api.cpln.io", logs: "https://logs.cpln.io" }.freeze
 
-  API_TOKEN_REGEX = Regexp.union(
-    /^[\w.]{155}$/, # CPLN_TOKEN format
-    /^[\w\-._]{1134}$/ # 'cpln profile token' format
-  ).freeze
+  # API_TOKEN_REGEX = Regexp.union(
+  #  /^[\w.]{155}$/, # CPLN_TOKEN format
+  #  /^[\w\-._]{1134}$/ # 'cpln profile token' format
+  # ).freeze
+
+  API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
 
   def call(url, method:, host: :api) # rubocop:disable Metrics/MethodLength
     uri = URI("#{API_HOSTS[host]}#{url}")
