@@ -4,6 +4,8 @@ module Command
   class Base
     attr_reader :config
 
+    NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
+
     def initialize(config)
       @config = config
     end
@@ -41,9 +43,20 @@ module Command
     end
 
     def latest_image
-      @latest_image ||= cp.image_query["items"]
-                          .filter_map { _1["name"] if _1["name"].start_with?("#{config.app}:") }
-                          .max_by(&method(:extract_image_number)) || "#{config.app}:0"
+      @latest_image ||=
+        begin
+          items = cp.image_query["items"]
+          matching_items = items.filter_map do |item|
+            item["name"] if item["name"].start_with?("#{config.app}:")
+          end
+
+          # Or special string to indicate no image available
+          if matching_items.empty?
+            "#{config.app}:#{NO_IMAGE_AVAILABLE}"
+          else
+            matching_items.max_by { |item| extract_image_number(item) }
+          end
+        end
     end
 
     def latest_image_next
@@ -71,7 +84,10 @@ module Command
 
     private
 
+    # returns 0 if no prior image
     def extract_image_number(image_name)
+      return 0 if image_name.end_with?(NO_IMAGE_AVAILABLE)
+
       image_name.match(/:(\d+)/)&.captures&.first.to_i
     end
   end

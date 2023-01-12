@@ -19,7 +19,7 @@ class Controlplane
   end
 
   def image_query
-    cmd = "cpln image query --org #{org} -o yaml --max 0"
+    cmd = "cpln image query --org #{org} -o yaml --max -1 --prop repository=#{config.app}"
     perform_yaml(cmd)
   end
 
