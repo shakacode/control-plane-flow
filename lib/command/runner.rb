@@ -75,11 +75,16 @@ module Command
       script
     end
 
-    def show_logs_waiting
+    def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts "- Scheduled, fetching logs (it is cron job, so it may take up to a minute to start)"
-      while cp.workload_get(one_off)
-        sleep(WORKLOAD_SLEEP_CHECK)
-        print_uniq_logs
+      begin
+        while cp.workload_get(one_off)
+          sleep(WORKLOAD_SLEEP_CHECK)
+          print_uniq_logs
+        end
+      rescue RuntimeError => e
+        progress.puts "ERROR: #{e}"
+        retry
       end
       progress.puts "- Finished workload and logger"
     end
