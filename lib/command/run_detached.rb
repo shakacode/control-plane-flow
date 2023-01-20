@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class Runner < Base
+  class RunDetached < Base
     WORKLOAD_SLEEP_CHECK = 2
 
     attr_reader :location, :workload, :one_off
@@ -9,7 +9,7 @@ module Command
     def call
       abort("ERROR: should specify a command to execute") if config.args.empty?
 
-      @location = config[:location]
+      @location = config[:default_location]
       @workload = config[:one_off_workload]
       @one_off = "#{workload}-runner-#{rand(1000..9999)}"
 
@@ -42,7 +42,7 @@ module Command
 
       # Override image if specified
       image = config.options[:image]
-      image = "/org/#{config[:org]}/image/#{latest_image}" if image == "latest"
+      image = "/org/#{config[:cpln_org]}/image/#{latest_image}" if image == "latest"
       container["image"] = image if image
 
       # Set cron job props

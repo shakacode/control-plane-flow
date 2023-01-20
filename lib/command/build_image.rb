@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class Build < Base
+  class BuildImage < Base
     def call
       dockerfile = config.current[:dockerfile] || "Dockerfile"
       dockerfile = "#{config.app_cpln_dir}/#{dockerfile}"

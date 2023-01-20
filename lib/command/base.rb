@@ -42,7 +42,7 @@ module Command
       cp.workload_delete(workload, no_raise: true)
     end
 
-    def latest_image
+    def latest_image # rubocop:disable Metrics/MethodLength
       @latest_image ||=
         begin
           items = cp.image_query["items"]

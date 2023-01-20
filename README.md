@@ -99,13 +99,13 @@ Notes:
 cpl setup gvc postgres redis memcached rails sidekiq -a myapp
 
 # build and push image with auto-tagging 'myapp:1_456'
-cpl build -a myapp --commit 456
+cpl build-image -a myapp --commit 456
 
 # prepare database
-cpl runner rails db:prepare -a myapp --image latest
+cpl run:detached rails db:prepare -a myapp --image latest
 
 # promote latest image
-cpl promote -a myapp
+cpl promote-image -a myapp
 
 # open app in browser
 cpl open -a myapp
@@ -140,25 +140,45 @@ The example [`.controlplane` directory](https://github.com/shakacode/react-webpa
 ```yaml
 aliases:
   common: &common
-    org: my-org-name
-    location: aws-us-east-2
+    # Org name for staging. (customize to your needs)
+    # Production apps will use a different Control Plane org, specified below, for security.
+    # keys beginning with CPLN correspond to your settings in Control Plane
+    cpln_org: my-org-staging
+
+    # Example apps use only location. CPLN offers the ability to use multiple locations.
+    # TODO -- allow specfication of multiple locations
+    default_location: aws-us-east-2
+
+    # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
+
+    # Workloads that are application itself and are using application docker image
     app_workloads:
       - rails
       - sidekiq
+
+    # Additional "service type" workloads, using non-application docker images
     additional_workloads:
-      # - postgres # atm deployed and started manually, simplest is to keep the Heroku URL for an example app
       - redis
+      - postgres
       - memcached
 
 apps:
-  my-app-name-staging:
+  my-app-staging:
+    # Use the values from the common section above
     <<: *common
-  my-app-name-review:
+  my-app-review:
     <<: *common
-    # 'prefix' option will handle group apps named `my-app-name-review-123`, `my-app-name-review-456`, etc.
-    prefix: true
-  my-app-name-other:
+    # if match_if_app_name_starts_with == true, then use this config for app names beginning,
+    # like my-app-review-pr123 or my-app-review-anything-goes
+    match_if_app_name_starts_with: true
+  my-app-production:
+    <<: *common
+    # Use a different org for production
+    cpln_org: my-org-production
+    # Allows running command 'cpl pipeline-promote my-app-staging' to promote the staging app to production
+    upstream: my-app-staging
+  my-app-other:
     <<: *common
     # you can specify different dockerfile relative to .controlplane folder, default is just 'Dockerfile'
     dockerfile: ../some_other/Dockerfile
@@ -265,14 +285,14 @@ for development purposes.
 This `-a` option is used in most of the commands and will pick all other app configurations from the project-specific
 `controlplane.yml` template.
 
-### `build`
+### `build-image`
 
 - builds and pushes the image to Control Plane
 - automatically assigns image numbers as `app:1`, `app:2`, etc
 - uses `.controlplane/Dockerfile`
 
 ```sh
-cpl build -a $APP_NAME
+cpl build-image -a $APP_NAME
 ```
 
 ### `config`
@@ -332,7 +352,7 @@ cpl open -a $APP_NAME -w $WORKLOAD_NAME
 - promotes the latest image to app workloads
 
 ```sh
-cpl promote -a $APP_NAME
+cpl promote-image -a $APP_NAME
 ```
 
 ### `ps`
@@ -358,7 +378,7 @@ cpl ps:restart -a $APP_NAME
 - may not work correctly with tasks over 5 min (Control Plane scaling bug atm)
 
 > IMPORTANT: useful for development where it is needed for interaction and network connection drops and
-> task crashing are tolerable. For production tasks better use `cpl runner`
+> task crashing are tolerable. For production tasks better use `cpl run:detached`
 
 ```sh
 # opens shell (bash by default)
@@ -376,7 +396,7 @@ cpl run xxx -a $APP_NAME --image appimage:123 # exact image name
 cpl run xxx -a $APP_NAME --image latest       # picks latest sequential image
 ```
 
-### `runner`
+### `run:detached`
 
 - runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)
 - uses `Cron` workload type with log async fetching
@@ -385,18 +405,18 @@ cpl run xxx -a $APP_NAME --image latest       # picks latest sequential image
 Less responsive but more stable, useful for CI tasks
 
 ```sh
-cpl runner rails db:prepare -a $APP_NAME
-cpl runner 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
+cpl run:detached rails db:prepare -a $APP_NAME
+cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 
 # uses other image
-cpl runner rails db:migrate -a $APP_NAME --image /some/full/image/path
+cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
 
 # uses latest app image (which may be not promoted yet)
-cpl runner rails db:migrate -a $APP_NAME --image latest
+cpl run:detached rails db:migrate -a $APP_NAME --image latest
 
 # use a different image (which may be not promoted yet)
-cpl runner xxx -a $APP_NAME --image appimage:123 # exact image name
-cpl runner xxx -a $APP_NAME --image latest       # picks latest sequential image
+cpl run:detached xxx -a $APP_NAME --image appimage:123 # exact image name
+cpl run:detached xxx -a $APP_NAME --image latest       # picks latest sequential image
 ```
 
 ### `setup`

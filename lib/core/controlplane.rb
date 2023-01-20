@@ -7,7 +7,7 @@ class Controlplane
     @config = config
     @api = ControlplaneApi.new
     @gvc = config.app
-    @org = config[:org]
+    @org = config[:cpln_org]
   end
 
   # image
@@ -50,7 +50,7 @@ class Controlplane
 
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
-    cmd += " --set spec.containers.#{container}.image=/org/#{config[:org]}/image/#{image}"
+    cmd += " --set spec.containers.#{container}.image=/org/#{config[:cpln_org]}/image/#{image}"
     perform(cmd)
   end
 

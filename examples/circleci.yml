@@ -25,13 +25,13 @@ build-staging:
           sudo ln -s ~/heroku-to-control-plane/cpl /usr/local/bin/cpl
     - run:
         name: Containerize and push image
-        command: cpl build -a ${APP_NAME}
+        command: cpl build-image -a ${APP_NAME}
     - run:
         name: Database tasks
-        command: cpl runner rails db:migrate -a ${APP_NAME} --image latest
+        command: cpl run:detached rails db:migrate -a ${APP_NAME} --image latest
     - run:
         name: Promote image
-        command: cpl promote -a ${APP_NAME}
+        command: cpl promote-image -a ${APP_NAME}
 
 # Example config for review app:
 # - triggers manually if needed
@@ -72,18 +72,18 @@ build-review-app:
     - run:
         name: Containerize and push image
         command: |
-          cpl build -a ${APP_NAME} --commit ${CIRCLE_SHA1::7}
+          cpl build-image -a ${APP_NAME} --commit ${CIRCLE_SHA1::7}
     - run:
         name: Database tasks
         command: |
           if [ -n "${NEW_APP}" ]; then
-            cpl runner 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --image latest
+            cpl run:detached 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --image latest
           else
-            cpl runner 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --image latest
+            cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --image latest
           fi
     - run:
         name: Promote image
-        command: cpl promote -a ${APP_NAME}
+        command: cpl promote-image -a ${APP_NAME}
 
 review-app:
   jobs:

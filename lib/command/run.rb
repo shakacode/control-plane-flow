@@ -7,7 +7,7 @@ module Command
     def call # rubocop:disable Metrics/MethodLength
       abort("ERROR: should specify a command to execute") if config.args.empty?
 
-      @location = config[:location]
+      @location = config[:default_location]
       @workload = config[:one_off_workload]
       @one_off = "#{workload}-run-#{rand(1000..9999)}"
 
@@ -42,7 +42,7 @@ module Command
 
       # Override image if specified
       image = config.options[:image]
-      image = "/org/#{config[:org]}/image/#{latest_image}" if image == "latest"
+      image = "/org/#{config[:cpln_org]}/image/#{latest_image}" if image == "latest"
       container["image"] = image if image
 
       # Set runner

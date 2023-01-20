@@ -7,7 +7,7 @@ module Command
       workloads ||= config[:app_workloads] + config[:additional_workloads]
 
       workloads.each do |workload|
-        result = cp.workload_get_replicas(workload, location: config[:location])
+        result = cp.workload_get_replicas(workload, location: config[:default_location])
         if result.nil?
           puts "#{workload}: no workload"
         elsif result["items"].nil?

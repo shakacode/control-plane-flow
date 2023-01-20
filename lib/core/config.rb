@@ -4,7 +4,7 @@ class Config
   attr_reader :config, :current,
               :app, :app_dir,
               # command line options
-              :cmd, :args, :options
+              :cmd, :cmd_untranslated, :args, :options
 
   CONFIG_FILE_LOCATIION = ".controlplane/controlplane.yml"
 
@@ -14,8 +14,25 @@ class Config
     pick_current_config if app
   end
 
-  def [](key)
-    app ? current.fetch(key) : abort("ERROR: should specify app")
+  def [](key) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+    abort("ERROR: should specify app") unless app
+
+    logger = $stderr
+
+    if current.key?(key)
+      current.fetch(key)
+    elsif key == :cpln_org && current.key?(:org)
+      logger.puts("DEPRECATED: option 'org' is deprecated, use 'cpln_org' instead\n")
+      current.fetch(:org)
+    elsif key == :default_location && current.key?(:location)
+      logger.puts("DEPRECATED: option 'location' is deprecated, use 'default_location' instead\n")
+      current.fetch(:location)
+    elsif key == :match_if_app_name_starts_with && current.key?(:prefix)
+      logger.puts("DEPRECATED: option 'prefix' is deprecated, use 'match_if_app_name_starts_with' instead\n")
+      current.fetch(:prefix)
+    else
+      abort("ERROR: should specify #{key} in controlplane.yml")
+    end
   end
 
   def script_path
@@ -34,19 +51,21 @@ class Config
       opts.on "-a", "--app APP"
       opts.on "-w", "--workload WORKLOAD"
       opts.on "-i", "--image IMAGE"
-      opts.on "--altlog" # to be removed, obsolete
       opts.on "-c", "--commit COMMIT"
     end
     option_parser.parse!(into: options)
 
-    @cmd = ARGV[0].tr(":", "_").to_sym if ARGV[0]
+    if ARGV[0]
+      @cmd_untranslated = ARGV[0]
+      @cmd = ARGV[0].tr(":-", "_").to_sym
+    end
     @args = ARGV[1..]
     @app = options[:app]
   end
 
   def pick_current_config
     config[:apps].each do |c_app, c_data|
-      if c_app.to_s == app || (c_data[:prefix] && app.start_with?(c_app.to_s))
+      if c_app.to_s == app || (c_data[:match_if_app_name_starts_with] && app.start_with?(c_app.to_s))
         @current = c_data
         break
       end

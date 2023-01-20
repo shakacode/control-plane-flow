@@ -13,7 +13,21 @@ require "yaml"
 config = Config.new
 commands = Command::Base.all_commands
 
-abort("ERROR: Unknown command '#{config.cmd}'") unless commands[config.cmd]
+deprecated = {
+  build: "build-image",
+  promote: "promote-image",
+  runner: "run:detached"
+}[config.cmd]
+
+if deprecated
+  logger = $stderr
+  logger.puts("DEPRECATED: command '#{config.cmd_untranslated}' is deprecated, use '#{deprecated}' instead\n")
+  command = deprecated.tr(":-", "_").to_sym
+end
+
+command ||= config.cmd
+
+abort("ERROR: Unknown command '#{config.cmd_untranslated}'") unless commands[command]
 
 # nice Ctrl+C
 trap "INT" do

@@ -1,17 +1,44 @@
 aliases:
   common: &common
-    org: my-org-name
-    location: aws-us-east-2
+    # Org name for staging. (customize to your needs)
+    # Production apps will use a different Control Plane org, specified below, for security.
+    # keys beginning with CPLN correspond to your settings in Control Plane
+    cpln_org: my-org-staging
+
+    # Example apps use only location. CPLN offers the ability to use multiple locations.
+    # TODO -- allow specfication of multiple locations
+    default_location: aws-us-east-2
+
+    # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
+
+    # Workloads that are application itself and are using application docker image
     app_workloads:
       - rails
+      - sidekiq
+
+    # Additional "service type" workloads, using non-application docker images
     additional_workloads:
       - redis
       - postgres
+      - memcached
 
 apps:
-  my-app-name:
+  my-app-staging:
+    # Use the values from the common section above
     <<: *common
-  my-app-name-review:
+  my-app-review:
     <<: *common
-    prefix: true
+    # if match_if_app_name_starts_with == true, then use this config for app names beginning,
+    # like my-app-review-pr123 or my-app-review-anything-goes
+    match_if_app_name_starts_with: true
+  my-app-production:
+    <<: *common
+    # Use a different org for production
+    cpln_org: my-org-production
+    # Allows running command 'cpl pipeline-promote my-app-staging' to promote the staging app to production
+    upstream: my-app-staging
+  my-app-other:
+    <<: *common
+    # you can specify different dockerfile relative to .controlplane folder, default is just 'Dockerfile'
+    dockerfile: ../some_other/Dockerfile
