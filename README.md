@@ -1,4 +1,5 @@
 # Heroku to Control Plane
+
 _A playbook for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
 
 This playbook shows how to move "Heroku apps" to "Control Plane workloads" via an open-source `cpl` CLI on top of Control Plane's `cpln` CLI.
@@ -31,6 +32,7 @@ To simplify migration to and usage of Control Plane for Heroku users, this repos
 ## Concept mapping
 
 On Heroku, everything runs as an app which means an entity that:
+
 1. Runs code from a Git repo.
 1. Runs several process types, as defined in the `/Procfile`
 1. Has dynos which are Linux containers that run these process types
@@ -41,28 +43,27 @@ On Control Plane, we can map a Heroku app to a GVC (Global Virtual Cloud). Such 
 
 Mapping of Concepts:
 
-| Heroku          | Control Plane                               |
-|-----------------|---------------------------------------------|
-| *app*           | *GVC* (Global Virtual Cloud)                |
-| *dyno*          | *workload*                                  |
-| *addon*         | either a *workload* or an external resource |
-| *review app*    | *GVC (app)* in staging *organization*       |
-| *staging env*   | *GVC (app)* in staging *organization*       |
-| *production env* | *GVC (app)* in production *organization*    |
+| Heroku           | Control Plane                               |
+| ---------------- | ------------------------------------------- |
+| _app_            | _GVC_ (Global Virtual Cloud)                |
+| _dyno_           | _workload_                                  |
+| _addon_          | either a _workload_ or an external resource |
+| _review app_     | _GVC (app)_ in staging _organization_       |
+| _staging env_    | _GVC (app)_ in staging _organization_       |
+| _production env_ | _GVC (app)_ in production _organization_    |
 
 On Heroku, dyno types are specified in the `Procfile` and configured in CLI/UI; addons are configured only in CLI/UI.
-On Control Plane, workloads are created either by *templates* (preferred way) or via the CLI or UI.
+On Control Plane, workloads are created either by _templates_ (preferred way) or via the CLI or UI.
 
 For the typical Rails app, this means:
 
 | function          | examples             | on Heroku     | on Control Plane                                                                                       |
-|-------------------|----------------------|---------------|--------------------------------------------------------------------------------------------------------|
+| ----------------- | -------------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
 | web traffic       | `rails`, `sinatra`   | `web` dyno    | workload with app image                                                                                |
 | background jobs   | `sidekiq`, `resque`  | `worker` dyno | workload with app image                                                                                |
 | db                | `postgres`, `mysql`  | addon         | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
 | in-memory db      | `redis`, `memcached` | addon         | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
 | special something | `mailtrap`           | addon         | external provider or can be set up for dev/test with docker image (lacks persistence between restarts) |
-
 
 ## Installation
 
@@ -71,30 +72,35 @@ Note: `cpl` CLI is configured via a local clone clone of this repo. We may publi
 1. Install `node` (required for Control Plane CLI)
 2. Install `ruby` (required for these helpers)
 3. Install Control Plane CLI (adds `cpln` command) and configure credentials
-  ```sh
-  npm install -g @controlplane/cli
-  cpln login
-  ```
-4. Install this repo locally, alias `cpl` command globally for easier access, e.g.:
-  ```sh
-  git clone https://github.com/shakacode/heroku-to-control-plane
 
-  # Create an alias in some local shell startup script - .profile, .bashrc, etc.
-  alias cpl="~/projects/heroku-to-control-plane/cpl"
-  ```
+```sh
+npm install -g @controlplane/cli
+cpln login
+```
+
+4. Install this repo locally, alias `cpl` command globally for easier access, e.g.:
+
+```sh
+git clone https://github.com/shakacode/heroku-to-control-plane
+
+# Create an alias in some local shell startup script - .profile, .bashrc, etc.
+alias cpl="~/projects/heroku-to-control-plane/cpl"
+```
+
 - For each git project that you want to deploy to Control Plane, copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpl` will pick those depending on which project
-folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching configs. 
+  folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching configs.
 
 5. Create a `Dockerfile` for your production deployment. See [this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile).
 
 ## Example CLI flow for application build/deployment
 
 Notes:
+
 1. `myapp` is an app name defined in the the `.controlplane/controlplane.yml`, such as `ror-tutorial` in this [controlplane.yml](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml)
 2. Other files in the templates directory are used by the `cpl setup` command.
 
 ```sh
-# Provision infrastructure (one-time for new apps only) using templates. 
+# Provision infrastructure (one-time for new apps only) using templates.
 # Note how the arguments correspond to files in the .controlplane/templates directory
 cpl setup gvc postgres redis memcached rails sidekiq -a myapp
 
@@ -112,12 +118,14 @@ cpl open -a myapp
 ```
 
 ## Example project modifications for Control Plane
-*See this  for a complete example.*
+
+_See this for a complete example._
 
 To learn how to migrate an app, we recommend that you first follow along with this [example project](https://github.com/shakacode/react-webpack-rails-tutorial).
 
 1. Create the `.controlplane` directory in your project and copy files from the `templates` directory of this repo to
-something as follows:
+   something as follows:
+
 ```sh
 app_main_folder/
   .controlplane/
@@ -135,8 +143,8 @@ app_main_folder/
 
 The example [`.controlplane` directory](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) already contains these files.
 
-
 2. Edit your `controlplane.yml` file as needed. For example, see [`controlplane.yml`](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml):
+
 ```yaml
 aliases:
   common: &common
@@ -185,7 +193,7 @@ apps:
 ```
 
 3. We recommend that you try out the commands listed in [the example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md). These steps will guide you through:
-   1. Provision the GVC and workloads 
+   1. Provision the GVC and workloads
    2. Build the Docker image
    3. Run Rails migrations, like in the Heroku release phase
    4. Promote the lastest Docker image
@@ -197,7 +205,7 @@ There are two main places where we can set up environment variables in Control P
 - In `workload/container/env` - those are container specific and need to be set up individually for each container.
 
 - In `gvc/env` - this is a "common" place to keep env vars which we can share among different workloads.
-Those common variables are not visible by default, and we should explicitly enable them via the `inheritEnv` property.
+  Those common variables are not visible by default, and we should explicitly enable them via the `inheritEnv` property.
 
 In general, `gvc/env` vars are useful for "app" types of workloads, e.g., `rails`, `sidekiq`, as they can easily share
 common configs (the same way as on a Heroku app). They are not needed for non-app workloads,
@@ -236,12 +244,12 @@ spec:
 There are several options for a database setup on Control Plane.
 
 1. **Heroku Postgres**. It is the least recommended but simplest. We only need to provision the Postgres addon on Heroku and
-copy its `XXXXXX_URL` connection string. This is good for quick testing, but unsuitable for the long term.
+   copy its `XXXXXX_URL` connection string. This is good for quick testing, but unsuitable for the long term.
 
 2. **Control Plane container**. We can set it up as a workload using one of the default Dockerhub images.
-However, such a setup lacks persistence between container restarts.
-We can use this only for an example or test app
-where the database doesn't keep any serious data and where such data is restorable.
+   However, such a setup lacks persistence between container restarts.
+   We can use this only for an example or test app
+   where the database doesn't keep any serious data and where such data is restorable.
 
 3. Any other cloud provider Postgres, e.g., Amazon's RDS can be a quick go-to. Here are [instructions for setting up a free tier of RDS.](https://aws.amazon.com/premiumsupport/knowledge-center/free-tier-rds-launch/)
 
@@ -251,6 +259,7 @@ such a database from everywhere with only the correct username/password.
 
 By default, we have structured our templates to accomplish this with only a single free-tier or low-tier AWS RDS instance
 that can serve all your dev/qa needs for small-medium applications, e.g., as follows:
+
 ```
 aws-rds-single-pg-instance
   mydb-staging
@@ -402,7 +411,7 @@ cpl run xxx -a $APP_NAME --image latest       # picks latest sequential image
 - uses `Cron` workload type with log async fetching
 - implemented with only async execution methods, more suitable for prod tasks
 - has alternative log fetch implementation with only JSON-polling and no WebSockets.
-Less responsive but more stable, useful for CI tasks
+  Less responsive but more stable, useful for CI tasks
 
 ```sh
 cpl run:detached rails db:prepare -a $APP_NAME
@@ -444,6 +453,7 @@ APP_IMAGE    - will use latest app image
 ```
 
 ## Mapping of Heroku Commands to `cpl` and `cpln`
+
 **`[WIP]`**
 
 | Heroku Command | `cpl` or `cpln` |
@@ -454,10 +464,10 @@ APP_IMAGE    - will use latest app image
 | heroku pg | ? |
 | heroku pipelines:promote | `cpl promote` |
 | heroku psql | ? |
-| heroku redis | ? | 
+| heroku redis | ? |
 | heroku releases | ? |
 
 ## Examples
 
 1. See `examples/` and `templates/` folders of this repo.
-2. See `.controlplane` directory of this live example: [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) 
+2. See `.controlplane` directory of this live example: [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane)
