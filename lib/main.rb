@@ -35,4 +35,4 @@ trap "INT" do
   exit(1)
 end
 
-commands[config.cmd].new(config).call
+commands[command].new(config).call
