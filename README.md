@@ -13,13 +13,14 @@ To simplify migration to and usage of Control Plane for Heroku users, this repos
 2. [Concept mapping](#concept-mapping)
 3. [Installation](#installation)
 4. [Example CLI flow for application build/deployment](#example-cli-flow-for-application-builddeployment)
-5. [Example project changes](#example-project-changes)
+5. [Example project modifications for Control Plane](#example-project-modifications-for-control-plane)
 6. [Environment](#environment)
 7. [Database](#database)
 8. [In-memory databases](#in-memory-databases)
 9. [CLI commands reference](#cli-commands-reference)
-10. [Examples](#examples)
-11. [Migrating Postgres out of Heroku cloud](/postgres.md)
+10. [Mapping of Heroku Commands to `cpl` and `cpln`](#mapping-of-heroku-commands-to-cpl-and-cpln)
+11. [Examples](#examples)
+12. [Migrating Postgres database from Heroku infrastructure](/postgres.md)
 
 ## Key features
 
