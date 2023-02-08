@@ -3,6 +3,7 @@
 # Be sure to have run: gem install debug
 require "debug"
 
+# rubocop:disable Lint/Debugger
 module Command
   class Test < Base
     def call
@@ -14,3 +15,4 @@ module Command
     end
   end
 end
+# rubocop:enable Lint/Debugger

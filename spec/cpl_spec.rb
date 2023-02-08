@@ -19,10 +19,10 @@ describe Cpl do
 
   commands.each do |command_name, command_class|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "calls '#{command_class.name}' for '#{command_name}' command" do
+    it "calls '#{command_class.name}' for '#{command_name}' command" do # rubocop:disable RSpec/ExampleLength
       stub_const("ARGV", [command_name.to_s])
 
-      allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml")
+      allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
 
       config = Config.new
       command_instance = command_class.new(config)
@@ -42,7 +42,7 @@ describe Cpl do
       option_value = "whatever"
       stub_const("ARGV", ["test", option_key, option_value])
 
-      allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml")
+      allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
 
       config = Config.new
 
