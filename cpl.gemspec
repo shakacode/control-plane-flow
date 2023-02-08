@@ -22,6 +22,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "net-http", "~> 0.3.2"
   spec.add_dependency "optparse", "~> 0.3.1"
   spec.add_dependency "pathname", "~> 0.2.1"
+  spec.add_dependency "psych",    "~> 5.1.0"
   spec.add_dependency "tempfile", "~> 0.1.3"
   spec.add_dependency "thor",     "~> 1.2.1"
   spec.add_dependency "yaml",     "~> 0.2.1"
