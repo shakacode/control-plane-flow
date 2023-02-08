@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  rubocop:
+    runs-on: ubuntu-latest
+    name: Rubocop
+    strategy:
+      matrix:
+        ruby:
+          - "2.7"
+          - "3.0"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          rubygems: latest
+      - name: Install dependencies
+        run: bundle install
+      - name: Analyze code
+        run: bundle exec rubocop
+
+  rspec:
+    needs: rubocop
+    runs-on: ubuntu-latest
+    name: RSpec
+    env:
+      RAILS_ENV: test
+    strategy:
+      matrix:
+        ruby:
+          - "2.7"
+          - "3.0"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          rubygems: latest
+          bundler-cache: false
+      - name: Install dependencies
+        run: bundle install
+      - name: Run tests
+        run: bundle exec rspec spec
+      - name: Upload coverage results
+        uses: actions/upload-artifact@master
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage
