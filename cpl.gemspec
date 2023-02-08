@@ -26,8 +26,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency "thor",     "~> 1.2.1"
   spec.add_dependency "yaml",     "~> 0.2.1"
 
-  spec.add_development_dependency "rspec",   "~> 3.12.0"
-  spec.add_development_dependency "rubocop", "~> 1.45.0"
+  spec.add_development_dependency "rspec",         "~> 3.12.0"
+  spec.add_development_dependency "rubocop",       "~> 1.45.0"
+  spec.add_development_dependency "simplecov",     "~> 0.22.0"
 
   spec.files = `git ls-files -z`.split("\x0").reject do |file|
     file.match(%r{^(coverage|pkg|spec|tmp)/})
