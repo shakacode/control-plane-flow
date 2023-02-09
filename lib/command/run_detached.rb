@@ -40,6 +40,10 @@ module Command
       # Ensure one-off workload will be running
       spec["defaultOptions"]["suspend"] = false
 
+      # Ensure no scaling
+      spec["defaultOptions"]["autoscaling"]["minScale"] = 1
+      spec["defaultOptions"]["autoscaling"]["minScale"] = 1
+
       # Override image if specified
       image = config.options[:image]
       image = "/org/#{config[:cpln_org]}/image/#{latest_image}" if image == "latest"
