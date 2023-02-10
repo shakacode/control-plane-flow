@@ -1,52 +1,44 @@
 # frozen_string_literal: true
 
 commands = Command::Base.all_commands
-options = {
-  "-a": "app",
-  "--app": "app",
-  "-c": "commit",
-  "--commit": "commit",
-  "-i": "image",
-  "--image": "image",
-  "-w": "workload",
-  "--workload": "workload"
-}
+options_key_name = Command::Base.all_options_key_name
 
 describe Cpl do
   it "has a version number" do
     expect(Cpl::VERSION).not_to be_nil
   end
 
-  commands.each do |command_name, command_class|
+  commands.each do |_command_key, command_class|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "calls '#{command_class.name}' for '#{command_name}' command" do # rubocop:disable RSpec/ExampleLength
-      stub_const("ARGV", [command_name.to_s])
+    it "calls '#{command_class.name}' for '#{command_class::NAME}' command" do # rubocop:disable RSpec/ExampleLength
+      args = command_class::REQUIRES_ARGS ? ["test"] : []
+      command_class::OPTIONS.each do |option|
+        if option[:params][:required]
+          args.push("--#{option[:name]}")
+          args.push("whatever")
+        end
+      end
 
       allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
+      expect_any_instance_of(command_class).to receive(:call) # rubocop:disable RSpec/AnyInstance
 
-      config = Config.new
-      command_instance = command_class.new(config)
-
-      allow(command_instance).to receive(:call)
-      allow(command_class).to receive(:new).and_return(command_instance)
-
-      Cpl::Cli.new
-
-      expect(command_instance).to have_received(:call)
+      Cpl::Cli.start([command_class::NAME, *args])
     end
   end
 
-  options.each do |option_key, option_name|
+  options_key_name.each do |option_key, option_name|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "parses '#{option_key}' option" do
+    it "parses '#{option_key}' option" do # rubocop:disable RSpec/ExampleLength
       option_value = "whatever"
-      stub_const("ARGV", ["test", option_key, option_value])
+
+      args = [option_key, option_value]
+
+      allow(Config).to receive(:new).with([], { option_name.to_sym => option_value }).and_call_original
 
       allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
+      expect_any_instance_of(Command::Test).to receive(:call) # rubocop:disable RSpec/AnyInstance
 
-      config = Config.new
-
-      expect(config.options).to eq({ option_name.to_sym => option_value })
+      Cpl::Cli.start(["test", *args])
     end
   end
 end
