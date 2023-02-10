@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../lib/cpl"
+
+commands_str_arr = []
+
+commands = Command::Base.all_commands
+commands.each do |_command_key, command_class|
+  next if command_class::HIDE
+
+  name = command_class::NAME
+  usage = command_class::USAGE.empty? ? name : command_class::USAGE
+  options = command_class::OPTIONS
+  long_description = command_class::LONG_DESCRIPTION
+  examples = command_class::EXAMPLES
+
+  command_str = "### `#{name}`\n\n"
+  command_str += "#{long_description.strip}\n\n"
+
+  if examples.empty?
+    options_str_arr = []
+    options.each do |option|
+      next unless option[:params][:required]
+
+      options_str_arr.push("#{option[:params][:aliases][0]} $#{option[:params][:banner]}")
+    end
+    options_str = options_str_arr.join(" ")
+
+    command_str += "```sh\ncpl #{usage}"
+    command_str += " #{options_str}" unless options_str.empty?
+    command_str += "\n```"
+  else
+    command_str += examples.strip
+  end
+
+  commands_str_arr.push(command_str)
+end
+
+commands_str = commands_str_arr.join("\n\n")
+
+readme_path = "#{__dir__}/../README.md"
+readme_data = File.read(readme_path).gsub(/<!-- COMMANDS_BEGIN -->[\s\S]+?<!-- COMMANDS_END -->/,
+                                          "<!-- COMMANDS_BEGIN -->\n\n#{commands_str}\n\n<!-- COMMANDS_END -->")
+File.binwrite(readme_path, readme_data)

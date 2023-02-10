@@ -297,6 +297,8 @@ for development purposes.
 This `-a` option is used in most of the commands and will pick all other app configurations from the project-specific
 `.controlplane/controlplane.yml` file.
 
+<!-- COMMANDS_BEGIN -->
+
 ### `build-image`
 
 - Builds and pushes the image to Control Plane
@@ -309,13 +311,13 @@ cpl build-image -a $APP_NAME
 
 ### `config`
 
-- Displays current configs (global and project-specific)
+- Displays current configs (global and app-specific)
 
 ```sh
-# Shows global config.
+# Shows the global config.
 cpl config
 
-# Shows global and app-specific config.
+# Shows both global and app-specific configs.
 cpl config -a $APP_NAME
 ```
 
@@ -328,6 +330,14 @@ cpl config -a $APP_NAME
 cpl delete -a $APP_NAME
 ```
 
+### `env`
+
+- Displays app-specific environment variables
+
+```sh
+cpl env -a $APP_NAME
+```
+
 ### `exist`
 
 - Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
@@ -336,15 +346,23 @@ cpl delete -a $APP_NAME
 if [ cpl exist -a $APP_NAME ]; ...
 ```
 
+### `latest-image`
+
+- Displays the latest image name
+
+```sh
+cpl latest-image -a $APP_NAME
+```
+
 ### `logs`
 
 - Light wrapper to display tailed raw logs for app/workload syntax
 
 ```sh
-# Displays logs for default workload (`one_off_workload`).
+# Displays logs for the default workload (`one_off_workload`).
 cpl logs -a $APP_NAME
 
-# Displays logs for some other workload.
+# Displays logs for a specific workload.
 cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
@@ -353,14 +371,14 @@ cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 - Opens the app endpoint URL in the default browser
 
 ```sh
-# Opens endpoint of default workload (`one_off_workload`).
+# Opens the endpoint of the default workload (`one_off_workload`).
 cpl open -a $APP_NAME
 
-# Opens endpoint of some other workload.
+# Opens the endpoint of a specific workload.
 cpl open -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
-### `promote`
+### `promote-image`
 
 - Promotes the latest image to app workloads
 
@@ -370,18 +388,50 @@ cpl promote-image -a $APP_NAME
 
 ### `ps`
 
+- Shows running replicas in app
+
 ```sh
-# Shows running replicas in app.
+# Shows running replicas in app, for all workloads.
 cpl ps -a $APP_NAME
 
+# Shows running replicas in app, for a specific workload.
+cpl ps -a $APP_NAME -w $WORKLOAD_NAME
+```
+
+### `ps:restart`
+
+- Forces redeploy of workloads in app
+
+```sh
+# Forces redeploy of all workloads in app.
+cpl ps:restart -a $APP_NAME
+
+# Forces redeploy of a specific workload in app.
+cpl ps:restart -a $APP_NAME -w $WORKLOAD_NAME
+```
+
+### `ps:start`
+
+- Starts workloads in app
+
+```sh
 # Starts all workloads in app.
 cpl ps:start -a $APP_NAME
 
+# Starts a specific workload in app.
+cpl ps:start -a $APP_NAME -w $WORKLOAD_NAME
+```
+
+### `ps:stop`
+
+- Stops workloads in app
+
+```sh
 # Stops all workloads in app.
 cpl ps:stop -a $APP_NAME
 
-# Forces redeploy of all workloads in app.
-cpl ps:restart -a $APP_NAME
+# Stops a specific workload in app.
+cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `run`
@@ -404,9 +454,9 @@ cpl run rails db:migrate:status -a $APP_NAME
 # Runs command and keeps shell open.
 cpl run rails c -a $APP_NAME
 
-# Uses different image (which may not be promoted yet).
-cpl run xxx -a $APP_NAME --image appimage:123 # Exact image name
-cpl run xxx -a $APP_NAME --image latest       # Latest sequential image
+# Uses a different image (which may not be promoted yet).
+cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
+cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
 ```
 
 ### `run:detached`
@@ -415,7 +465,7 @@ cpl run xxx -a $APP_NAME --image latest       # Latest sequential image
 - Uses `Cron` workload type with log async fetching
 - Implemented with only async execution methods, more suitable for production tasks
 - Has alternative log fetch implementation with only JSON-polling and no WebSockets
-  Less responsive but more stable, useful for CI tasks.
+- Less responsive but more stable, useful for CI tasks
 
 ```sh
 cpl run:detached rails db:prepare -a $APP_NAME
@@ -424,12 +474,12 @@ cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 # Uses some other image.
 cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
 
-# Uses latest app image (which may be not promoted yet).
+# Uses latest app image (which may not be promoted yet).
 cpl run:detached rails db:migrate -a $APP_NAME --image latest
 
-# Uses a different image (which may be not promoted yet).
-cpl run:detached xxx -a $APP_NAME --image appimage:123 # Exact image name
-cpl run:detached xxx -a $APP_NAME --image latest       # Latest sequential image
+# Uses a different image (which may not be promoted yet).
+cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
+cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
 ```
 
 ### `setup`
@@ -439,14 +489,6 @@ cpl run:detached xxx -a $APP_NAME --image latest       # Latest sequential image
 - Picks templates from the `.controlplane/templates` directory
 - Templates are ordinary Control Plane templates but with variable preprocessing
 
-```sh
-# Applies single template.
-cpl setup redis -a $APP_NAME
-
-# Applies several templates (practically creating full app).
-cpl setup gvc postgres redis rails -a $APP_NAME
-```
-
 **Preprocessed template variables:**
 
 ```
@@ -455,6 +497,16 @@ APP_LOCATION - default location
 APP_ORG      - organization
 APP_IMAGE    - will use latest app image
 ```
+
+```sh
+# Applies single template.
+cpl setup redis -a $APP_NAME
+
+# Applies several templates (practically creating full app).
+cpl setup gvc postgres redis rails -a $APP_NAME
+```
+
+<!-- COMMANDS_END -->
 
 ## Mapping of Heroku Commands to `cpl` and `cpln`
 
