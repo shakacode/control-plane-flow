@@ -6,6 +6,14 @@ require "debug"
 # rubocop:disable Lint/Debugger
 module Command
   class Test < Base
+    NAME = "test"
+    OPTIONS = all_options
+    DESCRIPTION = "For debugging purposes"
+    LONG_DESCRIPTION = <<~HEREDOC
+      - For debugging purposes
+    HEREDOC
+    HIDE = true
+
     def call
       # Change code here to test.
       # You can use `debugger` to debug.

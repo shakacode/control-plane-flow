@@ -2,11 +2,43 @@
 
 module Command
   class Run < Base
+    NAME = "run"
+    USAGE = "run COMMAND"
+    REQUIRES_ARGS = true
+    OPTIONS = [
+      app_option(required: true),
+      image_option
+    ].freeze
+    DESCRIPTION = "Runs one-off **_interactive_** replicas (analog of `heroku run`)"
+    LONG_DESCRIPTION = <<~HEREDOC
+      - Runs one-off **_interactive_** replicas (analog of `heroku run`)
+      - Uses `Standard` workload type and `cpln exec` as the execution method, with CLI streaming
+      - May not work correctly with tasks that last over 5 minutes (there's a Control Plane scaling bug at the moment)
+
+      > **IMPORTANT:** Useful for development where it's needed for interaction, and where network connection drops and
+      > task crashing are tolerable. For production tasks, it's better to use `cpl run:detached`.
+    HEREDOC
+    EXAMPLES = <<~HEREDOC
+      ```sh
+      # Opens shell (bash by default).
+      cpl run -a $APP_NAME
+
+      # Runs command, displays output, and exits shell.
+      cpl run ls / -a $APP_NAME
+      cpl run rails db:migrate:status -a $APP_NAME
+
+      # Runs command and keeps shell open.
+      cpl run rails c -a $APP_NAME
+
+      # Uses a different image (which may not be promoted yet).
+      cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
+      cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+      ```
+    HEREDOC
+
     attr_reader :location, :workload, :one_off
 
-    def call # rubocop:disable Metrics/MethodLength
-      abort("ERROR: should specify a command to execute") if config.args.empty?
-
+    def call
       @location = config[:default_location]
       @workload = config[:one_off_workload]
       @one_off = "#{workload}-run-#{rand(1000..9999)}"

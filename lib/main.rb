@@ -2,4 +2,4 @@
 
 require_relative "cpl"
 
-Cpl::Cli.new
+Cpl::Cli.start

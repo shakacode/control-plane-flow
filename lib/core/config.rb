@@ -4,13 +4,16 @@ class Config
   attr_reader :config, :current,
               :app, :app_dir,
               # command line options
-              :cmd, :cmd_untranslated, :args, :options
+              :args, :options
 
   CONFIG_FILE_LOCATIION = ".controlplane/controlplane.yml"
 
-  def initialize
+  def initialize(args, options)
+    @args = args
+    @options = options
+    @app = options[:app]
+
     load_app_config
-    parse_argv
     pick_current_config if app
   end
 
@@ -44,24 +47,6 @@ class Config
   end
 
   private
-
-  def parse_argv # rubocop:disable Metrics/MethodLength
-    @options = {}
-    option_parser = OptionParser.new do |opts|
-      opts.on "-a", "--app APP"
-      opts.on "-w", "--workload WORKLOAD"
-      opts.on "-i", "--image IMAGE"
-      opts.on "-c", "--commit COMMIT"
-    end
-    option_parser.parse!(into: options)
-
-    if ARGV[0]
-      @cmd_untranslated = ARGV[0]
-      @cmd = ARGV[0].tr(":-", "_").to_sym
-    end
-    @args = ARGV[1..]
-    @app = options[:app]
-  end
 
   def pick_current_config
     config[:apps].each do |c_app, c_data|

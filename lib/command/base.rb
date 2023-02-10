@@ -1,8 +1,26 @@
 # frozen_string_literal: true
 
 module Command
-  class Base
+  class Base # rubocop:disable Metrics/ClassLength
     attr_reader :config
+
+    # Used to call the command (`cpl NAME`)
+    NAME = ""
+    # Displayed when running `cpl help` or `cpl help NAME` (defaults to `NAME`)
+    USAGE = ""
+    # Throws error if `true` and no arguments are passed to the command
+    # or if `false` and arguments are passed to the command
+    REQUIRES_ARGS = false
+    # Options for the command (use option methods below)
+    OPTIONS = [].freeze
+    # Displayed when running `cpl help`
+    DESCRIPTION = ""
+    # Displayed when running `cpl help NAME`
+    LONG_DESCRIPTION = ""
+    # Displayed along with `LONG_DESCRIPTION` when running `cpl help NAME`
+    EXAMPLES = ""
+    # If `true`, hides the command from `cpl help`
+    HIDE = false
 
     NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
 
@@ -15,6 +33,69 @@ module Command
         filename = File.basename(file, ".rb")
         classname = File.read(file).match(/^\s+class (\w+) < Base($| .*$)/)&.captures&.first
         result[filename.to_sym] = Object.const_get("::Command::#{classname}") if classname
+      end
+    end
+
+    def self.app_option(required: false)
+      {
+        name: :app,
+        params: {
+          aliases: ["-a"],
+          banner: "APP_NAME",
+          desc: "Application name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
+    def self.workload_option(required: false)
+      {
+        name: :workload,
+        params: {
+          aliases: ["-w"],
+          banner: "WORKLOAD_NAME",
+          desc: "Workload name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
+    def self.image_option(required: false)
+      {
+        name: :image,
+        params: {
+          aliases: ["-i"],
+          banner: "IMAGE_NAME",
+          desc: "Image name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
+    def self.commit_option(required: false)
+      {
+        name: :commit,
+        params: {
+          aliases: ["-c"],
+          banner: "COMMIT_HASH",
+          desc: "Commit hash",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
+    def self.all_options
+      methods.grep(/_option$/).map { |method| send(method.to_s) }
+    end
+
+    def self.all_options_key_name
+      all_options.each_with_object({}) do |option, result|
+        option[:params][:aliases].each { |current_alias| result[current_alias.to_s] = option[:name] }
+        result["--#{option[:name]}"] = option[:name]
       end
     end
 
