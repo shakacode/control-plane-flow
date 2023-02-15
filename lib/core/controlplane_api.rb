@@ -76,6 +76,10 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :delete)
   end
 
+  def domain_get(org:, domain:)
+    api_json("/org/#{org}/domain/#{domain}", method: :get)
+  end
+
   private
 
   # switch between cpln rest and api

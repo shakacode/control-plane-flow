@@ -186,6 +186,37 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
+  # domain
+
+  def domain_get(domain)
+    api.domain_get(domain: domain, org: org)
+  end
+
+  def domain_get_route(domain, data)
+    port = data["spec"]["ports"].find { |current_port| current_port["number"] == 80 || current_port["number"] == 443 }
+    raise "Can't find port 80 or 443 for domain '#{domain}'." if port.nil?
+
+    raise "Domain '#{domain}' does not use path based routing mode." if port["routes"].nil?
+
+    route = port["routes"].find { |current_route| current_route["prefix"] == "/" }
+    raise "Can't find route '/' for domain '#{domain}'." if route.nil?
+
+    route
+  end
+
+  def domain_get_workload(domain)
+    data = domain_get(domain)
+    route = domain_get_route(domain, data)
+    route["workloadLink"].split("/").last
+  end
+
+  def domain_set_workload(domain, workload)
+    data = domain_get(domain)
+    route = domain_get_route(domain, data)
+    route["workloadLink"] = "/org/#{org}/gvc/#{gvc}/workload/#{workload}"
+    apply(data)
+  end
+
   # logs
 
   def logs(workload:)
