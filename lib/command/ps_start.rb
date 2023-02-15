@@ -5,7 +5,8 @@ module Command
     NAME = "ps:start"
     OPTIONS = [
       app_option(required: true),
-      workload_option
+      workload_option,
+      wait_option("workload to be ready")
     ].freeze
     DESCRIPTION = "Starts workloads in app"
     LONG_DESCRIPTION = <<~DESC
@@ -22,12 +23,28 @@ module Command
     EX
 
     def call
-      workloads = [config.options[:workload]] if config.options[:workload]
-      workloads ||= config[:app_workloads] + config[:additional_workloads]
+      @workloads = [config.options[:workload]] if config.options[:workload]
+      @workloads ||= config[:app_workloads] + config[:additional_workloads]
 
-      workloads.reverse_each do |workload|
+      @workloads.reverse_each do |workload|
         step("Starting workload '#{workload}'") do
           cp.workload_set_suspend(workload, false)
+        end
+      end
+
+      wait_for_ready if config.options[:wait]
+    end
+
+    private
+
+    def wait_for_ready
+      progress.puts
+
+      @workloads.reverse_each do |workload|
+        step("Waiting for workload '#{workload}' to be ready", retry_on_failure: true) do
+          cp.fetch_workload_deployments(workload)&.dig("items")&.any? do |item|
+            item.dig("status", "ready")
+          end
         end
       end
     end

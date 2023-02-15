@@ -165,6 +165,17 @@ module Command
       }
     end
 
+    def self.wait_option(title = "", required: false)
+      {
+        name: :wait,
+        params: {
+          desc: "Waits for #{title}",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
@@ -241,29 +252,44 @@ module Command
       $stderr
     end
 
-    def step(message, abort_on_error: true) # rubocop:disable Metrics/MethodLength
+    def step_error(error, abort_on_error: true)
+      message = error.message
+      if abort_on_error
+        progress.puts(" #{Shell.color('failed!', :red)}\n\n")
+        Shell.abort(message)
+      else
+        Shell.write_to_tmp_stderr(message)
+      end
+    end
+
+    def step_finish(success)
+      if success
+        progress.puts(" #{Shell.color('done!', :green)}")
+      else
+        progress.puts(" #{Shell.color('failed!', :red)}\n\n#{Shell.read_from_tmp_stderr}\n\n")
+      end
+    end
+
+    def step(message, abort_on_error: true, retry_on_failure: false) # rubocop:disable Metrics/MethodLength
       progress.print("#{message}...")
 
       Shell.use_tmp_stderr do
         success = false
 
         begin
-          success = yield
-        rescue RuntimeError => e
-          message = e.message
-          if abort_on_error
-            progress.puts(" #{Shell.color('failed!', :red)}\n\n")
-            Shell.abort(message)
+          if retry_on_failure
+            until (success = yield)
+              progress.print(".")
+              sleep 1
+            end
           else
-            Shell.write_to_tmp_stderr(message)
+            success = yield
           end
+        rescue RuntimeError => e
+          step_error(e, abort_on_error: abort_on_error)
         end
 
-        if success
-          progress.puts(" #{Shell.color('done!', :green)}")
-        else
-          progress.puts(" #{Shell.color('failed!', :red)}\n\n#{Shell.read_from_tmp_stderr}\n\n")
-        end
+        step_finish(success)
       end
     end
 

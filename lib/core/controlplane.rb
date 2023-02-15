@@ -145,6 +145,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     $CHILD_STATUS.success? ? YAML.safe_load(result) : nil
   end
 
+  def fetch_workload_deployments(workload)
+    api.workload_deployments(workload: workload, gvc: gvc, org: org)
+  end
+
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
