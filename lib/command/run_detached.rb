@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class RunDetached < Base
+  class RunDetached < Base # rubocop:disable Metrics/ClassLength
     NAME = "run:detached"
     USAGE = "run:detached COMMAND"
     REQUIRES_ARGS = true
