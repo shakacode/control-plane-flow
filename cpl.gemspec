@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name    = "cpl"
   spec.version = Cpl::VERSION
   spec.authors = ["Justin Gordon", "Sergey Tarasov"]
-  spec.email   = ["justin@shakacode.com", "dzirtusss@gmail.com"]
+  spec.email   = ["justin@shakacode.com", "sergey@shakacode.com"]
 
   spec.summary     = "Heroku to Control Plane"
   spec.description = "Helper CLI for migrating from Heroku to Control Plane"
