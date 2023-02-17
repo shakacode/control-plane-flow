@@ -38,6 +38,24 @@ module Cpl
   class Cli < Thor
     package_name "cpl"
 
+    def self.start(*args)
+      fix_help_option
+
+      super(*args)
+    end
+
+    # This is so that we're able to run `cpl COMMAND --help` to print the help
+    # (it basically changes it to `cpl --help COMMAND`, which Thor recognizes)
+    # Based on https://stackoverflow.com/questions/49042591/how-to-add-help-h-flag-to-thor-command
+    def self.fix_help_option
+      help_mappings = Thor::HELP_MAPPINGS + ["help"]
+      matches = help_mappings & ARGV
+      matches.each do |match|
+        ARGV.delete(match)
+        ARGV.unshift(match)
+      end
+    end
+
     # Needed to silence deprecation warning
     def self.exit_on_failure?
       true
