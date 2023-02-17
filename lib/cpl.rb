@@ -20,11 +20,11 @@ class Thor
       def print_wrapped(message, options = {})
         indent = (options[:indent] || 0).to_i
         if indent.zero?
-          stdout.puts message
+          stdout.puts(message)
         else
           message.each_line do |message_line|
-            stdout.print " " * indent
-            stdout.puts message_line.chomp
+            stdout.print(" " * indent)
+            stdout.puts(message_line.chomp)
           end
         end
       end
@@ -81,11 +81,11 @@ module Cpl
       # so we store it here to be able to use it
       raise_args_error = ->(*args) { handle_argument_error(commands[name_for_method], ArgumentError, *args) }
 
-      desc usage, description, hide: hide
-      long_desc long_description
+      desc(usage, description, hide: hide)
+      long_desc(long_description)
       unless command_options.empty?
         command_options.each do |option|
-          method_option option[:name], **option[:params]
+          method_option(option[:name], **option[:params])
         end
       end
       define_method(name_for_method) do |*args|
@@ -102,7 +102,7 @@ module Cpl
       end
     rescue StandardError => e
       logger = $stderr
-      logger.puts "Unable to load command: #{e.message}"
+      logger.puts("Unable to load command: #{e.message}")
     end
   end
 end
