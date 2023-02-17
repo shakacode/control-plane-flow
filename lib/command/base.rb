@@ -5,7 +5,7 @@ module Command
     attr_reader :config
 
     # Used to call the command (`cpl NAME`)
-    NAME = ""
+    # NAME = ""
     # Displayed when running `cpl help` or `cpl help NAME` (defaults to `NAME`)
     USAGE = ""
     # Throws error if `true` and no arguments are passed to the command
@@ -14,9 +14,9 @@ module Command
     # Options for the command (use option methods below)
     OPTIONS = [].freeze
     # Displayed when running `cpl help`
-    DESCRIPTION = ""
+    # DESCRIPTION = ""
     # Displayed when running `cpl help NAME`
-    LONG_DESCRIPTION = ""
+    # LONG_DESCRIPTION = ""
     # Displayed along with `LONG_DESCRIPTION` when running `cpl help NAME`
     EXAMPLES = ""
     # If `true`, hides the command from `cpl help`
