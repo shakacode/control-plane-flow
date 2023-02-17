@@ -29,7 +29,10 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec",   "~> 3.12.0"
   spec.add_development_dependency "rubocop", "~> 1.45.0"
 
-  spec.files = `git ls-files`.split("\n")
+  spec.files = `git ls-files -z`.split("\x0").reject do |file|
+    file.match(%r{^(coverage|pkg|spec|tmp)/})
+  end
+
   spec.executables = ["cpl"]
 
   spec.metadata["rubygems_mfa_required"] = "true"
