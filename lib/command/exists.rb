@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Command
-  class Exist < Base
-    NAME = "exist"
+  class Exists < Base
+    NAME = "exists"
     OPTIONS = [
       app_option(required: true)
     ].freeze
@@ -12,7 +12,7 @@ module Command
     HEREDOC
     EXAMPLES = <<~HEREDOC
       ```sh
-      if [ cpl exist -a $APP_NAME ]; ...
+      if [ cpl exists -a $APP_NAME ]; ...
       ```
     HEREDOC
 

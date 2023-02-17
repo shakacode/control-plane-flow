@@ -50,12 +50,12 @@ cpl delete -a $APP_NAME
 cpl env -a $APP_NAME
 ```
 
-### `exist`
+### `exists`
 
 - Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
 
 ```sh
-if [ cpl exist -a $APP_NAME ]; ...
+if [ cpl exists -a $APP_NAME ]; ...
 ```
 
 ### `latest-image`
