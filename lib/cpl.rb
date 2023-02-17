@@ -69,6 +69,7 @@ module Cpl
       name_for_method = deprecated ? command_key : name.tr("-", "_")
       usage = command_class::USAGE.empty? ? name : command_class::USAGE
       requires_args = command_class::REQUIRES_ARGS
+      default_args = command_class::DEFAULT_ARGS
       command_options = command_class::OPTIONS
       description = command_class::DESCRIPTION
       long_description = command_class::LONG_DESCRIPTION
@@ -88,11 +89,17 @@ module Cpl
           method_option(option[:name], **option[:params])
         end
       end
-      define_method(name_for_method) do |*args|
+      define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/MethodLength
         if deprecated
           logger = $stderr
           logger.puts("DEPRECATED: command '#{command_key}' is deprecated, use '#{name}' instead\n")
         end
+
+        args = if provided_args.length.positive?
+                 provided_args
+               else
+                 default_args
+               end
 
         raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
 

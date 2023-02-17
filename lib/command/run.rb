@@ -5,6 +5,7 @@ module Command
     NAME = "run"
     USAGE = "run COMMAND"
     REQUIRES_ARGS = true
+    DEFAULT_ARGS = ["bash"].freeze
     OPTIONS = [
       app_option(required: true),
       image_option

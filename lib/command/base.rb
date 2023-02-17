@@ -11,6 +11,8 @@ module Command
     # Throws error if `true` and no arguments are passed to the command
     # or if `false` and arguments are passed to the command
     REQUIRES_ARGS = false
+    # Default arguments if none are passed to the command
+    DEFAULT_ARGS = [].freeze
     # Options for the command (use option methods below)
     OPTIONS = [].freeze
     # Displayed when running `cpl help`
