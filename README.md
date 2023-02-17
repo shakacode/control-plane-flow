@@ -21,6 +21,7 @@ To simplify migration to and usage of Control Plane for Heroku users, this repos
 10. [Mapping of Heroku Commands to `cpl` and `cpln`](#mapping-of-heroku-commands-to-cpl-and-cpln)
 11. [Examples](#examples)
 12. [Migrating Postgres database from Heroku infrastructure](/postgres.md)
+13. [Migrating Redis database from Heroku infrastructure](/redis.md)
 
 ## Key features
 
