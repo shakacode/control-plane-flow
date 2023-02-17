@@ -76,7 +76,7 @@ module Cpl
       examples = command_class::EXAMPLES
       hide = command_class::HIDE || deprecated
 
-      long_description += "\n#{examples}" unless examples.empty?
+      long_description += "\n#{examples}" if examples.length.positive?
 
       # `handle_argument_error` does not exist in the context below,
       # so we store it here to be able to use it
@@ -84,11 +84,11 @@ module Cpl
 
       desc(usage, description, hide: hide)
       long_desc(long_description)
-      unless command_options.empty?
-        command_options.each do |option|
-          method_option(option[:name], **option[:params])
-        end
+
+      command_options.each do |option|
+        method_option(option[:name], **option[:params])
       end
+
       define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/MethodLength
         if deprecated
           logger = $stderr
