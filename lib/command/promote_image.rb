@@ -2,6 +2,15 @@
 
 module Command
   class PromoteImage < Base
+    NAME = "promote-image"
+    OPTIONS = [
+      app_option(required: true)
+    ].freeze
+    DESCRIPTION = "Promotes the latest image to app workloads"
+    LONG_DESCRIPTION = <<~HEREDOC
+      - Promotes the latest image to app workloads
+    HEREDOC
+
     def call
       image = latest_image
 

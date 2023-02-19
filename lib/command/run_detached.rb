@@ -1,14 +1,44 @@
 # frozen_string_literal: true
 
 module Command
-  class RunDetached < Base
+  class RunDetached < Base # rubocop:disable Metrics/ClassLength
+    NAME = "run:detached"
+    USAGE = "run:detached COMMAND"
+    REQUIRES_ARGS = true
+    OPTIONS = [
+      app_option(required: true),
+      image_option
+    ].freeze
+    DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
+    LONG_DESCRIPTION = <<~HEREDOC
+      - Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)
+      - Uses `Cron` workload type with log async fetching
+      - Implemented with only async execution methods, more suitable for production tasks
+      - Has alternative log fetch implementation with only JSON-polling and no WebSockets
+      - Less responsive but more stable, useful for CI tasks
+    HEREDOC
+    EXAMPLES = <<~HEREDOC
+      ```sh
+      cpl run:detached rails db:prepare -a $APP_NAME
+      cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
+
+      # Uses some other image.
+      cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
+
+      # Uses latest app image (which may not be promoted yet).
+      cpl run:detached rails db:migrate -a $APP_NAME --image latest
+
+      # Uses a different image (which may not be promoted yet).
+      cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
+      cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+      ```
+    HEREDOC
+
     WORKLOAD_SLEEP_CHECK = 2
 
     attr_reader :location, :workload, :one_off
 
     def call
-      abort("ERROR: should specify a command to execute") if config.args.empty?
-
       @location = config[:default_location]
       @workload = config[:one_off_workload]
       @one_off = "#{workload}-runner-#{rand(1000..9999)}"

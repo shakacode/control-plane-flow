@@ -288,189 +288,29 @@ for development purposes.
 
 ## CLI commands reference:
 
-### Common Options
+Click [here](/docs/commands.md) to see the commands.
 
-```
--a XXX, --app XXX         app ref on Control Plane (GVC)
-```
-
-This `-a` option is used in most of the commands and will pick all other app configurations from the project-specific
-`.controlplane/controlplane.yml` file.
-
-### `build-image`
-
-- Builds and pushes the image to Control Plane
-- Automatically assigns image numbers, e.g., `app:1`, `app:2`, etc.
-- Uses `.controlplane/Dockerfile`
+You can also run:
 
 ```sh
-cpl build-image -a $APP_NAME
-```
-
-### `config`
-
-- Displays current configs (global and project-specific)
-
-```sh
-# Shows global config.
-cpl config
-
-# Shows global and app-specific config.
-cpl config -a $APP_NAME
-```
-
-### `delete`
-
-- Deletes the whole app (GVC with all workloads and all images)
-- Will ask for explicit user confirmation
-
-```sh
-cpl delete -a $APP_NAME
-```
-
-### `exist`
-
-- Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
-
-```sh
-if [ cpl exist -a $APP_NAME ]; ...
-```
-
-### `logs`
-
-- Light wrapper to display tailed raw logs for app/workload syntax
-
-```sh
-# Displays logs for default workload (`one_off_workload`).
-cpl logs -a $APP_NAME
-
-# Displays logs for some other workload.
-cpl logs -a $APP_NAME -w $WORKLOAD_NAME
-```
-
-### `open`
-
-- Opens the app endpoint URL in the default browser
-
-```sh
-# Opens endpoint of default workload (`one_off_workload`).
-cpl open -a $APP_NAME
-
-# Opens endpoint of some other workload.
-cpl open -a $APP_NAME -w $WORKLOAD_NAME
-```
-
-### `promote`
-
-- Promotes the latest image to app workloads
-
-```sh
-cpl promote-image -a $APP_NAME
-```
-
-### `ps`
-
-```sh
-# Shows running replicas in app.
-cpl ps -a $APP_NAME
-
-# Starts all workloads in app.
-cpl ps:start -a $APP_NAME
-
-# Stops all workloads in app.
-cpl ps:stop -a $APP_NAME
-
-# Forces redeploy of all workloads in app.
-cpl ps:restart -a $APP_NAME
-```
-
-### `run`
-
-- Runs one-off **_interactive_** replicas (analog of `heroku run`)
-- Uses `Standard` workload type and `cpln exec` as the execution method, with CLI streaming
-- May not work correctly with tasks that last over 5 minutes (there's a Control Plane scaling bug at the moment)
-
-> **IMPORTANT:** Useful for development where it's needed for interaction, and where network connection drops and
-> task crashing are tolerable. For production tasks, it's better to use `cpl run:detached`.
-
-```sh
-# Opens shell (bash by default).
-cpl run -a $APP_NAME
-
-# Runs command, displays output, and exits shell.
-cpl run ls / -a $APP_NAME
-cpl run rails db:migrate:status -a $APP_NAME
-
-# Runs command and keeps shell open.
-cpl run rails c -a $APP_NAME
-
-# Uses different image (which may not be promoted yet).
-cpl run xxx -a $APP_NAME --image appimage:123 # Exact image name
-cpl run xxx -a $APP_NAME --image latest       # Latest sequential image
-```
-
-### `run:detached`
-
-- Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)
-- Uses `Cron` workload type with log async fetching
-- Implemented with only async execution methods, more suitable for production tasks
-- Has alternative log fetch implementation with only JSON-polling and no WebSockets
-  Less responsive but more stable, useful for CI tasks.
-
-```sh
-cpl run:detached rails db:prepare -a $APP_NAME
-cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-# Uses some other image.
-cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
-
-# Uses latest app image (which may be not promoted yet).
-cpl run:detached rails db:migrate -a $APP_NAME --image latest
-
-# Uses a different image (which may be not promoted yet).
-cpl run:detached xxx -a $APP_NAME --image appimage:123 # Exact image name
-cpl run:detached xxx -a $APP_NAME --image latest       # Latest sequential image
-```
-
-### `setup`
-
-- Applies application-specific configs from templates (e.g., for every review-app)
-- Publishes (creates or updates) those at Control Plane infrastructure
-- Picks templates from the `.controlplane/templates` directory
-- Templates are ordinary Control Plane templates but with variable preprocessing
-
-```sh
-# Applies single template.
-cpl setup redis -a $APP_NAME
-
-# Applies several templates (practically creating full app).
-cpl setup gvc postgres redis rails -a $APP_NAME
-```
-
-**Preprocessed template variables:**
-
-```
-APP_GVC      - basically GVC or app name
-APP_LOCATION - default location
-APP_ORG      - organization
-APP_IMAGE    - will use latest app image
+cpl --help
 ```
 
 ## Mapping of Heroku Commands to `cpl` and `cpln`
 
 **`[WIP]`**
 
-| Heroku Command             | `cpl` or `cpln` |
-| -------------------------- | --------------- |
-| `heroku ps`                | `cpl ps`        |
-| `heroku config`            | ?               |
-| `heroku maintenance`       | ?               |
-| `heroku logs`              | `cpl logs`      |
-| `heroku pg`                | ?               |
-| `heroku pipelines:promote` | `cpl promote`   |
-| `heroku psql`              | ?               |
-| `heroku redis`             | ?               |
-| `heroku releases`          | ?               |
+| Heroku Command                                                                                                   | `cpl` or `cpln` |
+| ---------------------------------------------------------------------------------------------------------------- | --------------- |
+| `[heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)`                     | `cpl ps`        |
+| `[heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)`                       | ?               |
+| `[heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)`             | ?               |
+| `[heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)`                           | `cpl logs`      |
+| `[heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)`                      | ?               |
+| `[heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote)` | `cpl promote`   |
+| `[heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)`                  | ?               |
+| `[heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)`                | ?               |
+| `[heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)`                   | ?               |
 
 ## Examples
 

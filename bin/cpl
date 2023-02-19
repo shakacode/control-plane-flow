@@ -3,4 +3,4 @@
 
 require "cpl"
 
-Cpl::Cli.new
+Cpl::Cli.start
