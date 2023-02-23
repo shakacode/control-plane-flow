@@ -4,7 +4,8 @@ module Command
   class Delete < Base
     NAME = "delete"
     OPTIONS = [
-      app_option(required: true)
+      app_option(required: true),
+      skip_confirm_option
     ].freeze
     DESCRIPTION = "Deletes the whole app (GVC with all workloads and all images)"
     LONG_DESCRIPTION = <<~HEREDOC
@@ -13,16 +14,23 @@ module Command
     HEREDOC
 
     def call
-      progress.puts "Type 'delete' to delete #{config.app} and images"
-      progress.print "> "
-
-      return progress.puts "Not confirmed" unless $stdin.gets.chomp == "delete"
+      return unless confirm_delete
 
       delete_gvc
       delete_images
     end
 
     private
+
+    def confirm_delete
+      return true if config.options[:yes]
+
+      confirmed = thor_shell.yes?("Are you sure you want to delete '#{config.app}' (y/n)?")
+      return false unless confirmed
+
+      progress.puts
+      true
+    end
 
     def delete_gvc
       progress.puts "- Deleting gvc:"
