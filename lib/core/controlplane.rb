@@ -18,8 +18,8 @@ class Controlplane
     perform(cmd)
   end
 
-  def image_query
-    cmd = "cpln image query --org #{org} -o yaml --max -1 --prop repository=#{config.app}"
+  def image_query(app_name = config.app)
+    cmd = "cpln image query --org #{org} -o yaml --max -1 --prop repository=#{app_name}"
     perform_yaml(cmd)
   end
 
@@ -28,6 +28,15 @@ class Controlplane
   end
 
   # gvc
+
+  def gvc_query(app_name = config.app)
+    # When `match_if_app_name_starts_with` is `true`, we query for any gvc containing the name,
+    # otherwise we query for a gvc with the exact name.
+    op = config.current[:match_if_app_name_starts_with] ? "~" : "="
+
+    cmd = "cpln gvc query --org #{org} -o yaml --prop name#{op}#{app_name}"
+    perform_yaml(cmd)
+  end
 
   def gvc_get(a_gvc = gvc)
     api.gvc_get(gvc: a_gvc, org: org)
