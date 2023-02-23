@@ -9,3 +9,8 @@ RSpec::Core::RakeTask.new(:spec)
 RuboCop::RakeTask.new
 
 task default: %i[spec rubocop]
+
+desc "Updates commands.md file"
+task :command_docs do
+  sh "./script/generate_commands_docs"
+end
