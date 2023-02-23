@@ -108,10 +108,10 @@ module Command
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
 
-    def self.all_options_key_name
+    def self.all_options_by_key_name
       all_options.each_with_object({}) do |option, result|
-        option[:params][:aliases].each { |current_alias| result[current_alias.to_s] = option[:name] }
-        result["--#{option[:name]}"] = option[:name]
+        option[:params][:aliases].each { |current_alias| result[current_alias.to_s] = option }
+        result["--#{option[:name]}"] = option
       end
     end
 

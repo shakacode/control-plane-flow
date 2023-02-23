@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 commands = Command::Base.all_commands
-options_key_name = Command::Base.all_options_key_name
+options_by_key_name = Command::Base.all_options_by_key_name
 
 describe Cpl do
   it "has a version number" do
@@ -26,14 +26,18 @@ describe Cpl do
     end
   end
 
-  options_key_name.each do |option_key, option_name|
+  options_by_key_name.each do |option_key_name, option|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "parses '#{option_key}' option" do # rubocop:disable RSpec/ExampleLength
-      option_value = "whatever"
+    it "parses '#{option_key_name}' option" do # rubocop:disable RSpec/ExampleLength
+      if option[:params][:type] == :boolean
+        option_value = true
+        args = [option_key_name]
+      else
+        option_value = "whatever"
+        args = [option_key_name, option_value]
+      end
 
-      args = [option_key, option_value]
-
-      allow(Config).to receive(:new).with([], { option_name.to_sym => option_value }).and_call_original
+      allow(Config).to receive(:new).with([], { option[:name].to_sym => option_value }).and_call_original
 
       allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
       expect_any_instance_of(Command::Test).to receive(:call) # rubocop:disable RSpec/AnyInstance
