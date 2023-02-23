@@ -91,6 +91,19 @@ module Command
       }
     end
 
+    def self.skip_confirm_option(required: false)
+      {
+        name: :yes,
+        params: {
+          aliases: ["-y"],
+          banner: "SKIP_CONFIRM",
+          desc: "Skip confirmation",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
