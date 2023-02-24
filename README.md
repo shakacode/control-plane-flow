@@ -305,17 +305,17 @@ cpl --help
 
 **`[WIP]`**
 
-| Heroku Command                                                                                                   | `cpl` or `cpln` |
-| ---------------------------------------------------------------------------------------------------------------- | --------------- |
-| `[heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)`                     | `cpl ps`        |
-| `[heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)`                       | ?               |
-| `[heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)`             | ?               |
-| `[heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)`                           | `cpl logs`      |
-| `[heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)`                      | ?               |
-| `[heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote)` | `cpl promote`   |
-| `[heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)`                  | ?               |
-| `[heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)`                | ?               |
-| `[heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)`                   | ?               |
+| Heroku Command                                                                                                 | `cpl` or `cpln` |
+| -------------------------------------------------------------------------------------------------------------- | --------------- |
+| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpl ps`        |
+| [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | ?               |
+| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | ?               |
+| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpl logs`      |
+| [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | ?               |
+| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpl promote`   |
+| [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | ?               |
+| [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | ?               |
+| [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | ?               |
 
 ## Examples
 
