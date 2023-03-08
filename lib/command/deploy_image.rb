@@ -15,7 +15,7 @@ module Command
       image = latest_image
 
       config[:app_workloads].each do |workload|
-        cp.workload_get(workload).dig("spec", "containers").each do |container|
+        cp.workload_get_and_ensure(workload).dig("spec", "containers").each do |container|
           next unless container["image"].match?(%r{^/org/#{config[:cpln_org]}/image/#{config.app}:})
 
           cp.workload_set_image_ref(workload, container: container["name"], image: image)
