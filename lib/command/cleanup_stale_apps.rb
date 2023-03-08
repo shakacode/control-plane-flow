@@ -23,7 +23,7 @@ module Command
 
       progress.puts "Stale apps:"
       stale_apps.each do |app|
-        progress.puts "  #{app[:name]} (#{thor_shell.set_color((app[:date]).to_s, :red)})"
+        progress.puts "  #{app[:name]} (#{Shell.color((app[:date]).to_s, :red)})"
       end
 
       return unless confirm_delete
@@ -70,7 +70,7 @@ module Command
     def confirm_delete
       return true if config.options[:yes]
 
-      thor_shell.yes?("\nAre you sure you want to delete these #{stale_apps.length} apps (y/n)?")
+      Shell.confirm("\nAre you sure you want to delete these #{stale_apps.length} apps?")
     end
 
     def delete_gvc(app)

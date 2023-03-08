@@ -20,7 +20,7 @@ module Command
 
       progress.puts "Old images:"
       old_images.each do |image|
-        progress.puts "  #{image[:name]} (#{thor_shell.set_color((image[:date]).to_s, :red)})"
+        progress.puts "  #{image[:name]} (#{Shell.color((image[:date]).to_s, :red)})"
       end
 
       return unless confirm_delete
@@ -63,7 +63,7 @@ module Command
     def confirm_delete
       return true if config.options[:yes]
 
-      thor_shell.yes?("\nAre you sure you want to delete these #{old_images.length} images (y/n)?")
+      Shell.confirm("\nAre you sure you want to delete these #{old_images.length} images?")
     end
 
     def delete_images
