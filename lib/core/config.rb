@@ -15,24 +15,17 @@ class Config
 
     load_app_config
     pick_current_config if app
+    warn_deprecated_options if current
   end
 
-  def [](key) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  def [](key)
     abort("ERROR: should specify app") unless app
 
-    logger = $stderr
-
+    old_key = old_option_keys[key]
     if current.key?(key)
       current.fetch(key)
-    elsif key == :cpln_org && current.key?(:org)
-      logger.puts("DEPRECATED: option 'org' is deprecated, use 'cpln_org' instead\n")
-      current.fetch(:org)
-    elsif key == :default_location && current.key?(:location)
-      logger.puts("DEPRECATED: option 'location' is deprecated, use 'default_location' instead\n")
-      current.fetch(:location)
-    elsif key == :match_if_app_name_starts_with && current.key?(:prefix)
-      logger.puts("DEPRECATED: option 'prefix' is deprecated, use 'match_if_app_name_starts_with' instead\n")
-      current.fetch(:prefix)
+    elsif old_key && current.key?(old_key)
+      current.fetch(old_key)
     else
       abort("ERROR: should specify #{key} in controlplane.yml")
     end
@@ -75,6 +68,23 @@ class Config
       if path.root?
         puts "ERROR: Can't find project config file, should be 'project_folder/#{CONFIG_FILE_LOCATIION}'"
         exit(-1)
+      end
+    end
+  end
+
+  def old_option_keys
+    {
+      cpln_org: :org,
+      default_location: :location,
+      match_if_app_name_starts_with: :prefix
+    }
+  end
+
+  def warn_deprecated_options
+    old_option_keys.each do |new_key, old_key|
+      if current.key?(old_key)
+        Shell.warn_deprecated("Option '#{old_key}' is deprecated, " \
+                              "please use '#{new_key}' instead (in 'controlplane.yml').")
       end
     end
   end
