@@ -21,6 +21,17 @@ This `-a` option is used in most of the commands and will pick all other app con
 cpl build-image -a $APP_NAME
 ```
 
+### `cleanup-old-images`
+
+- Deletes all images for an app that are older than the specified amount of days
+- Specify the amount of days through `old_image_retention_days` in the `.controlplane/controlplane.yml` file
+- Will ask for explicit user confirmation
+- Does not affect the latest image, regardless of how old it is
+
+```sh
+cpl cleanup-old-images -a $APP_NAME
+```
+
 ### `cleanup-stale-apps`
 
 - Deletes the whole app (GVC with all workloads and all images) for all stale apps
