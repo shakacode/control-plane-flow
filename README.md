@@ -2,6 +2,11 @@
 
 _A playbook for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
 
+[![RSpec](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml)
+[![Rubocop](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml)
+
+[![Gem](https://badge.fury.io/rb/cpl.svg)](https://badge.fury.io/rb/cpl)
+
 This playbook shows how to move "Heroku apps" to "Control Plane workloads" via an open-source `cpl` CLI on top of Control Plane's `cpln` CLI.
 
 Heroku provides a UX and CLI that enables easy publishing of Ruby on Rails and other apps. This ease of use comes via many "Heroku" abstractions and naming conventions.
@@ -300,17 +305,17 @@ cpl --help
 
 **`[WIP]`**
 
-| Heroku Command                                                                                                   | `cpl` or `cpln` |
-| ---------------------------------------------------------------------------------------------------------------- | --------------- |
-| `[heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)`                     | `cpl ps`        |
-| `[heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)`                       | ?               |
-| `[heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)`             | ?               |
-| `[heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)`                           | `cpl logs`      |
-| `[heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)`                      | ?               |
-| `[heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote)` | `cpl promote`   |
-| `[heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)`                  | ?               |
-| `[heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)`                | ?               |
-| `[heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)`                   | ?               |
+| Heroku Command                                                                                                 | `cpl` or `cpln` |
+| -------------------------------------------------------------------------------------------------------------- | --------------- |
+| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpl ps`        |
+| [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | ?               |
+| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | ?               |
+| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpl logs`      |
+| [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | ?               |
+| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpl promote`   |
+| [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | ?               |
+| [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | ?               |
+| [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | ?               |
 
 ## Examples
 

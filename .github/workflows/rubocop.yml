@@ -1,0 +1,29 @@
+name: Rubocop
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  rubocop:
+    runs-on: ubuntu-latest
+    name: Rubocop
+    strategy:
+      matrix:
+        ruby:
+          - "2.7"
+          - "3.0"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Install dependencies
+        run: bundle install
+      - name: Analyze code
+        run: bundle exec rubocop
