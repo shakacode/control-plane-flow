@@ -2,7 +2,7 @@
 
 module Command
   class Base # rubocop:disable Metrics/ClassLength
-    attr_reader :config
+    attr_reader :thor_shell, :config
 
     # Used to call the command (`cpl NAME`)
     # NAME = ""
@@ -27,6 +27,7 @@ module Command
     NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
 
     def initialize(config)
+      @thor_shell = Thor::Shell::Color.new
       @config = config
     end
 
@@ -90,14 +91,27 @@ module Command
       }
     end
 
+    def self.skip_confirm_option(required: false)
+      {
+        name: :yes,
+        params: {
+          aliases: ["-y"],
+          banner: "SKIP_CONFIRM",
+          desc: "Skip confirmation",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
 
-    def self.all_options_key_name
+    def self.all_options_by_key_name
       all_options.each_with_object({}) do |option, result|
-        option[:params][:aliases].each { |current_alias| result[current_alias.to_s] = option[:name] }
-        result["--#{option[:name]}"] = option[:name]
+        option[:params][:aliases].each { |current_alias| result[current_alias.to_s] = option }
+        result["--#{option[:name]}"] = option
       end
     end
 
@@ -125,20 +139,23 @@ module Command
       cp.workload_delete(workload, no_raise: true)
     end
 
-    def latest_image # rubocop:disable Metrics/MethodLength
+    def latest_image_from(items, app_name: config.app, name_only: true)
+      matching_items = items.filter { |item| item["name"].start_with?("#{app_name}:") }
+
+      # Or special string to indicate no image available
+      if matching_items.empty?
+        "#{app_name}:#{NO_IMAGE_AVAILABLE}"
+      else
+        latest_item = matching_items.max_by { |item| extract_image_number(item["name"]) }
+        name_only ? latest_item["name"] : latest_item
+      end
+    end
+
+    def latest_image
       @latest_image ||=
         begin
           items = cp.image_query["items"]
-          matching_items = items.filter_map do |item|
-            item["name"] if item["name"].start_with?("#{config.app}:")
-          end
-
-          # Or special string to indicate no image available
-          if matching_items.empty?
-            "#{config.app}:#{NO_IMAGE_AVAILABLE}"
-          else
-            matching_items.max_by { |item| extract_image_number(item) }
-          end
+          latest_image_from(items)
         end
     end
 
