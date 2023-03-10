@@ -1,4 +1,4 @@
-# Heroku to Control Plane
+# Heroku to Control Plane `cpl` CLI
 
 _A playbook for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
 
