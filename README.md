@@ -74,25 +74,20 @@ For the typical Rails app, this means:
 
 ## Installation
 
-**Note:** `cpl` CLI is configured via a local clone clone of this repo. We may publish it later as a Ruby gem or Node package.
+**Note:** `cpl` CLI is configured either a Ruby gem, [`cpl`](https://rubygems.org/gems/cpl) install or a local clone clone. For information on the latter, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1. Install `node` (required for Control Plane CLI).
 2. Install `ruby` (required for these helpers).
-3. Install Control Plane CLI (adds `cpln` command) and configure credentials.
+3. Install Control Plane CLI (adds `cpln` command) and configure credentials by running command `cpln login`.
 
 ```sh
 npm install -g @controlplane/cli
 cpln login
 ```
 
-4. Install this repo locally and alias `cpl` command globally for easier access, e.g.:
+## Tips
+Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to Control Plane playbook CLI. The `cpln` CLI is the Control Plane CLI.
 
-```sh
-git clone https://github.com/shakacode/heroku-to-control-plane
-
-# Create an alias in some local shell startup script, e.g., `.profile`, `.bashrc`, etc.
-alias cpl="~/projects/heroku-to-control-plane/cpl"
-```
 
 - For each Git project that you want to deploy to Control Plane, copy project-specific configs to a `.controlplane` directory at the top of your project. `cpl` will pick those up depending on which project
   folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching configs.
@@ -105,6 +100,8 @@ alias cpl="~/projects/heroku-to-control-plane/cpl"
 
 1. `myapp` is an app name defined in the `.controlplane/controlplane.yml` file, such as `ror-tutorial` in [this `controlplane.yml` file](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml).
 2. Other files in the `.controlplane/templates` directory are used by the `cpl setup` command.
+
+### Initial Setup and Deployment
 
 ```sh
 # Provision infrastructure (one-time-only for new apps) using templates.
@@ -123,6 +120,26 @@ cpl promote-image -a myapp
 # Open app in browser.
 cpl open -a myapp
 ```
+
+### Promoting code upgrades
+
+```sh
+# Build and push new image with sequential image tagging, e.g. 'ror-tutorial_123'
+cpl build-image -a ror-tutorial
+
+# OR
+# Build and push with sequential image tagging and commit SHA, e.g. 'ror-tutorial_123_ABCD'
+cpl build-image -a ror-tutorial --commit ABCD
+
+# Run database migrations (or other release tasks) with latest image,
+# while app is still running on previous image.
+# This is analogous to the release phase.
+cpl runner rails db:migrate -a ror-tutorial --image latest
+
+# Pomote latest image to app
+cpl promote-image -a ror-tutorial
+```
+
 
 ## Example project modifications for Control Plane
 

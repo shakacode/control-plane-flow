@@ -1,5 +1,21 @@
 # Contributing
 
+## Installation
+Rather than installing `cpl` as a Ruby gem, install this repo locally and alias `cpl` command globally for easier access, e.g.:
+
+```sh
+git clone https://github.com/shakacode/heroku-to-control-plane
+
+# Create an alias in some local shell startup script, e.g., `.profile`, `.bashrc`, etc.
+alias cpl="~/projects/heroku-to-control-plane/cpl"
+```
+
+Or set the path of the Ruby gem in your Gemfile.
+
+```ruby
+gem 'cpl', path: '~/projects/heroku-to-control-plane'
+```
+
 ## Linting
 Be sure to run `rubocop -a` before committing code.
 
