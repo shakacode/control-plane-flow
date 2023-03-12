@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "English"
-require "rake/file_utils"
 
 desc("Releases the gem package using the given version.
 
@@ -12,23 +11,27 @@ desc("Releases the gem package using the given version.
                 automatically perform a patch version bump.
   2nd argument: Perform a dry run by passing 'true' as a second argument.
 
-  Example: `rake release[2.1.0,false]`")
+  Example: `rake create_release[2.1.0,false]`")
 
 task :create_release, %i[gem_version dry_run] do |_t, args|
-  ensure_changes_are_committed
-
   args_hash = args.to_hash
 
   is_dry_run = object_to_boolean(args_hash[:dry_run])
   gem_version = args_hash.fetch(:gem_version, "").strip
   gem_root = File.expand_path("..", __dir__)
 
-  Dir.chdir(gem_root) { prepare_for_release(gem_version) }
+  update_the_local_project
+  ensure_there_is_nothing_to_commit
+
+  Dir.chdir(gem_root) do
+    # See https://github.com/svenfuchs/gem-release
+    `gem bump --no-commit #{gem_version == "" ? "" : %(--version #{gem_version})}`
+  end
 
   release_the_new_gem_version unless is_dry_run
 end
 
-def ensure_changes_are_committed
+def ensure_there_is_nothing_to_commit
   status = `git status --porcelain`
   return if status == ""
 
@@ -41,10 +44,12 @@ def object_to_boolean(value)
   [true, "true", "yes", 1, "1", "t"].include?(value.instance_of?(String) ? value.downcase : value)
 end
 
-def prepare_for_release(gem_version)
-  # See https://github.com/svenfuchs/gem-release
+def update_the_local_project
+  puts "Pulling latest commits from remote repository"
+
   `git pull --rebase`
-  `gem bump --no-commit #{gem_version == "" ? "" : %(--version #{gem_version})}`
+  raise "Failed in pulling latest changes from default remore repository." unless $CHILD_STATUS.success?
+
   `bundle install`
 end
 
@@ -52,5 +57,6 @@ def release_the_new_gem_version
   puts "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
   puts "Use the OTP for RubyGems!"
   puts "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+
   `gem release`
 end
