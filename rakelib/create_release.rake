@@ -51,6 +51,8 @@ def update_the_local_project
   raise "Failed in pulling latest changes from default remore repository." unless $CHILD_STATUS.success?
 
   `bundle install`
+rescue Errno::ENOENT
+  raise "Ensure you have Git and Bundler installed before continuing."
 end
 
 def release_the_new_gem_version
