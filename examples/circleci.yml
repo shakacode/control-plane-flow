@@ -30,8 +30,8 @@ build-staging:
         name: Database tasks
         command: cpl run:detached rails db:migrate -a ${APP_NAME} --image latest
     - run:
-        name: Promote image
-        command: cpl promote-image -a ${APP_NAME}
+        name: Deploy image
+        command: cpl deploy-image -a ${APP_NAME}
 
 # Example config for review app:
 # - triggers manually if needed
@@ -82,8 +82,8 @@ build-review-app:
             cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --image latest
           fi
     - run:
-        name: Promote image
-        command: cpl promote-image -a ${APP_NAME}
+        name: Deploy image
+        command: cpl deploy-image -a ${APP_NAME}
 
 review-app:
   jobs:

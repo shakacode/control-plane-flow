@@ -114,8 +114,8 @@ cpl build-image -a myapp --commit 456
 # Prepare database.
 cpl run:detached rails db:prepare -a myapp --image latest
 
-# Promote latest image.
-cpl promote-image -a myapp
+# Deploy latest image.
+cpl deploy-image -a myapp
 
 # Open app in browser.
 cpl open -a myapp
@@ -136,8 +136,8 @@ cpl build-image -a ror-tutorial --commit ABCD
 # This is analogous to the release phase.
 cpl runner rails db:migrate -a ror-tutorial --image latest
 
-# Pomote latest image to app
-cpl promote-image -a ror-tutorial
+# Deploy latest image to app
+cpl deploy-image -a ror-tutorial
 ```
 
 

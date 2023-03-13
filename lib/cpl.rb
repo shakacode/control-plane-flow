@@ -71,7 +71,8 @@ module Cpl
     def self.deprecated_commands
       {
         build: ::Command::BuildImage,
-        promote: ::Command::PromoteImage,
+        promote: ::Command::DeployImage,
+        promote_image: ::Command::DeployImage,
         runner: ::Command::RunDetached
       }
     end
