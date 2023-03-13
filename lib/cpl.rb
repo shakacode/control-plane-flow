@@ -37,6 +37,7 @@ module Cpl
 
   class Cli < Thor
     package_name "cpl"
+    default_task :no_command
 
     def self.start(*args)
       fix_help_option
