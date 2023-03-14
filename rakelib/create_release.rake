@@ -33,11 +33,15 @@ end
 
 def ensure_there_is_nothing_to_commit
   status = `git status --porcelain`
-  return if status == ""
 
-  raise "You have uncommitted code. Please commit or stash your changes before continuing"
-rescue Errno::ENOENT
-  raise "You do not have Git installed. Please install Git, and commit your changes before continuing"
+  return if $CHILD_STATUS.success? && status == ""
+
+  error = if $CHILD_STATUS.success?
+            "You have uncommitted code. Please commit or stash your changes before continuing"
+          else
+            "You do not have Git installed. Please install Git, and commit your changes before continuing"
+          end
+  raise(error)
 end
 
 def object_to_boolean(value)
