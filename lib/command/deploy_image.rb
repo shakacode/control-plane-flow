@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 module Command
-  class PromoteImage < Base
-    NAME = "promote-image"
+  class DeployImage < Base
+    NAME = "deploy-image"
     OPTIONS = [
       app_option(required: true)
     ].freeze
-    DESCRIPTION = "Promotes the latest image to app workloads"
+    DESCRIPTION = "Deploys the latest image to app workloads"
     LONG_DESCRIPTION = <<~HEREDOC
-      - Promotes the latest image to app workloads
+      - Deploys the latest image to app workloads
     HEREDOC
 
     def call

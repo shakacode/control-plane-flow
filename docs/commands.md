@@ -65,6 +65,14 @@ cpl config -a $APP_NAME
 cpl delete -a $APP_NAME
 ```
 
+### `deploy-image`
+
+- Deploys the latest image to app workloads
+
+```sh
+cpl deploy-image -a $APP_NAME
+```
+
 ### `env`
 
 - Displays app-specific environment variables
@@ -111,14 +119,6 @@ cpl open -a $APP_NAME
 
 # Opens the endpoint of a specific workload.
 cpl open -a $APP_NAME -w $WORKLOAD_NAME
-```
-
-### `promote-image`
-
-- Promotes the latest image to app workloads
-
-```sh
-cpl promote-image -a $APP_NAME
 ```
 
 ### `ps`

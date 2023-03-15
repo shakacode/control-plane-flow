@@ -74,7 +74,7 @@ For the typical Rails app, this means:
 
 ## Installation
 
-**Note:** `cpl` CLI is configured either a Ruby gem, [`cpl`](https://rubygems.org/gems/cpl) install or a local clone clone. For information on the latter, see [CONTRIBUTING.md](CONTRIBUTING.md).
+**Note:** `cpl` CLI is configured either as a Ruby gem, [`cpl`](https://rubygems.org/gems/cpl) install or a local clone. For information on the latter, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1. Install `node` (required for Control Plane CLI).
 2. Install `ruby` (required for these helpers).
@@ -86,8 +86,8 @@ cpln login
 ```
 
 ## Tips
-Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to Control Plane playbook CLI. The `cpln` CLI is the Control Plane CLI.
 
+Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to Control Plane playbook CLI. The `cpln` CLI is the Control Plane CLI.
 
 - For each Git project that you want to deploy to Control Plane, copy project-specific configs to a `.controlplane` directory at the top of your project. `cpl` will pick those up depending on which project
   folder tree it runs. Thus, this automates running several projects with different configs without explicitly switching configs.
@@ -114,8 +114,8 @@ cpl build-image -a myapp --commit 456
 # Prepare database.
 cpl run:detached rails db:prepare -a myapp --image latest
 
-# Promote latest image.
-cpl promote-image -a myapp
+# Deploy latest image.
+cpl deploy-image -a myapp
 
 # Open app in browser.
 cpl open -a myapp
@@ -134,12 +134,11 @@ cpl build-image -a ror-tutorial --commit ABCD
 # Run database migrations (or other release tasks) with latest image,
 # while app is still running on previous image.
 # This is analogous to the release phase.
-cpl runner rails db:migrate -a ror-tutorial --image latest
+cpl run:detached rails db:migrate -a ror-tutorial --image latest
 
-# Pomote latest image to app
-cpl promote-image -a ror-tutorial
+# Deploy latest image to app
+cpl deploy-image -a ror-tutorial
 ```
-
 
 ## Example project modifications for Control Plane
 
