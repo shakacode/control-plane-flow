@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Controlplane
+class Controlplane # rubocop:disable Metrics/ClassLength
   attr_reader :config, :api, :gvc, :org
 
   def initialize(config)
@@ -42,6 +42,13 @@ class Controlplane
     api.gvc_get(gvc: a_gvc, org: org)
   end
 
+  def gvc_get_and_ensure(a_gvc = gvc)
+    gvc_data = gvc_get(a_gvc)
+    return gvc_data if gvc_data
+
+    Shell.abort("Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'.")
+  end
+
   def gvc_delete(a_gvc = gvc)
     api.gvc_delete(gvc: a_gvc, org: org)
   end
@@ -50,6 +57,13 @@ class Controlplane
 
   def workload_get(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
+  end
+
+  def workload_get_and_ensure(workload)
+    workload_data = workload_get(workload)
+    return workload_data if workload_data
+
+    Shell.abort("Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'.")
   end
 
   def workload_get_replicas(workload, location:)
@@ -64,7 +78,7 @@ class Controlplane
   end
 
   def workload_set_suspend(workload, value)
-    data = workload_get(workload)
+    data = workload_get_and_ensure(workload)
     data["spec"]["defaultOptions"]["suspend"] = value
     apply(data)
   end

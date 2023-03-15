@@ -37,14 +37,17 @@ module Command
     def call
       config.args.each do |template|
         filename = "#{config.app_cpln_dir}/templates/#{template}.yml"
-        abort("ERROR: Can't find template for '#{template}' at #{filename}") unless File.exist?(filename)
-
+        ensure_template(template, filename)
         apply_template(filename)
         progress.puts(template)
       end
     end
 
     private
+
+    def ensure_template(template, filename)
+      Shell.abort("Can't find template '#{template}' at '#{filename}', please create it.") unless File.exist?(filename)
+    end
 
     def apply_template(filename)
       data = File.read(filename)

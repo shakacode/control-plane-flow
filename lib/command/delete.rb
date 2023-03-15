@@ -25,7 +25,7 @@ module Command
     def confirm_delete
       return true if config.options[:yes]
 
-      confirmed = thor_shell.yes?("Are you sure you want to delete '#{config.app}' (y/n)?")
+      confirmed = Shell.confirm("Are you sure you want to delete '#{config.app}'?")
       return false unless confirmed
 
       progress.puts

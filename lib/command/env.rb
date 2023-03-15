@@ -12,7 +12,7 @@ module Command
     HEREDOC
 
     def call
-      cp.gvc_get.dig("spec", "env").map do |prop|
+      cp.gvc_get_and_ensure.dig("spec", "env").map do |prop|
         # NOTE: atm no special chars handling, consider adding if needed
         puts "#{prop['name']}=#{prop['value']}"
       end

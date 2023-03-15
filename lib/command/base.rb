@@ -2,7 +2,7 @@
 
 module Command
   class Base # rubocop:disable Metrics/ClassLength
-    attr_reader :thor_shell, :config
+    attr_reader :config
 
     # Used to call the command (`cpl NAME`)
     # NAME = ""
@@ -27,7 +27,6 @@ module Command
     NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
 
     def initialize(config)
-      @thor_shell = Thor::Shell::Color.new
       @config = config
     end
 

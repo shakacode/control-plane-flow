@@ -111,8 +111,8 @@ module Cpl
 
       define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/MethodLength
         if deprecated
-          logger = $stderr
-          logger.puts("DEPRECATED: command '#{command_key}' is deprecated, use '#{name}' instead\n")
+          ::Shell.warn_deprecated("Command '#{command_key}' is deprecated, " \
+                                  "please use '#{name}' instead.")
         end
 
         args = if provided_args.length.positive?

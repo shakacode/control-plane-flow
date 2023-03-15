@@ -15,7 +15,7 @@ describe Cpl do
       command_class::OPTIONS.each do |option|
         if option[:params][:required]
           args.push("--#{option[:name]}")
-          args.push("whatever")
+          args.push("my-app-staging")
         end
       end
 
@@ -33,7 +33,7 @@ describe Cpl do
         option_value = true
         args = [option_key_name]
       else
-        option_value = "whatever"
+        option_value = "my-app-staging"
         args = [option_key_name, option_value]
       end
 
