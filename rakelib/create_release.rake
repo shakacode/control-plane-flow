@@ -74,7 +74,7 @@ module Release
       puts "Use the OTP for RubyGems!"
       puts "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
 
-      sh_in_dir(gem_root, "gem release")
+      sh_in_dir(gem_root, "gem release -p")
     end
   end
 end
