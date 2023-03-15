@@ -26,6 +26,7 @@ task :create_release, %i[gem_version dry_run] do |_t, args|
                     "gem bump --no-commit #{gem_version == '' ? '' : %(--version #{gem_version})}")
   Release.sh_in_dir(gem_root, "bundle install")
   Release.sh_in_dir(gem_root, "git commit -am 'Bump version to #{gem_version}'")
+  Release.sh_in_dir(gem_root, "git push")
 
   # See https://github.com/svenfuchs/gem-release
   Release.release_the_new_gem_version unless is_dry_run
