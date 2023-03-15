@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpl (0.3.1)
+    cpl (0.3.2)
       debug (~> 1.7.1)
       dotenv (~> 2.8.1)
       psych (~> 5.1.0)
