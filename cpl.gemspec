@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email   = ["justin@shakacode.com", "sergey@shakacode.com"]
 
   spec.summary     = "Heroku to Control Plane"
-  spec.description = "Helper CLI for migrating from Heroku to Control Plane"
+  spec.description = "CLI for providing Heroku-like platform-as-a-service on Control Plane"
   spec.homepage    = "https://github.com/shakacode/heroku-to-control-plane"
   spec.license     = "MIT"
 
