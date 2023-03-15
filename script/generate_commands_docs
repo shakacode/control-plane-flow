@@ -6,7 +6,9 @@ require_relative "../lib/cpl"
 commands_str_arr = []
 
 commands = Command::Base.all_commands
-commands.each do |_command_key, command_class|
+commands.keys.sort.each do |command_key|
+  command_class = commands[command_key]
+
   next if command_class::HIDE
 
   name = command_class::NAME

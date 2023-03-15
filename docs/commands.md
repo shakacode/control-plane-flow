@@ -240,3 +240,12 @@ cpl setup redis -a $APP_NAME
 # Applies several templates (practically creating full app).
 cpl setup gvc postgres redis rails -a $APP_NAME
 ```
+
+### `version`
+
+- Displays the current version of the CLI
+- Can also be done with `cpl --version` or `cpl -v`
+
+```sh
+cpl version
+```

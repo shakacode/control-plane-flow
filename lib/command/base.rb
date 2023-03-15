@@ -104,6 +104,19 @@ module Command
       }
     end
 
+    def self.version_option(required: false)
+      {
+        name: :version,
+        params: {
+          aliases: ["-v"],
+          banner: "VERSION",
+          desc: "Displays the current version of the CLI",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
