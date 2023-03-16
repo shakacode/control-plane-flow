@@ -18,7 +18,9 @@ module Command
       # You can use `debugger` to debug.
       # debugger
       # Or print values
+      # rubocop:disable Lint/Debugger
       pp latest_image_next
+      # rubocop:enable Lint/Debugger
     end
   end
 end
