@@ -38,12 +38,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform_yaml(cmd)
   end
 
-  def gvc_get(a_gvc = gvc)
+  def fetch_gvc(a_gvc = gvc)
     api.gvc_get(gvc: a_gvc, org: org)
   end
 
-  def gvc_get_and_ensure(a_gvc = gvc)
-    gvc_data = gvc_get(a_gvc)
+  def fetch_gvc!(a_gvc = gvc)
+    gvc_data = fetch_gvc(a_gvc)
     return gvc_data if gvc_data
 
     Shell.abort("Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'.")

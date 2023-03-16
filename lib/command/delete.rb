@@ -35,7 +35,7 @@ module Command
     def delete_gvc
       progress.puts "- Deleting gvc:"
 
-      return progress.puts "none" unless cp.gvc_get
+      return progress.puts "none" unless cp.fetch_gvc
 
       cp.gvc_delete
       progress.puts config.app
