@@ -55,12 +55,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # workload
 
-  def workload_get(workload)
+  def fetch_workload(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
   end
 
-  def workload_get_and_ensure(workload)
-    workload_data = workload_get(workload)
+  def fetch_workload!(workload)
+    workload_data = fetch_workload(workload)
     return workload_data if workload_data
 
     Shell.abort("Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'.")
@@ -78,7 +78,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_set_suspend(workload, value)
-    data = workload_get_and_ensure(workload)
+    data = fetch_workload!(workload)
     data["spec"]["defaultOptions"]["suspend"] = value
     apply(data)
   end

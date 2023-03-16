@@ -137,7 +137,7 @@ module Command
     end
 
     def wait_for_workload(workload)
-      wait_for("workload to start") { cp.workload_get(workload) }
+      wait_for("workload to start") { cp.fetch_workload(workload) }
     end
 
     def wait_for_replica(workload, location)

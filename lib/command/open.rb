@@ -23,7 +23,7 @@ module Command
 
     def call
       workload = config.options[:workload] || config[:one_off_workload]
-      data = cp.workload_get_and_ensure(workload)
+      data = cp.fetch_workload!(workload)
       url = data["status"]["endpoint"]
       opener = `which xdg-open open`.split("\n").grep_v("not found").first
 
