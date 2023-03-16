@@ -37,7 +37,7 @@ module Command
     def call
       config.args.each do |template|
         filename = "#{config.app_cpln_dir}/templates/#{template}.yml"
-        ensure_template(template, filename)
+        ensure_template!(template, filename)
         apply_template(filename)
         progress.puts(template)
       end
@@ -45,7 +45,7 @@ module Command
 
     private
 
-    def ensure_template(template, filename)
+    def ensure_template!(template, filename)
       Shell.abort("Can't find template '#{template}' at '#{filename}', please create it.") unless File.exist?(filename)
     end
 
