@@ -17,7 +17,7 @@ module Command
     HEREDOC
 
     def call
-      exit(!cp.gvc_get.nil?)
+      exit(!cp.fetch_gvc.nil?)
     end
   end
 end

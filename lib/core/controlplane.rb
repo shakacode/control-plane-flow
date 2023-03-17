@@ -15,7 +15,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def image_build(image, dockerfile:, push: true)
     cmd = "cpln image build --org #{org} --name #{image} --dir #{config.app_dir} --dockerfile #{dockerfile}"
     cmd += " --push" if push
-    perform(cmd)
+    perform!(cmd)
   end
 
   def image_query(app_name = config.app)
@@ -38,12 +38,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform_yaml(cmd)
   end
 
-  def gvc_get(a_gvc = gvc)
+  def fetch_gvc(a_gvc = gvc)
     api.gvc_get(gvc: a_gvc, org: org)
   end
 
-  def gvc_get_and_ensure(a_gvc = gvc)
-    gvc_data = gvc_get(a_gvc)
+  def fetch_gvc!(a_gvc = gvc)
+    gvc_data = fetch_gvc(a_gvc)
     return gvc_data if gvc_data
 
     Shell.abort("Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'.")
@@ -55,12 +55,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # workload
 
-  def workload_get(workload)
+  def fetch_workload(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
   end
 
-  def workload_get_and_ensure(workload)
-    workload_data = workload_get(workload)
+  def fetch_workload!(workload)
+    workload_data = fetch_workload(workload)
     return workload_data if workload_data
 
     Shell.abort("Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'.")
@@ -74,45 +74,50 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config[:cpln_org]}/image/#{image}"
-    perform(cmd)
+    perform!(cmd)
   end
 
   def workload_set_suspend(workload, value)
-    data = workload_get_and_ensure(workload)
+    data = fetch_workload!(workload)
     data["spec"]["defaultOptions"]["suspend"] = value
     apply(data)
   end
 
   def workload_force_redeployment(workload)
     cmd = "cpln workload force-redeployment #{workload} #{gvc_org}"
+    perform!(cmd)
+  end
+
+  def workload_delete(workload)
+    cmd = "cpln workload delete #{workload} #{gvc_org}"
+    cmd += " 2> /dev/null"
     perform(cmd)
   end
 
-  def workload_delete(workload, no_raise: false)
+  def workload_delete!(workload)
     cmd = "cpln workload delete #{workload} #{gvc_org}"
-    cmd += " 2> /dev/null" if no_raise
-    no_raise ? perform_no_raise(cmd) : perform(cmd)
+    perform!(cmd)
   end
 
   def workload_connect(workload, location:, container: nil, shell: nil)
     cmd = "cpln workload connect #{workload} #{gvc_org} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " --shell #{shell}" if shell
-    perform(cmd)
+    perform!(cmd)
   end
 
   def workload_exec(workload, location:, container: nil, command: nil)
     cmd = "cpln workload exec #{workload} #{gvc_org} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
-    perform(cmd)
+    perform!(cmd)
   end
 
   # logs
 
   def logs(workload:)
     cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw --limit 200"
-    perform(cmd)
+    perform!(cmd)
   end
 
   def log_get(workload:, from:, to:)
@@ -126,18 +131,18 @@ class Controlplane # rubocop:disable Metrics/ClassLength
       f.write(data.to_yaml)
       f.rewind
       cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
-      perform(cmd)
+      perform!(cmd)
     end
   end
 
   private
 
   def perform(cmd)
-    system(cmd) || exit(false)
+    system(cmd)
   end
 
-  def perform_no_raise(cmd)
-    system(cmd)
+  def perform!(cmd)
+    system(cmd) || exit(false)
   end
 
   def perform_yaml(cmd)

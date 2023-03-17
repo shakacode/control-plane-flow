@@ -57,7 +57,7 @@ module Command
       progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
 
       # Get base specs of workload
-      spec = cp.workload_get_and_ensure(workload).fetch("spec")
+      spec = cp.fetch_workload!(workload).fetch("spec")
       container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
 
       # remove other containers if any
@@ -113,7 +113,7 @@ module Command
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts "- Scheduled, fetching logs (it is cron job, so it may take up to a minute to start)"
       begin
-        while cp.workload_get(one_off)
+        while cp.fetch_workload(one_off)
           sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end

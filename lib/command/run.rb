@@ -59,7 +59,7 @@ module Command
       progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
 
       # Create a base copy of workload props
-      spec = cp.workload_get_and_ensure(workload).fetch("spec")
+      spec = cp.fetch_workload!(workload).fetch("spec")
       container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
 
       # remove other containers if any

@@ -19,7 +19,7 @@ class Config
   end
 
   def [](key)
-    ensure_current_config
+    ensure_current_config!
 
     old_key = old_option_keys[key]
     if current.key?(key)
@@ -41,37 +41,37 @@ class Config
 
   private
 
-  def ensure_current_config
+  def ensure_current_config!
     Shell.abort("Can't find current config, please specify an app.") unless current
   end
 
-  def ensure_current_config_app(app)
+  def ensure_current_config_app!(app)
     Shell.abort("Can't find app '#{app}' in 'controlplane.yml'.") unless current
   end
 
-  def ensure_config
+  def ensure_config!
     Shell.abort("'controlplane.yml' is empty.") unless config
   end
 
-  def ensure_config_apps
+  def ensure_config_apps!
     Shell.abort("Can't find key 'apps' in 'controlplane.yml'.") unless config[:apps]
   end
 
-  def ensure_config_app(app, options)
+  def ensure_config_app!(app, options)
     Shell.abort("App '#{app}' is empty in 'controlplane.yml'.") unless options
   end
 
   def pick_current_config
-    ensure_config
-    ensure_config_apps
+    ensure_config!
+    ensure_config_apps!
     config[:apps].each do |c_app, c_data|
-      ensure_config_app(c_app, c_data)
+      ensure_config_app!(c_app, c_data)
       if c_app.to_s == app || (c_data[:match_if_app_name_starts_with] && app.start_with?(c_app.to_s))
         @current = c_data
         break
       end
     end
-    ensure_current_config_app(app)
+    ensure_current_config_app!(app)
   end
 
   def load_app_config

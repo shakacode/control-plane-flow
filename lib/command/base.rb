@@ -137,7 +137,7 @@ module Command
     end
 
     def wait_for_workload(workload)
-      wait_for("workload to start") { cp.workload_get(workload) }
+      wait_for("workload to start") { cp.fetch_workload(workload) }
     end
 
     def wait_for_replica(workload, location)
@@ -148,7 +148,7 @@ module Command
 
     def ensure_workload_deleted(workload)
       progress.puts "- Ensure workload is deleted"
-      cp.workload_delete(workload, no_raise: true)
+      cp.workload_delete(workload)
     end
 
     def latest_image_from(items, app_name: config.app, name_only: true)
