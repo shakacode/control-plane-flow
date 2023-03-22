@@ -1,5 +1,10 @@
 # Heroku to Control Plane `cpl` CLI
 
+<meta name="author" content="Justin Gordon and Sergey Tarasov">
+<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpl to make it easier.">
+<meta name="copyright" content="ShakaCode, 2023">
+<meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
+
 _A playbook for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
 
 [![RSpec](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml)
