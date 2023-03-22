@@ -2,7 +2,7 @@
 
 class Config
   attr_reader :config, :current,
-              :app, :app_dir,
+              :org, :app, :app_dir,
               # command line options
               :args, :options
 
@@ -14,6 +14,9 @@ class Config
     @app = options[:app]
 
     load_app_config
+
+    @org = options[:org] || config[:default_cpln_org]
+
     pick_current_config if app
     warn_deprecated_options if current
   end
@@ -66,10 +69,11 @@ class Config
     ensure_config_apps!
     config[:apps].each do |c_app, c_data|
       ensure_config_app!(c_app, c_data)
-      if c_app.to_s == app || (c_data[:match_if_app_name_starts_with] && app.start_with?(c_app.to_s))
-        @current = c_data
-        break
-      end
+      next unless c_app.to_s == app || (c_data[:match_if_app_name_starts_with] && app.start_with?(c_app.to_s))
+
+      @current = c_data
+      @org = self[:cpln_org]
+      break
     end
     ensure_current_config_app!(app)
   end
