@@ -29,6 +29,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # gvc
 
+  def fetch_gvcs
+    api.gvc_list(org: org)
+  end
+
   def gvc_query(app_name = config.app)
     # When `match_if_app_name_starts_with` is `true`, we query for any gvc containing the name,
     # otherwise we query for a gvc with the exact name.
@@ -54,6 +58,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   # workload
+
+  def fetch_workloads(a_gvc = gvc)
+    api.workload_list(gvc: a_gvc, org: org)
+  end
 
   def fetch_workload(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
