@@ -91,16 +91,16 @@ if [ cpl exists -a $APP_NAME ]; ...
 
 ### `info`
 
-- Displays a list of available workloads for all GVCs or a specific GVC in an org
+- Displays a list of available workloads for all apps or a specific app in an org (apps equal GVCs)
 
 ```sh
-# Shows available workloads for all GVCs.
+# Shows available workloads for all apps.
 cpl info
 
-# Shows available workloads for a specific GVC.
+# Shows available workloads for a specific app.
 cpl info -a $APP_NAME
 
-# Shows available workloads for all GVCs in a different org.
+# Shows available workloads for all apps in a different org.
 cpl info -o $ORG_NAME
 ```
 
