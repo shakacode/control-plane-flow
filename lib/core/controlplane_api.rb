@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 class ControlplaneApi
+  def gvc_list(org:)
+    api_json("/org/#{org}/gvc", method: :get)
+  end
+
   def gvc_get(org:, gvc:)
     api_json("/org/#{org}/gvc/#{gvc}", method: :get)
   end
@@ -27,6 +31,10 @@ class ControlplaneApi
     params = params.map { |k, v| %(#{k}=#{CGI.escape(v)}) }.join("&")
 
     api_json_direct("/logs/org/#{org}/loki/api/v1/query_range?#{params}", method: :get, host: :logs)
+  end
+
+  def workload_list(org:, gvc:)
+    api_json("/org/#{org}/gvc/#{gvc}/workload", method: :get)
   end
 
   def workload_get(org:, gvc:, workload:)

@@ -16,7 +16,7 @@ module Command
 
       config[:app_workloads].each do |workload|
         cp.fetch_workload!(workload).dig("spec", "containers").each do |container|
-          next unless container["image"].match?(%r{^/org/#{config[:cpln_org]}/image/#{config.app}:})
+          next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}:})
 
           cp.workload_set_image_ref(workload, container: container["name"], image: image)
           progress.puts "updated #{container['name']}"

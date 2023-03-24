@@ -38,6 +38,19 @@ module Command
       end
     end
 
+    def self.org_option(required: false)
+      {
+        name: :org,
+        params: {
+          aliases: ["-o"],
+          banner: "ORG_NAME",
+          desc: "Organization name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.app_option(required: false)
       {
         name: :app,

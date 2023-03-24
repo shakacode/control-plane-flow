@@ -77,7 +77,7 @@ module Command
 
       # Override image if specified
       image = config.options[:image]
-      image = "/org/#{config[:cpln_org]}/image/#{latest_image}" if image == "latest"
+      image = "/org/#{config.org}/image/#{latest_image}" if image == "latest"
       container["image"] = image if image
 
       # Set cron job props

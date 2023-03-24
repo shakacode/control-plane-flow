@@ -7,7 +7,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     @config = config
     @api = ControlplaneApi.new
     @gvc = config.app
-    @org = config[:cpln_org]
+    @org = config.org
   end
 
   # image
@@ -28,6 +28,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   # gvc
+
+  def fetch_gvcs
+    api.gvc_list(org: org)
+  end
 
   def gvc_query(app_name = config.app)
     # When `match_if_app_name_starts_with` is `true`, we query for any gvc containing the name,
@@ -55,6 +59,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # workload
 
+  def fetch_workloads(a_gvc = gvc)
+    api.workload_list(gvc: a_gvc, org: org)
+  end
+
   def fetch_workload(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
   end
@@ -73,7 +81,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
-    cmd += " --set spec.containers.#{container}.image=/org/#{config[:cpln_org]}/image/#{image}"
+    cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
     perform!(cmd)
   end
 

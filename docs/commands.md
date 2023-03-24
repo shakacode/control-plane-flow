@@ -89,6 +89,21 @@ cpl env -a $APP_NAME
 if [ cpl exists -a $APP_NAME ]; ...
 ```
 
+### `info`
+
+- Displays a list of available workloads for all apps or a specific app in an org (apps equal GVCs)
+
+```sh
+# Shows available workloads for all apps.
+cpl info
+
+# Shows available workloads for a specific app.
+cpl info -a $APP_NAME
+
+# Shows available workloads for all apps in a different org.
+cpl info -o $ORG_NAME
+```
+
 ### `latest-image`
 
 - Displays the latest image name
