@@ -37,6 +37,10 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}/workload", method: :get)
   end
 
+  def workload_list_by_org(org:)
+    api_json("/org/#{org}/workload", method: :get)
+  end
+
   def workload_get(org:, gvc:, workload:)
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :get)
   end

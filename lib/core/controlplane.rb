@@ -63,6 +63,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.workload_list(gvc: a_gvc, org: org)
   end
 
+  def fetch_workloads_by_org(a_org = org)
+    api.workload_list_by_org(org: a_org)
+  end
+
   def fetch_workload(workload)
     api.workload_get(workload: workload, gvc: gvc, org: org)
   end
