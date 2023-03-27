@@ -91,17 +91,18 @@ if [ cpl exists -a $APP_NAME ]; ...
 
 ### `info`
 
-- Displays a list of available workloads for all apps or a specific app in an org (apps equal GVCs)
+- Displays a list of available workloads for all apps or a specific app in all orgs or a specific org (apps equal GVCs)
+- Only displays apps/workloads that match what's defined in the `.controlplane/controlplane.yml` file
 
 ```sh
-# Shows available workloads for all apps.
+# Shows available workloads for all apps in all orgs.
 cpl info
+
+# Shows available workloads for all apps in a specific org.
+cpl info -o $ORG_NAME
 
 # Shows available workloads for a specific app.
 cpl info -a $APP_NAME
-
-# Shows available workloads for all apps in a different org.
-cpl info -o $ORG_NAME
 ```
 
 ### `latest-image`
