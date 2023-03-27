@@ -109,11 +109,13 @@ class Config
   end
 
   def warn_deprecated_options
-    old_option_keys.each do |new_key, old_key|
-      if current.key?(old_key)
-        Shell.warn_deprecated("Option '#{old_key}' is deprecated, " \
-                              "please use '#{new_key}' instead (in 'controlplane.yml').")
-      end
+    deprecated_option_keys = old_option_keys.filter { |_new_key, old_key| current.key?(old_key) }
+    return if deprecated_option_keys.empty?
+
+    deprecated_option_keys.each do |new_key, old_key|
+      Shell.warn_deprecated("Option '#{old_key}' is deprecated, " \
+                            "please use '#{new_key}' instead (in 'controlplane.yml').")
     end
+    $stderr.puts
   end
 end

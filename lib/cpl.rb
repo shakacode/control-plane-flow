@@ -118,6 +118,7 @@ module Cpl
         if deprecated
           ::Shell.warn_deprecated("Command '#{command_key}' is deprecated, " \
                                   "please use '#{name}' instead.")
+          $stderr.puts
         end
 
         args = if provided_args.length.positive?

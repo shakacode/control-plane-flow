@@ -18,14 +18,14 @@ class Shell
   end
 
   def self.warn(message)
-    stderr.puts(color("WARNING: #{message}\n", :yellow))
+    stderr.puts(color("WARNING: #{message}", :yellow))
   end
 
   def self.warn_deprecated(message)
-    stderr.puts(color("DEPRECATED: #{message}\n", :yellow))
+    stderr.puts(color("DEPRECATED: #{message}", :yellow))
   end
 
   def self.abort(message)
-    Kernel.abort(color("ERROR: #{message}\n", :red))
+    Kernel.abort(color("ERROR: #{message}", :red))
   end
 end
