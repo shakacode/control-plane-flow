@@ -50,7 +50,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     gvc_data = fetch_gvc(a_gvc)
     return gvc_data if gvc_data
 
-    Shell.abort("Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'.")
+    raise "Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'."
   end
 
   def gvc_delete(a_gvc = gvc)
@@ -75,7 +75,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     workload_data = fetch_workload(workload)
     return workload_data if workload_data
 
-    Shell.abort("Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'.")
+    raise "Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'."
   end
 
   def workload_get_replicas(workload, location:)

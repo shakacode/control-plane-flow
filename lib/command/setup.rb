@@ -46,7 +46,7 @@ module Command
     private
 
     def ensure_template!(template, filename)
-      Shell.abort("Can't find template '#{template}' at '#{filename}', please create it.") unless File.exist?(filename)
+      raise "Can't find template '#{template}' at '#{filename}', please create it." unless File.exist?(filename)
     end
 
     def apply_template(filename)

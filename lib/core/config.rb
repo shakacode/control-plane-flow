@@ -31,7 +31,7 @@ class Config
     elsif old_key && current.key?(old_key)
       current.fetch(old_key)
     else
-      Shell.abort("Can't find option '#{key}' for app '#{app}' in 'controlplane.yml'.")
+      raise "Can't find option '#{key}' for app '#{app}' in 'controlplane.yml'."
     end
   end
 
@@ -46,23 +46,23 @@ class Config
   private
 
   def ensure_current_config!
-    Shell.abort("Can't find current config, please specify an app.") unless current
+    raise "Can't find current config, please specify an app." unless current
   end
 
   def ensure_current_config_app!(app)
-    Shell.abort("Can't find app '#{app}' in 'controlplane.yml'.") unless current
+    raise "Can't find app '#{app}' in 'controlplane.yml'." unless current
   end
 
   def ensure_config!
-    Shell.abort("'controlplane.yml' is empty.") unless config
+    raise "'controlplane.yml' is empty." unless config
   end
 
   def ensure_config_apps!
-    Shell.abort("Can't find key 'apps' in 'controlplane.yml'.") unless config[:apps]
+    raise "Can't find key 'apps' in 'controlplane.yml'." unless config[:apps]
   end
 
   def ensure_config_app!(app, options)
-    Shell.abort("App '#{app}' is empty in 'controlplane.yml'.") unless options
+    raise "App '#{app}' is empty in 'controlplane.yml'." unless options
   end
 
   def pick_current_config
@@ -95,7 +95,7 @@ class Config
       path = path.parent
 
       if path.root?
-        Shell.abort("Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATIION}', please create it.")
+        raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATIION}', please create it."
       end
     end
   end

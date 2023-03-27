@@ -30,7 +30,7 @@ module Command
       `docker version > /dev/null 2>&1`
       return if $?.success? # rubocop:disable Style/SpecialGlobalVars
 
-      Shell.abort("Can't run Docker. Please make sure that it's installed and started, then try again.")
+      raise "Can't run Docker. Please make sure that it's installed and started, then try again."
     end
   end
 end
