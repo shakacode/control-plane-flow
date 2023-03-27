@@ -159,7 +159,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def perform_yaml(cmd)
     result = `#{cmd}`
-    $?.success? ? YAML.safe_load(result) : exit(false) # rubocop:disable Style/SpecialGlobalVars
+    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(false)
   end
 
   def gvc_org

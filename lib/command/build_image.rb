@@ -28,7 +28,7 @@ module Command
 
     def ensure_docker_running!
       `docker version > /dev/null 2>&1`
-      return if $?.success? # rubocop:disable Style/SpecialGlobalVars
+      return if $CHILD_STATUS.success?
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."
     end
