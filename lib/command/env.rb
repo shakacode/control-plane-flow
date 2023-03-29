@@ -7,9 +7,9 @@ module Command
       app_option(required: true)
     ].freeze
     DESCRIPTION = "Displays app-specific environment variables"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Displays app-specific environment variables
-    HEREDOC
+    DESC
 
     def call
       cp.fetch_gvc!.dig("spec", "env").map do |prop|

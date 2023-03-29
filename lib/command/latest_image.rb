@@ -7,9 +7,9 @@ module Command
       app_option(required: true)
     ].freeze
     DESCRIPTION = "Displays the latest image name"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Displays the latest image name
-    HEREDOC
+    DESC
 
     def call
       puts latest_image

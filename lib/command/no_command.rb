@@ -5,9 +5,9 @@ module Command
     NAME = "no-command"
     OPTIONS = [version_option].freeze
     DESCRIPTION = "Called when no command was specified"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Called when no command was specified
-    HEREDOC
+    DESC
     HIDE = true
 
     def call

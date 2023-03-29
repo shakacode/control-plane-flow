@@ -7,9 +7,9 @@ module Command
       app_option(required: true)
     ].freeze
     DESCRIPTION = "Deploys the latest image to app workloads"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Deploys the latest image to app workloads
-    HEREDOC
+    DESC
 
     def call
       image = latest_image

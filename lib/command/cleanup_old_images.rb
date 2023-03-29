@@ -8,12 +8,12 @@ module Command
       skip_confirm_option
     ].freeze
     DESCRIPTION = "Deletes all images for an app that are older than the specified amount of days"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Deletes all images for an app that are older than the specified amount of days
       - Specify the amount of days through `old_image_retention_days` in the `.controlplane/controlplane.yml` file
       - Will ask for explicit user confirmation
       - Does not affect the latest image, regardless of how old it is
-    HEREDOC
+    DESC
 
     def call
       return progress.puts "No old images found" if old_images.empty?

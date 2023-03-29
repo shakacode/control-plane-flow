@@ -8,10 +8,10 @@ module Command
       skip_confirm_option
     ].freeze
     DESCRIPTION = "Deletes the whole app (GVC with all workloads and all images)"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads and all images)
       - Will ask for explicit user confirmation
-    HEREDOC
+    DESC
 
     def call
       return unless confirm_delete

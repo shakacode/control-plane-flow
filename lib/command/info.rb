@@ -8,10 +8,10 @@ module Command
       app_option
     ].freeze
     DESCRIPTION = "Displays a list of available workloads for all apps or a specific app in an org (apps equal GVCs)"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Displays a list of available workloads for all apps or a specific app in an org (apps equal GVCs)
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Shows available workloads for all apps.
       cpl info
@@ -22,7 +22,7 @@ module Command
       # Shows available workloads for all apps in a different org.
       cpl info -o $ORG_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       ensure_org!

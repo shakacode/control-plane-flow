@@ -8,10 +8,10 @@ module Command
       workload_option
     ].freeze
     DESCRIPTION = "Shows running replicas in app"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Shows running replicas in app
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Shows running replicas in app, for all workloads.
       cpl ps -a $APP_NAME
@@ -19,7 +19,7 @@ module Command
       # Shows running replicas in app, for a specific workload.
       cpl ps -a $APP_NAME -w $WORKLOAD_NAME
       ```
-    HEREDOC
+    EX
 
     def call # rubocop:disable Metrics/MethodLength
       workloads = [config.options[:workload]] if config.options[:workload]

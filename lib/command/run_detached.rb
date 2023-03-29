@@ -10,14 +10,14 @@ module Command
       image_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)
       - Uses `Cron` workload type with log async fetching
       - Implemented with only async execution methods, more suitable for production tasks
       - Has alternative log fetch implementation with only JSON-polling and no WebSockets
       - Less responsive but more stable, useful for CI tasks
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       cpl run:detached rails db:prepare -a $APP_NAME
       cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
@@ -32,7 +32,7 @@ module Command
       cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
       cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
       ```
-    HEREDOC
+    EX
 
     WORKLOAD_SLEEP_CHECK = 2
 
