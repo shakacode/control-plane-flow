@@ -20,6 +20,8 @@ module Command
     EXAMPLES = <<~HEREDOC
       ```sh
       cpl run:detached rails db:prepare -a $APP_NAME
+      
+      # Need to quote COMMAND if setting ENV value or passing args to command to run
       cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 
       # Uses some other image.
