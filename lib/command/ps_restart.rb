@@ -26,8 +26,11 @@ module Command
       workloads ||= config[:app_workloads] + config[:additional_workloads]
 
       workloads.each do |workload|
-        cp.workload_force_redeployment(workload)
-        progress.puts "#{workload} restarted"
+        step("Restarting workload '#{workload}'") do
+          cp.fetch_workload!(workload)
+
+          cp.workload_force_redeployment(workload)
+        end
       end
     end
   end

@@ -19,7 +19,8 @@ module Command
 
       dockerfile = config.current[:dockerfile] || "Dockerfile"
       dockerfile = "#{config.app_cpln_dir}/#{dockerfile}"
-      progress.puts "- Building dockerfile: #{dockerfile}"
+
+      progress.puts("Building image from Dockerfile '#{dockerfile}'...\n\n")
 
       cp.image_build(latest_image_next, dockerfile: dockerfile)
     end

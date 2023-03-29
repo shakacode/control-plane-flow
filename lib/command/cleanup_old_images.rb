@@ -16,11 +16,11 @@ module Command
     DESC
 
     def call
-      return progress.puts "No old images found" if old_images.empty?
+      return progress.puts("No old images found.") if old_images.empty?
 
-      progress.puts "Old images:"
+      progress.puts("Old images:")
       old_images.each do |image|
-        progress.puts "  #{image[:name]} (#{Shell.color((image[:date]).to_s, :red)})"
+        progress.puts("  - #{image[:name]} (#{Shell.color((image[:date]).to_s, :red)})")
       end
 
       return unless confirm_delete
@@ -68,8 +68,9 @@ module Command
 
     def delete_images
       old_images.each do |image|
-        cp.image_delete(image[:name])
-        progress.puts "#{image[:name]} deleted"
+        step("Deleting image '#{image[:name]}'") do
+          cp.image_delete(image[:name])
+        end
       end
     end
   end

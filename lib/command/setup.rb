@@ -34,20 +34,38 @@ module Command
       ```
     EX
 
-    def call
+    def call # rubocop:disable Metrics/MethodLength
+      @app_status = :existing
+      @created_workloads = []
+      @failed_workloads = []
+
       config.args.each do |template|
         filename = "#{config.app_cpln_dir}/templates/#{template}.yml"
-        ensure_template!(template, filename)
-        apply_template(filename)
-        progress.puts(template)
+
+        step("Applying template '#{template}'", abort_on_error: false) do
+          unless File.exist?(filename)
+            report_failure(template)
+
+            raise "Can't find template '#{template}' at '#{filename}', please create it."
+          end
+
+          apply_template(filename)
+          if $CHILD_STATUS.success?
+            report_success(template)
+          else
+            report_failure(template)
+          end
+
+          $CHILD_STATUS.success?
+        end
       end
+
+      print_app_status
+      print_created_workloads
+      print_failed_workloads
     end
 
     private
-
-    def ensure_template!(template, filename)
-      raise "Can't find template '#{template}' at '#{filename}', please create it." unless File.exist?(filename)
-    end
 
     def apply_template(filename)
       data = File.read(filename)
@@ -57,6 +75,46 @@ module Command
                  .gsub("APP_IMAGE", latest_image)
 
       cp.apply(YAML.safe_load(data))
+    end
+
+    def report_success(template)
+      if template == "gvc"
+        @app_status = :success
+      else
+        @created_workloads.push(template)
+      end
+    end
+
+    def report_failure(template)
+      if template == "gvc"
+        @app_status = :failure
+      else
+        @failed_workloads.push(template)
+      end
+    end
+
+    def print_app_status
+      return if @app_status == :existing
+
+      if @app_status == :success
+        progress.puts("\n#{Shell.color("Created app '#{config.app}'.", :green)}")
+      else
+        progress.puts("\n#{Shell.color("Failed to create app '#{config.app}'.", :red)}")
+      end
+    end
+
+    def print_created_workloads
+      return unless @created_workloads.any?
+
+      workloads = @created_workloads.map { |template| "  - #{template}" }.join("\n")
+      progress.puts("\n#{Shell.color('Created workloads:', :green)}\n#{workloads}")
+    end
+
+    def print_failed_workloads
+      return unless @failed_workloads.any?
+
+      workloads = @failed_workloads.map { |template| "  - #{template}" }.join("\n")
+      progress.puts("\n#{Shell.color('Failed to create workloads:', :red)}\n#{workloads}")
     end
   end
 end

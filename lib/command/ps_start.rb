@@ -26,8 +26,9 @@ module Command
       workloads ||= config[:app_workloads] + config[:additional_workloads]
 
       workloads.reverse_each do |workload|
-        cp.workload_set_suspend(workload, false)
-        progress.puts "#{workload} started"
+        step("Starting workload '#{workload}'") do
+          cp.workload_set_suspend(workload, false)
+        end
       end
     end
   end

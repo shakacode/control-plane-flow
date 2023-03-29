@@ -18,8 +18,9 @@ module Command
         cp.fetch_workload!(workload).dig("spec", "containers").each do |container|
           next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}:})
 
-          cp.workload_set_image_ref(workload, container: container["name"], image: image)
-          progress.puts "updated #{container['name']}"
+          step("Deploying image '#{image}' for workload '#{container['name']}'") do
+            cp.workload_set_image_ref(workload, container: container["name"], image: image)
+          end
         end
       end
     end
