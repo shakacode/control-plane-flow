@@ -8,10 +8,10 @@ module Command
       workload_option
     ].freeze
     DESCRIPTION = "Opens the app endpoint URL in the default browser"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Opens the app endpoint URL in the default browser
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Opens the endpoint of the default workload (`one_off_workload`).
       cpl open -a $APP_NAME
@@ -19,7 +19,7 @@ module Command
       # Opens the endpoint of a specific workload.
       cpl open -a $APP_NAME -w $WORKLOAD_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       workload = config.options[:workload] || config[:one_off_workload]

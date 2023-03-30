@@ -8,10 +8,10 @@ module Command
       workload_option
     ].freeze
     DESCRIPTION = "Forces redeploy of workloads in app"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Forces redeploy of workloads in app
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Forces redeploy of all workloads in app.
       cpl ps:restart -a $APP_NAME
@@ -19,7 +19,7 @@ module Command
       # Forces redeploy of a specific workload in app.
       cpl ps:restart -a $APP_NAME -w $WORKLOAD_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       workloads = [config.options[:workload]] if config.options[:workload]

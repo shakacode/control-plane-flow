@@ -10,13 +10,13 @@ module Command
       skip_confirm_option
     ].freeze
     DESCRIPTION = "Deletes the whole app (GVC with all workloads and all images) for all stale apps"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads and all images) for all stale apps
       - Stale apps are identified based on the creation date of the latest image
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
       - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
       - Will ask for explicit user confirmation
-    HEREDOC
+    DESC
 
     def call # rubocop:disable Metrics/MethodLength
       return progress.puts "No stale apps found" if stale_apps.empty?

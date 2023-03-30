@@ -8,9 +8,9 @@ module Command
     NAME = "test"
     OPTIONS = all_options
     DESCRIPTION = "For debugging purposes"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - For debugging purposes
-    HEREDOC
+    DESC
     HIDE = true
 
     def call

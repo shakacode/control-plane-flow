@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+
+old_command_name = ARGV[0]&.downcase
+new_command_name = ARGV[1]&.downcase
+
+abort("ERROR: Must provide old and new command names.") unless old_command_name && new_command_name
+
+old_file_name = old_command_name.gsub(/[^A-Za-z]/, "_")
+old_file_path = "#{__dir__}/../lib/command/#{old_file_name}.rb"
+
+abort("ERROR: Command '#{old_command_name}' does not exist.") unless File.exist?(old_file_path)
+
+new_file_name = new_command_name.gsub(/[^A-Za-z]/, "_")
+new_file_path = "#{__dir__}/../lib/command/#{new_file_name}.rb"
+
+abort("ERROR: Command '#{new_command_name}' already exists.") if File.exist?(new_file_path)
+
+old_class_name = old_file_name.split("_").map(&:capitalize).join
+new_class_name = new_file_name.split("_").map(&:capitalize).join
+
+file_data = File.binread(old_file_path)
+file_data.gsub!(old_class_name, new_class_name)
+file_data.gsub!(old_command_name, new_command_name)
+File.binwrite(new_file_path, file_data)
+File.delete(old_file_path)
+
+# Add old command name to deprecated commands
+deprecated_commands_file_path = "#{__dir__}/../lib/deprecated_commands.json"
+old_deprecated_commands_data = File.binread(deprecated_commands_file_path)
+deprecated_commands = JSON.parse(old_deprecated_commands_data)
+deprecated_commands = deprecated_commands.to_h do |current_old_command_name, current_new_command_name|
+  if current_new_command_name == old_command_name
+    [current_old_command_name, new_command_name]
+  else
+    [current_old_command_name, current_new_command_name]
+  end
+end
+deprecated_commands[old_command_name] = new_command_name
+new_deprecated_commands_data = "#{JSON.pretty_generate(deprecated_commands.sort.to_h)}\n"
+File.binwrite(deprecated_commands_file_path, new_deprecated_commands_data)

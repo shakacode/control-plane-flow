@@ -11,15 +11,15 @@ module Command
       image_option
     ].freeze
     DESCRIPTION = "Runs one-off **_interactive_** replicas (analog of `heroku run`)"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Runs one-off **_interactive_** replicas (analog of `heroku run`)
       - Uses `Standard` workload type and `cpln exec` as the execution method, with CLI streaming
       - May not work correctly with tasks that last over 5 minutes (there's a Control Plane scaling bug at the moment)
 
       > **IMPORTANT:** Useful for development where it's needed for interaction, and where network connection drops and
       > task crashing are tolerable. For production tasks, it's better to use `cpl run:detached`.
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Opens shell (bash by default).
       cpl run -a $APP_NAME
@@ -35,7 +35,7 @@ module Command
       cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
       cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
       ```
-    HEREDOC
+    EX
 
     attr_reader :location, :workload, :one_off
 

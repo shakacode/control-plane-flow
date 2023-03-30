@@ -7,10 +7,10 @@ module Command
       app_option
     ].freeze
     DESCRIPTION = "Displays current configs (global and app-specific)"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Displays current configs (global and app-specific)
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Shows the global config.
       cpl config
@@ -18,7 +18,7 @@ module Command
       # Shows both global and app-specific configs.
       cpl config -a $APP_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       puts "-- Options"

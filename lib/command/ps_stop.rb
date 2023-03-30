@@ -8,10 +8,10 @@ module Command
       workload_option
     ].freeze
     DESCRIPTION = "Stops workloads in app"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Stops workloads in app
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Stops all workloads in app.
       cpl ps:stop -a $APP_NAME
@@ -19,7 +19,7 @@ module Command
       # Stops a specific workload in app.
       cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       workloads = [config.options[:workload]] if config.options[:workload]

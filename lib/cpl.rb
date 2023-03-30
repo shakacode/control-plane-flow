@@ -70,12 +70,17 @@ module Cpl
     end
 
     def self.deprecated_commands
-      {
-        build: ::Command::BuildImage,
-        promote: ::Command::DeployImage,
-        promote_image: ::Command::DeployImage,
-        runner: ::Command::RunDetached
-      }
+      @deprecated_commands ||= begin
+        deprecated_commands_file_path = "#{__dir__}/deprecated_commands.json"
+        deprecated_commands_data = File.binread(deprecated_commands_file_path)
+        deprecated_commands = JSON.parse(deprecated_commands_data)
+        deprecated_commands.to_h do |old_command_name, new_command_name|
+          file_name = new_command_name.gsub(/[^A-Za-z]/, "_")
+          class_name = file_name.split("_").map(&:capitalize).join
+
+          [old_command_name, Object.const_get("::Command::#{class_name}")]
+        end
+      end
     end
 
     def self.all_base_commands

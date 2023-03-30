@@ -8,10 +8,10 @@ module Command
       workload_option
     ].freeze
     DESCRIPTION = "Light wrapper to display tailed raw logs for app/workload syntax"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Light wrapper to display tailed raw logs for app/workload syntax
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Displays logs for the default workload (`one_off_workload`).
       cpl logs -a $APP_NAME
@@ -19,7 +19,7 @@ module Command
       # Displays logs for a specific workload.
       cpl logs -a $APP_NAME -w $WORKLOAD_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       workload = config.options[:workload] || config[:one_off_workload]

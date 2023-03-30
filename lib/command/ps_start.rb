@@ -8,10 +8,10 @@ module Command
       workload_option
     ].freeze
     DESCRIPTION = "Starts workloads in app"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Starts workloads in app
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       # Starts all workloads in app.
       cpl ps:start -a $APP_NAME
@@ -19,7 +19,7 @@ module Command
       # Starts a specific workload in app.
       cpl ps:start -a $APP_NAME -w $WORKLOAD_NAME
       ```
-    HEREDOC
+    EX
 
     def call
       workloads = [config.options[:workload]] if config.options[:workload]

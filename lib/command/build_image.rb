@@ -8,11 +8,11 @@ module Command
       commit_option
     ].freeze
     DESCRIPTION = "Builds and pushes the image to Control Plane"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Builds and pushes the image to Control Plane
       - Automatically assigns image numbers, e.g., `app:1`, `app:2`, etc.
       - Uses `.controlplane/Dockerfile`
-    HEREDOC
+    DESC
 
     def call
       ensure_docker_running!

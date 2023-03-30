@@ -7,14 +7,14 @@ module Command
       app_option(required: true)
     ].freeze
     DESCRIPTION = "Shell-checks if an application (GVC) exists, useful in scripts"
-    LONG_DESCRIPTION = <<~HEREDOC
+    LONG_DESCRIPTION = <<~DESC
       - Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
-    HEREDOC
-    EXAMPLES = <<~HEREDOC
+    DESC
+    EXAMPLES = <<~EX
       ```sh
       if [ cpl exists -a $APP_NAME ]; ...
       ```
-    HEREDOC
+    EX
 
     def call
       exit(!cp.fetch_gvc.nil?)

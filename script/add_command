@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+command_name = ARGV[0]&.downcase
+
+abort("ERROR: Must provide command name.") unless command_name
+
+file_name = command_name.gsub(/[^A-Za-z]/, "_")
+file_path = "#{__dir__}/../lib/command/#{file_name}.rb"
+
+abort("ERROR: Command '#{command_name}' already exists.") if File.exist?(file_path)
+
+class_name = file_name.split("_").map(&:capitalize).join
+
+file_data =
+  <<~DATA
+    # frozen_string_literal: true
+
+    module Command
+      class #{class_name} < Base
+        # See `base.rb` for other constants to add here
+        NAME = "#{command_name}"
+        OPTIONS = [
+          # Add options here
+        ].freeze
+        DESCRIPTION = "Add description here"
+        LONG_DESCRIPTION = <<~DESC
+          - Add long description here
+        DESC
+
+        def call
+          # Add command logic here
+        end
+      end
+    end
+  DATA
+File.binwrite(file_path, file_data)
