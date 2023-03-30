@@ -6,28 +6,43 @@ module Command
     OPTIONS = [
       app_option
     ].freeze
-    DESCRIPTION = "Displays current configs (global and app-specific)"
+    DESCRIPTION = "Displays config for each app or a specific app"
     LONG_DESCRIPTION = <<~DESC
-      - Displays current configs (global and app-specific)
+      - Displays config for each app or a specific app
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Shows the global config.
+      # Shows the config for each app.
       cpl config
 
-      # Shows both global and app-specific configs.
+      # Shows the config for a specific app.
       cpl config -a $APP_NAME
       ```
     EX
 
-    def call
-      puts "-- Options"
-      puts config.options.to_hash.to_yaml[4..]
-      puts
+    def call # rubocop:disable Metrics/MethodLength
+      if config.app
+        puts "#{Shell.color("Current config (app '#{config.app}')", :blue)}:"
+        puts pretty_print(config.current)
+        puts
+      else
+        config.apps.each do |app_name, app_options|
+          puts "#{Shell.color("Config for app '#{app_name}'", :blue)}:"
+          puts pretty_print(app_options)
+          puts
+        end
+      end
+    end
 
-      puts "-- Current config (app: #{config.app})"
-      puts config.app ? config.current.to_yaml[4..] : "Please specify app to get app config"
-      puts
+    private
+
+    def pretty_print(hash)
+      hash.transform_keys(&:to_s)
+          .to_yaml(indentation: 2)[4..]
+          # Adds an indentation of 2 to the beginning of each line
+          .gsub(/^(\s*)/, "  \\1")
+          # Adds an indentation of 2 before the '-' in array items
+          .gsub(/^(\s*)-\s/, "\\1  - ")
     end
   end
 end

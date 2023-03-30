@@ -33,25 +33,23 @@ module Command
     end
 
     def delete_gvc
-      progress.puts "- Deleting gvc:"
+      return progress.puts("App '#{config.app}' does not exist.") if cp.fetch_gvc.nil?
 
-      return progress.puts "none" unless cp.fetch_gvc
-
-      cp.gvc_delete
-      progress.puts config.app
+      step("Deleting app '#{config.app}'") do
+        cp.gvc_delete
+      end
     end
 
     def delete_images
-      progress.puts "- Deleting image(s):"
-
       images = cp.image_query["items"]
                  .filter_map { |item| item["name"] if item["name"].start_with?("#{config.app}:") }
 
-      return progress.puts "none" unless images
+      return progress.puts("No images to delete.") unless images.any?
 
       images.each do |image|
-        cp.image_delete(image)
-        progress.puts image
+        step("Deleting image '#{image}'") do
+          cp.image_delete(image)
+        end
       end
     end
   end

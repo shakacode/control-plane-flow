@@ -26,8 +26,9 @@ module Command
       workloads ||= config[:app_workloads] + config[:additional_workloads]
 
       workloads.each do |workload|
-        cp.workload_set_suspend(workload, true)
-        progress.puts "#{workload} stopped"
+        step("Stopping workload '#{workload}'") do
+          cp.workload_set_suspend(workload, true)
+        end
       end
     end
   end

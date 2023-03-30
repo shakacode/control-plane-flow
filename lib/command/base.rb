@@ -203,6 +203,32 @@ module Command
       $stderr
     end
 
+    def step(message, abort_on_error: true) # rubocop:disable Metrics/MethodLength
+      progress.print("#{message}...")
+
+      Shell.use_tmp_stderr do
+        success = false
+
+        begin
+          success = yield
+        rescue RuntimeError => e
+          message = e.message
+          if abort_on_error
+            progress.puts(" #{Shell.color('failed!', :red)}\n\n")
+            Shell.abort(message)
+          else
+            Shell.write_to_tmp_stderr(message)
+          end
+        end
+
+        if success
+          progress.puts(" #{Shell.color('done!', :green)}")
+        else
+          progress.puts(" #{Shell.color('failed!', :red)}\n\n#{Shell.read_from_tmp_stderr}\n\n")
+        end
+      end
+    end
+
     def cp
       @cp ||= Controlplane.new(config)
     end

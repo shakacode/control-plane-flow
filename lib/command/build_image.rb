@@ -19,7 +19,8 @@ module Command
 
       dockerfile = config.current[:dockerfile] || "Dockerfile"
       dockerfile = "#{config.app_cpln_dir}/#{dockerfile}"
-      progress.puts "- Building dockerfile: #{dockerfile}"
+
+      progress.puts("Building image from Dockerfile '#{dockerfile}'...\n\n")
 
       cp.image_build(latest_image_next, dockerfile: dockerfile)
     end
@@ -28,9 +29,9 @@ module Command
 
     def ensure_docker_running!
       `docker version > /dev/null 2>&1`
-      return if $?.success? # rubocop:disable Style/SpecialGlobalVars
+      return if $CHILD_STATUS.success?
 
-      Shell.abort("Can't run Docker. Please make sure that it's installed and started, then try again.")
+      raise "Can't run Docker. Please make sure that it's installed and started, then try again."
     end
   end
 end

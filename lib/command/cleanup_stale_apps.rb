@@ -19,11 +19,11 @@ module Command
     DESC
 
     def call # rubocop:disable Metrics/MethodLength
-      return progress.puts "No stale apps found" if stale_apps.empty?
+      return progress.puts("No stale apps found.") if stale_apps.empty?
 
-      progress.puts "Stale apps:"
+      progress.puts("Stale apps:")
       stale_apps.each do |app|
-        progress.puts "  #{app[:name]} (#{Shell.color((app[:date]).to_s, :red)})"
+        progress.puts("  #{app[:name]} (#{Shell.color((app[:date]).to_s, :red)})")
       end
 
       return unless confirm_delete
@@ -74,14 +74,16 @@ module Command
     end
 
     def delete_gvc(app)
-      cp.gvc_delete(app[:name])
-      progress.puts "#{app[:name]} deleted"
+      step("Deleting app '#{app[:name]}'") do
+        cp.gvc_delete(app[:name])
+      end
     end
 
     def delete_images(app)
       app[:images].each do |image|
-        cp.image_delete(image)
-        progress.puts "#{image} deleted"
+        step("Deleting image '#{image}'") do
+          cp.image_delete(image)
+        end
       end
     end
   end

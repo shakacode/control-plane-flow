@@ -50,7 +50,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     gvc_data = fetch_gvc(a_gvc)
     return gvc_data if gvc_data
 
-    Shell.abort("Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'.")
+    raise "Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'."
   end
 
   def gvc_delete(a_gvc = gvc)
@@ -75,7 +75,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     workload_data = fetch_workload(workload)
     return workload_data if workload_data
 
-    Shell.abort("Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'.")
+    raise "Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'."
   end
 
   def workload_get_replicas(workload, location:)
@@ -86,6 +86,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
     perform!(cmd)
   end
 
@@ -97,6 +98,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def workload_force_redeployment(workload)
     cmd = "cpln workload force-redeployment #{workload} #{gvc_org}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
     perform!(cmd)
   end
 
@@ -138,12 +140,17 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # apply
 
-  def apply(data)
+  def apply(data) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|
       f.write(data.to_yaml)
       f.rewind
       cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
-      perform!(cmd)
+      if Shell.tmp_stderr
+        cmd += " 2> #{Shell.tmp_stderr.path}"
+        perform(cmd)
+      else
+        perform!(cmd)
+      end
     end
   end
 
@@ -159,7 +166,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def perform_yaml(cmd)
     result = `#{cmd}`
-    $?.success? ? YAML.safe_load(result) : exit(false) # rubocop:disable Style/SpecialGlobalVars
+    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(false)
   end
 
   def gvc_org

@@ -46,13 +46,13 @@ cpl cleanup-stale-apps -a $APP_NAME
 
 ### `config`
 
-- Displays current configs (global and app-specific)
+- Displays config for each app or a specific app
 
 ```sh
-# Shows the global config.
+# Shows the config for each app.
 cpl config
 
-# Shows both global and app-specific configs.
+# Shows the config for a specific app.
 cpl config -a $APP_NAME
 ```
 

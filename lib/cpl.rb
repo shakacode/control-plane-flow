@@ -118,6 +118,7 @@ module Cpl
         if deprecated
           ::Shell.warn_deprecated("Command '#{command_key}' is deprecated, " \
                                   "please use '#{name}' instead.")
+          $stderr.puts
         end
 
         args = if provided_args.length.positive?
@@ -128,13 +129,16 @@ module Cpl
 
         raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
 
-        config = Config.new(args, options)
+        begin
+          config = Config.new(args, options)
 
-        command_class.new(config).call
+          command_class.new(config).call
+        rescue RuntimeError => e
+          ::Shell.abort(e.message)
+        end
       end
     rescue StandardError => e
-      logger = $stderr
-      logger.puts("Unable to load command: #{e.message}")
+      ::Shell.abort("Unable to load command: #{e.message}")
     end
   end
 end

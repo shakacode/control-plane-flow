@@ -3,7 +3,7 @@
 class ControlplaneApiCli
   def call(url, method:)
     response = `cpln rest #{method} #{url} -o json`
-    raise(response) unless $?.success? # rubocop:disable Style/SpecialGlobalVars
+    raise(response) unless $CHILD_STATUS.success?
 
     JSON.parse(response)
   end
