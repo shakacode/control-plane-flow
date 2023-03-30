@@ -2,7 +2,7 @@
 
 class Config
   attr_reader :config, :current,
-              :org, :app, :app_dir,
+              :org, :app, :apps, :app_dir,
               # command line options
               :args, :options
 
@@ -11,11 +11,12 @@ class Config
   def initialize(args, options)
     @args = args
     @options = options
+    @org = options[:org]
     @app = options[:app]
 
     load_app_config
 
-    @org = options[:org] || config[:default_cpln_org]
+    @apps = config[:apps]
 
     pick_current_config if app
     warn_deprecated_options if current
@@ -65,8 +66,6 @@ class Config
   end
 
   def pick_current_config
-    ensure_config!
-    ensure_config_apps!
     config[:apps].each do |c_app, c_data|
       ensure_config_app!(c_app, c_data)
       next unless c_app.to_s == app || (c_data[:match_if_app_name_starts_with] && app.start_with?(c_app.to_s))
@@ -82,6 +81,8 @@ class Config
     config_file = find_app_config_file
     @config = YAML.safe_load_file(config_file, symbolize_names: true, aliases: true)
     @app_dir = Pathname.new(config_file).parent.parent.to_s
+    ensure_config!
+    ensure_config_apps!
   end
 
   def find_app_config_file

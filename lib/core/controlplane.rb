@@ -42,8 +42,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform_yaml(cmd)
   end
 
-  def fetch_gvc(a_gvc = gvc)
-    api.gvc_get(gvc: a_gvc, org: org)
+  def fetch_gvc(a_gvc = gvc, a_org = org)
+    api.gvc_get(gvc: a_gvc, org: a_org)
   end
 
   def fetch_gvc!(a_gvc = gvc)
@@ -61,6 +61,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def fetch_workloads(a_gvc = gvc)
     api.workload_list(gvc: a_gvc, org: org)
+  end
+
+  def fetch_workloads_by_org(a_org = org)
+    api.workload_list_by_org(org: a_org)
   end
 
   def fetch_workload(workload)

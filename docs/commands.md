@@ -91,17 +91,21 @@ if [ cpl exists -a $APP_NAME ]; ...
 
 ### `info`
 
-- Displays a list of available workloads for all apps or a specific app in an org (apps equal GVCs)
+- Displays the diff between defined/available apps/workloads (apps equal GVCs)
+- Apps that are defined but not available are displayed in red
+- Apps that are available but not defined are displayed in green
+- Apps that are both defined and available are displayed in white
+- The diff is based on what's defined in the `.controlplane/controlplane.yml` file
 
 ```sh
-# Shows available workloads for all apps.
+# Shows diff for all apps in all orgs.
 cpl info
 
-# Shows available workloads for a specific app.
-cpl info -a $APP_NAME
-
-# Shows available workloads for all apps in a different org.
+# Shows diff for all apps in a specific org.
 cpl info -o $ORG_NAME
+
+# Shows diff for a specific app.
+cpl info -a $APP_NAME
 ```
 
 ### `latest-image`
