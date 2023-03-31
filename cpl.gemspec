@@ -20,6 +20,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "psych",    "~> 5.1.0"
   spec.add_dependency "thor",     "~> 1.2.1"
 
+  spec.add_development_dependency "overcommit",    "~> 0.60.0"
   spec.add_development_dependency "rspec",         "~> 3.12.0"
   spec.add_development_dependency "rubocop",       "~> 1.45.0"
   spec.add_development_dependency "rubocop-rake",  "~> 0.6.0"
