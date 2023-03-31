@@ -10,6 +10,29 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     @org = config.org
   end
 
+  # profile
+
+  def profile_switch(profile)
+    ENV["CPLN_PROFILE"] = profile
+  end
+
+  def profile_exists?(profile)
+    cmd = "cpln profile get #{profile} -o yaml"
+    perform_yaml(cmd).length.positive?
+  end
+
+  def profile_create(profile, token)
+    cmd = "cpln profile create #{profile} --token #{token}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def profile_delete(profile)
+    cmd = "cpln profile delete #{profile}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
   # image
 
   def image_build(image, dockerfile:, push: true)
