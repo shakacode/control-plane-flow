@@ -176,17 +176,19 @@ module Command
       end
     end
 
-    def latest_image
-      @latest_image ||=
+    def latest_image(app = config.app, org = config.org)
+      @latest_image ||= {}
+      @latest_image[app] ||=
         begin
-          items = cp.image_query["items"]
-          latest_image_from(items)
+          items = cp.image_query(app, org)["items"]
+          latest_image_from(items, app_name: app)
         end
     end
 
-    def latest_image_next
-      @latest_image_next ||= begin
-        image = latest_image.split(":").first
+    def latest_image_next(app = config.app, org = config.org)
+      @latest_image_next ||= {}
+      @latest_image_next[app] ||= begin
+        image = latest_image(app, org).split(":").first
         image += ":#{extract_image_number(latest_image) + 1}"
         image += "_#{config.options[:commit]}" if config.options[:commit]
         image

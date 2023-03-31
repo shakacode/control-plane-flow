@@ -18,8 +18,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
-  def image_query(app_name = config.app)
-    cmd = "cpln image query --org #{org} -o yaml --max -1 --prop repository=#{app_name}"
+  def image_query(app_name = config.app, org_name = config.org)
+    cmd = "cpln image query --org #{org_name} -o yaml --max -1 --prop repository=#{app_name}"
     perform_yaml(cmd)
   end
 
