@@ -27,6 +27,30 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.image_delete(org: org, image: image)
   end
 
+  def image_login(org_name = config.org)
+    cmd = "cpln image docker-login --org #{org_name}"
+    cmd += " > /dev/null 2>&1" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def image_pull(image)
+    cmd = "docker pull #{image}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def image_tag(old_tag, new_tag)
+    cmd = "docker tag #{old_tag} #{new_tag}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def image_push(image)
+    cmd = "docker push #{image}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
   # gvc
 
   def fetch_gvcs
