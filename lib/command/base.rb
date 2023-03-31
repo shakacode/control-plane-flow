@@ -103,6 +103,19 @@ module Command
       }
     end
 
+    def self.upstream_token_option(required: false)
+      {
+        name: :upstream_token,
+        params: {
+          aliases: ["-t"],
+          banner: "UPSTREAM_TOKEN",
+          desc: "Upstream token",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.skip_confirm_option(required: false)
       {
         name: :yes,
