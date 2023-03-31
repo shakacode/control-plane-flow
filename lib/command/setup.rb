@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class Setup < Base
+  class Setup < Base # rubocop:disable Metrics/ClassLength
     NAME = "setup"
     USAGE = "setup TEMPLATE [TEMPLATE] ... [TEMPLATE]"
     REQUIRES_ARGS = true
@@ -35,20 +35,14 @@ module Command
     EX
 
     def call # rubocop:disable Metrics/MethodLength
+      ensure_templates!
+
       @app_status = :existing
       @created_workloads = []
       @failed_workloads = []
 
-      config.args.each do |template|
-        filename = "#{config.app_cpln_dir}/templates/#{template}.yml"
-
+      templates.each do |template, filename|
         step("Applying template '#{template}'", abort_on_error: false) do
-          unless File.exist?(filename)
-            report_failure(template)
-
-            raise "Can't find template '#{template}' at '#{filename}', please create it."
-          end
-
           apply_template(filename)
           if $CHILD_STATUS.success?
             report_success(template)
@@ -66,6 +60,24 @@ module Command
     end
 
     private
+
+    def templates
+      @templates ||= config.args.to_h do |template|
+        [template, "#{config.app_cpln_dir}/templates/#{template}.yml"]
+      end
+    end
+
+    def ensure_templates!
+      missing_templates = templates.filter { |_template, filename| !File.exist?(filename) }.to_h
+      return if missing_templates.empty?
+
+      missing_templates_str = missing_templates.map do |template, filename|
+        "  - #{template} (#{filename})"
+      end.join("\n")
+      progress.puts("#{Shell.color('Missing templates:', :red)}\n#{missing_templates_str}\n\n")
+
+      raise "Can't find templates above, please create them."
+    end
 
     def apply_template(filename)
       data = File.read(filename)
