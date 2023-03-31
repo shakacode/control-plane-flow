@@ -56,6 +56,21 @@ cpl config
 cpl config -a $APP_NAME
 ```
 
+### `copy-image-from-upstream`
+
+- Copies an image (by default the latest) from a source org to the current org
+- The source org must be specified through `upstream` in the `.controlplane/controlplane.yml` file
+- Additionally, the token for the source org must be provided through `--upstream-token` or `-t`
+- A `cpln` profile will be temporarily created to pull the image from the source org
+
+```sh
+# Copies the latest image from the source org to the current org.
+cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
+
+# Copies a specific image from the source org to the current org.
+cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
+```
+
 ### `delete`
 
 - Deletes the whole app (GVC with all workloads and all images)
@@ -223,6 +238,8 @@ cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential i
 
 ```sh
 cpl run:detached rails db:prepare -a $APP_NAME
+
+# Need to quote COMMAND if setting ENV value or passing args to command to run
 cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 
 # Uses some other image.
