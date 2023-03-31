@@ -13,7 +13,7 @@ module Command
     def call
       return unless config.options[:version]
 
-      Version.new(config).call
+      perform("cpl version")
     end
   end
 end

@@ -155,6 +155,18 @@ cpl open -a $APP_NAME
 cpl open -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
+### `promote-app-from-upstream`
+
+- Copies the latest image from upstream, runs a release script (optional), and deploys the image
+- It performs the following steps:
+  - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
+  - Runs a release script if specified through `release_script` in the `.controlplane/controlplane.yml` file
+  - Runs `cpl deploy-image` to deploy the image
+
+```sh
+cpl promote-app-from-upstream -a $APP_NAME -t $UPSTREAM_TOKEN
+```
+
 ### `ps`
 
 - Shows running replicas in app
