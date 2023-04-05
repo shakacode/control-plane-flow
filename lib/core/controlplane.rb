@@ -10,6 +10,29 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     @org = config.org
   end
 
+  # profile
+
+  def profile_switch(profile)
+    ENV["CPLN_PROFILE"] = profile
+  end
+
+  def profile_exists?(profile)
+    cmd = "cpln profile get #{profile} -o yaml"
+    perform_yaml(cmd).length.positive?
+  end
+
+  def profile_create(profile, token)
+    cmd = "cpln profile create #{profile} --token #{token}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def profile_delete(profile)
+    cmd = "cpln profile delete #{profile}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
   # image
 
   def image_build(image, dockerfile:, push: true)
@@ -18,13 +41,37 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
-  def image_query(app_name = config.app)
-    cmd = "cpln image query --org #{org} -o yaml --max -1 --prop repository=#{app_name}"
+  def image_query(app_name = config.app, org_name = config.org)
+    cmd = "cpln image query --org #{org_name} -o yaml --max -1 --prop repository=#{app_name}"
     perform_yaml(cmd)
   end
 
   def image_delete(image)
     api.image_delete(org: org, image: image)
+  end
+
+  def image_login(org_name = config.org)
+    cmd = "cpln image docker-login --org #{org_name}"
+    cmd += " > /dev/null 2>&1" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def image_pull(image)
+    cmd = "docker pull #{image}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def image_tag(old_tag, new_tag)
+    cmd = "docker tag #{old_tag} #{new_tag}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
+  def image_push(image)
+    cmd = "docker push #{image}"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
   end
 
   # gvc
