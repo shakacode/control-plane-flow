@@ -248,6 +248,10 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
+    def perform(cmd)
+      system(cmd) || exit(false)
+    end
+
     private
 
     # returns 0 if no prior image
