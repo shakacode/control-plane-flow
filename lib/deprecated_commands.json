@@ -1,6 +1,6 @@
 {
   "build": "build-image",
   "promote": "deploy-image",
-  "promote-image": "deploy-image",
+  "promote_image": "deploy-image",
   "runner": "run:detached"
 }
