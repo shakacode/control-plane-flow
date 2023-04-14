@@ -37,7 +37,7 @@ module Command
       ```
     EX
 
-    attr_reader :location, :workload, :one_off
+    attr_reader :location, :workload, :one_off, :container
 
     def call
       @location = config[:default_location]
@@ -60,15 +60,16 @@ module Command
 
       # Create a base copy of workload props
       spec = cp.fetch_workload!(workload).fetch("spec")
-      container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      @container = container_spec["name"]
 
       # remove other containers if any
-      spec["containers"] = [container]
+      spec["containers"] = [container_spec]
 
       # Stub workload command with dummy server that just responds to port
       # Needed to avoid execution of ENTRYPOINT and CMD of Dockerfile
-      container["command"] = "ruby"
-      container["args"] = ["-e", Scripts.http_dummy_server_ruby]
+      container_spec["command"] = "ruby"
+      container_spec["args"] = ["-e", Scripts.http_dummy_server_ruby]
 
       # Ensure one-off workload will be running
       spec["defaultOptions"]["suspend"] = false
@@ -81,11 +82,11 @@ module Command
       # Override image if specified
       image = config.options[:image]
       image = "/org/#{config.org}/image/#{latest_image}" if image == "latest"
-      container["image"] = image if image
+      container_spec["image"] = image if image
 
       # Set runner
-      container["env"] ||= []
-      container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
+      container_spec["env"] ||= []
+      container_spec["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
@@ -100,7 +101,7 @@ module Command
     def run_in_replica
       progress.puts "- Connecting"
       command = %(bash -c 'eval "$CONTROLPLANE_RUNNER"')
-      cp.workload_exec(one_off, location: location, container: workload, command: command)
+      cp.workload_exec(one_off, location: location, container: container, command: command)
     end
   end
 end

@@ -38,7 +38,7 @@ module Command
 
     WORKLOAD_SLEEP_CHECK = 2
 
-    attr_reader :location, :workload, :one_off
+    attr_reader :location, :workload, :one_off, :container
 
     def call
       @location = config[:default_location]
@@ -60,14 +60,15 @@ module Command
 
       # Get base specs of workload
       spec = cp.fetch_workload!(workload).fetch("spec")
-      container = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      @container = container_spec["name"]
 
       # remove other containers if any
-      spec["containers"] = [container]
+      spec["containers"] = [container_spec]
 
       # Set runner
-      container["command"] = "bash"
-      container["args"] = ["-c", 'eval "$CONTROLPLANE_RUNNER"']
+      container_spec["command"] = "bash"
+      container_spec["args"] = ["-c", 'eval "$CONTROLPLANE_RUNNER"']
 
       # Ensure one-off workload will be running
       spec["defaultOptions"]["suspend"] = false
@@ -80,17 +81,17 @@ module Command
       # Override image if specified
       image = config.options[:image]
       image = "/org/#{config.org}/image/#{latest_image}" if image == "latest"
-      container["image"] = image if image
+      container_spec["image"] = image if image
 
       # Set cron job props
       spec["type"] = "cron"
       spec["job"] = { "schedule" => "* * * * *", "restartPolicy" => "Never" }
       spec["defaultOptions"]["autoscaling"] = {}
-      container.delete("ports")
+      container_spec.delete("ports")
 
-      container["env"] ||= []
-      container["env"] << { "name" => "CONTROLPLANE_TOKEN", "value" => ControlplaneApiDirect.new.api_token }
-      container["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
+      container_spec["env"] ||= []
+      container_spec["env"] << { "name" => "CONTROLPLANE_TOKEN", "value" => ControlplaneApiDirect.new.api_token }
+      container_spec["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
