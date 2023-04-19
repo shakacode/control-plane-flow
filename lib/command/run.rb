@@ -8,7 +8,8 @@ module Command
     DEFAULT_ARGS = ["bash"].freeze
     OPTIONS = [
       app_option(required: true),
-      image_option
+      image_option,
+      workload_option
     ].freeze
     DESCRIPTION = "Runs one-off **_interactive_** replicas (analog of `heroku run`)"
     LONG_DESCRIPTION = <<~DESC
@@ -34,6 +35,9 @@ module Command
       # Uses a different image (which may not be promoted yet).
       cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
       cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+
+      # Uses a different workload
+      cpl run bash -a $APP_NAME -w other-workload
       ```
     EX
 
@@ -41,7 +45,7 @@ module Command
 
     def call
       @location = config[:default_location]
-      @workload = config[:one_off_workload]
+      @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-run-#{rand(1000..9999)}"
 
       clone_workload

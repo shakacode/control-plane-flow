@@ -7,7 +7,8 @@ module Command
     REQUIRES_ARGS = true
     OPTIONS = [
       app_option(required: true),
-      image_option
+      image_option,
+      workload_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
     LONG_DESCRIPTION = <<~DESC
@@ -33,6 +34,9 @@ module Command
       # Uses a different image (which may not be promoted yet).
       cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
       cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+
+      # Uses a different workload
+      cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
       ```
     EX
 
@@ -42,7 +46,7 @@ module Command
 
     def call
       @location = config[:default_location]
-      @workload = config[:one_off_workload]
+      @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-runner-#{rand(1000..9999)}"
 
       clone_workload
