@@ -9,7 +9,8 @@ module Command
     OPTIONS = [
       app_option(required: true),
       image_option,
-      workload_option
+      workload_option,
+      use_local_token_option
     ].freeze
     DESCRIPTION = "Runs one-off **_interactive_** replicas (analog of `heroku run`)"
     LONG_DESCRIPTION = <<~DESC
@@ -38,6 +39,10 @@ module Command
 
       # Uses a different workload
       cpl run bash -a $APP_NAME -w other-workload
+
+      # Overrides remote CPLN_TOKEN env variable with local token.
+      # Useful when need superuser rights in remote container
+      cpl run bash -a $APP_NAME --use-local-token
       ```
     EX
 
@@ -92,12 +97,24 @@ module Command
       container_spec["env"] ||= []
       container_spec["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
+      if config.options["use_local_token"]
+        container_spec["env"] << { "name" => "CONTROLPLANE_TOKEN", "value" => ControlplaneApiDirect.new.api_token }
+      end
+
       # Create workload clone
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
     end
 
     def runner_script
       script = Scripts.helpers_cleanup
+
+      if config.options["use_local_token"]
+        script += <<~SHELL
+          CPLN_TOKEN=$CONTROLPLANE_TOKEN
+          unset CONTROLPLANE_TOKEN
+        SHELL
+      end
+
       script += args_join(config.args)
       script
     end

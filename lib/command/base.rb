@@ -142,6 +142,17 @@ module Command
       }
     end
 
+    def self.use_local_token_option(required: false)
+      {
+        name: :use_local_token,
+        params: {
+          desc: "Override remote CPLN_TOKEN with local token",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
