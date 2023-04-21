@@ -130,6 +130,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform_yaml(cmd)
   end
 
+  def workload_get_replicas_safely(workload, location:)
+    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml 2> /dev/null"
+    result = `#{cmd}`
+    $CHILD_STATUS.success? ? YAML.safe_load(result) : nil
+  end
+
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"

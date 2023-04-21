@@ -179,7 +179,7 @@ module Command
 
     def wait_for_replica(workload, location)
       wait_for("replica") do
-        cp.workload_get_replicas(workload, location: location)&.dig("items", 0)
+        cp.workload_get_replicas_safely(workload, location: location)&.dig("items", 0)
       end
     end
 

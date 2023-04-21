@@ -55,7 +55,6 @@ module Command
 
       clone_workload
       wait_for_workload(one_off)
-      sleep 2 # sometimes replica query lags workload creation, despite ok by prev query
       wait_for_replica(one_off, location)
       run_in_replica
     ensure
