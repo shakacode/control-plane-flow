@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module Command
-  class Setup < Base # rubocop:disable Metrics/ClassLength
-    NAME = "setup"
-    USAGE = "setup TEMPLATE [TEMPLATE] ... [TEMPLATE]"
+  class ApplyTemplate < Base # rubocop:disable Metrics/ClassLength
+    NAME = "apply-template"
+    USAGE = "apply-template TEMPLATE [TEMPLATE] ... [TEMPLATE]"
     REQUIRES_ARGS = true
     OPTIONS = [
       app_option(required: true)
@@ -27,10 +27,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Applies single template.
-      cpl setup redis -a $APP_NAME
+      cpl apply-template redis -a $APP_NAME
 
       # Applies several templates (practically creating full app).
-      cpl setup gvc postgres redis rails -a $APP_NAME
+      cpl apply-template gvc postgres redis rails -a $APP_NAME
       ```
     EX
 
