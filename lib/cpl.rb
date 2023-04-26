@@ -9,7 +9,12 @@ require "tempfile"
 require "thor"
 require "yaml"
 
-modules = Dir["#{__dir__}/**/*.rb"].reject { |file| file == __FILE__ || file.end_with?("main.rb") }
+# We need to require base before all commands, since the commands inherit from it
+require_relative "command/base"
+
+modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
+  file == __FILE__ || file.end_with?("main.rb") || file.end_with?("base.rb")
+end
 modules.sort.each { require(_1) }
 
 # Fix for https://github.com/erikhuda/thor/issues/398
