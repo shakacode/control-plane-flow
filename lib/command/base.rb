@@ -159,7 +159,7 @@ module Command
 
     def self.all_options_by_key_name
       all_options.each_with_object({}) do |option, result|
-        option[:params][:aliases].each { |current_alias| result[current_alias.to_s] = option }
+        option[:params][:aliases]&.each { |current_alias| result[current_alias.to_s] = option }
         result["--#{option[:name]}"] = option
       end
     end
