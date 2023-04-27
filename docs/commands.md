@@ -11,6 +11,30 @@ This `-a` option is used in most of the commands and will pick all other app con
 
 ### Commands
 
+### `apply-template`
+
+- Applies application-specific configs from templates (e.g., for every review-app)
+- Publishes (creates or updates) those at Control Plane infrastructure
+- Picks templates from the `.controlplane/templates` directory
+- Templates are ordinary Control Plane templates but with variable preprocessing
+
+**Preprocessed template variables:**
+
+```
+APP_GVC      - basically GVC or app name
+APP_LOCATION - default location
+APP_ORG      - organization
+APP_IMAGE    - will use latest app image
+```
+
+```sh
+# Applies single template.
+cpl apply-template redis -a $APP_NAME
+
+# Applies several templates (practically creating full app).
+cpl apply-template gvc postgres redis rails -a $APP_NAME
+```
+
 ### `build-image`
 
 - Builds and pushes the image to Control Plane
@@ -238,6 +262,13 @@ cpl run rails c -a $APP_NAME
 # Uses a different image (which may not be promoted yet).
 cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
 cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+
+# Uses a different workload
+cpl run bash -a $APP_NAME -w other-workload
+
+# Overrides remote CPLN_TOKEN env variable with local token.
+# Useful when need superuser rights in remote container
+cpl run bash -a $APP_NAME --use-local-token
 ```
 
 ### `run:detached`
@@ -263,30 +294,19 @@ cpl run:detached rails db:migrate -a $APP_NAME --image latest
 # Uses a different image (which may not be promoted yet).
 cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
 cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+
+# Uses a different workload
+cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
 ```
 
-### `setup`
+### `setup-app`
 
-- Applies application-specific configs from templates (e.g., for every review-app)
-- Publishes (creates or updates) those at Control Plane infrastructure
-- Picks templates from the `.controlplane/templates` directory
-- Templates are ordinary Control Plane templates but with variable preprocessing
-
-**Preprocessed template variables:**
-
-```
-APP_GVC      - basically GVC or app name
-APP_LOCATION - default location
-APP_ORG      - organization
-APP_IMAGE    - will use latest app image
-```
+- Creates an app and all its workloads
+- Specify the templates for the app and workloads through `setup` in the `.controlplane/controlplane.yml` file
+- This should should only be used for temporary apps like review apps, never for persistent apps like production (to update workloads for those, use 'cpl apply-template' instead)
 
 ```sh
-# Applies single template.
-cpl setup redis -a $APP_NAME
-
-# Applies several templates (practically creating full app).
-cpl setup gvc postgres redis rails -a $APP_NAME
+cpl setup-app -a $APP_NAME
 ```
 
 ### `version`

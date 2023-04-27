@@ -2,5 +2,6 @@
   "build": "build-image",
   "promote": "deploy-image",
   "promote_image": "deploy-image",
-  "runner": "run:detached"
+  "runner": "run:detached",
+  "setup": "apply-template"
 }
