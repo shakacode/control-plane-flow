@@ -29,7 +29,7 @@ module Command
       ensure_docker_running!
 
       @upstream = config[:upstream]
-      @upstream_org = config.apps[@upstream.to_sym][:cpln_org] || config.apps[@upstream.to_sym][:org]
+      @upstream_org = config.apps[@upstream.to_sym][:cpln_org]
       ensure_upstream_org!
 
       create_upstream_profile

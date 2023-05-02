@@ -90,7 +90,7 @@ module Command
         config.apps.each do |app_name, app_options|
           next if config.app && !app_matches?(config.app, app_name, app_options)
 
-          org = app_options[:cpln_org] || app_options[:org]
+          org = app_options[:cpln_org]
           result.push(org) unless result.include?(org)
         end
       end
@@ -104,7 +104,7 @@ module Command
       config.apps.each do |app_name, app_options|
         next if config.app && !app_matches?(config.app, app_name, app_options)
 
-        app_org = app_options[:cpln_org] || app_options[:org]
+        app_org = app_options[:cpln_org]
         result.push(app_name.to_s) if app_org == org
       end
 
@@ -173,7 +173,11 @@ module Command
       puts "\nSome apps/workloads are missing. Please create them with:"
 
       @missing_apps_workloads.each do |app, workloads|
-        puts "  - `cpl setup #{workloads.join(' ')} -a #{app}`"
+        if workloads.include?("gvc")
+          puts "  - `cpl setup-app -a #{app}`"
+        else
+          puts "  - `cpl apply-template #{workloads.join(' ')} -a #{app}`"
+        end
       end
     end
 
@@ -183,9 +187,9 @@ module Command
       puts "\nThere are no apps starting with some names. If you wish to create any, do so with " \
            "(replace 'whatever' with whatever suffix you want):"
 
-      @missing_apps_starting_with.each do |app, workloads|
+      @missing_apps_starting_with.each do |app, _workloads|
         app_with_suffix = "#{app}#{app.end_with?('-') ? '' : '-'}whatever"
-        puts "  - `cpl setup #{workloads.join(' ')} -a #{app_with_suffix}`"
+        puts "  - `cpl setup-app -a #{app_with_suffix}`"
       end
     end
 
