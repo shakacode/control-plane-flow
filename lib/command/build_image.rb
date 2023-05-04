@@ -21,6 +21,8 @@ module Command
       dockerfile = config.current[:dockerfile] || "Dockerfile"
       dockerfile = "#{config.app_cpln_dir}/#{dockerfile}"
 
+      raise "Can't find Dockerfile at '#{dockerfile}'." unless File.exist?(dockerfile)
+
       progress.puts("Building image from Dockerfile '#{dockerfile}'...\n\n")
 
       image_name = latest_image_next
