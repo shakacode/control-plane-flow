@@ -28,11 +28,12 @@ To simplify migration to and usage of Control Plane for Heroku users, this repos
 6. [Environment](#environment)
 7. [Database](#database)
 8. [In-memory databases](#in-memory-databases)
-9. [CLI commands reference](#cli-commands-reference)
-10. [Mapping of Heroku Commands to `cpl` and `cpln`](#mapping-of-heroku-commands-to-cpl-and-cpln)
-11. [Examples](#examples)
-12. [Migrating Postgres database from Heroku infrastructure](/docs/postgres.md)
-13. [Migrating Redis database from Heroku infrastructure](/docs/redis.md)
+9. [Scheduled jobs](#scheduled-jobs)
+10. [CLI commands reference](#cli-commands-reference)
+11. [Mapping of Heroku Commands to `cpl` and `cpln`](#mapping-of-heroku-commands-to-cpl-and-cpln)
+12. [Examples](#examples)
+13. [Migrating Postgres database from Heroku infrastructure](/docs/postgres.md)
+14. [Migrating Redis database from Heroku infrastructure](/docs/redis.md)
 
 ## Key features
 
@@ -214,7 +215,7 @@ apps:
     <<: *common
     # Use a different organization for production.
     cpln_org: my-org-production
-    # Allows running the command `cpl pipeline-promote my-app-staging` to promote the staging app to production.
+    # Allows running the command `cpl promote-app-from-upstream -a my-app-production` to promote the staging app to production.
     upstream: my-app-staging
   my-app-other:
     <<: *common
@@ -312,6 +313,38 @@ For production purposes or where restarts are not an option, you should use exte
 
 We provide default `redis` and `memcached` templates in this repo optimized for Control Plane and suitable
 for development purposes.
+
+## Scheduled jobs
+
+Control Plane supports scheduled jobs via [cron workloads](https://docs.controlplane.com/reference/workload#cron).
+
+Here's a partial example of a template for a cron workload, using the app image:
+
+```yaml
+kind: workload
+name: daily-task
+spec:
+  type: cron
+  job:
+    # Run daily job at 2am
+    schedule: 0  2  *  *  *
+    # Never or OnFailure
+    restartPolicy: Never
+  containers:
+    - name: daily-task
+      args:
+        - bundle
+        - exec
+        - rails
+        - db:prepare
+      image: "/org/APP_ORG/image/APP_IMAGE"
+```
+
+A complete example can be found at [templates/daily-task.yml](templates/daily-task.yml), optimized for Control Plane and suitable for development purposes.
+
+You can create the cron workload by adding the template for it to the `.controlplane/templates` folder and running `cpl apply-template my-template -a my-app`, where `my-template` is the name of the template file (`my-template.yml`).
+
+Then to view the logs of the cron workload, you can run `cpl logs -a my-app -w my-template`.
 
 ## CLI commands reference:
 
