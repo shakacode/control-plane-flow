@@ -252,6 +252,12 @@ cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
 # Opens shell (bash by default).
 cpl run -a $APP_NAME
 
+# Need to quote COMMAND if setting ENV value or passing args.
+cpl run 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
+
+# COMMAND may also be passed at the end (in this case, no need to quote).
+cpl run -a $APP_NAME -- rails db:migrate
+
 # Runs command, displays output, and exits shell.
 cpl run ls / -a $APP_NAME
 cpl run rails db:migrate:status -a $APP_NAME
@@ -263,11 +269,11 @@ cpl run rails c -a $APP_NAME
 cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
 cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
 
-# Uses a different workload
+# Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
 cpl run bash -a $APP_NAME -w other-workload
 
 # Overrides remote CPLN_TOKEN env variable with local token.
-# Useful when need superuser rights in remote container
+# Useful when superuser rights are needed in remote container.
 cpl run bash -a $APP_NAME --use-local-token
 ```
 
@@ -282,8 +288,11 @@ cpl run bash -a $APP_NAME --use-local-token
 ```sh
 cpl run:detached rails db:prepare -a $APP_NAME
 
-# Need to quote COMMAND if setting ENV value or passing args to command to run
+# Need to quote COMMAND if setting ENV value or passing args.
 cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
+
+# COMMAND may also be passed at the end (in this case, no need to quote).
+cpl run:detached -a $APP_NAME -- rails db:migrate
 
 # Uses some other image.
 cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
@@ -295,7 +304,7 @@ cpl run:detached rails db:migrate -a $APP_NAME --image latest
 cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
 cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
 
-# Uses a different workload
+# Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
 cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
 ```
 
