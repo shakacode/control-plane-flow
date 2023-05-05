@@ -104,7 +104,7 @@ module Command
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
     end
 
-    def runner_script
+    def runner_script # rubocop:disable Metrics/MethodLength
       script = Scripts.helpers_cleanup
 
       if config.options["use_local_token"]
@@ -113,6 +113,10 @@ module Command
           unset CONTROLPLANE_TOKEN
         SHELL
       end
+
+      # NOTE: fixes terminal size to match local terminal
+      rows, cols = `stty -a`.match(/(\d+)\s*rows;\s*(\d+)\s*columns/).captures
+      script += "stty rows #{rows}\nstty cols #{cols}\n" if rows && cols
 
       script += args_join(config.args)
       script
