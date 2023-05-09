@@ -156,6 +156,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
+  def workload_set_env_var(workload, container:, name:, value:)
+    cmd = "cpln workload update #{workload} #{gvc_org}"
+    cmd += " --set spec.containers.#{container}.env.#{name}.value='#{value}'"
+    cmd += " > /dev/null" if Shell.tmp_stderr
+    perform!(cmd)
+  end
+
   def workload_set_suspend(workload, value)
     data = fetch_workload!(workload)
     data["spec"]["defaultOptions"]["suspend"] = value

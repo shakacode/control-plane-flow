@@ -202,6 +202,17 @@ cpl maintenance:off -a $APP_NAME
 cpl maintenance:on -a $APP_NAME
 ```
 
+### `maintenance:set-page`
+
+- Sets the page for maintenance mode
+- Only works if the maintenance workload uses the `shakacode/maintenance-mode` image
+- Will set the URL as an env var `PAGE_URL` on the maintenance workload
+- Specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file
+
+```sh
+cpl maintenance:set-page PAGE_URL -a $APP_NAME
+```
+
 ### `open`
 
 - Opens the app endpoint URL in the default browser

@@ -235,8 +235,9 @@ module Command
     def latest_image_next(app = config.app, org = config.org)
       @latest_image_next ||= {}
       @latest_image_next[app] ||= begin
-        image = latest_image(app, org).split(":").first
-        image += ":#{extract_image_number(latest_image) + 1}"
+        latest_image_name = latest_image(app, org)
+        image = latest_image_name.split(":").first
+        image += ":#{extract_image_number(latest_image_name) + 1}"
         image += "_#{config.options[:commit]}" if config.options[:commit]
         image
       end
