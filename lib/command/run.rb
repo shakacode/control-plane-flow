@@ -10,13 +10,15 @@ module Command
       app_option(required: true),
       image_option,
       workload_option,
-      use_local_token_option
+      use_local_token_option,
+      terminal_size_option
     ].freeze
     DESCRIPTION = "Runs one-off **_interactive_** replicas (analog of `heroku run`)"
     LONG_DESCRIPTION = <<~DESC
       - Runs one-off **_interactive_** replicas (analog of `heroku run`)
       - Uses `Standard` workload type and `cpln exec` as the execution method, with CLI streaming
       - May not work correctly with tasks that last over 5 minutes (there's a Control Plane scaling bug at the moment)
+      - If `fix_terminal_size` is `true` in the `.controlplane/controlplane.yml` file, the remote terminal size will be fixed to match the local terminal size (may also be overriden through `--terminal-size`)
 
       > **IMPORTANT:** Useful for development where it's needed for interaction, and where network connection drops and
       > task crashing are tolerable. For production tasks, it's better to use `cpl run:detached`.
@@ -115,8 +117,14 @@ module Command
       end
 
       # NOTE: fixes terminal size to match local terminal
-      rows, cols = `stty -a`.match(/(\d+)\s*rows;\s*(\d+)\s*columns/).captures
-      script += "stty rows #{rows}\nstty cols #{cols}\n" if rows && cols
+      if config.current[:fix_terminal_size] || config.options[:terminal_size]
+        if config.options[:terminal_size]
+          rows, cols = config.options[:terminal_size].split(",")
+        else
+          rows, cols = `stty -a`.match(/(\d+)\s*rows;\s*(\d+)\s*columns/).captures
+        end
+        script += "stty rows #{rows}\nstty cols #{cols}\n" if rows && cols
+      end
 
       script += args_join(config.args)
       script

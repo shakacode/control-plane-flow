@@ -244,6 +244,7 @@ cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
 - Runs one-off **_interactive_** replicas (analog of `heroku run`)
 - Uses `Standard` workload type and `cpln exec` as the execution method, with CLI streaming
 - May not work correctly with tasks that last over 5 minutes (there's a Control Plane scaling bug at the moment)
+- If `fix_terminal_size` is `true` in the `.controlplane/controlplane.yml` file, the remote terminal size will be fixed to match the local terminal size (may also be overriden through `--terminal-size`)
 
 > **IMPORTANT:** Useful for development where it's needed for interaction, and where network connection drops and
 > task crashing are tolerable. For production tasks, it's better to use `cpl run:detached`.

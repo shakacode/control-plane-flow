@@ -153,6 +153,18 @@ module Command
       }
     end
 
+    def self.terminal_size_option(required: false)
+      {
+        name: :terminal_size,
+        params: {
+          banner: "ROWS,COLS",
+          desc: "Override remote terminal size (e.g. `--terminal-size 10,20`)",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
