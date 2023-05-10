@@ -22,8 +22,11 @@ module Command
       ```sh
       cpl run:detached rails db:prepare -a $APP_NAME
 
-      # Need to quote COMMAND if setting ENV value or passing args to command to run
+      # Need to quote COMMAND if setting ENV value or passing args.
       cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
+
+      # COMMAND may also be passed at the end (in this case, no need to quote).
+      cpl run:detached -a $APP_NAME -- rails db:migrate
 
       # Uses some other image.
       cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
@@ -35,7 +38,7 @@ module Command
       cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
       cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
 
-      # Uses a different workload
+      # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
       cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
       ```
     EX
