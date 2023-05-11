@@ -59,8 +59,10 @@ module Command
       wait_for_workload(one_off)
       show_logs_waiting
     ensure
-      progress.puts
-      ensure_workload_deleted(one_off)
+      if cp.fetch_workload(one_off)
+        progress.puts
+        ensure_workload_deleted(one_off)
+      end
       exit(1) if @crashed
     end
 
