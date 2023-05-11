@@ -24,7 +24,7 @@ module Scripts
 
   # NOTE: please escape all '/' as '//' (as it is ruby interpolation here as well)
   def http_dummy_server_ruby
-    'require "socket";s=TCPServer.new(ENV["PORT"]);' \
+    'require "socket";s=TCPServer.new(ENV["PORT"] || 80);' \
       'loop do c=s.accept;c.puts("HTTP/1.1 200 OK\\nContent-Length: 2\\n\\nOk");c.close end'
   end
 
