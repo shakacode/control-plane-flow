@@ -82,7 +82,7 @@ module Command
 
       # Ensure no scaling
       spec["defaultOptions"]["autoscaling"]["minScale"] = 1
-      spec["defaultOptions"]["autoscaling"]["minScale"] = 1
+      spec["defaultOptions"]["autoscaling"]["maxScale"] = 1
       spec["defaultOptions"]["capacityAI"] = false
 
       # Override image if specified
