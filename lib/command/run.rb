@@ -56,24 +56,26 @@ module Command
 
     attr_reader :location, :workload, :one_off, :container
 
-    def call
+    def call # rubocop:disable Metrics/MethodLength
       @location = config[:default_location]
       @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-run-#{rand(1000..9999)}"
 
-      clone_workload
+      step("Cloning workload '#{workload}' on app '#{config.options[:app]}' to '#{one_off}'") do
+        clone_workload
+      end
+
       wait_for_workload(one_off)
       wait_for_replica(one_off, location)
       run_in_replica
     ensure
+      progress.puts
       ensure_workload_deleted(one_off)
     end
 
     private
 
     def clone_workload # rubocop:disable Metrics/MethodLength
-      progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
-
       # Create a base copy of workload props
       spec = cp.fetch_workload!(workload).fetch("spec")
       container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
@@ -137,7 +139,7 @@ module Command
     end
 
     def run_in_replica
-      progress.puts "- Connecting"
+      progress.puts("Connecting...\n\n")
       command = %(bash -c 'eval "$CONTROLPLANE_RUNNER"')
       cp.workload_exec(one_off, location: location, container: container, command: command)
     end

@@ -10,7 +10,7 @@ module Scripts
         -H "Authorization: ${CONTROLPLANE_TOKEN}" -s | grep -o '"replicas":[0-9]*' | grep -o '[0-9]*')
 
       if [ "$REPLICAS_QTY" -gt 0 ]; then
-        echo "-- MULTIPLE REPLICAS ATTEMPT !!!! replicas: $REPLICAS_QTY"
+        echo "-- MULTIPLE REPLICAS ATTEMPT: $REPLICAS_QTY --"
         exit -1
       fi
     SHELL
