@@ -32,7 +32,7 @@ module Command
       build_args = []
       build_args.push("GIT_COMMIT=#{commit}") if commit
 
-      cp.image_build_with_docker(image_url, dockerfile: dockerfile, build_args: build_args)
+      cp.image_build(image_url, dockerfile: dockerfile, build_args: build_args)
 
       progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.")
     end

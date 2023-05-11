@@ -35,13 +35,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # image
 
-  def image_build(image, dockerfile:, push: true)
-    cmd = "cpln image build --org #{org} --name #{image} --dir #{config.app_dir} --dockerfile #{dockerfile}"
-    cmd += " --push" if push
-    perform!(cmd)
-  end
-
-  def image_build_with_docker(image, dockerfile:, build_args: [], push: true)
+  def image_build(image, dockerfile:, build_args: [], push: true)
     cmd = "docker build -t #{image} -f #{dockerfile}"
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
     cmd += " #{config.app_dir}"
