@@ -15,12 +15,13 @@ module Command
       - Will ask for explicit user confirmation of deletion
     DESC
 
-    def call
+    def call # rubocop:disable Metrics/MethodLength
       return progress.puts("No stale run workloads found.") if stale_run_workloads.empty?
 
       progress.puts("Stale run workloads:")
       stale_run_workloads.each do |workload|
-        progress.puts("  #{workload[:name]} (#{Shell.color((workload[:date]).to_s, :red)})")
+        progress.puts("  #{workload[:name]} " \
+                      "(#{Shell.color("#{workload[:date]} - #{workload[:days]} days ago", :red)})")
       end
 
       return unless confirm_delete
@@ -74,7 +75,8 @@ module Command
 
             run_workloads.push({
                                  name: workload_name,
-                                 date: created_date
+                                 date: created_date,
+                                 days: diff_in_days
                                })
           end
 
