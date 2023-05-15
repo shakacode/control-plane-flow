@@ -62,7 +62,7 @@ module Command
           now = DateTime.now
           stale_run_workload_created_days = config[:stale_run_workload_created_days]
 
-          workloads = cp.workload_query("-run-", partial_match: true)["items"]
+          workloads = cp.query_workloads("-run-", partial_match: true)["items"]
           workloads.each do |workload|
             workload_name = workload["name"]
 

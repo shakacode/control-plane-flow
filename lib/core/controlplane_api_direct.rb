@@ -11,11 +11,12 @@ class ControlplaneApiDirect
 
   API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
 
-  def call(url, method:, host: :api) # rubocop:disable Metrics/MethodLength
+  def call(url, method:, host: :api, body: nil) # rubocop:disable Metrics/MethodLength
     uri = URI("#{API_HOSTS[host]}#{url}")
     request = API_METHODS[method].new(uri)
     request["Content-Type"] = "application/json"
     request["Authorization"] = api_token
+    request.body = body.to_json if body
 
     response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(request) }
 
