@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "simplecov"
+require "timecop"
 require "vcr"
 
 SimpleCov.start do
