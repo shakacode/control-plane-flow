@@ -1,9 +1,20 @@
 # frozen_string_literal: true
 
 require "simplecov"
+require "vcr"
 
 SimpleCov.start do
   enable_coverage :branch
+end
+
+VCR.configure do |config|
+  config.cassette_library_dir = "spec/cassettes"
+  config.hook_into :webmock
+  config.configure_rspec_metadata!
+
+  config.filter_sensitive_data("<AUTHORIZATION>") do |interaction|
+    interaction.request.headers["Authorization"]&.first
+  end
 end
 
 require_relative "../lib/cpl"
