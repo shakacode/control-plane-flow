@@ -10,9 +10,9 @@ module Command
     DESCRIPTION = "Deletes stale run workloads for an app"
     LONG_DESCRIPTION = <<~DESC
       - Deletes stale run workloads for an app
-      - Stale run workloads are identified based on the creation date of the workload
-      - Specify the amount of days after a run workload should be considered stale through `stale_run_workload_created_days` in the `.controlplane/controlplane.yml` file
-      - Will ask for explicit user confirmation
+      - Workloads are considered stale based on how many days since created
+      - `stale_run_workload_created_days` in the `.controlplane/controlplane.yml` file specifies the number of days after created that the workload is considered stale
+      - Will ask for explicit user confirmation of deletion
     DESC
 
     def call
