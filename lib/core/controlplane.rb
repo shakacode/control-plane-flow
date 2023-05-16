@@ -164,15 +164,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
-  def workload_delete(workload)
-    cmd = "cpln workload delete #{workload} #{gvc_org}"
-    cmd += " 2> /dev/null"
-    perform(cmd)
-  end
-
-  def workload_delete!(workload)
-    cmd = "cpln workload delete #{workload} #{gvc_org}"
-    perform!(cmd)
+  def delete_workload(workload)
+    api.delete_workload(org: org, gvc: gvc, workload: workload)
   end
 
   def workload_connect(workload, location:, container: nil, shell: nil)

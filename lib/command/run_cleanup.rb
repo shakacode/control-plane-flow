@@ -92,7 +92,7 @@ module Command
 
     def delete_workload(workload)
       step("Deleting run workload '#{workload[:name]}'") do
-        cp.workload_delete(workload[:name])
+        cp.delete_workload(workload[:name])
       end
     end
   end
