@@ -84,6 +84,10 @@ class ControlplaneApi
     api_json("/org/#{org}/domain", method: :get)
   end
 
+  def update_domain(org:, domain:, data:)
+    api_json("/org/#{org}/domain/#{domain}", method: :patch, body: data)
+  end
+
   private
 
   # switch between cpln rest and api

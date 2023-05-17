@@ -224,7 +224,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def set_domain_workload(data, workload)
     route = find_domain_route(data)
     route["workloadLink"] = "/org/#{org}/gvc/#{gvc}/workload/#{workload}"
-    apply(data)
+
+    api.update_domain(org: org, domain: data["name"], data: data)
   end
 
   # logs
