@@ -172,8 +172,9 @@ cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 
 - Checks if maintenance mode is on or off for an app
 - Outputs 'on' or 'off'
+- Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
 - Specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file
-- Specify the domain through `domain` in the `.controlplane/controlplane.yml` file
+- Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
 
 ```sh
 cpl maintenance -a $APP_NAME
@@ -184,7 +185,6 @@ cpl maintenance -a $APP_NAME
 - Disables maintenance mode for an app
 - Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
 - Specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file
-- Specify the domain through `domain` in the `.controlplane/controlplane.yml` file
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
 
 ```sh
@@ -194,8 +194,8 @@ cpl maintenance:off -a $APP_NAME
 ### `maintenance:on`
 
 - Enables maintenance mode for an app
+- Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
 - Specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file
-- Specify the domain through `domain` in the `.controlplane/controlplane.yml` file
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
 
 ```sh

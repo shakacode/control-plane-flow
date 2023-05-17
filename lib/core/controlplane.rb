@@ -195,31 +195,33 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # domain
 
-  def domain_get(domain)
-    api.domain_get(domain: domain, org: org)
-  end
-
-  def domain_get_route(domain, data)
+  def find_domain_route(data)
     port = data["spec"]["ports"].find { |current_port| current_port["number"] == 80 || current_port["number"] == 443 }
-    raise "Can't find port 80 or 443 for domain '#{domain}'." if port.nil?
-
-    raise "Domain '#{domain}' does not use path based routing mode." if port["routes"].nil?
+    return nil if port.nil? || port["routes"].nil?
 
     route = port["routes"].find { |current_route| current_route["prefix"] == "/" }
-    raise "Can't find route '/' for domain '#{domain}'." if route.nil?
+    return nil if route.nil?
 
     route
   end
 
-  def domain_get_workload(domain)
-    data = domain_get(domain)
-    route = domain_get_route(domain, data)
+  def find_domain_for(workloads)
+    domains = api.list_domains(org: org)["items"]
+    domains.find do |domain_data|
+      route = find_domain_route(domain_data)
+      next false if route.nil?
+
+      workloads.any? { |workload| route["workloadLink"].split("/").last == workload }
+    end
+  end
+
+  def get_domain_workload(data)
+    route = find_domain_route(data)
     route["workloadLink"].split("/").last
   end
 
-  def domain_set_workload(domain, workload)
-    data = domain_get(domain)
-    route = domain_get_route(domain, data)
+  def set_domain_workload(data, workload)
+    route = find_domain_route(data)
     route["workloadLink"] = "/org/#{org}/gvc/#{gvc}/workload/#{workload}"
     apply(data)
   end

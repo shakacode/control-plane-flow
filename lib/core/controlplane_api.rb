@@ -76,8 +76,8 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :delete)
   end
 
-  def domain_get(org:, domain:)
-    api_json("/org/#{org}/domain/#{domain}", method: :get)
+  def list_domains(org:)
+    api_json("/org/#{org}/domain", method: :get)
   end
 
   private

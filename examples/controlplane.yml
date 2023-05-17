@@ -41,8 +41,6 @@ apps:
     cpln_org: my-org-production
     # Allows running command 'cpl pipeline-promote my-app-staging' to promote the staging app to production
     upstream: my-app-staging
-    # Configure the app's domain name
-    domain: ""
   my-app-other:
     <<: *common
     # you can specify different dockerfile relative to .controlplane folder, default is just 'Dockerfile'
