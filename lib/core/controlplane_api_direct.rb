@@ -32,13 +32,16 @@ class ControlplaneApiDirect
     end
   end
 
+  # rubocop:disable Style/ClassVars
   def api_token
     return @@api_token if defined?(@@api_token)
 
-    @@api_token = ENV.fetch("CPLN_TOKEN", `cpln profile token`.chomp) # rubocop:disable Style/ClassVars
+    @@api_token = ENV.fetch("CPLN_TOKEN", nil)
+    @@api_token = `cpln profile token`.chomp if @@api_token.nil?
     return @@api_token if @@api_token.match?(API_TOKEN_REGEX)
 
     raise "Unknown API token format. " \
           "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."
   end
+  # rubocop:enable Style/ClassVars
 end
