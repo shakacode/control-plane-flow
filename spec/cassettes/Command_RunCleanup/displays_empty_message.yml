@@ -1,0 +1,43 @@
+---
+http_interactions:
+  - request:
+      method: post
+      uri: https://api.cpln.io/org/my-org-staging/workload/-query
+      body:
+        encoding: UTF-8
+        string: '{"kind":"string","spec":{"match":"all","terms":[{"rel":"gvc","op":"=","value":"my-app-staging"},{"property":"name","op":"~","value":"-run-"}]}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 5439c26e-3f70-4b86-9c55-ad0d9020baeb
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "2138"
+        Date:
+          - Mon, 15 May 2023 23:58:55 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "33"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"queryresult","items":[{"kind":"workload","id":"a34d8cce-7f9b-4c0d-a144-58fbe29bb2f9","name":"rails-run-5192","description":"rails-run-5192","version":1,"tags":{"cpln/deployTimestamp":"2023-05-15T08:00:00.000Z"},"created":"2023-05-15T08:00:00.000Z","lastModified":"2023-05-15T08:00:00.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails-run-5192"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails-run-5192/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"300m","env":[{"name":"CONTROLPLANE_RUNNER","value":"unset CONTROLPLANE_RUNNER\nbash"},{"name":"LOG_LEVEL","value":"debug"}],"args":["-e","require \"socket\";s=TCPServer.new(ENV[\"PORT\"]);loop do c=s.accept;c.puts(\"HTTP/1.1 200 OK\\nContent-Length: 2\\n\\nOk\");c.close end"],"name":"rails","image":"/org/my-org-staging/image/my-app-staging:1","ports":[{"number":3000,"protocol":"http"}],"memory":"512Mi","command":"ruby","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-run-5192-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"rails-run-5192.my-app-staging.cpln.local","canonicalEndpoint":"https://rails-run-5192-hd66p547bcrpy.cpln.app"}}],"links":[{"rel":"self","href":"/q/pCx_mUpGRraW5kaHdvcmtsb2FkZHNwZWOiZW1hdGNoY2FsbGV0ZXJtc4KjY3JlbGNndmNib3BhPWV2YWx1ZWx0dXRvcmlhbC1hcHCjaHByb3BlcnR5ZG5hbWVib3BhfmV2YWx1ZWUtcnVuLWdjb250ZXh0oWdyZXF1ZXN0oWdvcmdOYW1lcHJhZmFlbC1zaGFrYWNvZGVlZmV0Y2hlaXRlbXM"}],"query":{"kind":"workload","spec":{"match":"all","terms":[{"rel":"gvc","op":"=","value":"my-app-staging"},{"property":"name","op":"~","value":"-run-"}]},"fetch":"items"}}'
+    recorded_at: Mon, 15 May 2023 23:58:56 GMT
+recorded_with: VCR 6.1.0

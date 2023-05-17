@@ -28,6 +28,7 @@ apps:
   my-app-staging:
     # Use the values from the common section above.
     <<: *common
+    stale_run_workload_created_days: 2
   my-app-review:
     <<: *common
     # If `match_if_app_name_starts_with` == `true`, then use this config for app names starting with this name,
