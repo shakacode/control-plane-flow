@@ -10,7 +10,7 @@ describe Cpl do
 
   commands.each do |_command_key, command_class|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "calls '#{command_class.name}' for '#{command_class::NAME}' command" do # rubocop:disable RSpec/ExampleLength
+    it "calls '#{command_class.name}' for '#{command_class::NAME}' command" do
       args = command_class::REQUIRES_ARGS ? ["test"] : []
       command_class::OPTIONS.each do |option|
         if option[:params][:required]
@@ -28,7 +28,7 @@ describe Cpl do
 
   options_by_key_name.each do |option_key_name, option|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "parses '#{option_key_name}' option" do # rubocop:disable RSpec/ExampleLength
+    it "parses '#{option_key_name}' option" do
       if option[:params][:type] == :boolean
         option_value = true
         args = [option_key_name]
