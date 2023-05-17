@@ -1,7 +1,13 @@
 # frozen_string_literal: true
 
 class ControlplaneApiDirect
-  API_METHODS = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put, delete: Net::HTTP::Delete }.freeze
+  API_METHODS = {
+    get: Net::HTTP::Get,
+    patch: Net::HTTP::Patch,
+    post: Net::HTTP::Post,
+    put: Net::HTTP::Put,
+    delete: Net::HTTP::Delete
+  }.freeze
   API_HOSTS = { api: "https://api.cpln.io", logs: "https://logs.cpln.io" }.freeze
 
   # API_TOKEN_REGEX = Regexp.union(

@@ -28,7 +28,7 @@ module Command
 
       @workloads.reverse_each do |workload|
         step("Starting workload '#{workload}'") do
-          cp.workload_set_suspend(workload, false)
+          cp.set_workload_suspend(workload, false)
         end
       end
 

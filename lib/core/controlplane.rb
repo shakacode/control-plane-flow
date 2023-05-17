@@ -163,10 +163,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
-  def workload_set_suspend(workload, value)
+  def set_workload_suspend(workload, value)
     data = fetch_workload!(workload)
     data["spec"]["defaultOptions"]["suspend"] = value
-    apply(data)
+
+    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
   end
 
   def workload_force_redeployment(workload)

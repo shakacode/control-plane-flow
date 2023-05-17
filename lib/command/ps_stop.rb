@@ -28,7 +28,7 @@ module Command
 
       @workloads.each do |workload|
         step("Stopping workload '#{workload}'") do
-          cp.workload_set_suspend(workload, true)
+          cp.set_workload_suspend(workload, true)
         end
       end
 

@@ -68,6 +68,10 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :get)
   end
 
+  def update_workload(org:, gvc:, workload:, data:)
+    api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :patch, body: data)
+  end
+
   def workload_deployments(org:, gvc:, workload:)
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}/deployment", method: :get)
   end
