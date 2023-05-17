@@ -14,16 +14,16 @@ module Command
     DESC
 
     def call
-      templates = config[:setup].join(" ")
+      templates = config[:setup]
 
       app = cp.fetch_gvc
       if app
         raise "App '#{config.app}' already exists. If you want to update this app, " \
               "either run 'cpl delete -a #{config.app}' and then re-run this command, " \
-              "or run 'cpl apply-template #{templates} -a #{config.app}'."
+              "or run 'cpl apply-template #{templates.join(' ')} -a #{config.app}'."
       end
 
-      perform("cpl apply-template #{templates} -a #{config.app}")
+      Cpl::Cli.start(["apply-template", *templates, "-a", config.app])
     end
   end
 end

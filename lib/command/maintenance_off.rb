@@ -35,7 +35,7 @@ module Command
       cp.fetch_workload!(maintenance_workload)
 
       # Start all other workloads
-      perform("cpl ps:start -a #{config.app} --wait-for-ready")
+      Cpl::Cli.start(["ps:start", "-a", config.app, "--wait"])
 
       progress.puts
 
@@ -50,7 +50,7 @@ module Command
       progress.puts
 
       # Stop maintenance workload
-      perform("cpl ps:stop -a #{config.app} -w #{maintenance_workload} --wait-for-not-ready")
+      Cpl::Cli.start(["ps:stop", "-a", config.app, "-w", maintenance_workload, "--wait"])
 
       progress.puts("\nMaintenance mode disabled for app '#{config.app}'.")
     end
