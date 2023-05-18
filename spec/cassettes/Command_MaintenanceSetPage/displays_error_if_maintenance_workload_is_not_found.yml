@@ -1,0 +1,43 @@
+---
+http_interactions:
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 404
+        message: Not Found
+      headers:
+        X-Request-Id:
+          - 98690e01-2b20-44b7-bbd2-178a3e79a812
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "140"
+        Date:
+          - Thu, 18 May 2023 19:17:51 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "6"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"message":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance does not exist","status":404,"id":"98690e01-2b20-44b7-bbd2-178a3e79a812"}'
+    recorded_at: Thu, 18 May 2023 19:17:51 GMT
+recorded_with: VCR 6.1.0

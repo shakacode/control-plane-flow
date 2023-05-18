@@ -1,0 +1,123 @@
+---
+http_interactions:
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 9784ba58-6807-4bd6-87a4-ebb1490ff956
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1404"
+        Date:
+          - Thu, 18 May 2023 22:28:43 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "44"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":2,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T18:41:13.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":""},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 22:28:43 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - e0809f8b-7ccf-45fa-85e4-814d8b4a6956
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1404"
+        Date:
+          - Thu, 18 May 2023 22:28:43 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "5"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":2,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T18:41:13.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":""},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 22:28:43 GMT
+  - request:
+      method: patch
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":2,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T18:41:13.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":"https://example.com/maintenance.html"},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - a38d6f1c-c373-48bf-b33a-2c4a17cd640d
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1440"
+        Date:
+          - Thu, 18 May 2023 22:28:43 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "316"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":2,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T22:28:43.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":"https://example.com/maintenance.html"},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 22:28:43 GMT
+recorded_with: VCR 6.1.0

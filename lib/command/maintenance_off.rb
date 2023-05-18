@@ -29,7 +29,7 @@ module Command
       domain_workload = cp.get_domain_workload(domain_data)
       if domain_workload == one_off_workload
         progress.puts("Maintenance mode is already disabled for app '#{config.app}'.")
-        exit
+        return
       end
 
       cp.fetch_workload!(maintenance_workload)
