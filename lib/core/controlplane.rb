@@ -157,10 +157,18 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def set_workload_env_var(workload, container:, name:, value:)
-    cmd = "cpln workload update #{workload} #{gvc_org}"
-    cmd += " --set spec.containers.#{container}.env.#{name}.value='#{value}'"
-    cmd += " > /dev/null" if Shell.tmp_stderr
-    perform!(cmd)
+    data = fetch_workload!(workload)
+    data["spec"]["containers"].each do |container_data|
+      next unless container_data["name"] == container
+
+      container_data["env"].each do |env_data|
+        next unless env_data["name"] == name
+
+        env_data["value"] = value
+      end
+    end
+
+    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
   end
 
   def set_workload_suspend(workload, value)
