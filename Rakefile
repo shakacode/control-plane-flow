@@ -10,7 +10,12 @@ RuboCop::RakeTask.new
 
 task default: %i[rspec rubocop]
 
+desc "Checks if commands.md file is up to date"
+task :check_command_docs do
+  sh "./script/check_command_docs"
+end
+
 desc "Updates commands.md file"
-task :command_docs do
-  sh "./script/generate_commands_docs"
+task :update_command_docs do
+  sh "./script/update_command_docs"
 end
