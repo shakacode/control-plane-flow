@@ -15,24 +15,15 @@ class Config
     @app = options[:app]
 
     load_app_config
-
-    @apps = config[:apps]
-
-    pick_current_config if app
-    warn_deprecated_options if current
+    load_apps
   end
 
   def [](key)
     ensure_current_config!
 
-    old_key = old_option_keys[key]
-    if current.key?(key)
-      current.fetch(key)
-    elsif old_key && current.key?(old_key)
-      current.fetch(old_key)
-    else
-      raise "Can't find option '#{key}' for app '#{app}' in 'controlplane.yml'."
-    end
+    raise "Can't find option '#{key}' for app '#{app}' in 'controlplane.yml'." unless current.key?(key)
+
+    current.fetch(key)
   end
 
   def script_path
@@ -49,8 +40,8 @@ class Config
     raise "Can't find current config, please specify an app." unless current
   end
 
-  def ensure_current_config_app!(app)
-    raise "Can't find app '#{app}' in 'controlplane.yml'." unless current
+  def ensure_current_config_app!(app_name)
+    raise "Can't find app '#{app_name}' in 'controlplane.yml'." unless current
   end
 
   def ensure_config!
@@ -61,20 +52,36 @@ class Config
     raise "Can't find key 'apps' in 'controlplane.yml'." unless config[:apps]
   end
 
-  def ensure_config_app!(app, options)
-    raise "App '#{app}' is empty in 'controlplane.yml'." unless options
+  def ensure_config_app!(app_name, app_options)
+    raise "App '#{app_name}' is empty in 'controlplane.yml'." unless app_options
   end
 
-  def pick_current_config
-    config[:apps].each do |c_app, c_data|
-      ensure_config_app!(c_app, c_data)
-      next unless c_app.to_s == app || (c_data[:match_if_app_name_starts_with] && app.start_with?(c_app.to_s))
+  def app_matches_current?(app_name, app_options)
+    app && (app_name.to_s == app || (app_options[:match_if_app_name_starts_with] && app.start_with?(app_name.to_s)))
+  end
 
-      @current = c_data
-      @org = self[:cpln_org]
-      break
+  def pick_current_config(app_name, app_options)
+    @current = app_options
+    @org = self[:cpln_org]
+    ensure_current_config_app!(app_name)
+  end
+
+  def load_apps # rubocop:disable Metrics/MethodLength
+    @apps = config[:apps].to_h do |app_name, app_options|
+      ensure_config_app!(app_name, app_options)
+
+      app_options_with_new_keys = app_options.to_h do |key, value|
+        new_key = new_option_keys[key]
+        new_key ? [new_key, value] : [key, value]
+      end
+
+      if app_matches_current?(app_name, app_options_with_new_keys)
+        pick_current_config(app_name, app_options_with_new_keys)
+        warn_deprecated_options(app_options)
+      end
+
+      [app_name, app_options_with_new_keys]
     end
-    ensure_current_config_app!(app)
   end
 
   def load_app_config
@@ -100,19 +107,19 @@ class Config
     end
   end
 
-  def old_option_keys
+  def new_option_keys
     {
-      cpln_org: :org,
-      default_location: :location,
-      match_if_app_name_starts_with: :prefix
+      org: :cpln_org,
+      location: :default_location,
+      prefix: :match_if_app_name_starts_with
     }
   end
 
-  def warn_deprecated_options
-    deprecated_option_keys = old_option_keys.filter { |_new_key, old_key| current.key?(old_key) }
+  def warn_deprecated_options(app_options)
+    deprecated_option_keys = new_option_keys.filter { |old_key| app_options.key?(old_key) }
     return if deprecated_option_keys.empty?
 
-    deprecated_option_keys.each do |new_key, old_key|
+    deprecated_option_keys.each do |old_key, new_key|
       Shell.warn_deprecated("Option '#{old_key}' is deprecated, " \
                             "please use '#{new_key}' instead (in 'controlplane.yml').")
     end

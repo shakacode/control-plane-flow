@@ -168,6 +168,51 @@ cpl logs -a $APP_NAME
 cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
+### `maintenance`
+
+- Checks if maintenance mode is on or off for an app
+- Outputs 'on' or 'off'
+- Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
+- Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
+- Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
+
+```sh
+cpl maintenance -a $APP_NAME
+```
+
+### `maintenance:off`
+
+- Disables maintenance mode for an app
+- Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
+- Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
+- Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
+
+```sh
+cpl maintenance:off -a $APP_NAME
+```
+
+### `maintenance:on`
+
+- Enables maintenance mode for an app
+- Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
+- Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
+- Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
+
+```sh
+cpl maintenance:on -a $APP_NAME
+```
+
+### `maintenance:set-page`
+
+- Sets the page for maintenance mode
+- Only works if the maintenance workload uses the `shakacode/maintenance-mode` image
+- Will set the URL as an env var `PAGE_URL` on the maintenance workload
+- Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
+
+```sh
+cpl maintenance:set-page PAGE_URL -a $APP_NAME
+```
+
 ### `open`
 
 - Opens the app endpoint URL in the default browser

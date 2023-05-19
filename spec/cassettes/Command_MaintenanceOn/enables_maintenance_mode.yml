@@ -1,0 +1,603 @@
+---
+http_interactions:
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/domain
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 73d9eb9c-d189-4d6f-ac4e-f4b4fc95c97d
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "2059"
+        Date:
+          - Thu, 18 May 2023 18:41:12 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "6"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"list","itemKind":"domain","links":[{"rel":"self","href":"/org/my-org-staging/domain"}],"items":[{"kind":"domain","id":"9f5762c0-5afe-4214-a57f-df9eef722fb2","name":"example.com","description":"example.com","version":1,"tags":{},"created":"2023-02-14T19:08:15.563Z","lastModified":"2023-02-14T19:08:15.563Z","links":[{"rel":"self","href":"/org/my-org-staging/domain/example.com"},{"rel":"org","href":"/org/my-org-staging"}],"spec":{"ports":[{"tls":{"cipherSuites":["ECDHE-ECDSA-AES256-GCM-SHA384","ECDHE-ECDSA-CHACHA20-POLY1305","ECDHE-ECDSA-AES128-GCM-SHA256","ECDHE-RSA-AES256-GCM-SHA384","ECDHE-RSA-CHACHA20-POLY1305","ECDHE-RSA-AES128-GCM-SHA256","AES256-GCM-SHA384","AES128-GCM-SHA256"],"minProtocolVersion":"TLSV1_2"},"number":443,"protocol":"http2"}],"dnsMode":"cname","acceptAllHosts":false},"status":{"status":"ready","warning":"","endpoints":[],"fingerprint":"l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"}},{"kind":"domain","id":"4cad1bd2-261f-47db-aa9c-781704201440","name":"my-app-staging.example.com","description":"my-app-staging.example.com","version":1,"tags":{},"created":"2023-02-14T19:11:01.086Z","lastModified":"2023-02-14T19:11:01.086Z","links":[{"rel":"self","href":"/org/my-org-staging/domain/my-app-staging.example.com"},{"rel":"org","href":"/org/my-org-staging"}],"spec":{"ports":[{"tls":{"cipherSuites":["ECDHE-ECDSA-AES256-GCM-SHA384","ECDHE-ECDSA-CHACHA20-POLY1305","ECDHE-ECDSA-AES128-GCM-SHA256","ECDHE-RSA-AES256-GCM-SHA384","ECDHE-RSA-CHACHA20-POLY1305","ECDHE-RSA-AES128-GCM-SHA256","AES256-GCM-SHA384","AES128-GCM-SHA256"],"serverCertificate":{},"minProtocolVersion":"TLSV1_2"},"number":443,"routes":[{"prefix":"/","workloadLink":"/org/my-org-staging/gvc/my-app-staging/workload/rails"}],"protocol":"http2"}],"dnsMode":"ns","acceptAllHosts":false},"status":{"status":"ready","warning":"","endpoints":[{"url":"https://my-app-staging.example.com/","workloadLink":"/org/my-org-staging/gvc/my-app-staging/workload/rails"}],"locations":[{"name":"aws-us-east-2","certificateStatus":"ready"}],"fingerprint":"NLMYcpJdwRpol0szlbj/arbN83I"}}]}'
+    recorded_at: Thu, 18 May 2023 18:41:12 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - afc61fa6-7c40-433d-8635-46da0119f451
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1403"
+        Date:
+          - Thu, 18 May 2023 18:41:13 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "7"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":1,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T00:18:55.334Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":""},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:13 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - e7583c7b-1401-4903-832d-31c1f0ad2232
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1403"
+        Date:
+          - Thu, 18 May 2023 18:41:13 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "6"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":1,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T00:18:55.334Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":""},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:13 GMT
+  - request:
+      method: patch
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":1,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T00:18:55.334Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":""},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - dc2f6cd4-6c8c-460a-909e-8207eae90fd4
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1404"
+        Date:
+          - Thu, 18 May 2023 18:41:13 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "40"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"a105b63c-e2a4-4ff7-bfa1-eb0545b0d1ae","name":"maintenance","description":"maintenance","version":2,"tags":{"cpln/deployTimestamp":"2023-05-18T00:18:55.334Z"},"created":"2023-05-18T00:18:55.334Z","lastModified":"2023-05-18T18:41:13.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PAGE_URL","value":""},{"name":"PORT","value":"3000"}],"name":"maintenance","image":"shakacode/maintenance-mode","ports":[{"number":3000,"protocol":"http"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":60},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":[],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://maintenance-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"maintenance.my-app-staging.cpln.local","canonicalEndpoint":"https://maintenance-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:13 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 508caad0-74a8-49f1-8901-b693d4f52162
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1561"
+        Date:
+          - Thu, 18 May 2023 18:41:14 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "8"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"list","itemKind":"deployment","items":[{"name":"aws-us-east-2","status":{"endpoint":"https://maintenance-hd66p547bcrpy.aws-us-east-2.controlplane.us/","remote":"https://c304ea723c26c198c51959a2125cb9c9.remote.cpln.io","lastProcessedVersion":1,"expectedDeploymentVersion":2,"internal":{"podStatus":{},"podsValidZone":true,"timestamp":"2023-05-18T18:41:13.000Z","ksvcStatus":{"Available":{"status":"True","lastTransitionTime":"2023-05-18T18:41:13.000Z","message":"Deployment has minimum availability.","reason":"MinimumReplicasAvailable"},"Progressing":{"status":"True","lastTransitionTime":"2023-05-18T18:41:13.000Z","message":"ReplicaSet \"maintenance-7dfcb4864c\" has successfully progressed.","reason":"NewReplicaSetAvailable"}}},"ready":true,"versions":[{"message":"","ready":true,"containers":{"maintenance":{"name":"maintenance","image":"shakacode/maintenance-mode","resources":{"memory":128,"cpu":50,"replicas":1,"replicasReady":1},"message":"","ready":true}},"created":"2023-05-18T18:41:13.000Z","workload":2}]},"lastModified":"2023-05-18T18:41:13.000Z","kind":"deployment","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment/aws-us-east-2"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"},{"rel":"location","href":"/org/my-org-staging/location/aws-us-east-2"}]}],"links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance/deployment"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"}]}'
+    recorded_at: Thu, 18 May 2023 18:41:14 GMT
+  - request:
+      method: patch
+      uri: https://api.cpln.io/org/my-org-staging/domain/my-app-staging.example.com
+      body:
+        encoding: UTF-8
+        string: '{"kind":"domain","id":"4cad1bd2-261f-47db-aa9c-781704201440","name":"my-app-staging.example.com","description":"my-app-staging.example.com","version":1,"tags":{},"created":"2023-02-14T19:11:01.086Z","lastModified":"2023-02-14T19:11:01.086Z","links":[{"rel":"self","href":"/org/my-org-staging/domain/my-app-staging.example.com"},{"rel":"org","href":"/org/my-org-staging"}],"spec":{"ports":[{"tls":{"cipherSuites":["ECDHE-ECDSA-AES256-GCM-SHA384","ECDHE-ECDSA-CHACHA20-POLY1305","ECDHE-ECDSA-AES128-GCM-SHA256","ECDHE-RSA-AES256-GCM-SHA384","ECDHE-RSA-CHACHA20-POLY1305","ECDHE-RSA-AES128-GCM-SHA256","AES256-GCM-SHA384","AES128-GCM-SHA256"],"serverCertificate":{},"minProtocolVersion":"TLSV1_2"},"number":443,"routes":[{"prefix":"/","workloadLink":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"}],"protocol":"http2"}],"dnsMode":"ns","acceptAllHosts":false},"status":{"status":"ready","warning":"","endpoints":[{"url":"https://my-app-staging.example.com/","workloadLink":"/org/my-org-staging/gvc/my-app-staging/workload/rails"}],"locations":[{"name":"aws-us-east-2","certificateStatus":"ready"}],"fingerprint":"NLMYcpJdwRpol0szlbj/arbN83I"}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - bd009ffc-2be5-4dca-ab95-3b73ea0fc64c
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "871"
+        Date:
+          - Thu, 18 May 2023 18:41:15 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "21"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"domain","id":"4cad1bd2-261f-47db-aa9c-781704201440","name":"my-app-staging.example.com","description":"my-app-staging.example.com","version":2,"tags":{},"created":"2023-02-14T19:11:01.086Z","lastModified":"2023-05-18T18:41:15.000Z","links":[{"rel":"self","href":"/org/my-org-staging/domain/my-app-staging.example.com"},{"rel":"org","href":"/org/my-org-staging"}],"spec":{"ports":[{"tls":{"cipherSuites":["ECDHE-ECDSA-AES256-GCM-SHA384","ECDHE-ECDSA-CHACHA20-POLY1305","ECDHE-ECDSA-AES128-GCM-SHA256","ECDHE-RSA-AES256-GCM-SHA384","ECDHE-RSA-CHACHA20-POLY1305","ECDHE-RSA-AES128-GCM-SHA256","AES256-GCM-SHA384","AES128-GCM-SHA256"],"serverCertificate":{},"minProtocolVersion":"TLSV1_2"},"number":443,"routes":[{"prefix":"/","workloadLink":"/org/my-org-staging/gvc/my-app-staging/workload/maintenance"}],"protocol":"http2"}],"dnsMode":"ns","acceptAllHosts":false}}'
+    recorded_at: Thu, 18 May 2023 18:41:15 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/rails
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 4590221b-2047-429a-95ce-258f841c4974
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1357"
+        Date:
+          - Thu, 18 May 2023 18:41:16 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "7"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"c8c1da11-dd92-41d7-82b8-60fe703fdc56","name":"rails","description":"rails","version":1,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:51.107Z"},"created":"2023-05-02T16:26:51.107Z","lastModified":"2023-05-02T16:26:51.107Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"300m","env":[{"name":"LOG_LEVEL","value":"debug"}],"name":"rails","image":"/org/my-org-staging/image/my-app-staging:1","ports":[{"number":3000,"protocol":"http"}],"memory":"512Mi","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"rails.my-app-staging.cpln.local","canonicalEndpoint":"https://rails-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:16 GMT
+  - request:
+      method: patch
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/rails
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"c8c1da11-dd92-41d7-82b8-60fe703fdc56","name":"rails","description":"rails","version":1,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:51.107Z"},"created":"2023-05-02T16:26:51.107Z","lastModified":"2023-05-02T16:26:51.107Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"300m","env":[{"name":"LOG_LEVEL","value":"debug"}],"name":"rails","image":"/org/my-org-staging/image/my-app-staging:1","ports":[{"number":3000,"protocol":"http"}],"memory":"512Mi","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"rails.my-app-staging.cpln.local","canonicalEndpoint":"https://rails-hd66p547bcrpy.cpln.app"}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 26fbc57b-6f1b-48ca-9c5c-343bce7a15ba
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1356"
+        Date:
+          - Thu, 18 May 2023 18:41:16 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "7"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"c8c1da11-dd92-41d7-82b8-60fe703fdc56","name":"rails","description":"rails","version":2,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:51.107Z"},"created":"2023-05-02T16:26:51.107Z","lastModified":"2023-05-18T18:41:16.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"300m","env":[{"name":"LOG_LEVEL","value":"debug"}],"name":"rails","image":"/org/my-org-staging/image/my-app-staging:1","ports":[{"number":3000,"protocol":"http"}],"memory":"512Mi","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"rails.my-app-staging.cpln.local","canonicalEndpoint":"https://rails-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:16 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/redis
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 290eb33c-dbc9-4a28-80e4-83545f5bfd94
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1242"
+        Date:
+          - Thu, 18 May 2023 18:41:17 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "5"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"b6fed3ba-0974-4e87-890f-aa2f0d7180ab","name":"redis","description":"redis","version":1,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:49.653Z"},"created":"2023-05-02T16:26:49.653Z","lastModified":"2023-05-02T16:26:49.653Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","name":"redis","image":"redis:6.2.6","ports":[{"number":6379,"protocol":"tcp"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"internal":{"inboundAllowType":"same-gvc","inboundAllowWorkload":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://redis-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"redis.my-app-staging.cpln.local","canonicalEndpoint":"https://redis-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:17 GMT
+  - request:
+      method: patch
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/redis
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"b6fed3ba-0974-4e87-890f-aa2f0d7180ab","name":"redis","description":"redis","version":1,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:49.653Z"},"created":"2023-05-02T16:26:49.653Z","lastModified":"2023-05-02T16:26:49.653Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","name":"redis","image":"redis:6.2.6","ports":[{"number":6379,"protocol":"tcp"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"internal":{"inboundAllowType":"same-gvc","inboundAllowWorkload":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://redis-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"redis.my-app-staging.cpln.local","canonicalEndpoint":"https://redis-hd66p547bcrpy.cpln.app"}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - f05f9ebb-7c2d-4f3e-98c3-8bde659c7d18
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1241"
+        Date:
+          - Thu, 18 May 2023 18:41:17 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "81"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"b6fed3ba-0974-4e87-890f-aa2f0d7180ab","name":"redis","description":"redis","version":2,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:49.653Z"},"created":"2023-05-02T16:26:49.653Z","lastModified":"2023-05-18T18:41:17.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","name":"redis","image":"redis:6.2.6","ports":[{"number":6379,"protocol":"tcp"}],"memory":"128Mi","inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"internal":{"inboundAllowType":"same-gvc","inboundAllowWorkload":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://redis-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"redis.my-app-staging.cpln.local","canonicalEndpoint":"https://redis-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:17 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/postgres
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 902a8033-2990-47a4-a70b-3840282142e6
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1520"
+        Date:
+          - Thu, 18 May 2023 18:41:18 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "5"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"8d115fba-cb87-48da-9777-19266c2965e2","name":"postgres","description":"postgres","version":1,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:46.970Z"},"created":"2023-05-02T16:26:46.970Z","lastModified":"2023-05-02T16:26:46.970Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PGUSER","value":"postgres"},{"name":"POSTGRES_PASSWORD","value":"password123"},{"name":"POSTGRES_USER","value":"postgres"}],"name":"postgres","image":"postgres:13.8-alpine","ports":[{"number":5432,"protocol":"tcp"}],"memory":"128Mi","volumes":[{"uri":"scratch://postgres-vol","path":"/var/lib/postgresql/data","recoveryPolicy":"retain"}],"inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"internal":{"inboundAllowType":"same-gvc","inboundAllowWorkload":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://postgres-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"postgres.my-app-staging.cpln.local","canonicalEndpoint":"https://postgres-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:18 GMT
+  - request:
+      method: patch
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/postgres
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"8d115fba-cb87-48da-9777-19266c2965e2","name":"postgres","description":"postgres","version":1,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:46.970Z"},"created":"2023-05-02T16:26:46.970Z","lastModified":"2023-05-02T16:26:46.970Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PGUSER","value":"postgres"},{"name":"POSTGRES_PASSWORD","value":"password123"},{"name":"POSTGRES_USER","value":"postgres"}],"name":"postgres","image":"postgres:13.8-alpine","ports":[{"number":5432,"protocol":"tcp"}],"memory":"128Mi","volumes":[{"uri":"scratch://postgres-vol","path":"/var/lib/postgresql/data","recoveryPolicy":"retain"}],"inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"internal":{"inboundAllowType":"same-gvc","inboundAllowWorkload":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://postgres-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"postgres.my-app-staging.cpln.local","canonicalEndpoint":"https://postgres-hd66p547bcrpy.cpln.app"}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 7d9d330e-43ef-44af-a2d2-97621e258928
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1519"
+        Date:
+          - Thu, 18 May 2023 18:41:18 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "89"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"workload","id":"8d115fba-cb87-48da-9777-19266c2965e2","name":"postgres","description":"postgres","version":2,"tags":{"cpln/deployTimestamp":"2023-05-02T16:26:46.970Z"},"created":"2023-05-02T16:26:46.970Z","lastModified":"2023-05-18T18:41:18.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-staging"}],"spec":{"type":"standard","containers":[{"cpu":"50m","env":[{"name":"PGUSER","value":"postgres"},{"name":"POSTGRES_PASSWORD","value":"password123"},{"name":"POSTGRES_USER","value":"postgres"}],"name":"postgres","image":"postgres:13.8-alpine","ports":[{"number":5432,"protocol":"tcp"}],"memory":"128Mi","volumes":[{"uri":"scratch://postgres-vol","path":"/var/lib/postgresql/data","recoveryPolicy":"retain"}],"inheritEnv":false}],"defaultOptions":{"debug":false,"suspend":true,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"internal":{"inboundAllowType":"same-gvc","inboundAllowWorkload":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://postgres-hd66p547bcrpy.cpln.app","parentId":"407d11e7-9cdd-4d08-ab5a-fb8c18322645","internalName":"postgres.my-app-staging.cpln.local","canonicalEndpoint":"https://postgres-hd66p547bcrpy.cpln.app"}}'
+    recorded_at: Thu, 18 May 2023 18:41:18 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/rails/deployment
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 9d86779c-cc2c-48f7-995e-0e1f7999c902
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1207"
+        Date:
+          - Thu, 18 May 2023 18:41:19 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "39"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"list","itemKind":"deployment","items":[{"name":"aws-us-east-2","status":{"endpoint":"https://rails-hd66p547bcrpy.aws-us-east-2.controlplane.us/","remote":"https://c304ea723c26c198c51959a2125cb9c9.remote.cpln.io","lastProcessedVersion":1,"expectedDeploymentVersion":2,"internal":{"podStatus":{},"podsValidZone":true,"timestamp":"2023-05-18T18:41:18.000Z"},"ready":false,"versions":[{"message":"This workload location is deactivated because suspend is set to true","ready":false,"created":"2023-05-18T18:41:18.000Z","containers":{"rails":{"image":"/org/my-org-staging/image/my-app-staging:1","name":"rails","ready":false,"resources":{"replicas":0,"memory":512,"cpu":300}}},"workload":2}]},"lastModified":"2023-05-18T18:41:18.000Z","kind":"deployment","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails/deployment/aws-us-east-2"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails"},{"rel":"location","href":"/org/my-org-staging/location/aws-us-east-2"}]}],"links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails/deployment"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/rails"}]}'
+    recorded_at: Thu, 18 May 2023 18:41:19 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/redis/deployment
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - da525ec8-e4bc-4f79-8a4e-c05a17077659
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1175"
+        Date:
+          - Thu, 18 May 2023 18:41:20 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "31"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"list","itemKind":"deployment","items":[{"name":"aws-us-east-2","status":{"endpoint":"https://redis-hd66p547bcrpy.aws-us-east-2.controlplane.us/","remote":"https://c304ea723c26c198c51959a2125cb9c9.remote.cpln.io","lastProcessedVersion":1,"expectedDeploymentVersion":2,"internal":{"podStatus":{},"podsValidZone":true,"timestamp":"2023-05-18T18:41:18.000Z"},"ready":false,"versions":[{"message":"This workload location is deactivated because suspend is set to true","ready":false,"created":"2023-05-18T18:41:18.000Z","containers":{"redis":{"image":"redis:6.2.6","name":"redis","ready":false,"resources":{"replicas":0,"memory":128,"cpu":50}}},"workload":2}]},"lastModified":"2023-05-18T18:41:18.000Z","kind":"deployment","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis/deployment/aws-us-east-2"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis"},{"rel":"location","href":"/org/my-org-staging/location/aws-us-east-2"}]}],"links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis/deployment"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/redis"}]}'
+    recorded_at: Thu, 18 May 2023 18:41:20 GMT
+  - request:
+      method: get
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-staging/workload/postgres/deployment
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - 0ebab0bb-9f8e-42f2-b9c1-67cff63c1c54
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "1205"
+        Date:
+          - Thu, 18 May 2023 18:41:21 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "6"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"list","itemKind":"deployment","items":[{"name":"aws-us-east-2","status":{"endpoint":"https://postgres-hd66p547bcrpy.aws-us-east-2.controlplane.us/","remote":"https://c304ea723c26c198c51959a2125cb9c9.remote.cpln.io","lastProcessedVersion":1,"expectedDeploymentVersion":2,"internal":{"podStatus":{},"podsValidZone":true,"timestamp":"2023-05-18T18:41:18.000Z"},"ready":false,"versions":[{"message":"This workload location is deactivated because suspend is set to true","ready":false,"created":"2023-05-18T18:41:18.000Z","containers":{"postgres":{"image":"postgres:13.8-alpine","name":"postgres","ready":false,"resources":{"replicas":0,"memory":128,"cpu":50}}},"workload":2}]},"lastModified":"2023-05-18T18:41:18.000Z","kind":"deployment","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres/deployment/aws-us-east-2"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres"},{"rel":"location","href":"/org/my-org-staging/location/aws-us-east-2"}]}],"links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres/deployment"},{"rel":"workload","href":"/org/my-org-staging/gvc/my-app-staging/workload/postgres"}]}'
+    recorded_at: Thu, 18 May 2023 18:41:21 GMT
+recorded_with: VCR 6.1.0

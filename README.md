@@ -106,14 +106,28 @@ Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to
 **Notes:**
 
 1. `myapp` is an app name defined in the `.controlplane/controlplane.yml` file, such as `ror-tutorial` in [this `controlplane.yml` file](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml).
-2. Other files in the `.controlplane/templates` directory are used by the `cpl setup` command.
+2. Other files in the `.controlplane/templates` directory are used by the `cpl setup-app` and `cpl apply-template` commands.
 
 ### Initial Setup and Deployment
 
+Before the initial setup, add the templates for the app to `.controlplane/controlplane.yml`, using the `setup` key:
+
+```yaml
+myapp:
+  setup:
+    - gvc
+    - postgres
+    - redis
+    - memcached
+    - rails
+    - sidekiq
+```
+
+Note how the templates correspond to files in the `.controlplane/templates` directory.
+
 ```sh
 # Provision infrastructure (one-time-only for new apps) using templates.
-# Note how the arguments correspond to files in the `.controlplane/templates` directory.
-cpl setup gvc postgres redis memcached rails sidekiq -a myapp
+cpl setup-app -a myapp
 
 # Build and push image with auto-tagging "myapp:1_456".
 cpl build-image -a myapp --commit 456
@@ -360,17 +374,17 @@ cpl --help
 
 **`[WIP]`**
 
-| Heroku Command                                                                                                 | `cpl` or `cpln` |
-| -------------------------------------------------------------------------------------------------------------- | --------------- |
-| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpl ps`        |
-| [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | ?               |
-| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | ?               |
-| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpl logs`      |
-| [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | ?               |
-| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpl promote`   |
-| [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | ?               |
-| [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | ?               |
-| [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | ?               |
+| Heroku Command                                                                                                 | `cpl` or `cpln`                 |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpl ps`                        |
+| [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | ?                               |
+| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | `cpl maintenance`               |
+| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpl logs`                      |
+| [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | ?                               |
+| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpl promote-app-from-upstream` |
+| [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | ?                               |
+| [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | ?                               |
+| [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | ?                               |
 
 ## Examples
 

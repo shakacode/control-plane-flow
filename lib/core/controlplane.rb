@@ -100,7 +100,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     gvc_data = fetch_gvc(a_gvc)
     return gvc_data if gvc_data
 
-    raise "Can't find GVC '#{gvc}', please create it with 'cpl setup gvc -a #{config.app}'."
+    raise "Can't find app '#{gvc}', please create it with 'cpl setup-app -a #{config.app}'."
   end
 
   def gvc_delete(a_gvc = gvc)
@@ -125,7 +125,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     workload_data = fetch_workload(workload)
     return workload_data if workload_data
 
-    raise "Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'."
+    raise "Can't find workload '#{workload}', please create it with 'cpl apply-template #{workload} -a #{config.app}'."
   end
 
   def query_workloads(workload, partial_match: false)
@@ -145,6 +145,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     $CHILD_STATUS.success? ? YAML.safe_load(result) : nil
   end
 
+  def fetch_workload_deployments(workload)
+    api.workload_deployments(workload: workload, gvc: gvc, org: org)
+  end
+
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
@@ -152,10 +156,26 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
-  def workload_set_suspend(workload, value)
+  def set_workload_env_var(workload, container:, name:, value:)
+    data = fetch_workload!(workload)
+    data["spec"]["containers"].each do |container_data|
+      next unless container_data["name"] == container
+
+      container_data["env"].each do |env_data|
+        next unless env_data["name"] == name
+
+        env_data["value"] = value
+      end
+    end
+
+    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
+  end
+
+  def set_workload_suspend(workload, value)
     data = fetch_workload!(workload)
     data["spec"]["defaultOptions"]["suspend"] = value
-    apply(data)
+
+    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
   end
 
   def workload_force_redeployment(workload)
@@ -180,6 +200,40 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
     perform!(cmd)
+  end
+
+  # domain
+
+  def find_domain_route(data)
+    port = data["spec"]["ports"].find { |current_port| current_port["number"] == 80 || current_port["number"] == 443 }
+    return nil if port.nil? || port["routes"].nil?
+
+    route = port["routes"].find { |current_route| current_route["prefix"] == "/" }
+    return nil if route.nil?
+
+    route
+  end
+
+  def find_domain_for(workloads)
+    domains = api.list_domains(org: org)["items"]
+    domains.find do |domain_data|
+      route = find_domain_route(domain_data)
+      next false if route.nil?
+
+      workloads.any? { |workload| route["workloadLink"].split("/").last == workload }
+    end
+  end
+
+  def get_domain_workload(data)
+    route = find_domain_route(data)
+    route["workloadLink"].split("/").last
+  end
+
+  def set_domain_workload(data, workload)
+    route = find_domain_route(data)
+    route["workloadLink"] = "/org/#{org}/gvc/#{gvc}/workload/#{workload}"
+
+    api.update_domain(org: org, domain: data["name"], data: data)
   end
 
   # logs

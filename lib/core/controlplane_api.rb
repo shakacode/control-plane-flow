@@ -68,12 +68,24 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :get)
   end
 
+  def update_workload(org:, gvc:, workload:, data:)
+    api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :patch, body: data)
+  end
+
   def workload_deployments(org:, gvc:, workload:)
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}/deployment", method: :get)
   end
 
   def delete_workload(org:, gvc:, workload:)
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :delete)
+  end
+
+  def list_domains(org:)
+    api_json("/org/#{org}/domain", method: :get)
+  end
+
+  def update_domain(org:, domain:, data:)
+    api_json("/org/#{org}/domain/#{domain}", method: :patch, body: data)
   end
 
   private

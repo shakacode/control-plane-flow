@@ -16,13 +16,11 @@ aliases:
     # Workloads that are for the application itself and are using application Docker images.
     app_workloads:
       - rails
-      - sidekiq
 
     # Additional "service type" workloads, using non-application Docker images.
     additional_workloads:
       - redis
       - postgres
-      - memcached
 
 apps:
   my-app-staging:

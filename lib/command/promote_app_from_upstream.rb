@@ -39,7 +39,7 @@ module Command
     end
 
     def copy_image_from_upstream
-      perform("cpl copy-image-from-upstream -a #{config.app} -t #{config.options[:upstream_token]}")
+      Cpl::Cli.start(["copy-image-from-upstream", "-a", config.app, "-t", config.options[:upstream_token]])
       progress.puts
     end
 
@@ -52,7 +52,7 @@ module Command
     end
 
     def deploy_image
-      perform("cpl deploy-image -a #{config.app}")
+      Cpl::Cli.start(["deploy-image", "-a", config.app])
     end
   end
 end

@@ -23,6 +23,9 @@ aliases:
       - postgres
       - memcached
 
+    # Configure the workload name used when maintenance mode is on (defaults to 'maintenance')
+    maintenance_workload: maintenance
+
 apps:
   my-app-staging:
     # Use the values from the common section above
