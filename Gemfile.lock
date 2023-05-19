@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpl (0.6.0)
+    cpl (0.7.0)
       debug (~> 1.7.1)
       dotenv (~> 2.8.1)
       psych (~> 5.1.0)
@@ -84,7 +84,7 @@ GEM
     simplecov-html (0.12.3)
     simplecov_json_formatter (0.1.4)
     stringio (3.0.6)
-    thor (1.2.1)
+    thor (1.2.2)
     timecop (0.9.6)
     unicode-display_width (2.4.2)
     vcr (6.1.0)
