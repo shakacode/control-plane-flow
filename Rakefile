@@ -4,11 +4,11 @@ require "bundler/gem_tasks"
 require "rspec/core/rake_task"
 require "rubocop/rake_task"
 
-RSpec::Core::RakeTask.new(:spec)
+RSpec::Core::RakeTask.new(:rspec)
 
 RuboCop::RakeTask.new
 
-task default: %i[spec rubocop]
+task default: %i[rspec rubocop]
 
 desc "Updates commands.md file"
 task :command_docs do

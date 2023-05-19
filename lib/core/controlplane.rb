@@ -128,6 +128,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     raise "Can't find workload '#{workload}', please create it with 'cpl setup #{workload} -a #{config.app}'."
   end
 
+  def query_workloads(workload, partial_match: false)
+    op = partial_match ? "~" : "="
+
+    api.query_workloads(org: org, gvc: gvc, workload: workload, op_type: op)
+  end
+
   def workload_get_replicas(workload, location:)
     cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
     perform_yaml(cmd)
@@ -158,15 +164,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
-  def workload_delete(workload)
-    cmd = "cpln workload delete #{workload} #{gvc_org}"
-    cmd += " 2> /dev/null"
-    perform(cmd)
-  end
-
-  def workload_delete!(workload)
-    cmd = "cpln workload delete #{workload} #{gvc_org}"
-    perform!(cmd)
+  def delete_workload(workload)
+    api.delete_workload(org: org, gvc: gvc, workload: workload)
   end
 
   def workload_connect(workload, location:, container: nil, shell: nil)

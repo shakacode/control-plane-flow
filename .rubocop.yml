@@ -14,3 +14,9 @@ Style/Documentation:
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
+
+RSpec/ExampleLength:
+  Enabled: false
+
+RSpec/MultipleExpectations:
+  Enabled: false

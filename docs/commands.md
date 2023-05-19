@@ -279,6 +279,17 @@ cpl run bash -a $APP_NAME -w other-workload
 cpl run bash -a $APP_NAME --use-local-token
 ```
 
+### `run:cleanup`
+
+- Deletes stale run workloads for an app
+- Workloads are considered stale based on how many days since created
+- `stale_run_workload_created_days` in the `.controlplane/controlplane.yml` file specifies the number of days after created that the workload is considered stale
+- Will ask for explicit user confirmation of deletion
+
+```sh
+cpl run:cleanup -a $APP_NAME
+```
+
 ### `run:detached`
 
 - Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)

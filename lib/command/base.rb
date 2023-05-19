@@ -197,7 +197,7 @@ module Command
 
     def ensure_workload_deleted(workload)
       progress.puts "- Ensure workload is deleted"
-      cp.workload_delete(workload)
+      cp.delete_workload(workload)
     end
 
     def latest_image_from(items, app_name: config.app, name_only: true)
