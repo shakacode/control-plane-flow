@@ -1,4 +1,7 @@
 PreCommit:
+  CommandDocs:
+    enabled: true
+    command: ["bundle", "exec", "rake", "check_command_docs"]
   RuboCop:
     enabled: true
     on_warn: fail
