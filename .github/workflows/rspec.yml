@@ -8,15 +8,18 @@ on:
 
 jobs:
   rspec:
-    runs-on: ubuntu-latest
-    name: RSpec
-    env:
-      RAILS_ENV: test
     strategy:
       matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
         ruby:
           - "2.7"
           - "3.0"
+    runs-on: ${{ matrix.os }}
+    name: RSpec
+    env:
+      RAILS_ENV: test
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
