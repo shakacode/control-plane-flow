@@ -187,28 +187,22 @@ module Command
       end
     end
 
-    def wait_for(title)
-      progress.print "- Waiting for #{title}"
-      until yield
-        progress.print(".")
-        sleep(1)
-      end
-      progress.puts
-    end
-
     def wait_for_workload(workload)
-      wait_for("workload to start") { cp.fetch_workload(workload) }
+      step("Waiting for workload", retry_on_failure: true) do
+        cp.fetch_workload(workload)
+      end
     end
 
     def wait_for_replica(workload, location)
-      wait_for("replica") do
+      step("Waiting for replica", retry_on_failure: true) do
         cp.workload_get_replicas_safely(workload, location: location)&.dig("items", 0)
       end
     end
 
     def ensure_workload_deleted(workload)
-      progress.puts "- Ensure workload is deleted"
-      cp.delete_workload(workload)
+      step("Deleting workload") do
+        cp.delete_workload(workload)
+      end
     end
 
     def latest_image_from(items, app_name: config.app, name_only: true)

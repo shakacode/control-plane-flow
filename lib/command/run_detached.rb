@@ -47,24 +47,28 @@ module Command
 
     attr_reader :location, :workload, :one_off, :container
 
-    def call
+    def call # rubocop:disable Metrics/MethodLength
       @location = config[:default_location]
       @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-runner-#{rand(1000..9999)}"
 
-      clone_workload
+      step("Cloning workload '#{workload}' on app '#{config.options[:app]}' to '#{one_off}'") do
+        clone_workload
+      end
+
       wait_for_workload(one_off)
       show_logs_waiting
     ensure
-      ensure_workload_deleted(one_off)
+      if cp.fetch_workload(one_off)
+        progress.puts
+        ensure_workload_deleted(one_off)
+      end
       exit(1) if @crashed
     end
 
     private
 
     def clone_workload # rubocop:disable Metrics/MethodLength
-      progress.puts "- Cloning workload '#{workload}' on '#{config.options[:app]}' to '#{one_off}'"
-
       # Get base specs of workload
       spec = cp.fetch_workload!(workload).fetch("spec")
       container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
@@ -121,17 +125,17 @@ module Command
     end
 
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
-      progress.puts "- Scheduled, fetching logs (it is cron job, so it may take up to a minute to start)"
+      progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
       begin
         while cp.fetch_workload(one_off)
           sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end
       rescue RuntimeError => e
-        progress.puts "ERROR: #{e}"
+        progress.puts(Shell.color("ERROR: #{e}", :red))
         retry
       end
-      progress.puts "- Finished workload and logger"
+      progress.puts("\nFinished workload and logger.")
     end
 
     def print_uniq_logs
