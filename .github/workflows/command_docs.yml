@@ -1,0 +1,24 @@
+name: Command Docs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  rspec:
+    runs-on: ubuntu-latest
+    name: Command Docs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.0"
+          bundler-cache: true
+      - name: Install dependencies
+        run: bundle install
+      - name: Check if command docs are up to date
+        run: bundle exec rake check_command_docs
