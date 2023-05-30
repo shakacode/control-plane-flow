@@ -40,14 +40,55 @@ end
 module Cpl
   class Error < StandardError; end
 
-  class Cli < Thor
+  class Cli < Thor # rubocop:disable Metrics/ClassLength
     package_name "cpl"
     default_task :no_command
 
     def self.start(*args)
+      check_cpln_version
+      check_cpl_version
       fix_help_option
 
       super(*args)
+    end
+
+    def self.check_cpln_version # rubocop:disable Metrics/MethodLength
+      return if @checked_cpln_version
+
+      @checked_cpln_version = true
+
+      result = `cpln --version 2>/dev/null`
+      if $CHILD_STATUS.success?
+        data = JSON.parse(result)
+
+        version = data["npm"]
+        min_version = Cpl::MIN_CPLN_VERSION
+        if Gem::Version.new(version) < Gem::Version.new(min_version)
+          ::Shell.abort("Current 'cpln' version: #{version}. Minimum supported version: #{min_version}. " \
+                        "Please update it with 'npm update -g @controlplane/cli'.")
+        end
+      else
+        ::Shell.abort("Can't find 'cpln' executable. Please install it with 'npm install -g @controlplane/cli'.")
+      end
+    end
+
+    def self.check_cpl_version # rubocop:disable Metrics/MethodLength
+      return if @checked_cpl_version
+
+      @checked_cpl_version = true
+
+      result = `gem search ^cpl$ --remote 2>/dev/null`
+      return unless $CHILD_STATUS.success?
+
+      matches = result.match(/cpl \((.+)\)/)
+      return unless matches
+
+      version = Cpl::VERSION
+      latest_version = matches[1]
+      return unless Gem::Version.new(version) < Gem::Version.new(latest_version)
+
+      ::Shell.warn("You are not using the latest 'cpl' version. Please update it with 'gem update cpl'.")
+      $stderr.puts
     end
 
     # This is so that we're able to run `cpl COMMAND --help` to print the help
