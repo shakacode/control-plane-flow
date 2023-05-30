@@ -118,4 +118,9 @@ RSpec.configure do |config|
   #   Kernel.srand config.seed
 
   config.include CommandHelpers
+
+  config.before do
+    allow(Cpl::Cli).to receive(:check_cpln_version)
+    allow(Cpl::Cli).to receive(:check_cpl_version)
+  end
 end
