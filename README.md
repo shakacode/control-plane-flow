@@ -41,6 +41,7 @@ a **helper CLI** based on templates to save lots of day-to-day typing (and human
 12. [Examples](#examples)
 13. [Migrating Postgres Database from Heroku Infrastructure](/docs/postgres.md)
 14. [Migrating Redis Database from Heroku Infrastructure](/docs/redis.md)
+15. [Tips](/docs/tips.md)
 
 ## Key Features
 
