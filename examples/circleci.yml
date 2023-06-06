@@ -8,8 +8,8 @@ build-staging:
     - image: cimg/ruby:3.1-node
   resource_class: large
   environment:
-    CPLN_ORG: myorg
-    APP_NAME: myapp-staging
+    CPLN_ORG: my-org
+    APP_NAME: my-app-staging
   steps:
     - checkout
     - setup_remote_docker:
@@ -21,14 +21,13 @@ build-staging:
           cpln profile create default --token ${CPLN_TOKEN} --org ${CPLN_ORG} --gvc ${APP_NAME}
           cpln image docker-login
 
-          git clone https://github.com/shakacode/heroku-to-control-plane ~/heroku-to-control-plane
-          sudo ln -s ~/heroku-to-control-plane/cpl /usr/local/bin/cpl
+          gem install cpl
     - run:
         name: Containerize and push image
         command: cpl build-image -a ${APP_NAME}
     - run:
         name: Database tasks
-        command: cpl run:detached rails db:migrate -a ${APP_NAME} --image latest
+        command: cpl run:detached -a ${APP_NAME} --image latest -- rails db:migrate
     - run:
         name: Deploy image
         command: cpl deploy-image -a ${APP_NAME}
@@ -43,7 +42,7 @@ build-review-app:
     - image: cimg/ruby:3.1-node
   resource_class: large
   environment:
-    CPLN_ORG: my-org-name
+    CPLN_ORG: my-org
   steps:
     - checkout
     - setup_remote_docker:
@@ -65,7 +64,7 @@ build-review-app:
     - run:
         name: Provision review app if needed
         command: |
-          if ! cpl exist -a ${APP_NAME}; then
+          if ! cpl exists -a ${APP_NAME}; then
             cpl setup-app -a ${APP_NAME}
             echo "export NEW_APP=true" >> $BASH_ENV
           fi
@@ -77,9 +76,9 @@ build-review-app:
         name: Database tasks
         command: |
           if [ -n "${NEW_APP}" ]; then
-            cpl run:detached 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --image latest
+            cpl run:detached -a ${APP_NAME} --image latest -- LOG_LEVEL=warn rails db:reset
           else
-            cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a ${APP_NAME} --image latest
+            cpl run:detached -a ${APP_NAME} --image latest -- LOG_LEVEL=warn rails db:migrate
           fi
     - run:
         name: Deploy image
