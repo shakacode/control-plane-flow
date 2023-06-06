@@ -7,15 +7,16 @@ spec:
       cpu: 3m
       memory: 10Mi
       args:
-        - '-l'
+        - "-l"
         - 0.0.0.0
-      image: 'memcached:alpine'
+      image: "memcached:alpine"
       ports:
         - number: 11211
           protocol: tcp
   defaultOptions:
     autoscaling:
       metric: latency
+      minScale: 1
       maxScale: 1
     capacityAI: false
   firewallConfig:

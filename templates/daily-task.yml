@@ -4,23 +4,24 @@ spec:
   # https://docs.controlplane.com/reference/workload#cron-configuration
   type: cron
   job:
-    # Run daily job at 2am, see cron docs
+    # Run daily job at 2am (see cron docs)
     schedule: 0  2  *  *  *
     # Never or OnFailure
     restartPolicy: Never
   containers:
     - name: daily-task
+      cpu: 50m
+      memory: 256Mi
       args:
         - bundle
         - exec
         - rails
         - db:prepare
-      cpu: 50m
       inheritEnv: true
-      image: '/org/APP_ORG/image/APP_IMAGE'
-      memory: 256Mi
+      image: "/org/APP_ORG/image/APP_IMAGE"
   defaultOptions:
     autoscaling:
+      minScale: 1
       maxScale: 1
     capacityAI: false
   firewallConfig:
