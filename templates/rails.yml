@@ -5,14 +5,15 @@ spec:
   containers:
     - name: rails
       cpu: 512m
-      inheritEnv: true
-      image: '/org/APP_ORG/image/APP_IMAGE'
       memory: 1Gi
+      inheritEnv: true
+      image: "/org/APP_ORG/image/APP_IMAGE"
       ports:
         - number: 3000
           protocol: http
   defaultOptions:
     autoscaling:
+      minScale: 1
       maxScale: 1
     capacityAI: false
     timeoutSeconds: 60

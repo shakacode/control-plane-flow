@@ -4,21 +4,30 @@ spec:
   type: standard
   containers:
     - name: sidekiq
+      cpu: 50m
+      memory: 256Mi
       args:
         - bundle
         - exec
         - sidekiq
-        - '-C'
+        - "-C"
         - config/sidekiq.yml
-      cpu: 50m
       inheritEnv: true
-      image: '/org/APP_ORG/image/APP_IMAGE'
-      memory: 256Mi
+      image: "/org/APP_ORG/image/APP_IMAGE"
       ports:
         - number: 7433
           protocol: http
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - pkill
+              - "-TSTP"
+              - "-f"
+              - ^sidekiq\s
   defaultOptions:
     autoscaling:
+      minScale: 1
       maxScale: 1
     capacityAI: false
   firewallConfig:

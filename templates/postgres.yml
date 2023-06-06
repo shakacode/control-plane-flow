@@ -13,17 +13,18 @@ spec:
           value: password123
         - name: POSTGRES_USER
           value: postgres
-      image: 'postgres:13.8-alpine'
+      image: "postgres:13.8-alpine"
       ports:
         - number: 5432
           protocol: tcp
       volumes:
         - path: /var/lib/postgresql/data
           recoveryPolicy: retain
-          uri: 'scratch://postgres-vol'
+          uri: "scratch://postgres-vol"
   defaultOptions:
     autoscaling:
       metric: latency
+      minScale: 1
       maxScale: 1
     capacityAI: false
   firewallConfig:

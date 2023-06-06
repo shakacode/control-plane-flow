@@ -6,13 +6,14 @@ spec:
     - name: redis
       cpu: 3m
       memory: 20Mi
-      image: 'redis:latest'
+      image: "redis:latest"
       ports:
         - number: 6379
           protocol: tcp
   defaultOptions:
     autoscaling:
       metric: latency
+      minScale: 1
       maxScale: 1
     capacityAI: false
   firewallConfig:
