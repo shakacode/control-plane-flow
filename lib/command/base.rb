@@ -210,7 +210,7 @@ module Command
 
       # Or special string to indicate no image available
       if matching_items.empty?
-        "#{app_name}:#{NO_IMAGE_AVAILABLE}"
+        name_only ? "#{app_name}:#{NO_IMAGE_AVAILABLE}" : nil
       else
         latest_item = matching_items.max_by { |item| extract_image_number(item["name"]) }
         name_only ? latest_item["name"] : latest_item

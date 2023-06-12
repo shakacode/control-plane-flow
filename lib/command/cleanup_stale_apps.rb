@@ -51,6 +51,7 @@ module Command
 
             images = cp.image_query(app_name)["items"].filter { |item| item["name"].start_with?("#{app_name}:") }
             image = latest_image_from(images, app_name: app_name, name_only: false)
+            next unless image
 
             created_date = DateTime.parse(image["created"])
             diff_in_days = (now - created_date).to_i
