@@ -3,7 +3,7 @@
 1. [GVCs vs. Orgs](#gvcs-vs-orgs)
 2. [RAM](#ram)
 3. [Remote IP](#remote-ip)
-4. [Secrets](#secrets)
+4. [ENV Values](#env-values)
 5. [CI](#ci)
 6. [Memcached](#memcached)
 7. [Sidekiq](#sidekiq)
@@ -14,14 +14,20 @@
 
 ## GVCs vs. Orgs
 
-- A GVC is an app.
+- A "GVC" roughly corresponds to a Heroku "app".
 - Images are available at the org level.
 - Multiple GVCs within an org can use the same image.
+- You can have different images within a GVC and even within a workload. This flexibility is one of the key differences
+  compared to Heroku apps.
 
 ## RAM
 
 If the max memory is reached for any workload replica, the replica is terminated and restarted. You can configure alerts
-for workload restarts and percentage of memory used in the Control Plane panel.
+for workload restarts and percentage of memory used in the Control Plane UX via the following steps:
+
+1. Navigate to the workload
+2. Click "Metrics" on the left menu to go to Grafana
+3. TBD
 
 ## Remote IP
 
@@ -34,14 +40,28 @@ pick those up and automatically populate `request.remote_ip`.
 
 So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
 
-## Secrets
+## ENV Values
 
-To use secrets as env vars:
+ENV values used by a container (within a workload) can be stored within Control Plane at the following levels:
 
-1. Create a secret with `Secret Type: Dictionary` (e.g., `my-secrets`) and add the secret env vars there
-2. Create an identity and assign it to the target workload
-3. Create a policy with `Target Kind: Secret` and grant `reveal` permission to the identity created
-4. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/my-secrets.SOME_VAR`)
+1. Workload Container
+2. GVC
+
+For your "review apps," it is convenient to have simple ENVs stored in plain text in your source code. You will want to
+keep some ENVs, like the Rails' `SECRET_KEY_BASE` out of your source code. For staging and production apps, you will set
+these values directly at the GVC or workload levels, so none of these ENV values are committed to source code.
+
+For the storage of ENVs in the source code, we can use a level of indirection so that you can store an ENV value in your
+source code like `cpln://secret/my-app-review-env-secrets.SECRET_KEY_BASE` and then have the secret value stored at the
+org level, which applies to your GVCs mapped to that org.
+
+Here is how you do this:
+
+1. In the upper left "Manage Org" menu, click on "Secrets"
+2. Create a secret with `Secret Type: Dictionary` (e.g., `my-secrets`) and add the secret env vars there
+3. Create an identity and assign it to the target workload
+4. Create a policy with `Target Kind: Secret` and grant `reveal` permission to the identity created
+5. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/my-secrets.SOME_VAR`)
 
 ## CI
 
