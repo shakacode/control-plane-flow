@@ -28,10 +28,8 @@ a **helper CLI** based on templates to save lots of day-to-day typing (and human
 1. [Key Features](#key-features)
 2. [Concept Mapping](#concept-mapping)
 3. [Installation](#installation)
-4. [Example CLI Flow for Application Build/Deployment](#example-cli-flow-for-application-builddeployment)
-   - [Initial Setup and Deployment](#initial-setup-and-deployment)
-   - [Promoting Code Upgrades](#promoting-code-upgrades)
-5. [Example Project Modifications for Control Plane](#example-project-modifications-for-control-plane)
+4. [Steps to Migrate](#steps-to-migrate)
+5. [Config](#config)
 6. [Environment](#environment)
 7. [Database](#database)
 8. [In-memory Databases](#in-memory-databases)
@@ -110,104 +108,13 @@ gem install cpl
 **Note:** Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to Control Plane playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
 
-## Example CLI Flow for Application Build/Deployment
+## Steps to Migrate
 
-**Notes:**
+Click [here](/docs/migrating.md) to see the steps to migrate.
 
-- `my-app` is an app name defined in the `.controlplane/controlplane.yml` file, such as `ror-tutorial` in
-  [this `controlplane.yml` file](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml).
-- Other files in the `.controlplane/templates/` directory are used by the `cpl setup-app` and `cpl apply-template`
-  commands.
+## Config
 
-### Initial Setup and Deployment
-
-For each Git project that you want to deploy to Control Plane, copy project-specific configs to a `.controlplane/`
-directory at the top of your project. `cpl` will pick those up depending on which project folder tree it runs. Thus,
-this automates running several projects with different configs without explicitly switching configs.
-
-Before the initial setup, add the templates for the app to `.controlplane/controlplane.yml`, using the `setup` key, e.g.:
-
-```yaml
-my-app:
-  setup:
-    - gvc
-    - postgres
-    - redis
-    - memcached
-    - rails
-    - sidekiq
-```
-
-Note how the templates correspond to files in the `.controlplane/templates/` directory.
-
-Then create a `Dockerfile` for your deployment. See
-[this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile).
-
-```sh
-# Provision infrastructure (one-time-only for new apps) using templates.
-cpl setup-app -a my-app
-
-# Build and push image with auto-tagging, e.g., "my-app:1_456".
-cpl build-image -a my-app --commit 456
-
-# Prepare database.
-cpl run:detached -a my-app --image latest -- rails db:prepare
-
-# Deploy latest image.
-cpl deploy-image -a my-app
-
-# Open app in browser.
-cpl open -a my-app
-```
-
-### Promoting Code Upgrades
-
-```sh
-# Build and push new image with sequential tagging, e.g., "my-app:2".
-cpl build-image -a my-app
-
-# Or build and push new image with sequential tagging and commit SHA, e.g., "my-app:2_ABC".
-cpl build-image -a my-app --commit ABC
-
-# Run database migrations (or other release tasks) with latest image, while app is still running on previous image.
-# This is analogous to the release phase.
-cpl run:detached -a my-app --image latest -- rails db:migrate
-
-# Deploy latest image.
-cpl deploy-image -a my-app
-```
-
-## Example Project Modifications for Control Plane
-
-_See this for a complete example._
-
-To learn how to migrate an app, we recommend following along with
-[this example project](https://github.com/shakacode/react-webpack-rails-tutorial).
-
-1. Create the `.controlplane/` directory at the top of your project and copy files from the `templates/` directory of
-   this repository to something as follows:
-
-```sh
-app_main_folder/
-  .controlplane/
-    Dockerfile          # Your app's Dockerfile, with some Control Plane changes.
-    controlplane.yml
-    entrypoint.sh       # App-specific - edit as needed.
-    templates/
-      gvc.yml
-      memcached.yml
-      postgres.yml
-      rails.yml
-      redis.yml
-      sidekiq.yml
-```
-
-The example
-[`.controlplane/` directory](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane)
-already contains these files.
-
-2. Edit your `controlplane.yml` file as needed. For example, see
-   [this `controlplane.yml` file](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml).
+Here's a complete example of all supported config keys explained:
 
 ```yaml
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
@@ -220,6 +127,16 @@ aliases:
 
     # Example apps use only one location. Control Plane offers the ability to use multiple locations.
     default_location: aws-us-east-2
+
+    # Allows running the command `cpl setup-app`
+    # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
+    setup:
+      - gvc
+      - redis
+      - postgres
+      - memcached
+      - rails
+      - sidekiq
 
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
@@ -235,39 +152,57 @@ aliases:
       - postgres
       - memcached
 
-    # Configure the workload name used when maintenance mode is on (defaults to "maintenance")
+    # Configure the workload name used when maintenance mode is on (defaults to "maintenance").
     maintenance_workload: maintenance
+
+    # Fixes the remote terminal size to match the local terminal size
+    # when running the commands `cpl run` or `cpl run:detached`.
+    fix_terminal_size: true
+
+    # Apps with a deployed image created before this amount of days will be listed for deletion
+    # when running the command `cpl cleanup-stale-apps`.
+    stale_app_image_deployed_days: 5
+
+    # Images created before this amount of days will be listed for deletion
+    # when running the command `cpl cleanup-old-images`.
+    old_image_retention_days: 5
+
+    # Run workloads created before this amount of days will be listed for deletion
+    # when running the command `cpl run:cleanup`.
+    stale_run_workload_created_days: 2
 
 apps:
   my-app-staging:
     # Use the values from the common section above.
     <<: *common
+
   my-app-review:
     <<: *common
+
     # If `match_if_app_name_starts_with` is `true`, then use this config for app names starting with this name,
     # e.g., "my-app-review-pr123", "my-app-review-anything-goes", etc.
     match_if_app_name_starts_with: true
+
   my-app-production:
     <<: *common
+
     # Use a different organization for production.
     cpln_org: my-org-production
+
     # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
     # to promote the staging app to production.
     upstream: my-app-staging
+
+    # Used by the command `cpl promote-app-from-upstream` to run a release script before deploying.
+    # This is relative to the `.controlplane/` directory.
+    release_script: release_script
+
   my-app-other:
     <<: *common
+
     # You can specify a different `Dockerfile` relative to the `.controlplane/` directory (defaults to "Dockerfile").
     dockerfile: ../some_other/Dockerfile
 ```
-
-3. We recommend that you try out the commands listed in
-   [the example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md).
-   These steps will guide you to the following:
-
-   1. Provision the GVC and workloads.
-   2. Build the Docker image.
-   3. Run Rails migrations, like in the Heroku release phase.
-   4. Promote the latest Docker image.
 
 ## Environment
 
