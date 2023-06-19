@@ -42,9 +42,7 @@ module Command
 
       @workloads.each do |workload|
         step("Waiting for workload '#{workload}' to be not ready", retry_on_failure: true) do
-          cp.fetch_workload_deployments(workload)&.dig("items")&.all? do |item|
-            !item.dig("status", "ready")
-          end
+          cp.wait_for_workload_deployments(workload, ready: false)
         end
       end
     end

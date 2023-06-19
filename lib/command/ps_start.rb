@@ -42,9 +42,7 @@ module Command
 
       @workloads.reverse_each do |workload|
         step("Waiting for workload '#{workload}' to be ready", retry_on_failure: true) do
-          cp.fetch_workload_deployments(workload)&.dig("items")&.any? do |item|
-            item.dig("status", "ready")
-          end
+          cp.wait_for_workload_deployments(workload, ready: true)
         end
       end
     end

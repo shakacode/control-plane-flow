@@ -149,6 +149,26 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.workload_deployments(workload: workload, gvc: gvc, org: org)
   end
 
+  def deployment_version_ready?(version, next_version, ready:)
+    return false unless version["workload"] == next_version
+
+    version["containers"]&.all? do |_, container|
+      ready_status = container.dig("resources", "replicas") == container.dig("resources", "replicasReady")
+      ready ? ready_status : !ready_status
+    end
+  end
+
+  def wait_for_workload_deployments(workload, ready:)
+    deployments = fetch_workload_deployments(workload)["items"]
+    deployments.all? do |deployment|
+      next_version = deployment.dig("status", "expectedDeploymentVersion")
+
+      deployment.dig("status", "versions")&.all? do |version|
+        deployment_version_ready?(version, next_version, ready: ready)
+      end
+    end
+  end
+
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
