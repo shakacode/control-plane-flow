@@ -59,9 +59,9 @@ describe Command::MaintenanceOn do
       Stopping workload 'redis'... #{Shell.color('done!', :green)}
       Stopping workload 'postgres'... #{Shell.color('done!', :green)}
 
-      Waiting for workload 'rails' to be not ready... #{Shell.color('done!', :green)}
-      Waiting for workload 'redis' to be not ready... #{Shell.color('done!', :green)}
-      Waiting for workload 'postgres' to be not ready... #{Shell.color('done!', :green)}
+      Waiting for workload 'rails' to not be ready... #{Shell.color('done!', :green)}
+      Waiting for workload 'redis' to not be ready... #{Shell.color('done!', :green)}
+      Waiting for workload 'postgres' to not be ready... #{Shell.color('done!', :green)}
 
       Maintenance mode enabled for app 'my-app-staging'.
     OUTPUT
