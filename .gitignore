@@ -2,6 +2,7 @@
 .DS_Store
 
 /.bundle/
+/.vscode/
 /.yardoc
 /_yardoc/
 /coverage/
