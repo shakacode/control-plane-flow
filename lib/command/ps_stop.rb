@@ -42,7 +42,7 @@ module Command
 
       @workloads.each do |workload|
         step("Waiting for workload '#{workload}' to be not ready", retry_on_failure: true) do
-          cp.wait_for_workload_deployments(workload, ready: false)
+          cp.workload_deployments_ready?(workload, expected_status: false)
         end
       end
     end
