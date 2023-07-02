@@ -285,6 +285,18 @@ cpl ps:stop -a $APP_NAME
 cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
+### `ps:wait`
+
+- Waits for workloads in app to be ready after re-deployment
+
+```sh
+# Waits for all workloads in app.
+cpl ps:wait -a $APP_NAME
+
+# Waits for a specific workload in app.
+cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
+```
+
 ### `run`
 
 - Runs one-off **_interactive_** replicas (analog of `heroku run`)

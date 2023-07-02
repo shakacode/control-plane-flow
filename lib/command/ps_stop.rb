@@ -6,7 +6,7 @@ module Command
     OPTIONS = [
       app_option(required: true),
       workload_option,
-      wait_option("workload to be not ready")
+      wait_option("workload to not be ready")
     ].freeze
     DESCRIPTION = "Stops workloads in app"
     LONG_DESCRIPTION = <<~DESC
@@ -41,10 +41,8 @@ module Command
       progress.puts
 
       @workloads.each do |workload|
-        step("Waiting for workload '#{workload}' to be not ready", retry_on_failure: true) do
-          cp.fetch_workload_deployments(workload)&.dig("items")&.all? do |item|
-            !item.dig("status", "ready")
-          end
+        step("Waiting for workload '#{workload}' to not be ready", retry_on_failure: true) do
+          cp.workload_deployments_ready?(workload, expected_status: false)
         end
       end
     end

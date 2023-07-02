@@ -61,7 +61,7 @@ describe Command::MaintenanceOff do
 
       Stopping workload 'maintenance'... #{Shell.color('done!', :green)}
 
-      Waiting for workload 'maintenance' to be not ready... #{Shell.color('done!', :green)}
+      Waiting for workload 'maintenance' to not be ready... #{Shell.color('done!', :green)}
 
       Maintenance mode disabled for app 'my-app-staging'.
     OUTPUT
