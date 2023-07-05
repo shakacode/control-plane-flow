@@ -429,7 +429,7 @@ http_interactions:
         Content-Type:
           - application/json; charset=utf-8
         Content-Length:
-          - "1551"
+          - "1549"
         Date:
           - Thu, 18 May 2023 20:55:44 GMT
         X-Envoy-Upstream-Service-Time:
@@ -589,7 +589,7 @@ http_interactions:
         Content-Type:
           - application/json; charset=utf-8
         Content-Length:
-          - "1234"
+          - "1231"
         Date:
           - Thu, 18 May 2023 20:55:47 GMT
         X-Envoy-Upstream-Service-Time:
