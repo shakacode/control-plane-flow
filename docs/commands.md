@@ -376,6 +376,10 @@ cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest seq
 
 # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
 cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
+
+# Overrides remote CPLN_TOKEN env variable with local token.
+# Useful when superuser rights are needed in remote container.
+cpl run:detached rails db:migrate:status -a $APP_NAME --use-local-token
 ```
 
 ### `setup-app`
