@@ -364,12 +364,6 @@ cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 # COMMAND may also be passed at the end (in this case, no need to quote).
 cpl run:detached -a $APP_NAME -- rails db:migrate
 
-# Uses some other image.
-cpl run:detached rails db:migrate -a $APP_NAME --image /some/full/image/path
-
-# Uses latest app image (which may not be promoted yet).
-cpl run:detached rails db:migrate -a $APP_NAME --image latest
-
 # Uses a different image (which may not be promoted yet).
 cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
 cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
