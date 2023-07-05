@@ -12,6 +12,7 @@ module Command
       - Deletes stale run workloads for an app
       - Workloads are considered stale based on how many days since created
       - `stale_run_workload_created_days` in the `.controlplane/controlplane.yml` file specifies the number of days after created that the workload is considered stale
+      - Works for both interactive workloads (created with `cpl run`) and non-interactive workloads (created with `cpl run:detached`)
       - Will ask for explicit user confirmation of deletion
     DESC
 
@@ -62,11 +63,14 @@ module Command
           now = DateTime.now
           stale_run_workload_created_days = config[:stale_run_workload_created_days]
 
-          workloads = cp.query_workloads("-run-", partial_match: true)["items"]
+          interactive_workloads = cp.query_workloads("-run-", partial_match: true)["items"]
+          non_interactive_workloads = cp.query_workloads("-runner-", partial_match: true)["items"]
+          workloads = interactive_workloads + non_interactive_workloads
+
           workloads.each do |workload|
             workload_name = workload["name"]
 
-            original_workload_name, workload_number = workload_name.split("-run-")
+            original_workload_name, workload_number = workload_name.split(/-run-|-runner-/)
             next unless defined_workloads.include?(original_workload_name) && workload_number.match?(/^\d{4}$/)
 
             created_date = DateTime.parse(workload["created"])
