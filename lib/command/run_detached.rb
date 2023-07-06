@@ -8,7 +8,8 @@ module Command
     OPTIONS = [
       app_option(required: true),
       image_option,
-      workload_option
+      workload_option,
+      use_local_token_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
     LONG_DESCRIPTION = <<~DESC
@@ -40,6 +41,10 @@ module Command
 
       # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
       cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
+
+      # Overrides remote CPLN_TOKEN env variable with local token.
+      # Useful when superuser rights are needed in remote container.
+      cpl run:detached rails db:migrate:status -a $APP_NAME --use-local-token
       ```
     EX
 
@@ -108,9 +113,15 @@ module Command
       cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
     end
 
-    def runner_script
+    def runner_script # rubocop:disable Metrics/MethodLength
       script = "echo '-- STARTED RUNNER SCRIPT --'\n"
       script += Scripts.helpers_cleanup
+
+      if config.options["use_local_token"]
+        script += <<~SHELL
+          CPLN_TOKEN=$CONTROLPLANE_TOKEN
+        SHELL
+      end
 
       script += <<~SHELL
         if ! eval "#{args_join(config.args)}"; then echo "----- CRASHED -----"; fi
