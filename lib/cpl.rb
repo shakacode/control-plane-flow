@@ -13,7 +13,7 @@ require "yaml"
 require_relative "command/base"
 
 modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
-  file == __FILE__ || file.end_with?("main.rb") || file.end_with?("base.rb")
+  file == __FILE__ || file.end_with?("base.rb")
 end
 modules.sort.each { require(_1) }
 

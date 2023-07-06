@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "cpl"
+require_relative "../lib/cpl"
 
 Cpl::Cli.start
