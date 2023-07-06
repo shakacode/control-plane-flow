@@ -341,6 +341,7 @@ cpl run bash -a $APP_NAME --use-local-token
 - Deletes stale run workloads for an app
 - Workloads are considered stale based on how many days since created
 - `stale_run_workload_created_days` in the `.controlplane/controlplane.yml` file specifies the number of days after created that the workload is considered stale
+- Works for both interactive workloads (created with `cpl run`) and non-interactive workloads (created with `cpl run:detached`)
 - Will ask for explicit user confirmation of deletion
 
 ```sh

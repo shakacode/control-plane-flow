@@ -34,13 +34,15 @@ describe Command::RunCleanup do
   end
 
   it "lists stale run workloads", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 2 run workloads?")
+    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 4 run workloads?")
                                      .and_return(false)
 
     expected_output = <<~OUTPUT
       Stale run workloads:
         rails-run-4137 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
         rails-run-7025 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
+        rails-runner-4985 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
+        rails-runner-6669 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
     OUTPUT
 
     output = command_output do
@@ -53,16 +55,20 @@ describe Command::RunCleanup do
   end
 
   it "deletes stale run workloads", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 2 run workloads?")
+    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 4 run workloads?")
                                      .and_return(true)
 
     expected_output = <<~OUTPUT
       Stale run workloads:
         rails-run-4137 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
         rails-run-7025 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
+        rails-runner-4985 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
+        rails-runner-6669 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
 
       Deleting run workload 'rails-run-4137'... #{Shell.color('done!', :green)}
       Deleting run workload 'rails-run-7025'... #{Shell.color('done!', :green)}
+      Deleting run workload 'rails-runner-4985'... #{Shell.color('done!', :green)}
+      Deleting run workload 'rails-runner-6669'... #{Shell.color('done!', :green)}
     OUTPUT
 
     output = command_output do
@@ -81,9 +87,13 @@ describe Command::RunCleanup do
       Stale run workloads:
         rails-run-4137 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
         rails-run-7025 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
+        rails-runner-4985 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
+        rails-runner-6669 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
 
       Deleting run workload 'rails-run-4137'... #{Shell.color('done!', :green)}
       Deleting run workload 'rails-run-7025'... #{Shell.color('done!', :green)}
+      Deleting run workload 'rails-runner-4985'... #{Shell.color('done!', :green)}
+      Deleting run workload 'rails-runner-6669'... #{Shell.color('done!', :green)}
     OUTPUT
 
     output = command_output do

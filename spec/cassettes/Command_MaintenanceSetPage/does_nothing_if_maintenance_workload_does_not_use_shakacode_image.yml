@@ -29,7 +29,7 @@ http_interactions:
         Content-Type:
           - application/json; charset=utf-8
         Content-Length:
-          - "1404"
+          - "1400"
         Date:
           - Thu, 18 May 2023 22:28:43 GMT
         X-Envoy-Upstream-Service-Time:
