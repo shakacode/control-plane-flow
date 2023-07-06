@@ -31,6 +31,18 @@ module Command
 
     private
 
+    def app_prefix
+      config.should_app_start_with?(config.app) ? "#{config.app}-" : "#{config.app}:"
+    end
+
+    def remove_deployed_image(app, app_images)
+      return app_images unless cp.fetch_gvc(app)
+
+      # If app exists, remove latest image, because we don't want to delete the image that is currently deployed
+      latest_image_name = latest_image_from(app_images, app_name: app)
+      app_images.filter { |item| item["name"] != latest_image_name }
+    end
+
     def old_images # rubocop:disable Metrics/MethodLength
       @old_images ||=
         begin
@@ -39,21 +51,20 @@ module Command
           now = DateTime.now
           old_image_retention_days = config[:old_image_retention_days]
 
-          images = cp.image_query["items"].filter { |item| item["name"].start_with?("#{config.app}:")	}
+          images = cp.image_query["items"].filter { |item| item["name"].start_with?(app_prefix)	}
+          images_by_app = images.group_by { |item| item["repository"] }
+          images_by_app.each do |app, app_images|
+            app_images = remove_deployed_image(app, app_images)
+            app_images.each do |image|
+              created_date = DateTime.parse(image["created"])
+              diff_in_days = (now - created_date).to_i
+              next unless diff_in_days >= old_image_retention_days
 
-          # Remove latest image, because we don't want to delete the image that is currently deployed
-          latest_image_name = latest_image_from(images)
-          images = images.filter { |item| item["name"] != latest_image_name }
-
-          images.each do |image|
-            created_date = DateTime.parse(image["created"])
-            diff_in_days = (now - created_date).to_i
-            next unless diff_in_days >= old_image_retention_days
-
-            result_images.push({
-                                 name: image["name"],
-                                 date: created_date
-                               })
+              result_images.push({
+                                   name: image["name"],
+                                   date: created_date
+                                 })
+            end
           end
 
           result_images

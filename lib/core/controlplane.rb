@@ -45,7 +45,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def image_query(app_name = config.app, org_name = config.org)
-    cmd = "cpln image query --org #{org_name} -o yaml --max -1 --prop repository=#{app_name}"
+    # When `match_if_app_name_starts_with` is `true`, we query for images from any gvc containing the name,
+    # otherwise we query for images from a gvc with the exact name.
+    op = config.should_app_start_with?(app_name) ? "~" : "="
+
+    cmd = "cpln image query --org #{org_name} -o yaml --max -1 --prop repository#{op}#{app_name}"
     perform_yaml(cmd)
   end
 
@@ -86,7 +90,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def gvc_query(app_name = config.app)
     # When `match_if_app_name_starts_with` is `true`, we query for any gvc containing the name,
     # otherwise we query for a gvc with the exact name.
-    op = config.current[:match_if_app_name_starts_with] ? "~" : "="
+    op = config.should_app_start_with?(app_name) ? "~" : "="
 
     cmd = "cpln gvc query --org #{org} -o yaml --prop name#{op}#{app_name}"
     perform_yaml(cmd)
