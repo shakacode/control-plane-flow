@@ -1,0 +1,243 @@
+---
+http_interactions:
+  - request:
+      method: post
+      uri: https://api.cpln.io/org/my-org-staging/workload/-query
+      body:
+        encoding: UTF-8
+        string: '{"kind":"string","spec":{"match":"all","terms":[{"rel":"gvc","op":"~","value":"my-app-review"},{"property":"name","op":"~","value":"-run-"}]}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - cf712142-8ed6-4ea2-a2ef-5061a501dc0d
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "3825"
+        Date:
+          - Thu, 06 Jul 2023 00:26:12 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "1124"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"queryresult","items":[{"kind":"workload","id":"1e05759b-bab5-4dfb-bd53-912f4144dc09","name":"rails-run-1527","description":"rails-run-1527","version":1,"tags":{"cpln/deployTimestamp":"2023-05-10T12:00:00.000Z"},"created":"2023-05-10T12:00:00.000Z","lastModified":"2023-05-10T12:00:00.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-review-1/workload/rails-run-1527"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-review-1/workload/rails-run-1527/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-review-1"}],"spec":{"type":"standard","containers":[{"cpu":"300m","env":[{"name":"CONTROLPLANE_RUNNER","value":"unset CONTROLPLANE_RUNNER\nbash"},{"name":"LOG_LEVEL","value":"debug"}],"args":["-e","require \"socket\";s=TCPServer.new(ENV[\"PORT\"] || 80);loop do c=s.accept;c.puts(\"HTTP/1.1 200 OK\\nContent-Length: 2\\n\\nOk\");c.close end"],"name":"rails","image":"/org/my-org-staging/image/my-app-review-1:NO_IMAGE_AVAILABLE","ports":[{"number":3000,"protocol":"http"}],"memory":"512Mi","command":"ruby","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-run-1527-sa7yncsq0rysp.cpln.app","parentId":"4893d1c1-56ff-48ef-b75f-609457c3f159","internalName":"rails-run-1527.my-app-review-1.cpln.local","canonicalEndpoint":"https://rails-run-1527-sa7yncsq0rysp.cpln.app"}},{"kind":"workload","id":"bc52342e-de2f-45b4-8a52-20945d5881b5","name":"rails-run-9213","description":"rails-run-9213","version":1,"tags":{"cpln/deployTimestamp":"2023-05-13T00:00:00.000Z"},"created":"2023-05-13T00:00:00.000Z","lastModified":"2023-05-13T00:00:00.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-review-2/workload/rails-run-9213"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-review-2/workload/rails-run-9213/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-review-2"}],"spec":{"type":"standard","containers":[{"cpu":"300m","env":[{"name":"CONTROLPLANE_RUNNER","value":"unset CONTROLPLANE_RUNNER\nbash"},{"name":"LOG_LEVEL","value":"debug"}],"args":["-e","require \"socket\";s=TCPServer.new(ENV[\"PORT\"] || 80);loop do c=s.accept;c.puts(\"HTTP/1.1 200 OK\\nContent-Length: 2\\n\\nOk\");c.close end"],"name":"rails","image":"/org/my-org-staging/image/my-app-review-2:NO_IMAGE_AVAILABLE","ports":[{"number":3000,"protocol":"http"}],"memory":"512Mi","command":"ruby","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"metric":"cpu","target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-run-9213-60t0vqtj2mhvt.cpln.app","parentId":"9043c87e-124c-4cf8-aeb0-5575417801af","internalName":"rails-run-9213.my-app-review-2.cpln.local","canonicalEndpoint":"https://rails-run-9213-60t0vqtj2mhvt.cpln.app"}}],"links":[{"rel":"self","href":"/q/Om_bGPpGRraW5kaHdvcmtsb2FkZHNwZWOiZW1hdGNoY2FsbGV0ZXJtc4KjY3JlbGNndmNib3BhfmV2YWx1ZW90dXRvcmlhbC1hcHAtcWGjaHByb3BlcnR5ZG5hbWVib3BhfmV2YWx1ZWUtcnVuLWdjb250ZXh0oWdyZXF1ZXN0oWdvcmdOYW1lcXNoYWthY29kZS1zdGFnaW5nZWZldGNoZWl0ZW1z"}],"query":{"kind":"workload","spec":{"match":"all","terms":[{"rel":"gvc","op":"~","value":"my-app-review"},{"property":"name","op":"~","value":"-run-"}]},"fetch":"items"}}'
+    recorded_at: Thu, 06 Jul 2023 00:26:13 GMT
+  - request:
+      method: post
+      uri: https://api.cpln.io/org/my-org-staging/workload/-query
+      body:
+        encoding: UTF-8
+        string: '{"kind":"string","spec":{"match":"all","terms":[{"rel":"gvc","op":"~","value":"my-app-review"},{"property":"name","op":"~","value":"-runner-"}]}}'
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        X-Request-Id:
+          - c2037b36-e1bc-4c7b-a79b-663c0f02af75
+        Content-Type:
+          - application/json; charset=utf-8
+        Content-Length:
+          - "4428"
+        Date:
+          - Thu, 06 Jul 2023 00:26:13 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "136"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: '{"kind":"queryresult","items":[{"kind":"workload","id":"b297fdc1-2a64-481d-9f8b-03207b306c06","name":"rails-runner-8931","description":"rails-runner-8931","version":1,"tags":{"cpln/deployTimestamp":"2023-05-10T12:00:00.000Z"},"created":"2023-05-10T12:00:00.000Z","lastModified":"2023-05-10T12:00:00.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-review-1/workload/rails-runner-8931"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-review-1/workload/rails-runner-8931/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-review-1"}],"spec":{"job":{"schedule":"* * * * *","historyLimit":5,"restartPolicy":"Never","concurrencyPolicy":"Forbid"},"type":"cron","containers":[{"cpu":"300m","env":[{"name":"CONTROLPLANE_RUNNER","value":"echo ''-- STARTED RUNNER SCRIPT --''\nunset CONTROLPLANE_RUNNER\nif ! eval \"echo TEST\"; then echo \"----- CRASHED -----\"; fi\n\necho \"-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --\"\nsleep 10 # grace time for logs propagation\ncurl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H \"Authorization: ${CONTROLPLANE_TOKEN}\" -X DELETE -s -o /dev/null\nwhile true; do sleep 1; done # wait for SIGTERM\n"},{"name":"LOG_LEVEL","value":"debug"}],"args":["-c","eval \"$CONTROLPLANE_RUNNER\""],"name":"rails","image":"/org/my-org-staging/image/my-app-review-1:NO_IMAGE_AVAILABLE","memory":"512Mi","command":"bash","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-runner-8931-sa7yncsq0rysp.cpln.app","parentId":"4893d1c1-56ff-48ef-b75f-609457c3f159","internalName":"rails-runner-8931.my-app-review-1.cpln.local","canonicalEndpoint":"https://rails-runner-8931-sa7yncsq0rysp.cpln.app"}},{"kind":"workload","id":"51b2ee83-ff48-4a62-b20f-17300b2423b6","name":"rails-runner-1273","description":"rails-runner-1273","version":1,"tags":{"cpln/deployTimestamp":"2023-05-13T00:00:00.000Z"},"created":"2023-05-13T00:00:00.000Z","lastModified":"2023-05-13T00:00:00.000Z","links":[{"rel":"self","href":"/org/my-org-staging/gvc/my-app-review-2/workload/rails-runner-1273"},{"rel":"org","href":"/org/my-org-staging"},{"rel":"deployment","href":"/org/my-org-staging/gvc/my-app-review-2/workload/rails-runner-1273/deployment"},{"rel":"gvc","href":"/org/my-org-staging/gvc/my-app-review-2"}],"spec":{"job":{"schedule":"* * * * *","historyLimit":5,"restartPolicy":"Never","concurrencyPolicy":"Forbid"},"type":"cron","containers":[{"cpu":"300m","env":[{"name":"CONTROLPLANE_RUNNER","value":"echo ''-- STARTED RUNNER SCRIPT --''\nunset CONTROLPLANE_RUNNER\nif ! eval \"echo TEST\"; then echo \"----- CRASHED -----\"; fi\n\necho \"-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --\"\nsleep 10 # grace time for logs propagation\ncurl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H \"Authorization: ${CONTROLPLANE_TOKEN}\" -X DELETE -s -o /dev/null\nwhile true; do sleep 1; done # wait for SIGTERM\n"},{"name":"LOG_LEVEL","value":"debug"}],"args":["-c","eval \"$CONTROLPLANE_RUNNER\""],"name":"rails","image":"/org/my-org-staging/image/my-app-review-2:NO_IMAGE_AVAILABLE","memory":"512Mi","command":"bash","inheritEnv":true}],"defaultOptions":{"debug":false,"suspend":false,"capacityAI":false,"autoscaling":{"target":95,"maxScale":1,"minScale":1,"maxConcurrency":0,"scaleToZeroDelay":300},"timeoutSeconds":5},"firewallConfig":{"external":{"inboundAllowCIDR":["0.0.0.0/0"],"outboundAllowCIDR":["0.0.0.0/0"],"outboundAllowHostname":[]}},"supportDynamicTags":false},"status":{"endpoint":"https://rails-runner-1273-60t0vqtj2mhvt.cpln.app","parentId":"9043c87e-124c-4cf8-aeb0-5575417801af","internalName":"rails-runner-1273.my-app-review-2.cpln.local","canonicalEndpoint":"https://rails-runner-1273-60t0vqtj2mhvt.cpln.app"}}],"links":[{"rel":"self","href":"/q/-oVQ34pGRraW5kaHdvcmtsb2FkZHNwZWOiZW1hdGNoY2FsbGV0ZXJtc4KjY3JlbGNndmNib3BhfmV2YWx1ZW90dXRvcmlhbC1hcHAtcWGjaHByb3BlcnR5ZG5hbWVib3BhfmV2YWx1ZWgtcnVubmVyLWdjb250ZXh0oWdyZXF1ZXN0oWdvcmdOYW1lcXNoYWthY29kZS1zdGFnaW5nZWZldGNoZWl0ZW1z"}],"query":{"kind":"workload","spec":{"match":"all","terms":[{"rel":"gvc","op":"~","value":"my-app-review"},{"property":"name","op":"~","value":"-runner-"}]},"fetch":"items"}}'
+    recorded_at: Thu, 06 Jul 2023 00:26:14 GMT
+  - request:
+      method: delete
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-review-1/workload/rails-run-1527
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        X-Request-Id:
+          - 6efd3bae-8c98-4e03-8ad3-d03d22c96f9e
+        Content-Type:
+          - text/plain; charset=utf-8
+        Content-Length:
+          - "8"
+        Date:
+          - Thu, 06 Jul 2023 00:48:18 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "46"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: Accepted
+    recorded_at: Thu, 06 Jul 2023 00:48:19 GMT
+  - request:
+      method: delete
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-review-2/workload/rails-run-9213
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        X-Request-Id:
+          - 2e11892e-e4f0-4079-98e9-073755be223d
+        Content-Type:
+          - text/plain; charset=utf-8
+        Content-Length:
+          - "8"
+        Date:
+          - Thu, 06 Jul 2023 00:48:19 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "38"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: Accepted
+    recorded_at: Thu, 06 Jul 2023 00:48:20 GMT
+  - request:
+      method: delete
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-review-1/workload/rails-runner-8931
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        X-Request-Id:
+          - cb4e3876-d98d-4817-af0a-84351c38901f
+        Content-Type:
+          - text/plain; charset=utf-8
+        Content-Length:
+          - "8"
+        Date:
+          - Thu, 06 Jul 2023 00:48:20 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "26"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: Accepted
+    recorded_at: Thu, 06 Jul 2023 00:48:21 GMT
+  - request:
+      method: delete
+      uri: https://api.cpln.io/org/my-org-staging/gvc/my-app-review-2/workload/rails-runner-1273
+      body:
+        encoding: US-ASCII
+        string: ""
+      headers:
+        Accept-Encoding:
+          - gzip;q=1.0,deflate;q=0.6,identity;q=0.3
+        Accept:
+          - "*/*"
+        User-Agent:
+          - Ruby
+        Host:
+          - api.cpln.io
+        Content-Type:
+          - application/json
+        Authorization:
+          - "<AUTHORIZATION>"
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        X-Request-Id:
+          - 85d5184c-48a1-401d-99ec-5849b7426687
+        Content-Type:
+          - text/plain; charset=utf-8
+        Content-Length:
+          - "8"
+        Date:
+          - Thu, 06 Jul 2023 00:48:21 GMT
+        X-Envoy-Upstream-Service-Time:
+          - "27"
+        Server:
+          - istio-envoy
+      body:
+        encoding: UTF-8
+        string: Accepted
+    recorded_at: Thu, 06 Jul 2023 00:48:22 GMT
+recorded_with: VCR 6.1.0

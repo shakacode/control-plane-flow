@@ -21,8 +21,14 @@ module Command
 
       progress.puts("Stale run workloads:")
       stale_run_workloads.each do |workload|
-        progress.puts("  #{workload[:name]} " \
-                      "(#{Shell.color("#{workload[:date]} - #{workload[:days]} days ago", :red)})")
+        output = ""
+        output += if config.should_app_start_with?(config.app)
+                    "  #{workload[:app]} - #{workload[:name]}"
+                  else
+                    "  #{workload[:name]}"
+                  end
+        output += " (#{Shell.color("#{workload[:date]} - #{workload[:days]} days ago", :red)})"
+        progress.puts(output)
       end
 
       return unless confirm_delete
@@ -63,11 +69,16 @@ module Command
           now = DateTime.now
           stale_run_workload_created_days = config[:stale_run_workload_created_days]
 
-          interactive_workloads = cp.query_workloads("-run-", partial_match: true)["items"]
-          non_interactive_workloads = cp.query_workloads("-runner-", partial_match: true)["items"]
+          interactive_workloads = cp.query_workloads(
+            "-run-", partial_gvc_match: config.should_app_start_with?(config.app), partial_workload_match: true
+          )["items"]
+          non_interactive_workloads = cp.query_workloads(
+            "-runner-", partial_gvc_match: config.should_app_start_with?(config.app), partial_workload_match: true
+          )["items"]
           workloads = interactive_workloads + non_interactive_workloads
 
           workloads.each do |workload|
+            app_name = workload["links"].find { |link| link["rel"] == "gvc" }["href"].split("/").last
             workload_name = workload["name"]
 
             original_workload_name, workload_number = workload_name.split(/-run-|-runner-/)
@@ -78,6 +89,7 @@ module Command
             next unless diff_in_days >= stale_run_workload_created_days
 
             run_workloads.push({
+                                 app: app_name,
                                  name: workload_name,
                                  date: created_date,
                                  days: diff_in_days
@@ -95,8 +107,13 @@ module Command
     end
 
     def delete_workload(workload)
-      step("Deleting run workload '#{workload[:name]}'") do
-        cp.delete_workload(workload[:name])
+      message = if config.should_app_start_with?(config.app)
+                  "Deleting run workload '#{workload[:app]} - #{workload[:name]}'"
+                else
+                  "Deleting run workload '#{workload[:name]}'"
+                end
+      step(message) do
+        cp.delete_workload(workload[:name], workload[:app])
       end
     end
   end
