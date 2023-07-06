@@ -112,10 +112,6 @@ module Command
       result.uniq.sort
     end
 
-    def should_app_start_with?(app)
-      config.apps[app.to_sym]&.dig(:match_if_app_name_starts_with)
-    end
-
     def any_app_starts_with?(app)
       @app_workloads.keys.find { |app_name| app_matches?(app_name, app, config.apps[app.to_sym]) }
     end
@@ -132,7 +128,7 @@ module Command
     end
 
     def add_to_missing_workloads(app, workload)
-      if should_app_start_with?(app)
+      if config.should_app_start_with?(app)
         @missing_apps_starting_with[app] ||= []
         @missing_apps_starting_with[app].push(workload)
       else
@@ -142,7 +138,7 @@ module Command
     end
 
     def print_app(app, org)
-      if should_app_start_with?(app)
+      if config.should_app_start_with?(app)
         check_any_app_starts_with(app)
       elsif cp.fetch_gvc(app, org).nil?
         @missing_apps_workloads[app] = ["gvc"]

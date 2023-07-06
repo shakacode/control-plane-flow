@@ -33,7 +33,7 @@ class ControlplaneApi
     api_json_direct("/logs/org/#{org}/loki/api/v1/query_range?#{params}", method: :get, host: :logs)
   end
 
-  def query_workloads(org:, gvc:, workload:, op_type:) # rubocop:disable Metrics/MethodLength
+  def query_workloads(org:, gvc:, workload:, gvc_op_type:, workload_op_type:) # rubocop:disable Metrics/MethodLength
     body = {
       kind: "string",
       spec: {
@@ -41,12 +41,12 @@ class ControlplaneApi
         terms: [
           {
             rel: "gvc",
-            op: "=",
+            op: gvc_op_type,
             value: gvc
           },
           {
             property: "name",
-            op: op_type,
+            op: workload_op_type,
             value: workload
           }
         ]
