@@ -59,8 +59,7 @@ build-review-app:
           cpln profile create default --token ${CPLN_TOKEN} --org ${CPLN_ORG} --gvc ${APP_NAME}
           cpln image docker-login
 
-          git clone https://github.com/shakacode/heroku-to-control-plane ~/heroku-to-control-plane
-          sudo ln -s ~/heroku-to-control-plane/cpl /usr/local/bin/cpl
+          gem install cpl
     - run:
         name: Provision review app if needed
         command: |

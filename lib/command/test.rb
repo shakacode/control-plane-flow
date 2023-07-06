@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# Be sure to have run: gem install debug
 require "debug"
 
 module Command
@@ -14,13 +13,10 @@ module Command
     HIDE = true
 
     def call
-      # Change code here to test.
+      # Modify this method to trigger the code you want to test.
       # You can use `debugger` to debug.
-      # debugger
-      # Or print values
-      # rubocop:disable Lint/Debugger
-      pp latest_image_next
-      # rubocop:enable Lint/Debugger
+      # You can use `Cpl::Cli.start` to simulate a command
+      # (e.g., `Cpl::Cli.start(["deploy-image", "-a", "my-app-name"])`).
     end
   end
 end
