@@ -14,6 +14,22 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.0.3] - 2023-07-07
+
+### Fixed
+
+- Fixed `run` commands when specifying image. [PR 62](https://github.com/shakacode/heroku-to-control-plane/pull/62) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed `run:cleanup` command for non-interactive workloads. [PR 63](https://github.com/shakacode/heroku-to-control-plane/pull/63) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed `run:cleanup` command for all apps that start with name. [PR 64](https://github.com/shakacode/heroku-to-control-plane/pull/64) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed `cleanup-old-images` command for all apps that start with name. [PR 65](https://github.com/shakacode/heroku-to-control-plane/pull/65) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed `--help` option. [PR 66](https://github.com/shakacode/heroku-to-control-plane/pull/66) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+### Added
+
+- Added `--use-local-token` option to `run:detached` command. [PR 61](https://github.com/shakacode/heroku-to-control-plane/pull/61) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+## [1.0.2] - 2023-07-02
+
 ### Added
 
 - Added steps to migrate to docs. [PR 57](https://github.com/shakacode/heroku-to-control-plane/pull/57) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -33,6 +49,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/shakacode/heroku-to-control-plane/releases/tag/v1.0.0
