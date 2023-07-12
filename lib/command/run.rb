@@ -100,7 +100,7 @@ module Command
       # Override image if specified
       image = config.options[:image]
       image = latest_image if image == "latest"
-      container_spec["image"] = "/org/#{config.org}/image/#{image}"
+      container_spec["image"] = "/org/#{config.org}/image/#{image}" if image
 
       # Set runner
       container_spec["env"] ||= []
