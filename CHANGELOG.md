@@ -14,6 +14,12 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.0.4] - 2023-07-21
+
+### Fixed
+
+- Fixed issue where `run` commands fail when not providing image. [PR 68](https://github.com/shakacode/heroku-to-control-plane/pull/68) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.0.3] - 2023-07-07
 
 ### Fixed
@@ -49,7 +55,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.0...v1.0.1
