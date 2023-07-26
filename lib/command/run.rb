@@ -31,8 +31,8 @@ module Command
       # Need to quote COMMAND if setting ENV value or passing args.
       cpl run 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 
-      # COMMAND may also be passed at the end (in this case, no need to quote).
-      cpl run -a $APP_NAME -- rails db:migrate
+      # COMMAND may also be passed at the end.
+      cpl run -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
       # Runs command, displays output, and exits shell.
       cpl run ls / -a $APP_NAME

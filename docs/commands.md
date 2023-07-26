@@ -314,8 +314,8 @@ cpl run -a $APP_NAME
 # Need to quote COMMAND if setting ENV value or passing args.
 cpl run 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 
-# COMMAND may also be passed at the end (in this case, no need to quote).
-cpl run -a $APP_NAME -- rails db:migrate
+# COMMAND may also be passed at the end.
+cpl run -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
 # Runs command, displays output, and exits shell.
 cpl run ls / -a $APP_NAME
@@ -362,8 +362,8 @@ cpl run:detached rails db:prepare -a $APP_NAME
 # Need to quote COMMAND if setting ENV value or passing args.
 cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
 
-# COMMAND may also be passed at the end (in this case, no need to quote).
-cpl run:detached -a $APP_NAME -- rails db:migrate
+# COMMAND may also be passed at the end.
+cpl run:detached -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
 # Uses a different image (which may not be promoted yet).
 cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
