@@ -226,15 +226,19 @@ module Command
         end
     end
 
-    def latest_image_next(app = config.app, org = config.org)
+    def latest_image_next(app = config.app, org = config.org, commit: config.options[:commit])
       @latest_image_next ||= {}
       @latest_image_next[app] ||= begin
         latest_image_name = latest_image(app, org)
         image = latest_image_name.split(":").first
         image += ":#{extract_image_number(latest_image_name) + 1}"
-        image += "_#{config.options[:commit]}" if config.options[:commit]
+        image += "_#{commit}" if commit
         image
       end
+    end
+
+    def extract_image_commit(image_name)
+      image_name.match(/_(\h+)$/)&.captures&.first
     end
 
     # NOTE: use simplified variant atm, as shelljoin do different escaping
