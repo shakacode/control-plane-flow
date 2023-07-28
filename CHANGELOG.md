@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Changed
+
+- Updated docs for `run` commands regarding passing arguments at the end. [PR 71](https://github.com/shakacode/heroku-to-control-plane/pull/71) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.0.4] - 2023-07-21
 
 ### Fixed
