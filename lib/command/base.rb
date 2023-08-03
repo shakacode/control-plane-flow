@@ -226,7 +226,9 @@ module Command
         end
     end
 
-    def latest_image_next(app = config.app, org = config.org, commit: config.options[:commit])
+    def latest_image_next(app = config.app, org = config.org, commit: nil)
+      commit ||= config.options[:commit]
+
       @latest_image_next ||= {}
       @latest_image_next[app] ||= begin
         latest_image_name = latest_image(app, org)
