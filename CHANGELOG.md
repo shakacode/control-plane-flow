@@ -16,6 +16,7 @@ _Please add entries here for your pull requests that are not yet released._
 
 ### Fixed
 
+- Fixed issue where `copy-image-from-upstream` command does not copy commit. [PR 70](https://github.com/shakacode/heroku-to-control-plane/pull/70) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Fixed issue where an error is not raised if the app is not defined. [PR 73](https://github.com/shakacode/heroku-to-control-plane/pull/73) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
