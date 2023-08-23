@@ -40,7 +40,7 @@ module Command
 
       # If app exists, remove latest image, because we don't want to delete the image that is currently deployed
       latest_image_name = latest_image_from(app_images, app_name: app)
-      app_images.filter { |item| item["name"] != latest_image_name }
+      app_images.reject { |image| image["name"] == latest_image_name }
     end
 
     def old_images # rubocop:disable Metrics/MethodLength
@@ -51,7 +51,7 @@ module Command
           now = DateTime.now
           old_image_retention_days = config[:old_image_retention_days]
 
-          images = cp.image_query["items"].filter { |item| item["name"].start_with?(app_prefix)	}
+          images = cp.image_query["items"].select { |item| item["name"].start_with?(app_prefix)	}
           images_by_app = images.group_by { |item| item["repository"] }
           images_by_app.each do |app, app_images|
             app_images = remove_deployed_image(app, app_images)

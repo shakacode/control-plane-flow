@@ -83,7 +83,7 @@ module Command
     end
 
     def ensure_templates!
-      missing_templates = templates.filter { |_template, filename| !File.exist?(filename) }.to_h
+      missing_templates = templates.reject { |_template, filename| File.exist?(filename) }.to_h
       return if missing_templates.empty?
 
       missing_templates_str = missing_templates.map do |template, filename|

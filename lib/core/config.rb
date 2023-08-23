@@ -122,7 +122,7 @@ class Config
   end
 
   def warn_deprecated_options(app_options)
-    deprecated_option_keys = new_option_keys.filter { |old_key| app_options.key?(old_key) }
+    deprecated_option_keys = new_option_keys.select { |old_key| app_options.key?(old_key) }
     return if deprecated_option_keys.empty?
 
     deprecated_option_keys.each do |old_key, new_key|
