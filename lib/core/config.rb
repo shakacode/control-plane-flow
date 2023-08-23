@@ -117,7 +117,8 @@ class Config
     {
       org: :cpln_org,
       location: :default_location,
-      prefix: :match_if_app_name_starts_with
+      prefix: :match_if_app_name_starts_with,
+      old_image_retention_days: :image_retention_days
     }
   end
 
