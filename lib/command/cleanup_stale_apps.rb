@@ -49,7 +49,7 @@ module Command
           gvcs.each do |gvc|
             app_name = gvc["name"]
 
-            images = cp.image_query(app_name)["items"].select { |item| item["name"].start_with?("#{app_name}:") }
+            images = cp.query_images(app_name)["items"].select { |item| item["name"].start_with?("#{app_name}:") }
             image = latest_image_from(images, app_name: app_name, name_only: false)
             next unless image
 

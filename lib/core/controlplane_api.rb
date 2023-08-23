@@ -13,6 +13,18 @@ class ControlplaneApi
     api_json("/org/#{org}/gvc/#{gvc}", method: :delete)
   end
 
+  def query_images(org:, gvc:, gvc_op_type:)
+    terms = [
+      {
+        property: "repository",
+        op: gvc_op_type,
+        value: gvc
+      }
+    ]
+
+    query("/org/#{org}/image", terms)
+  end
+
   def image_delete(org:, image:)
     api_json("/org/#{org}/image/#{image}", method: :delete)
   end
@@ -34,26 +46,20 @@ class ControlplaneApi
   end
 
   def query_workloads(org:, gvc:, workload:, gvc_op_type:, workload_op_type:) # rubocop:disable Metrics/MethodLength
-    body = {
-      kind: "string",
-      spec: {
-        match: "all",
-        terms: [
-          {
-            rel: "gvc",
-            op: gvc_op_type,
-            value: gvc
-          },
-          {
-            property: "name",
-            op: workload_op_type,
-            value: workload
-          }
-        ]
+    terms = [
+      {
+        rel: "gvc",
+        op: gvc_op_type,
+        value: gvc
+      },
+      {
+        property: "name",
+        op: workload_op_type,
+        value: workload
       }
-    }
+    ]
 
-    api_json("/org/#{org}/workload/-query", method: :post, body: body)
+    query("/org/#{org}/workload", terms)
   end
 
   def workload_list(org:, gvc:)
@@ -89,6 +95,32 @@ class ControlplaneApi
   end
 
   private
+
+  def fetch_query_pages(result)
+    loop do
+      next_page_url = result["links"].find { |link| link["rel"] == "next" }&.dig("href")
+      break unless next_page_url
+
+      next_page_result = api_json(next_page_url, method: :get)
+      result["items"] += next_page_result["items"]
+      result["links"] = next_page_result["links"]
+    end
+  end
+
+  def query(url, terms)
+    body = {
+      kind: "string",
+      spec: {
+        match: "all",
+        terms: terms
+      }
+    }
+
+    result = api_json("#{url}/-query", method: :post, body: body)
+    fetch_query_pages(result)
+
+    result
+  end
 
   # switch between cpln rest and api
   def api_json(...)

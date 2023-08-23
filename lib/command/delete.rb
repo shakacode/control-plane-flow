@@ -41,7 +41,7 @@ module Command
     end
 
     def delete_images
-      images = cp.image_query["items"]
+      images = cp.query_images["items"]
                  .filter_map { |item| item["name"] if item["name"].start_with?("#{config.app}:") }
 
       return progress.puts("No images to delete.") unless images.any?

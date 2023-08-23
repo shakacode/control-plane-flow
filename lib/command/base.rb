@@ -221,7 +221,7 @@ module Command
       @latest_image ||= {}
       @latest_image[app] ||=
         begin
-          items = cp.image_query(app, org)["items"]
+          items = cp.query_images(app, org)["items"]
           latest_image_from(items, app_name: app)
         end
     end

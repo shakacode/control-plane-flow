@@ -69,12 +69,8 @@ module Command
           now = DateTime.now
           stale_run_workload_created_days = config[:stale_run_workload_created_days]
 
-          interactive_workloads = cp.query_workloads(
-            "-run-", partial_gvc_match: config.should_app_start_with?(config.app), partial_workload_match: true
-          )["items"]
-          non_interactive_workloads = cp.query_workloads(
-            "-runner-", partial_gvc_match: config.should_app_start_with?(config.app), partial_workload_match: true
-          )["items"]
+          interactive_workloads = cp.query_workloads("-run-", partial_workload_match: true)["items"]
+          non_interactive_workloads = cp.query_workloads("-runner-", partial_workload_match: true)["items"]
           workloads = interactive_workloads + non_interactive_workloads
 
           workloads.each do |workload|

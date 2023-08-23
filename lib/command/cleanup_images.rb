@@ -103,7 +103,7 @@ module Command
         begin
           result_images = []
 
-          images = cp.image_query["items"].select { |item| item["name"].start_with?(app_prefix)	}
+          images = cp.query_images["items"].select { |item| item["name"].start_with?(app_prefix)	}
           images_by_app = images.group_by { |item| item["repository"] }
           images_by_app.each do |app, app_images|
             app_images = remove_deployed_image(app, app_images)
