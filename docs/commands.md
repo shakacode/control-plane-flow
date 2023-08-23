@@ -46,15 +46,17 @@ cpl apply-template gvc postgres redis rails -a $APP_NAME
 cpl build-image -a $APP_NAME
 ```
 
-### `cleanup-old-images`
+### `cleanup-images`
 
-- Deletes all images for an app that are older than the specified amount of days
-- Specify the amount of days through `old_image_retention_days` in the `.controlplane/controlplane.yml` file
+- Deletes all images for an app that either exceed the max quantity or are older than the specified amount of days
+- Specify the max quantity through `image_retention_max_qty` in the `.controlplane/controlplane.yml` file
+- Specify the amount of days through `image_retention_days` in the `.controlplane/controlplane.yml` file
+- If `image_retention_max_qty` is specified, any images that exceed it will be deleted, regardless of `image_retention_days`
 - Will ask for explicit user confirmation
-- Does not affect the latest image, regardless of how old it is
+- Never deletes the latest image
 
 ```sh
-cpl cleanup-old-images -a $APP_NAME
+cpl cleanup-images -a $APP_NAME
 ```
 
 ### `cleanup-stale-apps`
