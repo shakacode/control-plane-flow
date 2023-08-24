@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Command
-  class CleanupOldImages < Base
-    NAME = "cleanup-old-images"
+  class CleanupImages < Base
+    NAME = "cleanup-images"
     OPTIONS = [
       app_option(required: true),
       skip_confirm_option
