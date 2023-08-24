@@ -86,6 +86,8 @@ class Config
 
       [app_name, app_options_with_new_keys]
     end
+
+    ensure_current_config_app!(app) if app
   end
 
   def load_app_config
