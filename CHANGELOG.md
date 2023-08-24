@@ -18,9 +18,15 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Fixed issue where an error is not raised if the app is not defined. [PR 73](https://github.com/shakacode/heroku-to-control-plane/pull/73) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
+### Added
+
+- Added `image_retention_max_qty` config to clean up images based on max quantity with `cleanup-images` command. [PR 72](https://github.com/shakacode/heroku-to-control-plane/pull/72) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Changed
 
 - Updated docs for `run` commands regarding passing arguments at the end. [PR 71](https://github.com/shakacode/heroku-to-control-plane/pull/71) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Renamed `cleanup-old-images` command to `cleanup-images`. [PR 72](https://github.com/shakacode/heroku-to-control-plane/pull/72) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Renamed `old_image_retention_days` config to `image_retention_days`. [PR 72](https://github.com/shakacode/heroku-to-control-plane/pull/72) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [1.0.4] - 2023-07-21
 
