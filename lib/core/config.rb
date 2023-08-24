@@ -34,8 +34,8 @@ class Config
     "#{app_dir}/.controlplane"
   end
 
-  def should_app_start_with?(app)
-    apps[app.to_sym]&.dig(:match_if_app_name_starts_with) || false
+  def should_app_start_with?(app_name)
+    apps[app_name.to_sym]&.dig(:match_if_app_name_starts_with) || false
   end
 
   private
@@ -86,6 +86,8 @@ class Config
 
       [app_name, app_options_with_new_keys]
     end
+
+    ensure_current_config_app!(app) if app
   end
 
   def load_app_config

@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Fixed
+
+- Fixed issue where an error is not raised if the app is not defined. [PR 73](https://github.com/shakacode/heroku-to-control-plane/pull/73) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Changed
 
 - Updated docs for `run` commands regarding passing arguments at the end. [PR 71](https://github.com/shakacode/heroku-to-control-plane/pull/71) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
