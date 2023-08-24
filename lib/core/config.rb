@@ -34,8 +34,8 @@ class Config
     "#{app_dir}/.controlplane"
   end
 
-  def should_app_start_with?(app)
-    apps[app.to_sym]&.dig(:match_if_app_name_starts_with) || false
+  def should_app_start_with?(app_name)
+    apps[app_name.to_sym]&.dig(:match_if_app_name_starts_with) || false
   end
 
   private
