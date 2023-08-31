@@ -1,5 +1,6 @@
 {
   "build": "build-image",
+  "cleanup_old_images": "cleanup-images",
   "promote": "deploy-image",
   "promote_image": "deploy-image",
   "runner": "run:detached",

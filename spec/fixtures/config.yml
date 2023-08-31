@@ -43,3 +43,19 @@ apps:
     <<: *common
     # You can specify a different `Dockerfile` relative to the `.controlplane` directory (default is just "Dockerfile").
     dockerfile: ../some_other/Dockerfile
+  my-app-test-1:
+    <<: *common
+  my-app-test-2:
+    <<: *common
+    image_retention_max_qty: 30
+    image_retention_days: 30
+  my-app-test-3:
+    <<: *common
+    image_retention_max_qty: 15
+    image_retention_days: 15
+  my-app-test-4:
+    <<: *common
+    image_retention_max_qty: 12
+  my-app-test-5:
+    <<: *common
+    image_retention_days: 12

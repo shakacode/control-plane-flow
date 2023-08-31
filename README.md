@@ -163,9 +163,13 @@ aliases:
     # when running the command `cpl cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
 
+    # Images that exceed this quantity will be listed for deletion
+    # when running the command `cpl cleanup-images`.
+    image_retention_max_qty: 20
+
     # Images created before this amount of days will be listed for deletion
-    # when running the command `cpl cleanup-old-images`.
-    old_image_retention_days: 5
+    # when running the command `cpl cleanup-images` (`image_retention_max_qty` takes precedence).
+    image_retention_days: 5
 
     # Run workloads created before this amount of days will be listed for deletion
     # when running the command `cpl run:cleanup`.

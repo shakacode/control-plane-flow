@@ -35,6 +35,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # image
 
+  def query_images(a_gvc = gvc, a_org = org, partial_gvc_match: nil)
+    partial_gvc_match = config.should_app_start_with?(a_gvc) if partial_gvc_match.nil?
+    gvc_op = partial_gvc_match ? "~" : "="
+
+    api.query_images(org: a_org, gvc: a_gvc, gvc_op_type: gvc_op)
+  end
+
   def image_build(image, dockerfile:, build_args: [], push: true)
     cmd = "docker build -t #{image} -f #{dockerfile}"
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
@@ -42,15 +49,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
 
     image_push(image) if push
-  end
-
-  def image_query(app_name = config.app, org_name = config.org)
-    # When `match_if_app_name_starts_with` is `true`, we query for images from any gvc containing the name,
-    # otherwise we query for images from a gvc with the exact name.
-    op = config.should_app_start_with?(app_name) ? "~" : "="
-
-    cmd = "cpln image query --org #{org_name} -o yaml --max -1 --prop repository#{op}#{app_name}"
-    perform_yaml(cmd)
   end
 
   def image_delete(image)
@@ -132,11 +130,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     raise "Can't find workload '#{workload}', please create it with 'cpl apply-template #{workload} -a #{config.app}'."
   end
 
-  def query_workloads(workload, partial_gvc_match: false, partial_workload_match: false)
+  def query_workloads(workload, a_gvc = gvc, a_org = org, partial_workload_match: false, partial_gvc_match: nil)
+    partial_gvc_match = config.should_app_start_with?(a_gvc) if partial_gvc_match.nil?
     gvc_op = partial_gvc_match ? "~" : "="
     workload_op = partial_workload_match ? "~" : "="
 
-    api.query_workloads(org: org, gvc: gvc, workload: workload, gvc_op_type: gvc_op, workload_op_type: workload_op)
+    api.query_workloads(org: a_org, gvc: a_gvc, workload: workload, gvc_op_type: gvc_op, workload_op_type: workload_op)
   end
 
   def workload_get_replicas(workload, location:)

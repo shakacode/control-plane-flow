@@ -117,12 +117,13 @@ class Config
     {
       org: :cpln_org,
       location: :default_location,
-      prefix: :match_if_app_name_starts_with
+      prefix: :match_if_app_name_starts_with,
+      old_image_retention_days: :image_retention_days
     }
   end
 
   def warn_deprecated_options(app_options)
-    deprecated_option_keys = new_option_keys.filter { |old_key| app_options.key?(old_key) }
+    deprecated_option_keys = new_option_keys.select { |old_key| app_options.key?(old_key) }
     return if deprecated_option_keys.empty?
 
     deprecated_option_keys.each do |old_key, new_key|
