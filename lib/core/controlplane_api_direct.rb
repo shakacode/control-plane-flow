@@ -18,13 +18,13 @@ class ControlplaneApiDirect
   API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
 
   def call(url, method:, host: :api, body: nil) # rubocop:disable Metrics/MethodLength
-    uri = URI("#{API_HOSTS[host]}#{url}")
+    uri = URI("#{api_host(host)}#{url}")
     request = API_METHODS[method].new(uri)
     request["Content-Type"] = "application/json"
     request["Authorization"] = api_token
     request.body = body.to_json if body
 
-    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(request) }
+    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(request) }
 
     case response
     when Net::HTTPOK
@@ -35,6 +35,15 @@ class ControlplaneApiDirect
       nil
     else
       raise("#{response} #{response.body}")
+    end
+  end
+
+  def api_host(host)
+    case host
+    when :api
+      ENV.fetch("CPLN_ENDPOINT", API_HOSTS[host])
+    else
+      API_HOSTS[host]
     end
   end
 
