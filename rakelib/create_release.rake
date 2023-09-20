@@ -65,7 +65,7 @@ module Release
       puts "Pulling latest commits from remote repository"
 
       sh_in_dir(gem_root, "git pull --rebase")
-      raise "Failed in pulling latest changes from default remore repository." unless $CHILD_STATUS.success?
+      raise "Failed in pulling latest changes from default remote repository." unless $CHILD_STATUS.success?
     rescue Errno::ENOENT
       raise "Ensure you have Git and Bundler installed before continuing."
     end
