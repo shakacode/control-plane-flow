@@ -5,6 +5,7 @@ require "spec_helper"
 describe Command::MaintenanceOn do
   # rubocop:disable RSpec/AnyInstance
   before do
+    allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
     allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
     allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml")
     allow_any_instance_of(described_class).to receive(:sleep).and_return(true)
