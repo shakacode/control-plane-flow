@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Fixed
+
+- Fixed issue where API token is not reset when switching profile. [PR 77](https://github.com/shakacode/heroku-to-control-plane/pull/77) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.1.0] - 2023-09-20
 
 ### Fixed
