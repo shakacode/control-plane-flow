@@ -14,6 +14,8 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.1.0] - 2023-09-20
+
 ### Fixed
 
 - Fixed issue where `copy-image-from-upstream` command does not copy commit. [PR 70](https://github.com/shakacode/heroku-to-control-plane/pull/70) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -71,7 +73,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.1...v1.0.2
