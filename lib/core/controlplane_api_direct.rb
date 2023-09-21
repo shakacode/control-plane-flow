@@ -58,5 +58,9 @@ class ControlplaneApiDirect
     raise "Unknown API token format. " \
           "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."
   end
+
+  def self.reset_api_token
+    remove_class_variable(:@@api_token) if defined?(@@api_token)
+  end
   # rubocop:enable Style/ClassVars
 end
