@@ -6,7 +6,7 @@
 <meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
 
-_A playbook for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
+_A gem that provides **Heroku Flow** functionality on Control Plane, including docs for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
 
 [![RSpec](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml)
 [![Rubocop](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml)
@@ -89,21 +89,23 @@ For the typical Rails app, this means:
 
 ## Installation
 
+1. Ensure your [Control Plane](https://controlplane.com) account is set up. Set up an `organization` <your-org> for testing in that account and modify value for `aliases.common.cpln_org` in `.controlplane/controlplane.yml`. If you need an organization, please [contact Shakcode](mailto:controlplane@shkacode.com).
 1. Install [Node.js](https://nodejs.org/en) (required for Control Plane CLI).
-2. Install [Ruby](https://www.ruby-lang.org/en/) (required for these helpers).
-3. Install Control Plane CLI (adds `cpln` command) and configure credentials.
 
+1. Install [Ruby](https://www.ruby-lang.org/en/) (required for these helpers).
+
+1. Install Control Plane CLI (and configure access) [docs here](https://docs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli), `npm install -g @controlplane/cli`. You can update the `cpln` command line with `npm update -g @controlplane/cli`. Then run `cpln login` to ensure access.
 ```sh
 npm install -g @controlplane/cli
 cpln login
 ```
 
-4. Install Heroku to Control Plane `cpl` CLI, either as a [Ruby gem](https://rubygems.org/gems/cpl) or a local clone.
-   For information on the latter, see [CONTRIBUTING.md](CONTRIBUTING.md).
+1. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
 
-```sh
-gem install cpl
-```
+1. Install Heroku to Control Plane `cpl` CLI, either as a [Ruby gem](https://rubygems.org/gems/cpl) or a local clone.
+   For information on the latter, see [CONTRIBUTING.md](CONTRIBUTING.md). You may also install `cpl` in your project's Gemfile.
+
+1. This project has a `Dockerfile` for Control Plane in this directory. You can use it as an example for your project. Ensure that you have Docker running.
 
 **Note:** Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to Control Plane playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
@@ -112,10 +114,32 @@ The `cpln` CLI is the Control Plane CLI.
 
 Click [here](/docs/migrating.md) to see the steps to migrate.
 
-## Config
+## Configuration Files
 
-Here's a complete example of all supported config keys explained:
+The `cpl` gem is based on several configuration files within a `/.controlplane` top-level directory in your Rails project.
 
+```
+.controlplane/
+├─ templates/
+│  ├─ gvc.yml
+│  ├─ postgres.yml
+│  ├─ rails.yml
+├─ controlplane.yml
+├─ Dockerfile
+├─ entrypoint.sh
+```
+
+1. `controlplane.yml` describes the overall application. Be sure to have <your-org> as the value for `aliases.common.cpln_org`.
+2. `Dockerfile` builds the production application. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
+3. `templates` directory contains the templates for the various workloads, such as `rails.yml` and `postgres.yml`.
+4. `templates/gvc.yml` defines your project's GVC (like a Heroku app). Most importantly, it contains ENV values for app.
+5. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/gvc.yml`. This file also configures scaling, sizing, firewalls, and other workload specific values.
+6. For other workloads (like lines in a Heroku Procfile), you create additional template files. For example, you can base a `templates/sidekiq.yml` on the `templates/rails.yml` file.
+7. You can have other files in the `templates` directory, such as `redis.yml` and `postgres.yml` which could setup Redis and Postgres for a testing application.
+
+Here's a complete example of all supported config keys explained for the `controlplane.yml` file:
+                                                       
+### `controlplane.yml`
 ```yaml
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
@@ -208,6 +232,61 @@ apps:
     dockerfile: ../some_other/Dockerfile
 ```
 
+## Workflow
+
+For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md).
+This example should closely match the below example.
+
+Suppose your app is called `tutorial-app`. You can run the following commands.
+
+### Setup Commands
+```sh
+# Provision all infrastructure on Control Plane.
+# app tutorial-app will be created per definition in .controlplane/controlplane.yml
+cpl apply-template gvc postgres redis rails -a tutorial-app
+
+# Build and push docker image to Control Plane repository
+# Note, may take many minutes. Be patient. Check for error messages, such as forgetting to run `cpln image docker-login --org <your-org>`
+cpl build-image -a tutorial-app
+
+# Promote image to app after running `cpl build-image command`
+# Note, the UX of images may not show the image for up to 5 minutes. However, it's ready.
+cpl deploy-image -a tutorial-app
+
+# See how app is starting up
+cpl logs -a tutorial-app
+
+# Open app in browser (once it has started up)
+cpl open -a tutorial-app
+```
+
+### Promoting code updates
+
+After committing code, you will update your deployment of `tutorial-app` with the following commands:
+
+```sh
+# Build and push new image with sequential image tagging, e.g. 'tutorial-app:1', then 'tutorial-app:2', etc.
+cpl build-image -a tutorial-app
+
+# Run database migrations (or other release tasks) with latest image,
+# while app is still running on previous image.
+# This is analogous to the release phase.
+cpl runner rails db:migrate -a tutorial-app --image latest
+
+# Pomote latest image to app
+cpl deploy-image -a tutorial-app
+```
+
+If you needed to push a new image with a specific commit SHA, you can run the following command:
+
+```sh
+# Build and push with sequential image tagging and commit SHA, e.g. 'tutorial-app:123_ABCD'
+cpl build-image -a tutorial-app --commit ABCD
+```
+
+### Real World
+Most companies will configure their CI system to handle the above steps. Please [contact Shakcode](mailto:controlplane@shkacode.com) for examples of how to do this, jump on [**React+Rails Slack channel**] (https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE).
+
 ## Environment
 
 There are two main places where we can set up environment variables in Control Plane:
@@ -227,16 +306,18 @@ It is also possible to set up a Secret store (of type `Dictionary`), which we ca
 `cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR_NAME`. In such a case, we must set up an app Identity and proper
 Policy to access the secret.
 
+In `templates/gvc.yml`:
 ```yaml
-# In `templates/gvc.yml`:
 spec:
   env:
     - name: MY_GLOBAL_VAR
       value: 'value'
     - name: MY_SECRET_GLOBAL_VAR
       value: 'cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_GLOBAL_VAR'
+```
 
-# In `templates/rails.yml`:
+In `templates/rails.yml`:
+```yaml
 spec:
   containers:
     - name: rails

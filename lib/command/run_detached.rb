@@ -104,7 +104,7 @@ module Command
       container_spec["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
-      cp.apply("kind" => "workload", "name" => one_off, "spec" => spec)
+      cp.apply_hash("kind" => "workload", "name" => one_off, "spec" => spec)
     end
 
     def runner_script # rubocop:disable Metrics/MethodLength

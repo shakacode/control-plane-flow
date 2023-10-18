@@ -130,7 +130,8 @@ module Command
                  .gsub("APP_ORG", config.org)
                  .gsub("APP_IMAGE", latest_image)
 
-      cp.apply(YAML.safe_load(data))
+      # Don't read in YAML.safe_load as that doesn't handle multiple documents
+      cp.apply_template(data)
     end
 
     def report_success(template)

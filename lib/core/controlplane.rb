@@ -44,7 +44,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def image_build(image, dockerfile:, build_args: [], push: true)
-    cmd = "docker build -t #{image} -f #{dockerfile}"
+    # https://docs.controlplane.com/guides/push-image#step-2
+    # Might need to use `docker buildx build` if compatiblitity issues arise
+    cmd = "docker build --platform=linux/amd64 -t #{image} -f #{dockerfile}"
+
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
     cmd += " #{config.app_dir}"
     perform!(cmd)
@@ -273,8 +276,22 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   # apply
+  def apply_template(data) # rubocop:disable Metrics/MethodLength
+    Tempfile.create do |f|
+      f.write(data)
+      f.rewind
+      cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
+      if Shell.tmp_stderr
+        cmd += " 2> #{Shell.tmp_stderr.path}"
+        perform(cmd)
+      else
+        perform!(cmd)
+      end
+    end
+  end
 
-  def apply(data) # rubocop:disable Metrics/MethodLength
+
+  def apply_hash(data) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|
       f.write(data.to_yaml)
       f.rewind
