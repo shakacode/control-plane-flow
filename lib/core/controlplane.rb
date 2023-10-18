@@ -290,7 +290,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
-
   def apply_hash(data) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|
       f.write(data.to_yaml)
