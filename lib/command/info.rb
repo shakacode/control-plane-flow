@@ -81,17 +81,20 @@ module Command
       end
     end
 
-    def orgs # rubocop:disable Metrics/MethodLength
+    def orgs # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       result = []
 
       if config.options[:org]
         result.push(config.options[:org])
       else
+        org_from_env = ENV.fetch("CPLN_ORG", nil)
+        result.push(org_from_env) if org_from_env
+
         config.apps.each do |app_name, app_options|
           next if config.app && !app_matches?(config.app, app_name, app_options)
 
           org = app_options[:cpln_org]
-          result.push(org) unless result.include?(org)
+          result.push(org) if org && !result.include?(org)
         end
       end
 

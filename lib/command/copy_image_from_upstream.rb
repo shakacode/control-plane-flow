@@ -29,7 +29,7 @@ module Command
       ensure_docker_running!
 
       @upstream = config[:upstream]
-      @upstream_org = config.apps[@upstream.to_sym][:cpln_org]
+      @upstream_org = config.apps[@upstream.to_sym][:cpln_org] || ENV.fetch("CPLN_ORG_UPSTREAM", nil)
       ensure_upstream_org!
 
       create_upstream_profile
@@ -51,7 +51,10 @@ module Command
     end
 
     def ensure_upstream_org!
-      raise "Can't find option 'cpln_org' for app '#{@upstream}' in 'controlplane.yml'." unless @upstream_org
+      return if @upstream_org
+
+      raise "Can't find option 'cpln_org' for app '#{@upstream}' in 'controlplane.yml', " \
+            "and CPLN_ORG_UPSTREAM env var is not set."
     end
 
     def create_upstream_profile
