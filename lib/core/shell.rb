@@ -2,7 +2,7 @@
 
 class Shell
   class << self
-    attr_reader :tmp_stderr
+    attr_reader :tmp_stderr, :verbose
   end
 
   def self.shell
@@ -49,5 +49,17 @@ class Shell
 
   def self.abort(message)
     Kernel.abort(color("ERROR: #{message}", :red))
+  end
+
+  def self.verbose_mode(verbose)
+    @verbose = verbose
+  end
+
+  def self.debug(prefix, message)
+    stderr.puts("\n[#{color(prefix, :red)}] #{message}") if verbose
+  end
+
+  def self.should_hide_output?
+    tmp_stderr && !verbose
   end
 end

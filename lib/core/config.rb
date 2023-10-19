@@ -17,6 +17,8 @@ class Config # rubocop:disable Metrics/ClassLength
 
     load_app_config
     load_apps
+
+    Shell.verbose_mode(options[:verbose])
   end
 
   def [](key)
