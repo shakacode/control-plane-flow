@@ -291,17 +291,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def apply_hash(data) # rubocop:disable Metrics/MethodLength
-    Tempfile.create do |f|
-      f.write(data.to_yaml)
-      f.rewind
-      cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
-      if Shell.tmp_stderr
-        cmd += " 2> #{Shell.tmp_stderr.path}"
-        perform(cmd)
-      else
-        perform!(cmd)
-      end
-    end
+    apply_template(data.to_yaml)
   end
 
   private
