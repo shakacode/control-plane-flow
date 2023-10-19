@@ -280,18 +280,53 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     Tempfile.create do |f|
       f.write(data)
       f.rewind
-      cmd = "cpln apply #{gvc_org} --file #{f.path} > /dev/null"
+      cmd = "cpln apply #{gvc_org} --file #{f.path}"
       if Shell.tmp_stderr
         cmd += " 2> #{Shell.tmp_stderr.path}"
-        perform(cmd)
+        result = `#{cmd}`
+        $CHILD_STATUS.success? ? parse_apply_result(result) : false
       else
-        perform!(cmd)
+        result = `#{cmd}`
+        $CHILD_STATUS.success? ? parse_apply_result(result) : exit(false)
       end
     end
   end
 
   def apply_hash(data)
     apply_template(data.to_yaml)
+  end
+
+  def parse_apply_result(result) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    items = []
+
+    lines = result.split("\n")
+    lines.each do |line|
+      # The line can be in one of these formats:
+      # - "Created /org/shakacode-open-source-examples/gvc/my-app-staging"
+      # - "Created /org/shakacode-open-source-examples/gvc/my-app-staging/workload/redis"
+      # - "Updated gvc 'tutorial-app-test-1'"
+      # - "Updated workload 'redis'"
+      if line.start_with?("Created")
+        matches = line.match(%r{Created\s/org/[^/]+/gvc/([^/]+)($|(/([^/]+)/([^/]+)$))})&.captures
+        next unless matches
+
+        app, _, __, kind, name = matches
+        if kind
+          items.push({ kind: kind, name: name })
+        else
+          items.push({ kind: "app", name: app })
+        end
+      else
+        matches = line.match(/Updated\s([^\s]+)\s'([^\s]+)'$/)&.captures
+        next unless matches
+
+        kind, name = matches
+        kind = "app" if kind == "gvc"
+        items.push({ kind: kind, name: name })
+      end
+    end
+
+    items
   end
 
   private
