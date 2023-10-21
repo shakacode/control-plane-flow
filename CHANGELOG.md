@@ -14,6 +14,14 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.1.2] - 2023-10-17
+
+### Fixed
+
+- Fixed failed build on MacOS by adding platform flag and fixed multiple files in yaml document for template. [PR 81](https://github.com/shakacode/heroku-to-control-plane/pull/81) by [justin808](https://github.com/justin808).
+
+## [1.1.1] - 2023-09-23
+
 ### Fixed
 
 - Fixed issue where API token is not reset when switching profile. [PR 77](https://github.com/shakacode/heroku-to-control-plane/pull/77) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -77,7 +85,9 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.2...v1.0.3

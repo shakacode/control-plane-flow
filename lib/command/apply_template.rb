@@ -35,13 +35,12 @@ module Command
       ```
     EX
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call # rubocop:disable Metrics/MethodLength, Metrics/PerceivedComplexity
       ensure_templates!
 
-      @app_status = :existing
-      @created_workloads = []
-      @failed_workloads = []
-      @skipped_workloads = []
+      @created_items = []
+      @failed_templates = []
+      @skipped_templates = []
 
       @asked_for_confirmation = false
 
@@ -57,9 +56,11 @@ module Command
 
       pending_templates.each do |template, filename|
         step("Applying template '#{template}'", abort_on_error: false) do
-          apply_template(filename)
-          if $CHILD_STATUS.success?
-            report_success(template)
+          items = apply_template(filename)
+          if items
+            items.each do |item|
+              report_success(item)
+            end
           else
             report_failure(template)
           end
@@ -68,10 +69,9 @@ module Command
         end
       end
 
-      print_app_status
-      print_created_workloads
-      print_failed_workloads
-      print_skipped_workloads
+      print_created_items
+      print_failed_templates
+      print_skipped_templates
     end
 
     private
@@ -130,65 +130,41 @@ module Command
                  .gsub("APP_ORG", config.org)
                  .gsub("APP_IMAGE", latest_image)
 
-      cp.apply(YAML.safe_load(data))
+      # Don't read in YAML.safe_load as that doesn't handle multiple documents
+      cp.apply_template(data)
     end
 
-    def report_success(template)
-      if template == "gvc"
-        @app_status = :success
-      else
-        @created_workloads.push(template)
-      end
+    def report_success(item)
+      @created_items.push(item)
     end
 
     def report_failure(template)
-      if template == "gvc"
-        @app_status = :failure
-      else
-        @failed_workloads.push(template)
-      end
+      @failed_templates.push(template)
     end
 
     def report_skipped(template)
-      if template == "gvc"
-        @app_status = :skipped
-      else
-        @skipped_workloads.push(template)
-      end
+      @skipped_templates.push(template)
     end
 
-    def print_app_status
-      return if @app_status == :existing
+    def print_created_items
+      return unless @created_items.any?
 
-      case @app_status
-      when :success
-        progress.puts("\n#{Shell.color("Created app '#{config.app}'.", :green)}")
-      when :failure
-        progress.puts("\n#{Shell.color("Failed to create app '#{config.app}'.", :red)}")
-      when :skipped
-        progress.puts("\n#{Shell.color("Skipped app '#{config.app}' (already exists).", :blue)}")
-      end
+      created = @created_items.map { |item| "  - [#{item[:kind]}] #{item[:name]}" }.join("\n")
+      progress.puts("\n#{Shell.color('Created items:', :green)}\n#{created}")
     end
 
-    def print_created_workloads
-      return unless @created_workloads.any?
+    def print_failed_templates
+      return unless @failed_templates.any?
 
-      workloads = @created_workloads.map { |template| "  - #{template}" }.join("\n")
-      progress.puts("\n#{Shell.color('Created workloads:', :green)}\n#{workloads}")
+      failed = @failed_templates.map { |template| "  - #{template}" }.join("\n")
+      progress.puts("\n#{Shell.color('Failed to apply templates:', :red)}\n#{failed}")
     end
 
-    def print_failed_workloads
-      return unless @failed_workloads.any?
+    def print_skipped_templates
+      return unless @skipped_templates.any?
 
-      workloads = @failed_workloads.map { |template| "  - #{template}" }.join("\n")
-      progress.puts("\n#{Shell.color('Failed to create workloads:', :red)}\n#{workloads}")
-    end
-
-    def print_skipped_workloads
-      return unless @skipped_workloads.any?
-
-      workloads = @skipped_workloads.map { |template| "  - #{template}" }.join("\n")
-      progress.puts("\n#{Shell.color('Skipped workloads (already exist):', :blue)}\n#{workloads}")
+      skipped = @skipped_templates.map { |template| "  - #{template}" }.join("\n")
+      progress.puts("\n#{Shell.color('Skipped templates (already exist):', :blue)}\n#{skipped}")
     end
   end
 end
