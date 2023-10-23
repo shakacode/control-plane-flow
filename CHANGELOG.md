@@ -20,6 +20,16 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Fixed failed build on MacOS by adding platform flag and fixed multiple files in yaml document for template. [PR 81](https://github.com/shakacode/heroku-to-control-plane/pull/81) by [justin808](https://github.com/justin808).
 
+### Added
+
+- Added `open-console` command to open the app console on Control Plane. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added option to set the org with a `CPLN_ORG` env var. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added `--verbose` option to all commands for more detailed logs. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+### Changed
+
+- Calling `cpl` with no command now shows the help menu. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.1.1] - 2023-09-23
 
 ### Fixed
