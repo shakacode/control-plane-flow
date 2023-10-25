@@ -176,6 +176,18 @@ module Command
       }
     end
 
+    def self.verbose_option(required: false)
+      {
+        name: :verbose,
+        params: {
+          aliases: ["-d"],
+          desc: "Shows detailed logs",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end

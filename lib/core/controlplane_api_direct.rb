@@ -24,6 +24,8 @@ class ControlplaneApiDirect
     request["Authorization"] = api_token
     request.body = body.to_json if body
 
+    Shell.debug(method.upcase, "#{uri} #{body&.to_json}")
+
     response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(request) }
 
     case response

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-class Config
+class Config # rubocop:disable Metrics/ClassLength
   attr_reader :config, :current,
-              :org, :app, :apps, :app_dir,
+              :org, :org_comes_from_env, :app, :apps, :app_dir,
               # command line options
               :args, :options
 
@@ -12,10 +12,13 @@ class Config
     @args = args
     @options = options
     @org = options[:org]
+    @org_comes_from_env = false
     @app = options[:app]
 
     load_app_config
     load_apps
+
+    Shell.verbose_mode(options[:verbose])
   end
 
   def [](key)
@@ -48,6 +51,13 @@ class Config
     raise "Can't find app '#{app_name}' in 'controlplane.yml'." unless current
   end
 
+  def ensure_current_config_org!(app_name)
+    return if @org
+
+    raise "Can't find option 'cpln_org' for app '#{app_name}' in 'controlplane.yml', " \
+          "and CPLN_ORG env var is not set."
+  end
+
   def ensure_config!
     raise "'controlplane.yml' is empty." unless config
   end
@@ -66,8 +76,15 @@ class Config
 
   def pick_current_config(app_name, app_options)
     @current = app_options
-    @org = self[:cpln_org]
     ensure_current_config_app!(app_name)
+
+    if current.key?(:cpln_org)
+      @org = current.fetch(:cpln_org)
+    else
+      @org = ENV.fetch("CPLN_ORG", nil)
+      @org_comes_from_env = true
+    end
+    ensure_current_config_org!(app_name)
   end
 
   def load_apps # rubocop:disable Metrics/MethodLength

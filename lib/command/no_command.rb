@@ -11,9 +11,11 @@ module Command
     HIDE = true
 
     def call
-      return unless config.options[:version]
-
-      Cpl::Cli.start(["version"])
+      if config.options[:version]
+        Cpl::Cli.start(["version"])
+      else
+        Cpl::Cli.start(["help"])
+      end
     end
   end
 end

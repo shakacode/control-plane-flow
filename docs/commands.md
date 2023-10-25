@@ -227,6 +227,15 @@ cpl open -a $APP_NAME
 cpl open -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
+### `open-console`
+
+- Opens the app console on Control Plane in the default browser
+- Can also go directly to a workload page if `--workload` is provided
+
+```sh
+cpl open-console -a $APP_NAME
+```
+
 ### `promote-app-from-upstream`
 
 - Copies the latest image from upstream, runs a release script (optional), and deploys the image

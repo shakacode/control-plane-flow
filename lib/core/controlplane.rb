@@ -24,13 +24,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def profile_create(profile, token)
     cmd = "cpln profile create #{profile} --token #{token}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
   def profile_delete(profile)
     cmd = "cpln profile delete #{profile}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -61,25 +61,25 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def image_login(org_name = config.org)
     cmd = "cpln image docker-login --org #{org_name}"
-    cmd += " > /dev/null 2>&1" if Shell.tmp_stderr
+    cmd += " > /dev/null 2>&1" if Shell.should_hide_output?
     perform!(cmd)
   end
 
   def image_pull(image)
     cmd = "docker pull #{image}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
   def image_tag(old_tag, new_tag)
     cmd = "docker tag #{old_tag} #{new_tag}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
   def image_push(image)
     cmd = "docker push #{image}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -148,7 +148,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_get_replicas_safely(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml 2> /dev/null"
+    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
+    cmd += " 2> /dev/null" if Shell.should_hide_output?
+
+    Shell.debug("CMD", cmd)
+
     result = `#{cmd}`
     $CHILD_STATUS.success? ? YAML.safe_load(result) : nil
   end
@@ -180,7 +184,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -208,7 +212,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def workload_force_redeployment(workload)
     cmd = "cpln workload force-redeployment #{workload} #{gvc_org}"
-    cmd += " > /dev/null" if Shell.tmp_stderr
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -282,10 +286,15 @@ class Controlplane # rubocop:disable Metrics/ClassLength
       f.rewind
       cmd = "cpln apply #{gvc_org} --file #{f.path}"
       if Shell.tmp_stderr
-        cmd += " 2> #{Shell.tmp_stderr.path}"
+        cmd += " 2> #{Shell.tmp_stderr.path}" if Shell.should_hide_output?
+
+        Shell.debug("CMD", cmd)
+
         result = `#{cmd}`
         $CHILD_STATUS.success? ? parse_apply_result(result) : false
       else
+        Shell.debug("CMD", cmd)
+
         result = `#{cmd}`
         $CHILD_STATUS.success? ? parse_apply_result(result) : exit(false)
       end
@@ -332,14 +341,20 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   private
 
   def perform(cmd)
+    Shell.debug("CMD", cmd)
+
     system(cmd)
   end
 
   def perform!(cmd)
+    Shell.debug("CMD", cmd)
+
     system(cmd) || exit(false)
   end
 
   def perform_yaml(cmd)
+    Shell.debug("CMD", cmd)
+
     result = `#{cmd}`
     $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(false)
   end
