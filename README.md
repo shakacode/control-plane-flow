@@ -405,7 +405,7 @@ spec:
   type: cron
   job:
     # Run daily job at 2am.
-    schedule: 0  2  *  *  *
+    schedule: "0 2 * * *"
     # "Never" or "OnFailure"
     restartPolicy: Never
   containers:
