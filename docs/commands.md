@@ -140,7 +140,7 @@ if [ cpl exists -a $APP_NAME ]; ...
 - The diff is based on what's defined in the `.controlplane/controlplane.yml` file
 
 ```sh
-# Shows diff for all apps in all orgs.
+# Shows diff for all apps in all orgs (based on `.controlplane/controlplane.yml`).
 cpl info
 
 # Shows diff for all apps in a specific org.
