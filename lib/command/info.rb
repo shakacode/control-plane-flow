@@ -4,7 +4,6 @@ module Command
   class Info < Base # rubocop:disable Metrics/ClassLength
     NAME = "info"
     OPTIONS = [
-      org_option,
       app_option
     ].freeze
     DESCRIPTION = "Displays the diff between defined/available apps/workloads (apps equal GVCs)"
@@ -17,7 +16,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Shows diff for all apps in all orgs.
+      # Shows diff for all apps in all orgs (based on `.controlplane/controlplane.yml`).
       cpl info
 
       # Shows diff for all apps in a specific org.
@@ -81,15 +80,12 @@ module Command
       end
     end
 
-    def orgs # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def orgs # rubocop:disable Metrics/MethodLength
       result = []
 
-      if config.options[:org]
-        result.push(config.options[:org])
+      if config.org
+        result.push(config.org)
       else
-        org_from_env = ENV.fetch("CPLN_ORG", nil)
-        result.push(org_from_env) if org_from_env
-
         config.apps.each do |app_name, app_options|
           next if config.app && !app_matches?(config.app, app_name, app_options)
 

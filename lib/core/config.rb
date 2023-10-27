@@ -12,7 +12,7 @@ class Config # rubocop:disable Metrics/ClassLength
     @args = args
     @options = options
     @org = options[:org]
-    @org_comes_from_env = false
+    @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
     @app = options[:app]
 
     load_app_config
@@ -55,7 +55,8 @@ class Config # rubocop:disable Metrics/ClassLength
     return if @org
 
     raise "Can't find option 'cpln_org' for app '#{app_name}' in 'controlplane.yml', " \
-          "and CPLN_ORG env var is not set."
+          "and CPLN_ORG env var is not set. " \
+          "The org can also be provided through --org."
   end
 
   def ensure_config!
@@ -78,12 +79,9 @@ class Config # rubocop:disable Metrics/ClassLength
     @current = app_options
     ensure_current_config_app!(app_name)
 
-    if current.key?(:cpln_org)
-      @org = current.fetch(:cpln_org)
-    else
-      @org = ENV.fetch("CPLN_ORG", nil)
-      @org_comes_from_env = true
-    end
+    return if @org
+
+    @org = current.fetch(:cpln_org) if current.key?(:cpln_org)
     ensure_current_config_org!(app_name)
   end
 

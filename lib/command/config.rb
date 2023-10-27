@@ -22,7 +22,7 @@ module Command
 
     def call # rubocop:disable Metrics/MethodLength
       if config.org_comes_from_env
-        puts Shell.color("Org comes from CPLN_ORG env var", :yellow)
+        puts Shell.color("Org comes from CPLN_ORG env var", :red)
         puts
       end
 

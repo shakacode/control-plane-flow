@@ -14,6 +14,19 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Fixed
+
+- Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+### Added
+
+- Added `--org` option to all commands. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added option to set the app with a `CPLN_APP` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+### Changed
+
+- `--org` option now takes precedence over `CPLN_ORG` env var, which takes precedence over `cpln_org` from `controlplane.yml`. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.1.2] - 2023-10-17
 
 ### Fixed
@@ -23,7 +36,7 @@ _Please add entries here for your pull requests that are not yet released._
 ### Added
 
 - Added `open-console` command to open the app console on Control Plane. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
-- Added option to set the org with a `CPLN_ORG` env var. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added option to set the org with a `CPLN_ORG`/`CPLN_ORG_UPSTREAM` env var. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `--verbose` option to all commands for more detailed logs. [PR 83](https://github.com/shakacode/heroku-to-control-plane/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
