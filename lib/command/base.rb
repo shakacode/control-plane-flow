@@ -42,7 +42,7 @@ module Command
       [org_option, verbose_option]
     end
 
-    def self.org_option(required: false)
+    def self.org_option(required: false) # rubocop:disable Metrics/MethodLength
       {
         name: :org,
         params: {
@@ -50,7 +50,8 @@ module Command
           banner: "ORG_NAME",
           desc: "Organization name",
           type: :string,
-          required: required
+          required: required,
+          default: ENV.fetch("CPLN_ORG", nil)
         }
       }
     end

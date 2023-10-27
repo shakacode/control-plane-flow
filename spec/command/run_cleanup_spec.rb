@@ -6,6 +6,7 @@ describe Command::RunCleanup do
   before do
     allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
     allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
+    allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
     allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
 
     Timecop.freeze(Time.local(2023, 5, 15))
