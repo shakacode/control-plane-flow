@@ -141,7 +141,7 @@ module Cpl
       usage = command_class::USAGE.empty? ? name : command_class::USAGE
       requires_args = command_class::REQUIRES_ARGS
       default_args = command_class::DEFAULT_ARGS
-      command_options = command_class::OPTIONS + [::Command::Base.verbose_option]
+      command_options = command_class::OPTIONS + ::Command::Base.common_options
       description = command_class::DESCRIPTION
       long_description = command_class::LONG_DESCRIPTION
       examples = command_class::EXAMPLES

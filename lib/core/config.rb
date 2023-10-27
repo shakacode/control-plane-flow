@@ -55,7 +55,8 @@ class Config # rubocop:disable Metrics/ClassLength
     return if @org
 
     raise "Can't find option 'cpln_org' for app '#{app_name}' in 'controlplane.yml', " \
-          "and CPLN_ORG env var is not set."
+          "and CPLN_ORG env var is not set. " \
+          "The org can also be provided through --org."
   end
 
   def ensure_config!

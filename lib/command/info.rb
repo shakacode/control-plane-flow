@@ -4,7 +4,6 @@ module Command
   class Info < Base # rubocop:disable Metrics/ClassLength
     NAME = "info"
     OPTIONS = [
-      org_option,
       app_option
     ].freeze
     DESCRIPTION = "Displays the diff between defined/available apps/workloads (apps equal GVCs)"

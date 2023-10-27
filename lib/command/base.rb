@@ -38,6 +38,10 @@ module Command
       end
     end
 
+    def self.common_options
+      [org_option, verbose_option]
+    end
+
     def self.org_option(required: false)
       {
         name: :org,
