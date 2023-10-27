@@ -255,7 +255,7 @@ Suppose your app is called `tutorial-app`. You can run the following commands.
 ```sh
 # Provision all infrastructure on Control Plane.
 # `tutorial-app` will be created per definition in .controlplane/controlplane.yml.
-cpl apply-template gvc postgres redis rails -a tutorial-app
+cpl apply-template gvc postgres redis rails daily-task -a tutorial-app
 
 # Build and push the Docker image to the Control Plane repository.
 # Note, it may take many minutes. Be patient.
