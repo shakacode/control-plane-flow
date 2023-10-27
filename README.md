@@ -90,7 +90,7 @@ For the typical Rails app, this means:
 
 ## Installation
 
-1. Ensure your [Control Plane](https://controlplane.com) account is set up. Set up an `organization` <your-org> for testing in that account and modify the value for `aliases.common.cpln_org` in `.controlplane/controlplane.yml`, or you can also set it with the `CPLN_ORG` environment variable. If you need an organization, please [contact Shakacode](mailto:controlplane@shakacode.com).
+1. Ensure your [Control Plane](https://controlplane.com) account is set up. Set up an `organization` `<your-org>` for testing in that account and modify the value for `aliases.common.cpln_org` in `.controlplane/controlplane.yml`, or you can also set it with the `CPLN_ORG` environment variable. If you need an organization, please [contact Shakacode](mailto:controlplane@shakacode.com).
 
 2. Install [Node.js](https://nodejs.org/en) (required for Control Plane CLI).
 
@@ -138,7 +138,7 @@ The `cpl` gem is based on several configuration files within a `/.controlplane` 
 ├─ entrypoint.sh
 ```
 
-1. `controlplane.yml` describes the overall application. Be sure to have <your-org> as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
+1. `controlplane.yml` describes the overall application. Be sure to have `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
 2. `Dockerfile` builds the production application. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
 3. `templates` directory contains the templates for the various workloads, such as `rails.yml` and `postgres.yml`.
 4. `templates/gvc.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
