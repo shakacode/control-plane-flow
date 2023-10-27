@@ -153,18 +153,31 @@ Here's a complete example of all supported config keys explained for the `contro
 ```yaml
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
+# Global settings that apply to cpl usage
+# You can opt out of allowing the use of an ENV CPLN_ORG and CPLN_APP for the cpl CLI to avoid
+# any accidents with the wrong org or app.
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
 aliases:
   common: &common
-    # Organization name for staging (customize to your needs).
+    
+    # Org for staging and QA apps is typically set as an alias
     # Production apps will use a different organization, specified below, for security.
+    # Change this value to your org name
+    # or set ENV value to CPLN_ORG as that will override whatever is used here for all cpl commands
+    # provided that allow_org_override_by_env is set to true.
     cpln_org: my-org-staging
 
-    # Example apps use only one location. Control Plane offers the ability to use multiple locations.
+    # Control Plane offers the ability to use multiple locations.
+    # default_location is used for commands that require a location:
+    # including `ps`, `run`, `run:detached`, `apply-template`
+    # This can be overridden with option --location=<location>
     default_location: aws-us-east-2
 
     # Allows running the command `cpl setup-app`
     # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
-    setup:
+    setup_app_templates_workloads:
       - gvc
       - redis
       - postgres
