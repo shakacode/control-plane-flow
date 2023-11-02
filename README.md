@@ -6,7 +6,7 @@
 <meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
 
-_A gem that provides **Heroku Flow** functionality on Control Plane, including docs for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com)_
+_A gem that provides **Heroku Flow** functionality on Control Plane, including docs for migrating from [Heroku](https://heroku.com) to [Control Plane](https://controlplane.com/shakacode)._
 
 [![RSpec](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml)
 [![Rubocop](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml)
@@ -90,7 +90,7 @@ For the typical Rails app, this means:
 
 ## Installation
 
-1. Ensure your [Control Plane](https://controlplane.com) account is set up. Set up an `organization` `<your-org>` for testing in that account and modify the value for `aliases.common.cpln_org` in `.controlplane/controlplane.yml`, or you can also set it with the `CPLN_ORG` environment variable. If you need an organization, please [contact Shakacode](mailto:controlplane@shakacode.com).
+1. Ensure your [Control Plane](https://controlplane.com/shakacode) account is set up. Set up an `organization` `<your-org>` for testing in that account and modify the value for `aliases.common.cpln_org` in `.controlplane/controlplane.yml`, or you can also set it with the `CPLN_ORG` environment variable. If you need an organization, please [contact Shakacode](mailto:controlplane@shakacode.com).
 
 2. Install [Node.js](https://nodejs.org/en) (required for Control Plane CLI).
 
