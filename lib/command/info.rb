@@ -38,6 +38,10 @@ module Command
       end
     end
 
+    def puts_info_header
+      # Do not print any info header
+    end
+
     private
 
     def app_matches?(app, app_name, app_options)

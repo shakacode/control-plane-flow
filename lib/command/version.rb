@@ -12,5 +12,9 @@ module Command
     def call
       puts Cpl::VERSION
     end
+
+    def puts_info_header
+      # Do not print any info header
+    end
   end
 end
