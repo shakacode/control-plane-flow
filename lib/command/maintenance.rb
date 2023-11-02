@@ -33,5 +33,9 @@ module Command
         puts "off"
       end
     end
+
+    def puts_info_header
+      # Do not print any info header
+    end
   end
 end
