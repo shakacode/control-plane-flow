@@ -195,12 +195,10 @@ module Cpl
     def puts_info_header(config)
       rows = {}
       rows["ORG"] = config.org unless config.org.nil? || config.org.empty?
-      rows["APP"] = config.org unless config.app.nil? || config.app.empty?
-
-      max_key_length = rows.keys.map(&:size).max
+      rows["APP"] = config.app unless config.app.nil? || config.app.empty?
 
       rows.each do |key, value|
-        puts "#{key.ljust(max_key_length)}: #{value}"
+        puts "#{key}: #{value}"
       end
     end
   end
