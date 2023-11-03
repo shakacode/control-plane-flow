@@ -23,25 +23,13 @@ module Command
     EXAMPLES = ""
     # If `true`, hides the command from `cpl help`
     HIDE = false
+    # weather to show key information like ORG and APP name in commands
+    WITH_INFO_HEADER = true
 
     NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
 
     def initialize(config)
       @config = config
-
-      puts_info_header
-    end
-
-    def puts_info_header
-      rows = {}
-      rows["ORG"] = config.org unless config.org.nil? || config.org.empty?
-      rows["APP"] = config.org unless config.app.nil? || config.app.empty?
-
-      max_key_length = rows.keys.map(&:size).max
-
-      rows.each do |key, value|
-        puts "#{key.ljust(max_key_length)}: #{value}"
-      end
     end
 
     def self.all_commands

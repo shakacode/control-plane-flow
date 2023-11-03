@@ -10,6 +10,8 @@ module Command
     DESC
     HIDE = true
 
+    WITH_INFO_HEADER = false
+
     def call
       if config.options[:version]
         Cpl::Cli.start(["version"])

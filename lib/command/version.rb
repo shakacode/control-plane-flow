@@ -9,12 +9,10 @@ module Command
       - Can also be done with `cpl --version` or `cpl -v`
     DESC
 
+    WITH_INFO_HEADER = false
+
     def call
       puts Cpl::VERSION
-    end
-
-    def puts_info_header
-      # Do not print any info header
     end
   end
 end

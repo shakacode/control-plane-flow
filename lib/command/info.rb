@@ -27,6 +27,8 @@ module Command
       ```
     EX
 
+    WITH_INFO_HEADER = false
+
     def call
       @missing_apps_workloads = {}
       @missing_apps_starting_with = {}
@@ -36,10 +38,6 @@ module Command
       else
         multiple_apps_info
       end
-    end
-
-    def puts_info_header
-      # Do not print any info header
     end
 
     private

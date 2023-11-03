@@ -15,6 +15,8 @@ module Command
       - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
     DESC
 
+    WITH_INFO_HEADER = false
+
     def call # rubocop:disable Metrics/MethodLength
       one_off_workload = config[:one_off_workload]
       maintenance_workload = config.current[:maintenance_workload] || "maintenance"
@@ -32,10 +34,6 @@ module Command
       else
         puts "off"
       end
-    end
-
-    def puts_info_header
-      # Do not print any info header
     end
   end
 end
