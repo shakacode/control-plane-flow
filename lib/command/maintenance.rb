@@ -14,7 +14,6 @@ module Command
       - Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
       - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
     DESC
-
     WITH_INFO_HEADER = false
 
     def call # rubocop:disable Metrics/MethodLength

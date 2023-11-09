@@ -26,7 +26,6 @@ module Command
       cpl info -a $APP_NAME
       ```
     EX
-
     WITH_INFO_HEADER = false
 
     def call

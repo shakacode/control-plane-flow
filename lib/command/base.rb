@@ -23,7 +23,7 @@ module Command
     EXAMPLES = ""
     # If `true`, hides the command from `cpl help`
     HIDE = false
-    # weather to show key information like ORG and APP name in commands
+    # Whether or not to show key information like ORG and APP name in commands
     WITH_INFO_HEADER = true
 
     NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
