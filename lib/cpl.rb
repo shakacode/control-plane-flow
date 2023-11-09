@@ -179,7 +179,7 @@ module Cpl
         begin
           config = Config.new(args, options)
 
-          puts_info_header(config) if with_info_header
+          show_info_header(config) if with_info_header
 
           command_class.new(config).call
         rescue RuntimeError => e
@@ -192,7 +192,7 @@ module Cpl
 
     private
 
-    def puts_info_header(config)
+    def show_info_header(config)
       rows = {}
       rows["ORG"] = config.org unless config.org.nil? || config.org.empty?
       rows["APP"] = config.app unless config.app.nil? || config.app.empty?
