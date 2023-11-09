@@ -200,6 +200,8 @@ module Cpl
       rows.each do |key, value|
         puts "#{key}: #{value}"
       end
+
+      puts unless rows.empty?
     end
   end
 end
