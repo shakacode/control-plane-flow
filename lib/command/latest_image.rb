@@ -10,6 +10,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Displays the latest image name
     DESC
+    WITH_INFO_HEADER = false
 
     def call
       puts latest_image

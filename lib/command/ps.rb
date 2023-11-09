@@ -20,6 +20,7 @@ module Command
       cpl ps -a $APP_NAME -w $WORKLOAD_NAME
       ```
     EX
+    WITH_INFO_HEADER = false
 
     def call
       cp.fetch_gvc!
