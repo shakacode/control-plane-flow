@@ -39,7 +39,7 @@ module Command
     end
 
     def self.common_options
-      [org_option, verbose_option]
+      [org_option, verbose_option, dry_run_option]
     end
 
     def self.org_option(required: false) # rubocop:disable Metrics/MethodLength
@@ -190,6 +190,17 @@ module Command
           desc: "Shows detailed logs",
           type: :boolean,
           required: required
+        }
+      }
+    end
+
+    def self.dry_run_option
+      {
+        name: :dry_run,
+        params: {
+          desc: "Dry run without making actual cpln execution",
+          type: :boolean,
+          required: false
         }
       }
     end
