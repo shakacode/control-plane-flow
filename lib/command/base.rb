@@ -28,6 +28,8 @@ module Command
 
     def initialize(config)
       @config = config
+
+      show_dry_run_banner if dry_run?
     end
 
     def self.all_commands
@@ -248,9 +250,12 @@ module Command
 
     def latest_image(app = config.app, org = config.org)
       @latest_image ||= {}
+
+      @latest_image[app] = "#{app}:12345" if dry_run?
+
       @latest_image[app] ||=
         begin
-          items = cp.query_images(app, org)["items"]
+          items = dry_run? ? [{ name: "#{app}:12345" }] : cp.query_images(app, org)["items"]
           latest_image_from(items, app_name: app)
         end
     end
@@ -338,6 +343,26 @@ module Command
       return 0 if image_name.end_with?(NO_IMAGE_AVAILABLE)
 
       image_name.match(/:(\d+)/)&.captures&.first.to_i
+    end
+
+    def dry_run?
+      @config.options.fetch(:dry_run, false)
+    end
+
+    def show_dry_run_banner
+      show_dry_run_message(<<~MSG, prefix: nil) if dry_run?
+        xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        xx   RUNNING IN DRY-RUN MODE   xx
+        xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      MSG
+    end
+
+    def show_dry_run_message(message, prefix: "DRY-RUN", force_new_line: false)
+      text = force_new_line ? "\n" : ""
+      text += "#{prefix}: " unless prefix.to_s.empty?
+      text += message
+
+      progress.puts(Shell.color(text, :yellow))
     end
   end
 end
