@@ -102,6 +102,11 @@ module Command
     end
 
     def confirm_app(template)
+      if dry_run?
+        show_dry_run_message("Confirmed app")
+        return true
+      end
+
       app = cp.fetch_gvc
       return true unless app
 
@@ -113,6 +118,11 @@ module Command
     end
 
     def confirm_workload(template)
+      if dry_run?
+        show_dry_run_message("Confirmed workload")
+        return true
+      end
+
       workload = cp.fetch_workload(template)
       return true unless workload
 
@@ -129,6 +139,8 @@ module Command
                  .gsub("APP_LOCATION", config[:default_location])
                  .gsub("APP_ORG", config.org)
                  .gsub("APP_IMAGE", latest_image)
+
+      return [{ kind: "DRY_KIND", name: latest_image }] if dry_run?
 
       # Don't read in YAML.safe_load as that doesn't handle multiple documents
       cp.apply_template(data)
