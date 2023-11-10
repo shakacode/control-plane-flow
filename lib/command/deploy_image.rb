@@ -17,16 +17,15 @@ module Command
       image = latest_image
 
       config[:app_workloads].each do |workload|
-        workload_data = dry_run? ? workload_date_for_dry_run : cp.fetch_workload!(workload)
+        workload_data = cp_fetch_workload!(workload)
 
         workload_data.dig("spec", "containers").each do |container|
           next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}:})
 
           container_name = container["name"]
 
-          show_dry_run_message("ControlPlane - workload set image ref") if dry_run?
           step("Deploying image '#{image}' for workload '#{container_name}'") do
-            cp.workload_set_image_ref(workload, container: container_name, image: image) unless dry_run?
+            cp_workload_set_image_ref(workload, container_name: container_name, image: image)
             deployed_endpoints[container_name] = workload_data.dig("status", "endpoint")
           end
         end
@@ -40,7 +39,20 @@ module Command
 
     private
 
-    def workload_date_for_dry_run
+    def cp_fetch_workload!(workload)
+      return cp.fetch_workload!(workload) unless dry_run?
+
+      show_dry_run_message("ControlPlane - fetch_workload!")
+      workload_date_for_dry_run
+    end
+
+    def cp_workload_set_image_ref(...)
+      cp.workload_set_image_ref(...) unless dry_run?
+
+      show_dry_run_message("ControlPlane - workload_set_image_ref")
+    end
+
+    def workload_date_for_dry_run # rubocop:disable Metrics/MethodLength
       {
         "spec" => {
           "containers" => [
@@ -50,9 +62,7 @@ module Command
             }
           ]
         },
-        "status" => {
-          "endpoint" => "DRY-ENDPOINT"
-        }
+        "status" => { "endpoint" => "DRY-ENDPOINT" }
       }
     end
   end

@@ -102,12 +102,7 @@ module Command
     end
 
     def confirm_app(template)
-      if dry_run?
-        show_dry_run_message("Confirmed app")
-        return true
-      end
-
-      app = cp.fetch_gvc
+      app = cp_fetch_gvc
       return true unless app
 
       confirmed = confirm_apply("App '#{config.app}' already exists, do you want to re-create it?")
@@ -118,12 +113,7 @@ module Command
     end
 
     def confirm_workload(template)
-      if dry_run?
-        show_dry_run_message("Confirmed workload")
-        return true
-      end
-
-      workload = cp.fetch_workload(template)
+      workload = cp_fetch_workload(template)
       return true unless workload
 
       confirmed = confirm_apply("Workload '#{template}' already exists, do you want to re-create it?")
@@ -140,10 +130,7 @@ module Command
                  .gsub("APP_ORG", config.org)
                  .gsub("APP_IMAGE", latest_image)
 
-      return [{ kind: "DRY_KIND", name: latest_image }] if dry_run?
-
-      # Don't read in YAML.safe_load as that doesn't handle multiple documents
-      cp.apply_template(data)
+      cp_apply_template(data)
     end
 
     def report_success(item)
@@ -177,6 +164,32 @@ module Command
 
       skipped = @skipped_templates.map { |template| "  - #{template}" }.join("\n")
       progress.puts("\n#{Shell.color('Skipped templates (already exist):', :blue)}\n#{skipped}")
+    end
+
+    def cp_apply_template(data)
+      # Don't read in YAML.safe_load as that doesn't handle multiple documents
+      cp.apply_template(data) unless dry_run?
+
+      show_dry_run_message("ControlPlane - apply_template")
+      [{ kind: "DRY_KIND", name: latest_image }]
+    end
+
+    def cp_fetch_gvc
+      cp.fetch_gvc unless dry_run?
+
+      show_dry_run_message("ControlPlane - fetch_gvc")
+
+      # Return nil as if no gvc found
+      nil
+    end
+
+    def cp_fetch_workload(template)
+      cp.fetch_workload(template) unless dry_run?
+
+      show_dry_run_message("ControlPlane - fetch_workload")
+
+      # Return nil as if no workload found
+      nil
     end
   end
 end

@@ -32,11 +32,7 @@ module Command
       build_args = []
       build_args.push("GIT_COMMIT=#{commit}") if commit
 
-      if dry_run?
-        show_dry_run_message("ControlPlane image build")
-      else
-        cp.image_build(image_url, dockerfile: dockerfile, build_args: build_args)
-      end
+      cp_image_build(image_url, dockerfile: dockerfile, build_args: build_args)
 
       progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.")
     end
@@ -48,6 +44,12 @@ module Command
       return if $CHILD_STATUS.success?
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."
+    end
+
+    def cp_image_build(image_url, dockerfile:, build_args:)
+      cp.image_build(image_url, dockerfile: dockerfile, build_args: build_args) unless dry_run?
+
+      show_dry_run_message("ControlPlane image build")
     end
   end
 end

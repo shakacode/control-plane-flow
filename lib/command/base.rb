@@ -251,11 +251,9 @@ module Command
     def latest_image(app = config.app, org = config.org)
       @latest_image ||= {}
 
-      @latest_image[app] = "#{app}:12345" if dry_run?
-
       @latest_image[app] ||=
         begin
-          items = dry_run? ? [{ name: "#{app}:12345" }] : cp.query_images(app, org)["items"]
+          items = cp_query_images(app, org)["items"]
           latest_image_from(items, app_name: app)
         end
     end
@@ -350,11 +348,21 @@ module Command
     end
 
     def show_dry_run_banner
-      show_dry_run_message(<<~MSG, prefix: nil) if dry_run?
+      show_dry_run_message(<<~MSG, prefix: nil)
         xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         xx   RUNNING IN DRY-RUN MODE   xx
         xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       MSG
+    end
+
+    def cp_query_images(app, org)
+      return cp.query_images(app, org) unless dry_run?
+
+      show_dry_run_message("ControlPlane - query_images")
+
+      {
+        "items" => [{ "name" => "#{app}:12345" }]
+      }
     end
 
     def show_dry_run_message(message, prefix: "DRY-RUN", force_new_line: false)
