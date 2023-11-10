@@ -32,7 +32,11 @@ module Command
       build_args = []
       build_args.push("GIT_COMMIT=#{commit}") if commit
 
-      cp.image_build(image_url, dockerfile: dockerfile, build_args: build_args)
+      if dry_run?
+        show_dry_run_message("ControlPlane image build")
+      else
+        cp.image_build(image_url, dockerfile: dockerfile, build_args: build_args)
+      end
 
       progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.")
     end
