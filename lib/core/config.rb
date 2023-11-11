@@ -11,9 +11,9 @@ class Config # rubocop:disable Metrics/ClassLength
   def initialize(args, options)
     @args = args
     @options = options
-    @org = options[:org]
+    @org = options[:org]&.strip
     @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
-    @app = options[:app]
+    @app = options[:app]&.strip
 
     load_app_config
     load_apps

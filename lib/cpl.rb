@@ -194,14 +194,15 @@ module Cpl
 
     def show_info_header(config)
       rows = {}
-      rows["ORG"] = config.org unless config.org.nil? || config.org.empty?
-      rows["APP"] = config.app unless config.app.nil? || config.app.empty?
+      rows["ORG"] = config.org || "NOT PROVIDED!"
+      rows["APP"] = config.app || "NOT PROVIDED!"
 
       rows.each do |key, value|
         puts "#{key}: #{value}"
       end
 
-      puts unless rows.empty?
+      # Add a newline after the info header
+      puts
     end
   end
 end
