@@ -5,6 +5,7 @@ module Command
     NAME = "ps"
     OPTIONS = [
       app_option(required: true),
+      location_option,
       workload_option
     ].freeze
     DESCRIPTION = "Shows running replicas in app"
@@ -25,12 +26,14 @@ module Command
     def call
       cp.fetch_gvc!
 
+      location = config.options["location"] || config[:default_location]
+
       workloads = [config.options[:workload]] if config.options[:workload]
       workloads ||= config[:app_workloads] + config[:additional_workloads]
       workloads.each do |workload|
         cp.fetch_workload!(workload)
 
-        result = cp.workload_get_replicas(workload, location: config[:default_location])
+        result = cp.workload_get_replicas(workload, location: location)
         result["items"].each { |replica| puts replica }
       end
     end

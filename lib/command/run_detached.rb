@@ -9,6 +9,7 @@ module Command
       app_option(required: true),
       image_option,
       workload_option,
+      location_option,
       use_local_token_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
@@ -47,7 +48,7 @@ module Command
     attr_reader :location, :workload, :one_off, :container
 
     def call # rubocop:disable Metrics/MethodLength
-      @location = config[:default_location]
+      @location = config.options["location"] || config[:default_location]
       @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-runner-#{rand(1000..9999)}"
 
