@@ -9,6 +9,7 @@ module Command
       - Called when no command was specified
     DESC
     HIDE = true
+    WITH_INFO_HEADER = false
 
     def call
       if config.options[:version]

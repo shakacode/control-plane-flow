@@ -146,6 +146,7 @@ module Cpl
       long_description = command_class::LONG_DESCRIPTION
       examples = command_class::EXAMPLES
       hide = command_class::HIDE || deprecated
+      with_info_header = command_class::WITH_INFO_HEADER
 
       long_description += "\n#{examples}" if examples.length.positive?
 
@@ -178,6 +179,8 @@ module Cpl
         begin
           config = Config.new(args, options)
 
+          show_info_header(config) if with_info_header
+
           command_class.new(config).call
         rescue RuntimeError => e
           ::Shell.abort(e.message)
@@ -185,6 +188,21 @@ module Cpl
       end
     rescue StandardError => e
       ::Shell.abort("Unable to load command: #{e.message}")
+    end
+
+    private
+
+    def show_info_header(config)
+      rows = {}
+      rows["ORG"] = config.org || "NOT PROVIDED!"
+      rows["APP"] = config.app || "NOT PROVIDED!"
+
+      rows.each do |key, value|
+        puts "#{key}: #{value}"
+      end
+
+      # Add a newline after the info header
+      puts
     end
   end
 end

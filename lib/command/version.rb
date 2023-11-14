@@ -8,6 +8,7 @@ module Command
       - Displays the current version of the CLI
       - Can also be done with `cpl --version` or `cpl -v`
     DESC
+    WITH_INFO_HEADER = false
 
     def call
       puts Cpl::VERSION

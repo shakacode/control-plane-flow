@@ -11,9 +11,9 @@ class Config # rubocop:disable Metrics/ClassLength
   def initialize(args, options)
     @args = args
     @options = options
-    @org = options[:org]
+    @org = options[:org]&.strip
     @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
-    @app = options[:app]
+    @app = options[:app]&.strip
 
     load_app_config
     load_apps
@@ -81,7 +81,7 @@ class Config # rubocop:disable Metrics/ClassLength
 
     return if @org
 
-    @org = current.fetch(:cpln_org) if current.key?(:cpln_org)
+    @org = current.fetch(:cpln_org)&.strip if current.key?(:cpln_org)
     ensure_current_config_org!(app_name)
   end
 

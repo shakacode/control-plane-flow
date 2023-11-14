@@ -10,6 +10,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Displays app-specific environment variables
     DESC
+    WITH_INFO_HEADER = false
 
     def call
       cp.fetch_gvc!.dig("spec", "env").map do |prop|
