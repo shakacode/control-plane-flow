@@ -81,7 +81,7 @@ class Config # rubocop:disable Metrics/ClassLength
 
     return if @org
 
-    @org = current.fetch(:cpln_org) if current.key?(:cpln_org)
+    @org = current.fetch(:cpln_org)&.strip if current.key?(:cpln_org)
     ensure_current_config_org!(app_name)
   end
 
