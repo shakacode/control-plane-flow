@@ -22,6 +22,7 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Added `--org` option to all commands. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added option to set the app with a `CPLN_APP` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Show `org` and `app` on every command excluding `info`, `version`, `maintenance`, `env`, `ps`, and `latest_image`. [PR 94](https://github.com/shakacode/heroku-to-control-plane/pull/94) by [Mostafa Ahangarhga](https://github.com/ahangarha).
 
 ### Changed
 
