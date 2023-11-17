@@ -174,7 +174,10 @@ aliases:
     # (provided that `allow_org_override_by_env` is set to `true`).
     cpln_org: my-org-staging
 
-    # Example apps use only one location. Control Plane offers the ability to use multiple locations.
+    # Control Plane offers the ability to use multiple locations.
+    # default_location is used for commands that require a location
+    # including `ps`, `run`, `run:detached`, `apply-template`.
+    # This can be overridden with option --location=<location>
     default_location: aws-us-east-2
 
     # Allows running the command `cpl setup-app`
