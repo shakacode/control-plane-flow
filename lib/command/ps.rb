@@ -26,7 +26,7 @@ module Command
     def call
       cp.fetch_gvc!
 
-      location = config.options["location"] || config[:default_location]
+      location = config.location
 
       workloads = [config.options[:workload]] if config.options[:workload]
       workloads ||= config[:app_workloads] + config[:additional_workloads]

@@ -57,7 +57,7 @@ module Command
     attr_reader :location, :workload, :one_off, :container
 
     def call # rubocop:disable Metrics/MethodLength
-      @location = config.options["location"] || config[:default_location]
+      @location = config.location
       @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-run-#{rand(1000..9999)}"
 

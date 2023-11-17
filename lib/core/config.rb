@@ -3,7 +3,7 @@
 require_relative "helpers"
 
 class Config # rubocop:disable Metrics/ClassLength
-  attr_reader :org_comes_from_env, :app_comes_from_env,
+  attr_reader :org_comes_from_env, :app_comes_from_env, :location,
               # command line options
               :args, :options, :required_options
 
@@ -17,6 +17,8 @@ class Config # rubocop:disable Metrics/ClassLength
     @required_options = required_options
 
     ensure_required_options!
+
+    @location = options[:location] || config.dig(:apps, app.to_sym, :default_location)
 
     Shell.verbose_mode(options[:verbose])
   end
