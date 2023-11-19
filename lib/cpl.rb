@@ -37,9 +37,6 @@ class Thor
   end
 end
 
-# A minimal config for those commands that don't need loading config files.
-MinimalConfig = Struct.new("MinimalConfig", :options)
-
 module Cpl
   class Error < StandardError; end
 
@@ -150,6 +147,7 @@ module Cpl
       examples = command_class::EXAMPLES
       hide = command_class::HIDE || deprecated
       with_info_header = command_class::WITH_INFO_HEADER
+      with_minimal_config = command_class::WITH_MINIMAL_CONFIG
 
       long_description += "\n#{examples}" if examples.length.positive?
 
@@ -180,9 +178,8 @@ module Cpl
         raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
 
         begin
-          commands_with_minimal_config = %w[NoCommand Version Help]
-          config = if commands_with_minimal_config.include? command_class.to_s.split("::")[1]
-                     MinimalConfig.new(options)
+          config = if with_minimal_config
+                     MinimalConfig.new(options: options)
                    else
                      Config.new(args, options)
                    end

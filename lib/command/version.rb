@@ -9,6 +9,7 @@ module Command
       - Can also be done with `cpl --version` or `cpl -v`
     DESC
     WITH_INFO_HEADER = false
+    WITH_MINIMAL_CONFIG = true
 
     def call
       puts Cpl::VERSION
