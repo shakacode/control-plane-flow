@@ -14,7 +14,7 @@ module Command
     DESC
 
     def call
-      templates = config[:setup]
+      templates = config[:setup_app_templates]
 
       app = cp.fetch_gvc
       if app
