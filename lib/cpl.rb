@@ -193,6 +193,8 @@ module Cpl
     private
 
     def show_info_header(config)
+      return unless first_run?
+
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
       rows["APP"] = config.app || "NOT PROVIDED!"
@@ -203,6 +205,10 @@ module Cpl
 
       # Add a newline after the info header
       puts
+    end
+
+    def first_run?
+      ObjectSpace.each_object(self.class).count == 1
     end
   end
 end
