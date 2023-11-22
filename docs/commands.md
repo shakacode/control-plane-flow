@@ -131,6 +131,15 @@ cpl env -a $APP_NAME
 if [ cpl exists -a $APP_NAME ]; ...
 ```
 
+### `generate`
+
+Creates base Control Plane config and template files
+
+```sh
+# Creates .controlplane directory with Control Plane config and other templates
+cpl generate
+```
+
 ### `info`
 
 - Displays the diff between defined/available apps/workloads (apps equal GVCs)
