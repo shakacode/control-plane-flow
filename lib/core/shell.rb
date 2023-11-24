@@ -36,7 +36,7 @@ class Shell
   end
 
   def self.confirm(message)
-    shell.yes?("#{message} (y/n)")
+    shell.yes?("#{message} (y/N)")
   end
 
   def self.warn(message)
