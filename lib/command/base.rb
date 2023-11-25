@@ -323,10 +323,6 @@ module Command
       system(cmd) || exit(false)
     end
 
-    def prepare_extended_config
-      @config.load
-    end
-
     private
 
     # returns 0 if no prior image
