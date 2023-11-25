@@ -390,8 +390,8 @@ cpl run:detached rails db:migrate:status -a $APP_NAME --use-local-token
 ### `setup-app`
 
 - Creates an app and all its workloads
-- Specify the templates for the app and workloads through `setup_app_templates` in the `.controlplane/controlplane.yml` file
-- This should only be used for temporary apps like review apps, never for persistent apps like production (to update workloads for those, use 'cpl apply-template' instead)
+- Specify the templates for the app and workloads through `setup` in the `.controlplane/controlplane.yml` file
+- This should should only be used for temporary apps like review apps, never for persistent apps like production (to update workloads for those, use 'cpl apply-template' instead)
 
 ```sh
 cpl setup-app -a $APP_NAME
