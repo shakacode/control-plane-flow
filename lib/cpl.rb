@@ -44,7 +44,7 @@ module Cpl
     package_name "cpl"
     default_task :no_command
 
-    @@already_showed_info_header = false
+    @@already_showed_info_header = false # rubocop:disable Style/ClassVars
 
     def self.start(*args)
       check_cpln_version
@@ -205,7 +205,7 @@ module Cpl
         puts "#{key}: #{value}"
       end
 
-      @@already_showed_info_header = true
+      @@already_showed_info_header = true # rubocop:disable Style/ClassVars
 
       # Add a newline after the info header
       puts
