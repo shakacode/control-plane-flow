@@ -8,6 +8,7 @@ describe Command::CopyImageFromUpstream do
     allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
     allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
     allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
+    allow(ENV).to receive(:fetch).with("CPLN_APP", nil).and_return(nil)
     allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml")
     allow_any_instance_of(described_class).to receive(:ensure_docker_running!)
     allow_any_instance_of(Controlplane).to receive(:profile_exists?).and_return(false)
