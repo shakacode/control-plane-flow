@@ -199,7 +199,9 @@ module Cpl
 
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
+      rows["ORG"] += " (comes from CPLN_ORG env var)" if config.org_comes_from_env
       rows["APP"] = config.app || "NOT PROVIDED!"
+      rows["APP"] += " (comes from CPLN_APP env var)" if config.app_comes_from_env
 
       rows.each do |key, value|
         puts "#{key}: #{value}"
