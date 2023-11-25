@@ -1,17 +1,22 @@
 # frozen_string_literal: true
 
+require_relative "helpers"
+
 class Config # rubocop:disable Metrics/ClassLength
-  attr_reader :org_comes_from_env, :app,
+  attr_reader :org_comes_from_env, :app_comes_from_env,
               # command line options
-              :args, :options
+              :args, :options, :required_options
+
+  include Helpers
 
   CONFIG_FILE_LOCATION = ".controlplane/controlplane.yml"
 
-  def initialize(args, options)
+  def initialize(args, options, required_options)
     @args = args
     @options = options
-    @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
-    @app = options[:app]&.strip
+    @required_options = required_options
+
+    ensure_required_options!
 
     Shell.verbose_mode(options[:verbose])
   end
@@ -19,10 +24,15 @@ class Config # rubocop:disable Metrics/ClassLength
   def org
     return @org if @org
 
-    @org = options[:org]&.strip
-
-    load_apps
+    load_org
     @org
+  end
+
+  def app
+    return @app if @app
+
+    load_app
+    @app
   end
 
   def [](key)
@@ -68,7 +78,7 @@ class Config # rubocop:disable Metrics/ClassLength
   def current
     return @current if @current
 
-    load_apps
+    load_app
     @current
   end
 
@@ -78,16 +88,8 @@ class Config # rubocop:disable Metrics/ClassLength
     raise "Can't find current config, please specify an app." unless current
   end
 
-  def ensure_current_config_app!(app_name)
-    raise "Can't find app '#{app_name}' in 'controlplane.yml'." unless current
-  end
-
-  def ensure_current_config_org!(app_name)
-    return if @org
-
-    raise "Can't find option 'cpln_org' for app '#{app_name}' in 'controlplane.yml', " \
-          "and CPLN_ORG env var is not set. " \
-          "The org can also be provided through --org."
+  def ensure_current_config_app!
+    raise "Can't find app '#{app}' in 'controlplane.yml'." unless current
   end
 
   def ensure_config!
@@ -102,21 +104,60 @@ class Config # rubocop:disable Metrics/ClassLength
     raise "App '#{app_name}' is empty in 'controlplane.yml'." unless app_options
   end
 
-  def app_matches_current?(app_name, app_options)
-    app && (app_name.to_s == app || (app_options[:match_if_app_name_starts_with] && app.start_with?(app_name.to_s)))
+  def app_matches?(app_name1, app_name2, app_options)
+    app_name1 && app_name2 &&
+      (app_name1.to_s == app_name2.to_s ||
+        (app_options[:match_if_app_name_starts_with] && app_name1.to_s.start_with?(app_name2.to_s))
+      )
+  end
+
+  def find_app_config(app_name1)
+    @app_configs ||= {}
+    @app_configs[app_name1] ||= apps.find do |app_name2, app_config|
+                                  app_matches?(app_name1, app_name2, app_config)
+                                end&.last
+  end
+
+  def ensure_app!
+    return if app
+
+    raise "No app provided. " \
+          "The app can be provided either through the CPLN_APP env var " \
+          "('allow_app_override_by_env' must be set to true in 'controlplane.yml'), " \
+          "or the --app command option."
+  end
+
+  def ensure_org!
+    return if org
+
+    raise "No org provided. " \
+          "The org can be provided either through the CPLN_ORG env var " \
+          "('allow_org_override_by_env' must be set to true in 'controlplane.yml'), " \
+          "the --org command option, " \
+          "or the 'cpln_org' key in 'controlplane.yml'."
+  end
+
+  def ensure_required_options! # rubocop:disable Metrics/CyclomaticComplexity
+    ensure_app! if required_options.include?(:app)
+    ensure_org! if required_options.include?(:org) || app
+
+    missing_str = required_options
+                  .reject { |option_name| %i[org app].include?(option_name) || options.key?(option_name) }
+                  .map { |option_name| "--#{option_name}" }
+                  .join(", ")
+
+    raise "Required options missing: #{missing_str}" unless missing_str.empty?
   end
 
   def pick_current_config(app_name, app_options)
+    @app = app_name
     @current = app_options
-    ensure_current_config_app!(app_name)
+    ensure_current_config_app!
 
-    return if @org
-
-    @org = current.fetch(:cpln_org)&.strip if current.key?(:cpln_org)
-    ensure_current_config_org!(app_name)
+    warn_deprecated_options(app_options)
   end
 
-  def load_apps # rubocop:disable Metrics/MethodLength
+  def load_apps
     return if @apps
 
     @apps = config[:apps].to_h do |app_name, app_options|
@@ -127,15 +168,8 @@ class Config # rubocop:disable Metrics/ClassLength
         new_key ? [new_key, value] : [key, value]
       end
 
-      if app_matches_current?(app_name, app_options_with_new_keys)
-        pick_current_config(app_name, app_options_with_new_keys)
-        warn_deprecated_options(app_options)
-      end
-
       [app_name, app_options_with_new_keys]
     end
-
-    ensure_current_config_app!(app) if app
   end
 
   def config_file_path
@@ -163,6 +197,63 @@ class Config # rubocop:disable Metrics/ClassLength
       setup: :setup_app_templates,
       old_image_retention_days: :image_retention_days
     }
+  end
+
+  def load_app_from_env
+    app_from_env = strip_str_and_validate(ENV.fetch("CPLN_APP", nil))
+    return unless app_from_env
+
+    app_config = find_app_config(app_from_env)
+    ensure_config_app!(app_from_env, app_config)
+
+    key_exists = app_config.key?(:allow_app_override_by_env)
+    allowed_locally = key_exists && app_config[:allow_app_override_by_env]
+    allowed_globally = !key_exists && config[:allow_app_override_by_env]
+    return unless allowed_locally || allowed_globally
+
+    pick_current_config(app_from_env, app_config)
+    @app_comes_from_env = true
+  end
+
+  def load_app
+    return if @app
+
+    load_app_from_env
+    return if @app
+
+    app_from_options = strip_str_and_validate(options[:app])
+    return unless app_from_options
+
+    app_config = find_app_config(app_from_options)
+    ensure_config_app!(app_from_options, app_config)
+
+    pick_current_config(app_from_options, app_config)
+  end
+
+  def load_org_from_env
+    org_from_env = strip_str_and_validate(ENV.fetch("CPLN_ORG", nil))
+    return unless org_from_env
+
+    key_exists = current&.key?(:allow_org_override_by_env)
+    allowed_locally = key_exists && current[:allow_org_override_by_env]
+    allowed_globally = !key_exists && config[:allow_org_override_by_env]
+    return unless allowed_locally || allowed_globally
+
+    @org = org_from_env
+    @org_comes_from_env = true
+  end
+
+  def load_org
+    return if @org
+
+    load_org_from_env
+    return if @org
+
+    org_from_options = strip_str_and_validate(options[:org])
+    @org = org_from_options if org_from_options
+    return if @org || !current
+
+    @org = strip_str_and_validate(current[:cpln_org]) if current.key?(:cpln_org)
   end
 
   def warn_deprecated_options(app_options)

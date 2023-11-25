@@ -44,7 +44,7 @@ module Command
       [org_option, verbose_option]
     end
 
-    def self.org_option(required: false) # rubocop:disable Metrics/MethodLength
+    def self.org_option(required: false)
       {
         name: :org,
         params: {
@@ -52,13 +52,12 @@ module Command
           banner: "ORG_NAME",
           desc: "Organization name",
           type: :string,
-          required: required,
-          default: ENV.fetch("CPLN_ORG", nil)
+          required: required
         }
       }
     end
 
-    def self.app_option(required: false) # rubocop:disable Metrics/MethodLength
+    def self.app_option(required: false)
       {
         name: :app,
         params: {
@@ -66,8 +65,7 @@ module Command
           banner: "APP_NAME",
           desc: "Application name",
           type: :string,
-          required: required,
-          default: ENV.fetch("CPLN_APP", nil)
+          required: required
         }
       }
     end
