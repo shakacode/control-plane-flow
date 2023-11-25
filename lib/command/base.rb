@@ -117,7 +117,8 @@ module Command
           banner: "LOCATION_NAME",
           desc: "Location name",
           type: :string,
-          required: required
+          required: required,
+          default: ENV.fetch("CPLN_LOCATION", nil)
         }
       }
     end
