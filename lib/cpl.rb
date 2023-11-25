@@ -44,6 +44,8 @@ module Cpl
     package_name "cpl"
     default_task :no_command
 
+    @@already_showed_info_header = false
+
     def self.start(*args)
       check_cpln_version
       check_cpl_version
@@ -193,7 +195,7 @@ module Cpl
     private
 
     def show_info_header(config)
-      return unless first_run?
+      return if @@already_showed_info_header
 
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
@@ -203,12 +205,10 @@ module Cpl
         puts "#{key}: #{value}"
       end
 
+      @@already_showed_info_header = true
+
       # Add a newline after the info header
       puts
-    end
-
-    def first_run?
-      ObjectSpace.each_object(self.class).count == 1
     end
   end
 end
