@@ -15,12 +15,10 @@ class Config # rubocop:disable Metrics/ClassLength
     @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
     @app = options[:app]&.strip
 
-    Shell.verbose_mode(options[:verbose])
-  end
-
-  def load
     load_app_config
     load_apps
+
+    Shell.verbose_mode(options[:verbose])
   end
 
   def [](key)

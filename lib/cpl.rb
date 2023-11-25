@@ -178,13 +178,15 @@ module Cpl
         raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
 
         begin
-          config = Config.new(args, options)
+          config = if with_minimal_config
+                     MinimalConfig.new(options: options)
+                   else
+                     Config.new(args, options)
+                   end
 
           Cpl::Cli.show_info_header(config) if with_info_header
 
-          the_command = command_class.new(config)
-          the_command.prepare_extended_config unless with_minimal_config
-          the_command.call
+          command_class.new(config).call
         rescue RuntimeError => e
           ::Shell.abort(e.message)
         end
