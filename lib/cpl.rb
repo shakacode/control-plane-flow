@@ -44,7 +44,7 @@ module Cpl
     package_name "cpl"
     default_task :no_command
 
-    @@already_showed_info_header = false # rubocop:disable Style/ClassVars
+    @already_showed_info_header = false
 
     def self.start(*args)
       check_cpln_version
@@ -181,7 +181,7 @@ module Cpl
         begin
           config = Config.new(args, options)
 
-          show_info_header(config) if with_info_header
+          Cpl::Cli.show_info_header(config) if with_info_header
 
           command_class.new(config).call
         rescue RuntimeError => e
@@ -192,10 +192,8 @@ module Cpl
       ::Shell.abort("Unable to load command: #{e.message}")
     end
 
-    private
-
-    def show_info_header(config)
-      return if @@already_showed_info_header
+    def self.show_info_header(config)
+      return if @already_showed_info_header
 
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
@@ -205,7 +203,7 @@ module Cpl
         puts "#{key}: #{value}"
       end
 
-      @@already_showed_info_header = true # rubocop:disable Style/ClassVars
+      @already_showed_info_header = true
 
       # Add a newline after the info header
       puts
