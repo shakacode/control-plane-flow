@@ -18,7 +18,7 @@ class Config # rubocop:disable Metrics/ClassLength
 
     ensure_required_options!
 
-    @location = options[:location] || config.dig(:apps, app&.to_sym, :default_location)
+    @location = options[:location] || current&.dig(:default_location)
 
     Shell.verbose_mode(options[:verbose])
   end
