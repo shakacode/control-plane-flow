@@ -6,7 +6,7 @@ class Config # rubocop:disable Metrics/ClassLength
               # command line options
               :args, :options
 
-  CONFIG_FILE_LOCATIION = ".controlplane/controlplane.yml"
+  CONFIG_FILE_LOCATION = ".controlplane/controlplane.yml"
 
   def initialize(args, options)
     @args = args
@@ -117,13 +117,13 @@ class Config # rubocop:disable Metrics/ClassLength
     path = Pathname.new(".").expand_path
 
     loop do
-      config_file = path + CONFIG_FILE_LOCATIION
+      config_file = path + CONFIG_FILE_LOCATION
       break config_file if File.file?(config_file)
 
       path = path.parent
 
       if path.root?
-        raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATIION}', please create it."
+        raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATION}', please create it."
       end
     end
   end
