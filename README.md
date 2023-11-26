@@ -177,7 +177,8 @@ aliases:
     # Control Plane offers the ability to use multiple locations.
     # default_location is used for commands that require a location
     # including `ps`, `run`, `run:detached`, `apply-template`.
-    # This can be overridden with option --location=<location>
+    # This can be overridden with option --location=<location> and
+    # CPLN_LOCATION environment variable.
     default_location: aws-us-east-2
 
     # Allows running the command `cpl setup-app`
