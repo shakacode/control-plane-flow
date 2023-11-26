@@ -109,7 +109,7 @@ module Command
       }
     end
 
-    def self.location_option(required: false)
+    def self.location_option(required: false) # rubocop:disable Metrics/MethodLength
       {
         name: :location,
         params: {
