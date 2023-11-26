@@ -44,7 +44,7 @@ module Cpl
     package_name "cpl"
     default_task :no_command
 
-    @already_showed_info_header = false
+    @showed_info_header = false
 
     def self.start(*args)
       check_cpln_version
@@ -193,7 +193,7 @@ module Cpl
     end
 
     def self.show_info_header(config)
-      return if @already_showed_info_header
+      return if @showed_info_header
 
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
@@ -203,7 +203,7 @@ module Cpl
         puts "#{key}: #{value}"
       end
 
-      @already_showed_info_header = true
+      @showed_info_header = true
 
       # Add a newline after the info header
       puts
