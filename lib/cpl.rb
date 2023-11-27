@@ -44,8 +44,6 @@ module Cpl
     package_name "cpl"
     default_task :no_command
 
-    @showed_info_header = false
-
     def self.start(*args)
       check_cpln_version
       check_cpl_version
