@@ -178,11 +178,7 @@ module Cpl
         raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
 
         begin
-          config = if with_minimal_config
-                     MinimalConfig.new(options: options)
-                   else
-                     Config.new(args, options)
-                   end
+          config = Config.new(args, options)
 
           Cpl::Cli.show_info_header(config) if with_info_header
 
