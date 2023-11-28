@@ -25,7 +25,6 @@ module Command
     HIDE = false
     # Whether or not to show key information like ORG and APP name in commands
     WITH_INFO_HEADER = true
-    WITH_MINIMAL_CONFIG = false
 
     NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
 
