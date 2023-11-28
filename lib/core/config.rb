@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 class Config # rubocop:disable Metrics/ClassLength
-  attr_reader :config, :current,
-              :org, :org_comes_from_env, :app, :apps, :app_dir,
+  attr_reader :org, :org_comes_from_env, :app,
               # command line options
               :args, :options
 
@@ -14,9 +13,6 @@ class Config # rubocop:disable Metrics/ClassLength
     @org = options[:org]&.strip
     @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
     @app = options[:app]&.strip
-
-    load_app_config
-    load_apps
 
     Shell.verbose_mode(options[:verbose])
   end
@@ -39,6 +35,52 @@ class Config # rubocop:disable Metrics/ClassLength
 
   def should_app_start_with?(app_name)
     apps[app_name.to_sym]&.dig(:match_if_app_name_starts_with) || false
+  end
+
+  def app_dir
+    @app_dir ||= Pathname.new(config_file_path).parent.parent.to_s
+  end
+
+  def config_file_path
+    @config_file_path ||= find_app_config_file
+  end
+
+  def config
+    @config || begin
+      @config = YAML.safe_load_file(config_file_path, symbolize_names: true, aliases: true)
+      ensure_config!
+      ensure_config_apps!
+      @config
+    end
+  end
+
+  def apps # rubocop:disable Metrics/MethodLength
+    @apps ||= config[:apps].to_h do |app_name, app_options|
+      ensure_config_app!(app_name, app_options)
+
+      app_options_with_new_keys = app_options.to_h do |key, value|
+        new_key = new_option_keys[key]
+        new_key ? [new_key, value] : [key, value]
+      end
+
+      if app_matches_current?(app_name, app_options_with_new_keys)
+        pick_current_config(app_name, app_options_with_new_keys)
+        warn_deprecated_options(app_options)
+      end
+
+      [app_name, app_options_with_new_keys]
+    end
+
+    ensure_current_config_app!(app) if app
+
+    @apps
+  end
+
+  def current
+    @current || begin
+      apps
+      @current
+    end
   end
 
   private
@@ -83,34 +125,6 @@ class Config # rubocop:disable Metrics/ClassLength
 
     @org = current.fetch(:cpln_org)&.strip if current.key?(:cpln_org)
     ensure_current_config_org!(app_name)
-  end
-
-  def load_apps # rubocop:disable Metrics/MethodLength
-    @apps = config[:apps].to_h do |app_name, app_options|
-      ensure_config_app!(app_name, app_options)
-
-      app_options_with_new_keys = app_options.to_h do |key, value|
-        new_key = new_option_keys[key]
-        new_key ? [new_key, value] : [key, value]
-      end
-
-      if app_matches_current?(app_name, app_options_with_new_keys)
-        pick_current_config(app_name, app_options_with_new_keys)
-        warn_deprecated_options(app_options)
-      end
-
-      [app_name, app_options_with_new_keys]
-    end
-
-    ensure_current_config_app!(app) if app
-  end
-
-  def load_app_config
-    config_file = find_app_config_file
-    @config = YAML.safe_load_file(config_file, symbolize_names: true, aliases: true)
-    @app_dir = Pathname.new(config_file).parent.parent.to_s
-    ensure_config!
-    ensure_config_apps!
   end
 
   def find_app_config_file
