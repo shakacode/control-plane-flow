@@ -10,7 +10,6 @@ module Command
     DESC
     HIDE = true
     WITH_INFO_HEADER = false
-    WITH_MINIMAL_CONFIG = true
 
     def call
       if config.options[:version]

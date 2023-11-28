@@ -147,7 +147,6 @@ module Cpl
       examples = command_class::EXAMPLES
       hide = command_class::HIDE || deprecated
       with_info_header = command_class::WITH_INFO_HEADER
-      with_minimal_config = command_class::WITH_MINIMAL_CONFIG
 
       long_description += "\n#{examples}" if examples.length.positive?
 
