@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Config # rubocop:disable Metrics/ClassLength
-  attr_reader :org, :org_comes_from_env, :app,
+  attr_reader :org_comes_from_env, :app,
               # command line options
               :args, :options
 
@@ -10,11 +10,19 @@ class Config # rubocop:disable Metrics/ClassLength
   def initialize(args, options)
     @args = args
     @options = options
-    @org = options[:org]&.strip
     @org_comes_from_env = true if ENV.fetch("CPLN_ORG", nil)
     @app = options[:app]&.strip
 
     Shell.verbose_mode(options[:verbose])
+  end
+
+  def org
+    return @org if @org
+
+    @org = options[:org]&.strip
+
+    load_apps
+    @org
   end
 
   def [](key)
