@@ -138,10 +138,12 @@ class Config # rubocop:disable Metrics/ClassLength
     ensure_current_config_app!(app) if app
   end
 
-  def find_app_config_file
+  def config_file_path
+    return @config_file_path if @config_file_path
+
     path = Pathname.new(".").expand_path
 
-    loop do
+    @config_file_path = loop do
       config_file = path + CONFIG_FILE_LOCATION
       break config_file if File.file?(config_file)
 
@@ -151,10 +153,6 @@ class Config # rubocop:disable Metrics/ClassLength
         raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATION}', please create it."
       end
     end
-  end
-
-  def config_file_path
-    @config_file_path ||= find_app_config_file
   end
 
   def new_option_keys

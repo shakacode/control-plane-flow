@@ -7,7 +7,7 @@ describe Command::MaintenanceSetPage do
     allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
     allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
     allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
-    allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
+    allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
   end
 
   it "displays error if maintenance workload is not found", vcr: true do
