@@ -46,7 +46,7 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def app_dir
-    @app_dir ||= Pathname.new(config_file_path).parent.parent.to_s
+    Pathname.new(config_file_path).parent.parent.to_s
   end
 
   def config
