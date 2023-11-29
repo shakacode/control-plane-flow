@@ -41,10 +41,6 @@ class Config # rubocop:disable Metrics/ClassLength
     @app_dir ||= Pathname.new(config_file_path).parent.parent.to_s
   end
 
-  def config_file_path
-    @config_file_path ||= find_app_config_file
-  end
-
   def config
     @config || begin
       @config = YAML.safe_load_file(config_file_path, symbolize_names: true, aliases: true)
@@ -147,6 +143,10 @@ class Config # rubocop:disable Metrics/ClassLength
         raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATION}', please create it."
       end
     end
+  end
+
+  def config_file_path
+    @config_file_path ||= find_app_config_file
   end
 
   def new_option_keys
