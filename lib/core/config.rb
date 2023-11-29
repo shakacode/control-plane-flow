@@ -54,33 +54,18 @@ class Config # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def apps # rubocop:disable Metrics/MethodLength
-    @apps ||= config[:apps].to_h do |app_name, app_options|
-      ensure_config_app!(app_name, app_options)
+  def apps
+    return @apps if @apps
 
-      app_options_with_new_keys = app_options.to_h do |key, value|
-        new_key = new_option_keys[key]
-        new_key ? [new_key, value] : [key, value]
-      end
-
-      if app_matches_current?(app_name, app_options_with_new_keys)
-        pick_current_config(app_name, app_options_with_new_keys)
-        warn_deprecated_options(app_options)
-      end
-
-      [app_name, app_options_with_new_keys]
-    end
-
-    ensure_current_config_app!(app) if app
-
+    load_apps
     @apps
   end
 
   def current
-    @current || begin
-      apps
-      @current
-    end
+    return @current if @current
+
+    load_apps
+    @current
   end
 
   private
@@ -125,6 +110,28 @@ class Config # rubocop:disable Metrics/ClassLength
 
     @org = current.fetch(:cpln_org)&.strip if current.key?(:cpln_org)
     ensure_current_config_org!(app_name)
+  end
+
+  def load_apps # rubocop:disable Metrics/MethodLength
+    return if @apps
+
+    @apps = config[:apps].to_h do |app_name, app_options|
+      ensure_config_app!(app_name, app_options)
+
+      app_options_with_new_keys = app_options.to_h do |key, value|
+        new_key = new_option_keys[key]
+        new_key ? [new_key, value] : [key, value]
+      end
+
+      if app_matches_current?(app_name, app_options_with_new_keys)
+        pick_current_config(app_name, app_options_with_new_keys)
+        warn_deprecated_options(app_options)
+      end
+
+      [app_name, app_options_with_new_keys]
+    end
+
+    ensure_current_config_app!(app) if app
   end
 
   def find_app_config_file
