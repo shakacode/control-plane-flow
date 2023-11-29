@@ -26,7 +26,6 @@ module Command
       ```
     EX
     WITH_INFO_HEADER = false
-    WITH_MINIMAL_CONFIG = true
 
     def call
       Generator.start
