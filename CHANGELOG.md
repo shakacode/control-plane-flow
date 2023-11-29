@@ -17,6 +17,7 @@ _Please add entries here for your pull requests that are not yet released._
 ### Fixed
 
 - Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed issues with running `cpl --version` and `cpl --help` where no configuration file exists. [PR 100](https://github.com/shakacode/heroku-to-control-plane/pull/100) by [Mostafa Ahangarhga](https://github.com/ahangarha).
 
 ### Added
 
