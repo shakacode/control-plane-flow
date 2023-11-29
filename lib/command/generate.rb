@@ -28,7 +28,18 @@ module Command
     WITH_INFO_HEADER = false
 
     def call
+      if controlplane_directory_exists?
+        Shell.abort("The directory '.controlplane' already exists!")
+        exit
+      end
+
       Generator.start
+    end
+
+    private
+
+    def controlplane_directory_exists?
+      Dir.exist? ".controlplane"
     end
   end
 end
