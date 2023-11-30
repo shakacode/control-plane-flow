@@ -36,4 +36,19 @@ describe Command::Generate do
       end
     end
   end
+
+  context "when .controlplane directory already exist" do
+    it "doesn't generates base config files" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Dir.mkdir(CONTROLPLANE_CONFIG_DIR_PATH)
+
+        expect do
+          Cpl::Cli.start([described_class::NAME])
+        end.to output(/already exist/).to_stdout
+
+        controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
 end
