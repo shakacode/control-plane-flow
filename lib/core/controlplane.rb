@@ -23,10 +23,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def profile_create(profile, token)
-    @sensitive_data_pattern = /(?<=--token )(\S+)/
+    sensitive_data_pattern = /(?<=--token )(\S+)/
     cmd = "cpln profile create #{profile} --token #{token}"
     cmd += " > /dev/null" if Shell.should_hide_output?
-    perform!(cmd)
+    perform!(cmd, sensitive_data_pattern: sensitive_data_pattern)
   end
 
   def profile_delete(profile)
@@ -342,19 +342,19 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   private
 
   def perform(cmd)
-    Shell.debug("CMD", hide_sensitive_data(cmd))
+    Shell.debug("CMD", cmd)
 
     system(cmd)
   end
 
-  def perform!(cmd)
-    Shell.debug("CMD", hide_sensitive_data(cmd))
+  def perform!(cmd, sensitive_data_pattern: nil)
+    Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
     system(cmd) || exit(false)
   end
 
   def perform_yaml(cmd)
-    Shell.debug("CMD", hide_sensitive_data(cmd))
+    Shell.debug("CMD", cmd)
 
     result = `#{cmd}`
     $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(false)
@@ -362,12 +362,5 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def gvc_org
     "--gvc #{gvc} --org #{org}"
-  end
-
-  def hide_sensitive_data(message)
-    pattern = @sensitive_data_pattern
-    return message unless pattern.is_a?(Regexp)
-
-    message.gsub(pattern, "XXXXXXX")
   end
 end
