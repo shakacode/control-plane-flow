@@ -29,8 +29,8 @@ module Command
 
     def call
       if controlplane_directory_exists?
-        Shell.abort("The directory '.controlplane' already exists!")
-        exit
+        Shell.warn("The directory '.controlplane' already exists!")
+        return
       end
 
       Generator.start

@@ -44,7 +44,7 @@ describe Command::Generate do
 
         expect do
           Cpl::Cli.start([described_class::NAME])
-        end.to output(/already exist/).to_stdout
+        end.to output(/already exist/).to_stderr
 
         controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
         expect(controlplane_config_file_path).not_to exist
