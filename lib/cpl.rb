@@ -179,7 +179,7 @@ module Cpl
         begin
           config = Config.new(args, options)
 
-          show_info_header(config) if with_info_header
+          Cpl::Cli.show_info_header(config) if with_info_header
 
           command_class.new(config).call
         rescue RuntimeError => e
@@ -190,9 +190,9 @@ module Cpl
       ::Shell.abort("Unable to load command: #{e.message}")
     end
 
-    private
+    def self.show_info_header(config)
+      return if @showed_info_header
 
-    def show_info_header(config)
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
       rows["APP"] = config.app || "NOT PROVIDED!"
@@ -200,6 +200,8 @@ module Cpl
       rows.each do |key, value|
         puts "#{key}: #{value}"
       end
+
+      @showed_info_header = true
 
       # Add a newline after the info header
       puts
