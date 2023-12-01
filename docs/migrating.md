@@ -29,13 +29,13 @@ Edit the `.controlplane/controlplane.yml` file as needed. Note that the `my-app-
 is defined in this file. See
 [this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/controlplane.yml).
 
-Before the initial setup, add the templates for the app to the `.controlplane/controlplane.yml` file, using the `setup`
+Before the initial setup, add the templates for the app to the `.controlplane/controlplane.yml` file, using the `setup_app_templates`
 key, e.g.:
 
 ```yaml
 my-app-staging:
   <<: *common
-  setup:
+  setup_app_templates:
     - gvc
     - redis
     - memcached
@@ -191,7 +191,7 @@ configure an entry for, e.g., `my-app-review`, and then create review apps start
   my-app-review:
     <<: *common
     match_if_app_name_starts_with: true
-    setup:
+    setup_app_templates:
       - gvc
       - redis
       - memcached

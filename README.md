@@ -170,7 +170,7 @@ aliases:
 
     # Allows running the command `cpl setup-app`
     # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
-    setup:
+    setup_app_templates:
       - gvc
       - redis
       - postgres

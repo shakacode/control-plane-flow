@@ -133,6 +133,7 @@ class Config # rubocop:disable Metrics/ClassLength
       org: :cpln_org,
       location: :default_location,
       prefix: :match_if_app_name_starts_with,
+      setup: :setup_app_templates,
       old_image_retention_days: :image_retention_days
     }
   end
