@@ -56,9 +56,10 @@ class Shell
   end
 
   def self.debug(prefix, message, sensitive_data_pattern: nil)
-    filtered_message = hide_sensitive_data(message, sensitive_data_pattern)
+    return unless verbose
 
-    stderr.puts("\n[#{color(prefix, :red)}] #{filtered_message}") if verbose
+    filtered_message = hide_sensitive_data(message, sensitive_data_pattern)
+    stderr.puts("\n[#{color(prefix, :red)}] #{filtered_message}")
   end
 
   def self.should_hide_output?
