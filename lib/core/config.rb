@@ -22,17 +22,11 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def org
-    return @org if @org
-
-    load_org
-    @org
+    @org ||= load_org_from_env || load_org_from_options || load_org_from_file
   end
 
   def app
-    return @app if @app
-
-    load_app
-    @app
+    @app ||= load_app_from_env || load_app_from_options
   end
 
   def [](key)
@@ -60,26 +54,37 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def config
-    @config || begin
-      @config = YAML.safe_load_file(config_file_path, symbolize_names: true, aliases: true)
-      ensure_config!
-      ensure_config_apps!
-      @config
+    @config ||= begin
+      global_config = YAML.safe_load_file(config_file_path, symbolize_names: true, aliases: true)
+      ensure_config!(global_config)
+      ensure_config_apps!(global_config)
+
+      global_config
     end
   end
 
   def apps
-    return @apps if @apps
+    @apps ||= config[:apps].to_h do |app_name, app_options|
+      ensure_config_app!(app_name, app_options)
 
-    load_apps
-    @apps
+      app_options_with_new_keys = app_options.to_h do |key, value|
+        new_key = new_option_keys[key]
+        new_key ? [new_key, value] : [key, value]
+      end
+
+      [app_name, app_options_with_new_keys]
+    end
   end
 
   def current
-    return @current if @current
+    @current ||= begin
+      app_config = find_app_config(app)
+      ensure_config_app!(app, app_config)
 
-    load_app
-    @current
+      warn_deprecated_options(app_config)
+
+      app_config
+    end
   end
 
   private
@@ -88,20 +93,16 @@ class Config # rubocop:disable Metrics/ClassLength
     raise "Can't find current config, please specify an app." unless current
   end
 
-  def ensure_current_config_app!
-    raise "Can't find app '#{app}' in 'controlplane.yml'." unless current
+  def ensure_config!(global_config)
+    raise "'controlplane.yml' is empty." unless global_config
   end
 
-  def ensure_config!
-    raise "'controlplane.yml' is empty." unless config
-  end
-
-  def ensure_config_apps!
-    raise "Can't find key 'apps' in 'controlplane.yml'." unless config[:apps]
+  def ensure_config_apps!(global_config)
+    raise "Can't find key 'apps' in 'controlplane.yml'." unless global_config[:apps]
   end
 
   def ensure_config_app!(app_name, app_options)
-    raise "App '#{app_name}' is empty in 'controlplane.yml'." unless app_options
+    raise "Can't find config for app '#{app_name}' in 'controlplane.yml'." unless app_options
   end
 
   def app_matches?(app_name1, app_name2, app_options)
@@ -149,42 +150,19 @@ class Config # rubocop:disable Metrics/ClassLength
     raise "Required options missing: #{missing_str}" unless missing_str.empty?
   end
 
-  def pick_current_config(app_name, app_options)
-    @app = app_name
-    @current = app_options
-    ensure_current_config_app!
+  def config_file_path # rubocop:disable Metrics/MethodLength
+    @config_file_path ||= begin
+      path = Pathname.new(".").expand_path
 
-    warn_deprecated_options(app_options)
-  end
+      loop do
+        config_file = path + CONFIG_FILE_LOCATION
+        break config_file if File.file?(config_file)
 
-  def load_apps
-    return if @apps
+        path = path.parent
 
-    @apps = config[:apps].to_h do |app_name, app_options|
-      ensure_config_app!(app_name, app_options)
-
-      app_options_with_new_keys = app_options.to_h do |key, value|
-        new_key = new_option_keys[key]
-        new_key ? [new_key, value] : [key, value]
-      end
-
-      [app_name, app_options_with_new_keys]
-    end
-  end
-
-  def config_file_path
-    return @config_file_path if @config_file_path
-
-    path = Pathname.new(".").expand_path
-
-    @config_file_path = loop do
-      config_file = path + CONFIG_FILE_LOCATION
-      break config_file if File.file?(config_file)
-
-      path = path.parent
-
-      if path.root?
-        raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATION}', please create it."
+        if path.root?
+          raise "Can't find project config file at 'project_folder/#{CONFIG_FILE_LOCATION}', please create it."
+        end
       end
     end
   end
@@ -211,23 +189,19 @@ class Config # rubocop:disable Metrics/ClassLength
     allowed_globally = !key_exists && config[:allow_app_override_by_env]
     return unless allowed_locally || allowed_globally
 
-    pick_current_config(app_from_env, app_config)
     @app_comes_from_env = true
+
+    app_from_env
   end
 
-  def load_app
-    return if @app
-
-    load_app_from_env
-    return if @app
-
+  def load_app_from_options
     app_from_options = strip_str_and_validate(options[:app])
     return unless app_from_options
 
     app_config = find_app_config(app_from_options)
     ensure_config_app!(app_from_options, app_config)
 
-    pick_current_config(app_from_options, app_config)
+    app_from_options
   end
 
   def load_org_from_env
@@ -239,21 +213,19 @@ class Config # rubocop:disable Metrics/ClassLength
     allowed_globally = !key_exists && config[:allow_org_override_by_env]
     return unless allowed_locally || allowed_globally
 
-    @org = org_from_env
     @org_comes_from_env = true
+
+    org_from_env
   end
 
-  def load_org
-    return if @org
+  def load_org_from_options
+    strip_str_and_validate(options[:org])
+  end
 
-    load_org_from_env
-    return if @org
+  def load_org_from_file
+    return unless current&.key?(:cpln_org)
 
-    org_from_options = strip_str_and_validate(options[:org])
-    @org = org_from_options if org_from_options
-    return if @org || !current
-
-    @org = strip_str_and_validate(current[:cpln_org]) if current.key?(:cpln_org)
+    strip_str_and_validate(current[:cpln_org])
   end
 
   def warn_deprecated_options(app_options)
