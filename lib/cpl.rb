@@ -194,7 +194,7 @@ module Cpl
       ::Shell.abort("Unable to load command: #{e.message}")
     end
 
-    def self.show_info_header(config)
+    def self.show_info_header(config) # rubocop:disable Metrics/MethodLength
       return if @showed_info_header
 
       rows = {}
