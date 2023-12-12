@@ -159,10 +159,19 @@ Here's a complete example of all supported config keys explained for the `contro
 ```yaml
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
+# Global settings that apply to `cpl` usage.
+# You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
+# to avoid any accidents with the wrong org / app.
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
 aliases:
   common: &common
-    # Organization name for staging (customize to your needs).
-    # Production apps will use a different organization, specified below, for security.
+    # Organization for staging and QA apps is typically set as an alias.
+    # Production apps will use a different organization, specified in `apps`, for security.
+    # Change this value to your organization name
+    # or set the CPLN_ORG env var and it will override this for all `cpl` commands
+    # (provided that `allow_org_override_by_env` is set to `true`).
     cpln_org: my-org-staging
 
     # Example apps use only one location. Control Plane offers the ability to use multiple locations.
@@ -229,6 +238,11 @@ apps:
 
   my-app-production:
     <<: *common
+
+    # You can also opt out of allowing the use of CPLN_ORG and CPLN_APP env vars per app.
+    # It's recommended to leave this off for production, to avoid any accidents.
+    allow_org_override_by_env: false
+    allow_app_override_by_env: false
 
     # Use a different organization for production.
     cpln_org: my-org-production

@@ -8,7 +8,8 @@ describe Command::MaintenanceOff do
     allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
     allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
     allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
-    allow_any_instance_of(Config).to receive(:find_app_config_file).and_return("spec/fixtures/config.yml")
+    allow(ENV).to receive(:fetch).with("CPLN_APP", nil).and_return(nil)
+    allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml")
     allow_any_instance_of(described_class).to receive(:sleep).and_return(true)
   end
   # rubocop:enable RSpec/AnyInstance

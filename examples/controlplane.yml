@@ -1,14 +1,32 @@
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
+# Global settings that apply to `cpl` usage.
+# You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
+# to avoid any accidents with the wrong org / app.
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
 aliases:
   common: &common
-    # Organization name for staging (customize to your needs).
-    # Production apps will use a different organization, specified below, for security.
+    # Organization for staging and QA apps is typically set as an alias.
+    # Production apps will use a different organization, specified in `apps`, for security.
+    # Change this value to your organization name
+    # or set the CPLN_ORG env var and it will override this for all `cpl` commands
+    # (provided that `allow_org_override_by_env` is set to `true`).
     cpln_org: my-org-staging
 
     # Example apps use only one location. Control Plane offers the ability to use multiple locations.
-    # TODO: Allow specification of multiple locations.
     default_location: aws-us-east-2
+
+    # Allows running the command `cpl setup-app`
+    # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
+    setup:
+      - gvc
+      - redis
+      - postgres
+      - memcached
+      - rails
+      - sidekiq
 
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
@@ -24,26 +42,62 @@ aliases:
       - postgres
       - memcached
 
-    # Configure the workload name used when maintenance mode is on (defaults to "maintenance")
+    # Configure the workload name used when maintenance mode is on (defaults to "maintenance").
     maintenance_workload: maintenance
+
+    # Fixes the remote terminal size to match the local terminal size
+    # when running the commands `cpl run` or `cpl run:detached`.
+    fix_terminal_size: true
+
+    # Apps with a deployed image created before this amount of days will be listed for deletion
+    # when running the command `cpl cleanup-stale-apps`.
+    stale_app_image_deployed_days: 5
+
+    # Images that exceed this quantity will be listed for deletion
+    # when running the command `cpl cleanup-images`.
+    image_retention_max_qty: 20
+
+    # Images created before this amount of days will be listed for deletion
+    # when running the command `cpl cleanup-images` (`image_retention_max_qty` takes precedence).
+    image_retention_days: 5
+
+    # Run workloads created before this amount of days will be listed for deletion
+    # when running the command `cpl run:cleanup`.
+    stale_run_workload_created_days: 2
 
 apps:
   my-app-staging:
     # Use the values from the common section above.
     <<: *common
+
   my-app-review:
     <<: *common
+
     # If `match_if_app_name_starts_with` is `true`, then use this config for app names starting with this name,
     # e.g., "my-app-review-pr123", "my-app-review-anything-goes", etc.
     match_if_app_name_starts_with: true
+
   my-app-production:
     <<: *common
+
+    # You can also opt out of allowing the use of CPLN_ORG and CPLN_APP env vars per app.
+    # It's recommended to leave this off for production, to avoid any accidents.
+    allow_org_override_by_env: false
+    allow_app_override_by_env: false
+
     # Use a different organization for production.
     cpln_org: my-org-production
+
     # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
     # to promote the staging app to production.
     upstream: my-app-staging
+
+    # Used by the command `cpl promote-app-from-upstream` to run a release script before deploying.
+    # This is relative to the `.controlplane/` directory.
+    release_script: release_script
+
   my-app-other:
     <<: *common
+
     # You can specify a different `Dockerfile` relative to the `.controlplane/` directory (defaults to "Dockerfile").
     dockerfile: ../some_other/Dockerfile

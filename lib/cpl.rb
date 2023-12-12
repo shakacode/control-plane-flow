@@ -161,6 +161,10 @@ module Cpl
         method_option(option[:name], **option[:params])
       end
 
+      # We'll handle required options manually in `Config`
+      required_options = command_options.select { |option| option[:params][:required] }.map { |option| option[:name] }
+      disable_required_check! name_for_method.to_sym if required_options.any?
+
       define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/MethodLength
         if deprecated
           ::Shell.warn_deprecated("Command '#{command_key}' is deprecated, " \
@@ -177,7 +181,7 @@ module Cpl
         raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
 
         begin
-          config = Config.new(args, options)
+          config = Config.new(args, options, required_options)
 
           Cpl::Cli.show_info_header(config) if with_info_header
 
@@ -190,12 +194,14 @@ module Cpl
       ::Shell.abort("Unable to load command: #{e.message}")
     end
 
-    def self.show_info_header(config)
+    def self.show_info_header(config) # rubocop:disable Metrics/MethodLength
       return if @showed_info_header
 
       rows = {}
       rows["ORG"] = config.org || "NOT PROVIDED!"
+      rows["ORG"] += " (comes from CPLN_ORG env var)" if config.org_comes_from_env
       rows["APP"] = config.app || "NOT PROVIDED!"
+      rows["APP"] += " (comes from CPLN_APP env var)" if config.app_comes_from_env
 
       rows.each do |key, value|
         puts "#{key}: #{value}"

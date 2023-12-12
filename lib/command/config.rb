@@ -21,11 +21,6 @@ module Command
     EX
 
     def call # rubocop:disable Metrics/MethodLength
-      if config.org_comes_from_env
-        puts Shell.color("Org comes from CPLN_ORG env var", :red)
-        puts
-      end
-
       if config.app
         puts "#{Shell.color("Current config (app '#{config.app}')", :blue)}:"
         puts pretty_print(config.current)

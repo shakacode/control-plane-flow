@@ -17,12 +17,14 @@ _Please add entries here for your pull requests that are not yet released._
 ### Fixed
 
 - Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed issues with running `cpl --version` and `cpl --help` where no configuration file exists. [PR 100](https://github.com/shakacode/heroku-to-control-plane/pull/100) by [Mostafa Ahangarhga](https://github.com/ahangarha).
 
 ### Added
 
 - Added `--org` option to all commands. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added option to set the app with a `CPLN_APP` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Show `org` and `app` on every command excluding `info`, `version`, `maintenance`, `env`, `ps`, and `latest_image`. [PR 94](https://github.com/shakacode/heroku-to-control-plane/pull/94) by [Mostafa Ahangarhga](https://github.com/ahangarha).
+- Added option to only use `CPLN_ORG` and `CPLN_APP` env vars if `allow_org_override_by_env` and `allow_app_override_by_env` configs are set to `true` in `controlplane.yml`. [PR 109](https://github.com/shakacode/heroku-to-control-plane/pull/109) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
 
