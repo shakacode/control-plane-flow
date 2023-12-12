@@ -77,6 +77,8 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def current
+    return unless app
+
     @current ||= begin
       app_config = find_app_config(app)
       ensure_config_app!(app, app_config)
