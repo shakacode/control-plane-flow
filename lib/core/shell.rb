@@ -55,11 +55,33 @@ class Shell
     @verbose = verbose
   end
 
-  def self.debug(prefix, message)
-    stderr.puts("\n[#{color(prefix, :red)}] #{message}") if verbose
+  def self.debug(prefix, message, sensitive_data_pattern: nil)
+    return unless verbose
+
+    filtered_message = hide_sensitive_data(message, sensitive_data_pattern)
+    stderr.puts("\n[#{color(prefix, :red)}] #{filtered_message}")
   end
 
   def self.should_hide_output?
     tmp_stderr && !verbose
+  end
+
+  #
+  # Hide sensitive data based on the passed pattern
+  #
+  # @param [String] message
+  #   The message to get processed.
+  # @param [Regexp, nil] pattern
+  #   The regular expression to be used. If not provided, no filter gets applied.
+  #
+  # @return [String]
+  #   Filtered message.
+  #
+  # @example
+  #   hide_sensitive_data("--token abcd", /(?<=--token )(\S+)/)
+  def self.hide_sensitive_data(message, pattern = nil)
+    return message unless pattern.is_a?(Regexp)
+
+    message.gsub(pattern, "XXXXXXX")
   end
 end
