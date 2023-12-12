@@ -22,11 +22,11 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def org
-    @org ||= load_org_from_env || load_org_from_options || load_org_from_file
+    @org ||= load_org_from_options || load_org_from_env || load_org_from_file
   end
 
   def app
-    @app ||= load_app_from_env || load_app_from_options
+    @app ||= load_app_from_options || load_app_from_env
   end
 
   def [](key)
