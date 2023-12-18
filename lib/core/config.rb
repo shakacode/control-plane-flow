@@ -3,7 +3,7 @@
 require_relative "helpers"
 
 class Config # rubocop:disable Metrics/ClassLength
-  attr_reader :org_comes_from_env, :app_comes_from_env, :location,
+  attr_reader :org_comes_from_env, :app_comes_from_env,
               # command line options
               :args, :options, :required_options
 
@@ -18,8 +18,6 @@ class Config # rubocop:disable Metrics/ClassLength
 
     ensure_required_options!
 
-    @location = options[:location] || current&.dig(:default_location)
-
     Shell.verbose_mode(options[:verbose])
   end
 
@@ -29,6 +27,10 @@ class Config # rubocop:disable Metrics/ClassLength
 
   def app
     @app ||= load_app_from_options || load_app_from_env
+  end
+
+  def location
+    @location ||= load_location_from_options || load_location_from_env
   end
 
   def [](key)
@@ -230,6 +232,20 @@ class Config # rubocop:disable Metrics/ClassLength
     return unless current&.key?(:cpln_org)
 
     strip_str_and_validate(current[:cpln_org])
+  end
+
+  def load_location_from_options
+    strip_str_and_validate(options[:location])
+  end
+
+  def load_location_from_env
+    strip_str_and_validate(ENV.fetch("CPLN_LOCATION", nil))
+  end
+
+  def load_location_from_file
+    return unless current&.key?(:default_location)
+
+    strip_str_and_validate(options[:default_location])
   end
 
   def warn_deprecated_options(app_options)
