@@ -109,7 +109,7 @@ module Command
       }
     end
 
-    def self.location_option(required: false) # rubocop:disable Metrics/MethodLength
+    def self.location_option(required: false)
       {
         name: :location,
         params: {
@@ -117,8 +117,7 @@ module Command
           banner: "LOCATION_NAME",
           desc: "Location name",
           type: :string,
-          required: required,
-          default: ENV.fetch("CPLN_LOCATION", nil)
+          required: required
         }
       }
     end
