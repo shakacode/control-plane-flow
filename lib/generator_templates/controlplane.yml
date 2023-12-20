@@ -1,5 +1,10 @@
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
+# You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
+# to avoid any accidents with the wrong org / app.
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
 aliases:
   common: &common
     # Organization name for staging (customize to your needs).
@@ -35,6 +40,12 @@ apps:
     match_if_app_name_starts_with: true
   my-app-production:
     <<: *common
+
+    # You can also opt out of allowing the use of CPLN_ORG and CPLN_APP env vars per app.
+    # It's recommended to leave this off for production, to avoid any accidents.
+    allow_org_override_by_env: false
+    allow_app_override_by_env: false
+
     # Use a different organization for production.
     cpln_org: my-org-production
     # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
