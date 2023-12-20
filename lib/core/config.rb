@@ -29,6 +29,10 @@ class Config # rubocop:disable Metrics/ClassLength
     @app ||= load_app_from_options || load_app_from_env
   end
 
+  def location
+    @location ||= load_location_from_options || load_location_from_env || load_location_from_file
+  end
+
   def [](key)
     ensure_current_config!
 
@@ -228,6 +232,20 @@ class Config # rubocop:disable Metrics/ClassLength
     return unless current&.key?(:cpln_org)
 
     strip_str_and_validate(current[:cpln_org])
+  end
+
+  def load_location_from_options
+    strip_str_and_validate(options[:location])
+  end
+
+  def load_location_from_env
+    strip_str_and_validate(ENV.fetch("CPLN_LOCATION", nil))
+  end
+
+  def load_location_from_file
+    return unless current&.key?(:default_location)
+
+    strip_str_and_validate(current.fetch(:default_location))
   end
 
   def warn_deprecated_options(app_options)

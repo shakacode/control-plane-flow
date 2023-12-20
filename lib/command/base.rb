@@ -109,6 +109,19 @@ module Command
       }
     end
 
+    def self.location_option(required: false)
+      {
+        name: :location,
+        params: {
+          aliases: ["-l"],
+          banner: "LOCATION_NAME",
+          desc: "Location name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.upstream_token_option(required: false)
       {
         name: :upstream_token,

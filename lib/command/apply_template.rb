@@ -7,6 +7,7 @@ module Command
     REQUIRES_ARGS = true
     OPTIONS = [
       app_option(required: true),
+      location_option,
       skip_confirm_option
     ].freeze
     DESCRIPTION = "Applies application-specific configs from templates"
@@ -126,7 +127,7 @@ module Command
     def apply_template(filename)
       data = File.read(filename)
                  .gsub("APP_GVC", config.app)
-                 .gsub("APP_LOCATION", config[:default_location])
+                 .gsub("APP_LOCATION", config.location)
                  .gsub("APP_ORG", config.org)
                  .gsub("APP_IMAGE", latest_image)
 

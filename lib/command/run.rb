@@ -10,6 +10,7 @@ module Command
       app_option(required: true),
       image_option,
       workload_option,
+      location_option,
       use_local_token_option,
       terminal_size_option
     ].freeze
@@ -56,7 +57,7 @@ module Command
     attr_reader :location, :workload, :one_off, :container
 
     def call # rubocop:disable Metrics/MethodLength
-      @location = config[:default_location]
+      @location = config.location
       @workload = config.options["workload"] || config[:one_off_workload]
       @one_off = "#{workload}-run-#{rand(1000..9999)}"
 
