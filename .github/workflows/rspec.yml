@@ -36,5 +36,5 @@ jobs:
         uses: actions/upload-artifact@master
         if: always()
         with:
-          name: coverage-report
+          name: coverage-report-${{ github.run_id }}
           path: coverage
