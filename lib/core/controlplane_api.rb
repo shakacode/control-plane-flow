@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class ControlplaneApi
+class ControlplaneApi # rubocop:disable Metrics/ClassLength
   def gvc_list(org:)
     api_json("/org/#{org}/gvc", method: :get)
   end
@@ -84,6 +84,14 @@ class ControlplaneApi
 
   def delete_workload(org:, gvc:, workload:)
     api_json("/org/#{org}/gvc/#{gvc}/workload/#{workload}", method: :delete)
+  end
+
+  def list_volumesets(org:, gvc:)
+    api_json("/org/#{org}/gvc/#{gvc}/volumeset", method: :get)
+  end
+
+  def delete_volumeset(org:, gvc:, volumeset:)
+    api_json("/org/#{org}/gvc/#{gvc}/volumeset/#{volumeset}", method: :delete)
   end
 
   def list_domains(org:)
