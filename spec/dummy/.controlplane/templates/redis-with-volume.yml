@@ -1,0 +1,34 @@
+# Based on https://github.com/controlplane-com/examples/tree/main/examples/redis
+
+kind: volumeset
+name: redis-volume
+spec:
+  fileSystemType: ext4
+  performanceClass: general-purpose-ssd
+  initialCapacity: 10
+---
+kind: workload
+name: redis
+spec:
+  type: stateful
+  containers:
+    - name: redis
+      cpu: 25m
+      memory: 32Mi
+      image: redis:6.2-alpine
+      ports:
+        - number: 6379
+          protocol: tcp
+      volumes:
+        - path: /data
+          uri: cpln://volumeset/redis-volume
+          recoveryPolicy: retain
+  defaultOptions:
+    autoscaling:
+      metric: latency
+      minScale: 1
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    internal:
+      inboundAllowType: same-gvc

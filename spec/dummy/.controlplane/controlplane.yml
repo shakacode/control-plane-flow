@@ -1,0 +1,210 @@
+aliases:
+  common: &common
+    allow_org_override_by_env: true
+
+    default_location: aws-us-east-2
+
+    one_off_workload: rails
+    app_workloads:
+      - rails
+    additional_workloads:
+      - redis
+      - postgres
+
+apps:
+  dummy-test:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    image_retention_max_qty: 3
+    image_retention_days: 30
+    stale_app_image_deployed_days: 30
+    stale_run_workload_created_days: 3
+    upstream: dummy-test-upstream
+    release_script: release.sh
+    default_domain: cpl.rafaelgomes.xyz
+    maintenance_workload: maintenance
+    setup_app_templates:
+      - gvc
+      - rails
+      - redis
+      - postgres
+
+  dummy-test-with-nothing:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+
+  dummy-test-default:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    default_domain: cpl.rafaelgomes.xyz
+    setup_app_templates:
+      - gvc
+
+  dummy-test-with-rails:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - gvc
+      - rails
+
+  dummy-test-full:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    stale_run_workload_created_days: 3
+    default_domain: cpl.rafaelgomes.xyz
+    setup_app_templates:
+      - gvc
+      - rails
+      - redis
+      - postgres
+      - maintenance
+
+  dummy-test-with-unexistent-dockerfile:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    dockerfile: Dockerfile.unexistent
+
+  dummy-test-with-invalid-dockerfile:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    dockerfile: Dockerfile.invalid
+
+  dummy-test-with-image-retention:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    image_retention_max_qty: 3
+    image_retention_days: 30
+    setup_app_templates:
+      - gvc
+
+  dummy-test-with-image-retention-max-qty:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    image_retention_max_qty: 3
+
+  dummy-test-with-image-retention-days:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    image_retention_days: 30
+
+  dummy-test-with-stale-app-image-deployed-days:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    stale_app_image_deployed_days: 30
+
+  dummy-test-with-undefined-upstream:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    upstream: undefined
+  
+  dummy-test-without-org:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    cpln_org:
+
+  dummy-test-with-rails-with-non-app-image:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    release_script: release.sh
+    app_workloads:
+      - rails
+      - rails-with-non-app-image
+    setup_app_templates:
+      - gvc
+      - rails
+      - redis
+      - postgres
+      - rails-with-non-app-image
+
+  dummy-test-with-unexistent-release-script:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    release_script: release-unexistent.sh
+
+  dummy-test-with-invalid-release-script:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    upstream: dummy-test-upstream
+    release_script: release-invalid.sh
+
+  dummy-test-with-external-maintenance-image:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    maintenance_workload: maintenance-with-external-image
+
+  dummy-test-with-fix-terminal-size:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    fix_terminal_size: true
+
+  dummy-test-with-fake-run-workload:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    stale_run_workload_created_days: 3
+    additional_workloads:
+      - fake-run-12345
+
+  dummy-test-without-identity:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - gvc-without-identity
+
+  dummy-test-info:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+
+  dummy-test-info-with-nothing-missing:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - gvc
+      - rails
+      - redis
+      - postgres
+
+  dummy-test-info-with-missing-apps:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+
+  dummy-test-info-with-missing-workloads:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - gvc
+      - rails
+
+  dummy-test-info-with-extra-workloads:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - gvc
+      - rails
+      - redis
+      - postgres
+      - rails-with-non-app-image

@@ -1,0 +1,30 @@
+kind: gvc
+name: {{APP_NAME}}
+spec:
+  env:
+    - name: ORG
+      value: {{APP_ORG}}
+    - name: NAME
+      value: {{APP_NAME}}
+    - name: LOCATION
+      value: {{APP_LOCATION}}
+    - name: LOCATION_LINK
+      value: {{APP_LOCATION_LINK}}
+    - name: IMAGE
+      value: {{APP_IMAGE}}
+    - name: IMAGE_LINK
+      value: {{APP_IMAGE_LINK}}
+    - name: IDENTITY
+      value: {{APP_IDENTITY}}
+    - name: IDENTITY_LINK
+      value: {{APP_IDENTITY_LINK}}
+    - name: SECRETS
+      value: {{APP_SECRETS}}
+    - name: SECRETS_POLICY
+      value: {{APP_SECRETS_POLICY}}
+  staticPlacement:
+    locationLinks:
+      - {{APP_LOCATION_LINK}}
+---
+kind: identity
+name: {{APP_IDENTITY}}
