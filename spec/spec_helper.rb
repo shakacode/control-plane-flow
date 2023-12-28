@@ -24,6 +24,7 @@ SimpleCov.start do
 end
 
 require_relative "../lib/cpl"
+require_relative "support/dummy_app_setup"
 require_relative "support/command_helpers"
 require_relative "support/date_time_helpers"
 
@@ -125,6 +126,14 @@ RSpec.configure do |config|
 
   config.include CommandHelpers
   config.include DateTimeHelpers
+
+  config.before(:suite) do
+    DummyAppSetup.setup
+  end
+
+  config.after(:suite) do
+    DummyAppSetup.cleanup unless ENV.fetch("SKIP_CLEANUP", nil) == "true"
+  end
 
   config.before do
     allow(Cpl::Cli).to receive(:check_cpln_version)
