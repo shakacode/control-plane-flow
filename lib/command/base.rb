@@ -41,7 +41,7 @@ module Command
     end
 
     def self.common_options
-      [org_option, verbose_option]
+      [org_option, verbose_option, trace_option]
     end
 
     def self.org_option(required: false)
@@ -207,6 +207,17 @@ module Command
       }
     end
 
+    def self.trace_option(required: false)
+      {
+        name: :trace,
+        params: {
+          desc: "Shows trace of API calls. WARNING: may contain sensitive data",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
@@ -258,6 +269,7 @@ module Command
     end
 
     def latest_image_next(app = config.app, org = config.org, commit: nil)
+      # debugger
       commit ||= config.options[:commit]
 
       @latest_image_next ||= {}

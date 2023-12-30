@@ -117,8 +117,7 @@ npm update -g @controlplane/cli
 
 5. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
 
-6. Install Heroku to Control Plane `cpl` CLI, either as a [Ruby gem](https://rubygems.org/gems/cpl) or a local clone.
-   For information on the latter, see [CONTRIBUTING.md](CONTRIBUTING.md). You may also install `cpl` in your project's Gemfile.
+6. Install Heroku to Control Plane `cpl` CLI as a [Ruby gem](https://rubygems.org/gems/cpl): `gem install cpl`. If you want to hack on the source code, see [CONTRIBUTING.md](CONTRIBUTING.md). 
 
 7. You can use [this Dockerfile](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile) as an example for your project. Ensure that you have Docker running.
 

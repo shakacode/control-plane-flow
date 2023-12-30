@@ -19,6 +19,11 @@ class Config # rubocop:disable Metrics/ClassLength
     ensure_required_options!
 
     Shell.verbose_mode(options[:verbose])
+    trace_mode = options[:trace]
+    if trace_mode
+      ControlplaneApiDirect.set_trace(trace_mode)
+      Shell.warn("Trace mode is enabled, this will print sensitive information to the console.")
+    end
   end
 
   def org
