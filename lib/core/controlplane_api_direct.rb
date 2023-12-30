@@ -17,15 +17,11 @@ class ControlplaneApiDirect
 
   API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
 
-  def self.set_trace(trace)
-    @trace = trace
+  class << self
+    attr_accessor :trace
   end
 
-  def self.trace
-    @trace
-  end
-
-  def call(url, method:, host: :api, body: nil) # rubocop:disable Metrics/MethodLength
+  def call(url, method:, host: :api, body: nil) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
     trace = ControlplaneApiDirect.trace
     uri = URI("#{api_host(host)}#{url}")
     request = API_METHODS[method].new(uri)
@@ -39,7 +35,7 @@ class ControlplaneApiDirect
     http.use_ssl = uri.scheme == "https"
     http.set_debug_output($stdout) if trace
 
-    response = http.start { |http| http.request(request) }
+    response = http.start { |ht| ht.request(request) }
 
     case response
     when Net::HTTPOK
