@@ -48,6 +48,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     # https://docs.controlplane.com/guides/push-image#step-2
     # Might need to use `docker buildx build` if compatiblitity issues arise
     cmd = "docker build --platform=linux/amd64 -t #{image} -f #{dockerfile}"
+    cmd += " --progress=plain" if ControlplaneApiDirect.trace
 
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
     cmd += " #{config.app_dir}"
@@ -233,6 +234,16 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
     perform!(cmd)
+  end
+
+  # volumeset
+
+  def fetch_volumesets(a_gvc = gvc)
+    api.list_volumesets(org: org, gvc: a_gvc)
+  end
+
+  def delete_volumeset(volumeset, a_gvc = gvc)
+    api.delete_volumeset(org: org, gvc: a_gvc, volumeset: volumeset)
   end
 
   # domain

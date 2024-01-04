@@ -17,7 +17,12 @@ class ControlplaneApiDirect
 
   API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
 
-  def call(url, method:, host: :api, body: nil) # rubocop:disable Metrics/MethodLength
+  class << self
+    attr_accessor :trace
+  end
+
+  def call(url, method:, host: :api, body: nil) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
+    trace = ControlplaneApiDirect.trace
     uri = URI("#{api_host(host)}#{url}")
     request = API_METHODS[method].new(uri)
     request["Content-Type"] = "application/json"
@@ -26,7 +31,11 @@ class ControlplaneApiDirect
 
     Shell.debug(method.upcase, "#{uri} #{body&.to_json}")
 
-    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") { |http| http.request(request) }
+    http = Net::HTTP.new(uri.hostname, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.set_debug_output($stdout) if trace
+
+    response = http.start { |ht| ht.request(request) }
 
     case response
     when Net::HTTPOK
@@ -35,6 +44,9 @@ class ControlplaneApiDirect
       true
     when Net::HTTPNotFound
       nil
+    when Net::HTTPForbidden
+      org = self.class.parse_org(url)
+      raise("Double check your org #{org}. #{response} #{response.body}")
     else
       raise("#{response} #{response.body}")
     end
@@ -65,4 +77,8 @@ class ControlplaneApiDirect
     remove_class_variable(:@@api_token) if defined?(@@api_token)
   end
   # rubocop:enable Style/ClassVars
+
+  def self.parse_org(url)
+    url.match(%r{^/org/([^/]+)})[1]
+  end
 end

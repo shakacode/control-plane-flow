@@ -62,4 +62,12 @@ describe ControlplaneApiDirect do
       end.to raise_error(RuntimeError, message)
     end
   end
+
+  describe ".parse_org" do
+    it "returns correct org" do
+      url = "/org/org1/gvc/gvc1"
+      org = described_instance.class.parse_org(url)
+      expect(org).to eq("org1")
+    end
+  end
 end

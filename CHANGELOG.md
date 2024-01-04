@@ -18,6 +18,7 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Fixed issues with running `cpl --version` and `cpl --help` where no configuration file exists. [PR 100](https://github.com/shakacode/heroku-to-control-plane/pull/100) by [Mostafa Ahangarha](https://github.com/ahangarha).
+- Fixed issue where `delete` command fails to delete apps with volumesets. [PR 123](https://github.com/shakacode/heroku-to-control-plane/pull/123) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Added
 
@@ -27,6 +28,8 @@ _Please add entries here for your pull requests that are not yet released._
 - Added option to only use `CPLN_ORG` and `CPLN_APP` env vars if `allow_org_override_by_env` and `allow_app_override_by_env` configs are set to `true` in `controlplane.yml`. [PR 109](https://github.com/shakacode/heroku-to-control-plane/pull/109) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `CPLN_LOCATION` env variable and `--location` option for `apply-template`, `ps`, `run`, `run:detached`. [PR 105](https://github.com/shakacode/heroku-to-control-plane/pull/105) by [Mostafa Ahangarha](https://github.com/ahangarha).
 - Added `generate` command for creating basic Control Plane configuration directory. [PR 116](https://github.com/shakacode/heroku-to-control-plane/pull/116) by [Mostafa Ahangarhga](https://github.com/ahangarha).
+- Added `--trace` option to all commands for more detailed logs. [PR 124](https://github.com/shakacode/heroku-to-control-plane/pull/124) by [justin808](https://github.com/justin808)
+- Added better error message to check the org name in case of a 403 error. [PR 124](https://github.com/justin808) by [justin808](https://github.com/justin808)
 
 ### Changed
 

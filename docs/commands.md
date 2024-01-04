@@ -100,7 +100,7 @@ cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --ima
 
 ### `delete`
 
-- Deletes the whole app (GVC with all workloads and all images)
+- Deletes the whole app (GVC with all workloads, all volumesets and all images)
 - Will ask for explicit user confirmation
 
 ```sh
