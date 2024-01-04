@@ -235,6 +235,16 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
+  # volumeset
+
+  def fetch_volumesets(a_gvc = gvc)
+    api.list_volumesets(org: org, gvc: a_gvc)
+  end
+
+  def delete_volumeset(volumeset, a_gvc = gvc)
+    api.delete_volumeset(org: org, gvc: a_gvc, volumeset: volumeset)
+  end
+
   # domain
 
   def find_domain_route(data)
