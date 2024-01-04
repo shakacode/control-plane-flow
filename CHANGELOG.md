@@ -14,6 +14,8 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.2.0] - 2024-01-03
+
 ### Fixed
 
 - Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/heroku-to-control-plane/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -117,7 +119,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.0.4...v1.1.0
