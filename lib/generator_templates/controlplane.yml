@@ -1,0 +1,57 @@
+# Keys beginning with "cpln_" correspond to your settings in Control Plane.
+
+# You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
+# to avoid any accidents with the wrong org / app.
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
+aliases:
+  common: &common
+    # Organization name for staging (customize to your needs).
+    # Production apps will use a different organization, specified below, for security.
+    cpln_org: my-org-staging
+
+    # Example apps use only one location. Control Plane offers the ability to use multiple locations.
+    # TODO: Allow specification of multiple locations.
+    default_location: aws-us-east-2
+
+    # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
+    one_off_workload: rails
+
+    # Workloads that are for the application itself and are using application Docker images.
+    app_workloads:
+      - rails
+
+    # Additional "service type" workloads, using non-application Docker images.
+    additional_workloads:
+      - postgres
+
+    # Configure the workload name used when maintenance mode is on (defaults to "maintenance")
+    maintenance_workload: maintenance
+
+apps:
+  my-app-staging:
+    # Use the values from the common section above.
+    <<: *common
+  my-app-review:
+    <<: *common
+    # If `match_if_app_name_starts_with` is `true`, then use this config for app names starting with this name,
+    # e.g., "my-app-review-pr123", "my-app-review-anything-goes", etc.
+    match_if_app_name_starts_with: true
+  my-app-production:
+    <<: *common
+
+    # You can also opt out of allowing the use of CPLN_ORG and CPLN_APP env vars per app.
+    # It's recommended to leave this off for production, to avoid any accidents.
+    allow_org_override_by_env: false
+    allow_app_override_by_env: false
+
+    # Use a different organization for production.
+    cpln_org: my-org-production
+    # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
+    # to promote the staging app to production.
+    upstream: my-app-staging
+  my-app-other:
+    <<: *common
+    # You can specify a different `Dockerfile` relative to the `.controlplane/` directory (defaults to "Dockerfile").
+    dockerfile: ../some_other/Dockerfile
