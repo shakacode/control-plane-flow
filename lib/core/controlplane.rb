@@ -48,6 +48,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     # https://docs.controlplane.com/guides/push-image#step-2
     # Might need to use `docker buildx build` if compatiblitity issues arise
     cmd = "docker build --platform=linux/amd64 -t #{image} -f #{dockerfile}"
+    cmd += " --progress=plain" if ControlplaneApiDirect.trace
 
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
     cmd += " #{config.app_dir}"

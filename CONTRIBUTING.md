@@ -12,12 +12,6 @@ git clone https://github.com/shakacode/heroku-to-control-plane
 alias cpl="~/projects/heroku-to-control-plane/bin/cpl"
 ```
 
-Or set the path of the Ruby gem in your Gemfile.
-
-```ruby
-gem 'cpl', path: '~/projects/heroku-to-control-plane'
-```
-
 ## Linting/Testing
 
 Before committing or pushing code, be sure to:
@@ -36,6 +30,8 @@ overcommit --install
 
 ## Debugging
 
+1. Use the `--verbose` option to see more detailed logs.
+2. Use the `--trace` option to see full logging of HTTP requests. Warning, this will display keys to your logs or console.
 1. Add a breakpoint (`debugger`) to any line of code you want to debug.
 2. Modify the `lib/command/test.rb` file to trigger the code you want to test. To simulate a command, you can use
    `Cpl::Cli.start` (e.g., `Cpl::Cli.start(["deploy-image", "-a", "my-app-name"])` would be the same as running
