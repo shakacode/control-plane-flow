@@ -83,7 +83,7 @@ describe Command::CleanupImages do
   end
 
   it "lists images to delete based on days", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 7 images?")
+    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 6 images?")
                                      .and_return(false)
 
     expected_output = <<~OUTPUT
@@ -94,7 +94,6 @@ describe Command::CleanupImages do
         - my-app-test-5:511_7ef99dd (#{Shell.color('2023-08-05T02:51:14+00:00', :red)} - #{Shell.color('older than 12 days', :red)})
         - my-app-test-5:512_346384f (#{Shell.color('2023-08-06T03:08:27+00:00', :red)} - #{Shell.color('older than 12 days', :red)})
         - my-app-test-5:513_ec7930a (#{Shell.color('2023-08-07T13:20:18+00:00', :red)} - #{Shell.color('older than 12 days', :red)})
-        - my-app-test-5:514_b54466b (#{Shell.color('2023-08-11T09:48:28+00:00', :red)} - #{Shell.color('older than 12 days', :red)})
     OUTPUT
 
     output = command_output do
