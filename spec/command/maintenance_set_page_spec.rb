@@ -17,30 +17,26 @@ describe Command::MaintenanceSetPage do
             "please create it with 'cpl apply-template maintenance -a my-app-staging'.")
 
     args = ["https://example.com/maintenance.html", "-a", "my-app-staging"]
-    Cpl::Cli.start([described_class::NAME, *args])
+    run_command(described_class::NAME, *args)
 
     expect(Shell).to have_received(:abort).once
   end
 
   it "does nothing if maintenance workload does not use shakacode image", vcr: true do
-    output = command_output do
-      args = ["https://example.com/maintenance.html", "-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
-    end
+    args = ["https://example.com/maintenance.html", "-a", "my-app-staging"]
+    result = run_command(described_class::NAME, *args)
 
-    expect(output).to be_empty
+    expect(result[:stderr]).to be_empty
   end
 
   it "sets page for maintenance mode", vcr: true do
     expected_output = <<~OUTPUT
-      Setting 'https://example.com/maintenance.html' as the page for maintenance mode... #{Shell.color('done!', :green)}
+      Setting 'https://example.com/maintenance.html' as the page for maintenance mode... done!
     OUTPUT
 
-    output = command_output do
-      args = ["https://example.com/maintenance.html", "-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
-    end
+    args = ["https://example.com/maintenance.html", "-a", "my-app-staging"]
+    result = run_command(described_class::NAME, *args)
 
-    expect(output).to eq(expected_output)
+    expect(result[:stderr]).to eq(expected_output)
   end
 end

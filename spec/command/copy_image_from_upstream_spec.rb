@@ -30,20 +30,18 @@ describe Command::CopyImageFromUpstream do
       .with("my-app-production", "my-org-production").and_return("my-app-production:8_456def")
 
     expected_output = <<~OUTPUT
-      Creating upstream profile... #{Shell.color('done!', :green)}
-      Fetching upstream image URL... #{Shell.color('done!', :green)}
-      Fetching app image URL... #{Shell.color('done!', :green)}
-      Pulling image from 'my-org-staging.registry.cpln.io/my-app-staging:0_123abc'... #{Shell.color('done!', :green)}
-      Pushing image to 'my-org-production.registry.cpln.io/my-app-production:9_123abc'... #{Shell.color('done!', :green)}
-      Deleting upstream profile... #{Shell.color('done!', :green)}
+      Creating upstream profile... done!
+      Fetching upstream image URL... done!
+      Fetching app image URL... done!
+      Pulling image from 'my-org-staging.registry.cpln.io/my-app-staging:0_123abc'... done!
+      Pushing image to 'my-org-production.registry.cpln.io/my-app-production:9_123abc'... done!
+      Deleting upstream profile... done!
     OUTPUT
 
-    output = command_output do
-      args = ["-a", "my-app-production", "--upstream-token", "upstream_token"]
-      Cpl::Cli.start([described_class::NAME, *args])
-    end
+    args = ["-a", "my-app-production", "--upstream-token", "upstream_token"]
+    result = run_command(described_class::NAME, *args)
 
-    expect(output).to eq(expected_output)
+    expect(result[:stderr]).to eq(expected_output)
   end
 
   it "does not copy commit from upstream if not exists", vcr: true do
@@ -53,20 +51,18 @@ describe Command::CopyImageFromUpstream do
       .with("my-app-production", "my-org-production").and_return("my-app-production:8_456def")
 
     expected_output = <<~OUTPUT
-      Creating upstream profile... #{Shell.color('done!', :green)}
-      Fetching upstream image URL... #{Shell.color('done!', :green)}
-      Fetching app image URL... #{Shell.color('done!', :green)}
-      Pulling image from 'my-org-staging.registry.cpln.io/my-app-staging:0'... #{Shell.color('done!', :green)}
-      Pushing image to 'my-org-production.registry.cpln.io/my-app-production:9'... #{Shell.color('done!', :green)}
-      Deleting upstream profile... #{Shell.color('done!', :green)}
+      Creating upstream profile... done!
+      Fetching upstream image URL... done!
+      Fetching app image URL... done!
+      Pulling image from 'my-org-staging.registry.cpln.io/my-app-staging:0'... done!
+      Pushing image to 'my-org-production.registry.cpln.io/my-app-production:9'... done!
+      Deleting upstream profile... done!
     OUTPUT
 
-    output = command_output do
-      args = ["-a", "my-app-production", "--upstream-token", "upstream_token"]
-      Cpl::Cli.start([described_class::NAME, *args])
-    end
+    args = ["-a", "my-app-production", "--upstream-token", "upstream_token"]
+    result = run_command(described_class::NAME, *args)
 
-    expect(output).to eq(expected_output)
+    expect(result[:stderr]).to eq(expected_output)
   end
   # rubocop:enable RSpec/AnyInstance
 end

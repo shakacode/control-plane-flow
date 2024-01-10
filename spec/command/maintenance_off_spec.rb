@@ -21,7 +21,7 @@ describe Command::MaintenanceOff do
             "and have a route configured for the prefix '/' on either port 80 or 443.")
 
     args = ["-a", "my-app-staging"]
-    Cpl::Cli.start([described_class::NAME, *args])
+    run_command(described_class::NAME, *args)
 
     expect(Shell).to have_received(:abort).once
   end
@@ -32,7 +32,7 @@ describe Command::MaintenanceOff do
             "please create it with 'cpl apply-template maintenance -a my-app-staging'.")
 
     args = ["-a", "my-app-staging"]
-    Cpl::Cli.start([described_class::NAME, *args])
+    run_command(described_class::NAME, *args)
 
     expect(Shell).to have_received(:abort).once
   end
@@ -42,38 +42,34 @@ describe Command::MaintenanceOff do
       Maintenance mode is already disabled for app 'my-app-staging'.
     OUTPUT
 
-    output = command_output do
-      args = ["-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
-    end
+    args = ["-a", "my-app-staging"]
+    result = run_command(described_class::NAME, *args)
 
-    expect(output).to eq(expected_output)
+    expect(result[:stderr]).to eq(expected_output)
   end
 
   it "disables maintenance mode", vcr: true do
     expected_output = <<~OUTPUT
-      Starting workload 'postgres'... #{Shell.color('done!', :green)}
-      Starting workload 'redis'... #{Shell.color('done!', :green)}
-      Starting workload 'rails'... #{Shell.color('done!', :green)}
+      Starting workload 'postgres'... done!
+      Starting workload 'redis'... done!
+      Starting workload 'rails'... done!
 
-      Waiting for workload 'postgres' to be ready... #{Shell.color('done!', :green)}
-      Waiting for workload 'redis' to be ready... #{Shell.color('done!', :green)}
-      Waiting for workload 'rails' to be ready... #{Shell.color('done!', :green)}
+      Waiting for workload 'postgres' to be ready... done!
+      Waiting for workload 'redis' to be ready... done!
+      Waiting for workload 'rails' to be ready... done!
 
-      Switching workload for domain 'my-app-staging.example.com' to 'rails'... #{Shell.color('done!', :green)}
+      Switching workload for domain 'my-app-staging.example.com' to 'rails'... done!
 
-      Stopping workload 'maintenance'... #{Shell.color('done!', :green)}
+      Stopping workload 'maintenance'... done!
 
-      Waiting for workload 'maintenance' to not be ready... #{Shell.color('done!', :green)}
+      Waiting for workload 'maintenance' to not be ready... done!
 
       Maintenance mode disabled for app 'my-app-staging'.
     OUTPUT
 
-    output = command_output do
-      args = ["-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
-    end
+    args = ["-a", "my-app-staging"]
+    result = run_command(described_class::NAME, *args)
 
-    expect(output).to eq(expected_output)
+    expect(result[:stderr]).to eq(expected_output)
   end
 end
