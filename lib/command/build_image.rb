@@ -7,12 +7,14 @@ module Command
       app_option(required: true),
       commit_option
     ].freeze
+    ACCEPTS_EXTRA_OPTIONS = true
     DESCRIPTION = "Builds and pushes the image to Control Plane"
     LONG_DESCRIPTION = <<~DESC
       - Builds and pushes the image to Control Plane
       - Automatically assigns image numbers, e.g., `app:1`, `app:2`, etc.
       - Uses `.controlplane/Dockerfile` or a different Dockerfile specified through `dockerfile` in the `.controlplane/controlplane.yml` file
       - If a commit is provided through `--commit` or `-c`, it will be set as the runtime env var `GIT_COMMIT`
+      - Accepts extra options that are passed to `docker build`
     DESC
 
     def call # rubocop:disable Metrics/MethodLength
@@ -32,7 +34,9 @@ module Command
       build_args = []
       build_args.push("GIT_COMMIT=#{commit}") if commit
 
-      cp.image_build(image_url, dockerfile: dockerfile, build_args: build_args)
+      cp.image_build(image_url, dockerfile: dockerfile,
+                                docker_args: config.args,
+                                build_args: build_args)
 
       progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.")
     end
