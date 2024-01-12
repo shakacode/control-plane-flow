@@ -44,13 +44,6 @@ module Command
 
     private
 
-    def ensure_docker_running!
-      `docker version > /dev/null 2>&1`
-      return if $CHILD_STATUS.success?
-
-      raise "Can't run Docker. Please make sure that it's installed and started, then try again."
-    end
-
     def ensure_upstream_org!
       return if @upstream_org
 

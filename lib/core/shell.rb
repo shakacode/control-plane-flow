@@ -66,6 +66,16 @@ class Shell
     tmp_stderr && !verbose
   end
 
+  def self.cmd(cmd_to_run)
+    output = `#{cmd_to_run}`
+    success = $CHILD_STATUS.success?
+
+    {
+      output: output,
+      success: success
+    }
+  end
+
   #
   # Hide sensitive data based on the passed pattern
   #

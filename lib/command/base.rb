@@ -422,6 +422,13 @@ module Command
       "#{app_secrets}-policy"
     end
 
+    def ensure_docker_running!
+      result = Shell.cmd("docker version > /dev/null 2>&1")
+      return if result[:success]
+
+      raise "Can't run Docker. Please make sure that it's installed and started, then try again."
+    end
+
     private
 
     # returns 0 if no prior image
