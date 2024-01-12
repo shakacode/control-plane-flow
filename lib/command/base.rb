@@ -233,18 +233,6 @@ module Command
       }
     end
 
-    def self.clean_option(required: false)
-      {
-        name: :clean,
-        params: {
-          desc: "Deletes workload when disconnecting",
-          type: :boolean,
-          required: required,
-          default: true
-        }
-      }
-    end
-
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end

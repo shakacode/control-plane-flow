@@ -37,9 +37,7 @@ describe Cpl do
         args = [option_key_name, option_value]
       end
 
-      allow(Config).to receive(:new)
-        .with([], a_hash_including(option[:name].to_sym => option_value), [])
-        .and_call_original
+      allow(Config).to receive(:new).with([], { option[:name].to_sym => option_value }, []).and_call_original
 
       allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
       expect_any_instance_of(Command::Test).to receive(:call) # rubocop:disable RSpec/AnyInstance
