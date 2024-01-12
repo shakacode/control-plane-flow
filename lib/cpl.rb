@@ -142,6 +142,7 @@ module Cpl
       requires_args = command_class::REQUIRES_ARGS
       default_args = command_class::DEFAULT_ARGS
       command_options = command_class::OPTIONS + ::Command::Base.common_options
+      accepts_extra_options = command_class::ACCEPTS_EXTRA_OPTIONS
       description = command_class::DESCRIPTION
       long_description = command_class::LONG_DESCRIPTION
       examples = command_class::EXAMPLES
@@ -178,7 +179,9 @@ module Cpl
                  default_args
                end
 
-        raise_args_error.call(args, nil) if (args.empty? && requires_args) || (!args.empty? && !requires_args)
+        if (args.empty? && requires_args) || (!args.empty? && !requires_args && !accepts_extra_options)
+          raise_args_error.call(args, nil)
+        end
 
         begin
           config = Config.new(args, options, required_options)

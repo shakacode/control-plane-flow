@@ -15,6 +15,9 @@ module Command
     DEFAULT_ARGS = [].freeze
     # Options for the command (use option methods below)
     OPTIONS = [].freeze
+    # Does not throw error if `true` and extra options
+    # that are not specified in `OPTIONS` are passed to the command
+    ACCEPTS_EXTRA_OPTIONS = false
     # Displayed when running `cpl help`
     # DESCRIPTION = ""
     # Displayed when running `cpl help NAME`
