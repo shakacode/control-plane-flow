@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Changed
+
+- `build-image` command now accepts extra options and passes them to `docker build`. [PR 126](https://github.com/shakacode/heroku-to-control-plane/pull/126) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.2.0] - 2024-01-03
 
 ### Fixed
