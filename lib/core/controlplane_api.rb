@@ -94,6 +94,10 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     api_json("/org/#{org}/gvc/#{gvc}/volumeset/#{volumeset}", method: :delete)
   end
 
+  def fetch_domain(org:, domain:)
+    api_json("/org/#{org}/domain/#{domain}", method: :get)
+  end
+
   def list_domains(org:)
     api_json("/org/#{org}/domain", method: :get)
   end

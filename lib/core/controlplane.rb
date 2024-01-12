@@ -269,6 +269,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
+  def fetch_domain(domain)
+    domain_data = api.fetch_domain(org: org, domain: domain)
+    route = find_domain_route(domain_data)
+    return nil if route.nil?
+
+    domain_data
+  end
+
   def get_domain_workload(data)
     route = find_domain_route(data)
     route["workloadLink"].split("/").last
