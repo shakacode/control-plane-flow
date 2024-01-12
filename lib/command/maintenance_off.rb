@@ -4,7 +4,8 @@ module Command
   class MaintenanceOff < Base
     NAME = "maintenance:off"
     OPTIONS = [
-      app_option(required: true)
+      app_option(required: true),
+      domain_option
     ].freeze
     DESCRIPTION = "Disables maintenance mode for an app"
     LONG_DESCRIPTION = <<~DESC
@@ -18,7 +19,11 @@ module Command
       one_off_workload = config[:one_off_workload]
       maintenance_workload = config.current[:maintenance_workload] || "maintenance"
 
-      domain_data = cp.find_domain_for([one_off_workload, maintenance_workload])
+      domain_data = if config.domain
+                      cp.fetch_domain(config.domain)
+                    else
+                      cp.find_domain_for([one_off_workload, maintenance_workload])
+                    end
       unless domain_data
         raise "Can't find domain. " \
               "Maintenance mode is only supported for domains that use path based routing mode " \

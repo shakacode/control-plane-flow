@@ -265,8 +265,16 @@ class Controlplane # rubocop:disable Metrics/ClassLength
       route = find_domain_route(domain_data)
       next false if route.nil?
 
-      workloads.any? { |workload| route["workloadLink"].split("/").last == workload }
+      workloads.any? { |workload| route["workloadLink"].match?(%r{/org/#{org}/gvc/#{gvc}/workload/#{workload}}) }
     end
+  end
+
+  def fetch_domain(domain)
+    domain_data = api.fetch_domain(org: org, domain: domain)
+    route = find_domain_route(domain_data)
+    return nil if route.nil?
+
+    domain_data
   end
 
   def get_domain_workload(data)

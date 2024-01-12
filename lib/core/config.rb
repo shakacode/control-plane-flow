@@ -38,6 +38,10 @@ class Config # rubocop:disable Metrics/ClassLength
     @location ||= load_location_from_options || load_location_from_env || load_location_from_file
   end
 
+  def domain
+    @domain ||= load_domain_from_options || load_domain_from_file
+  end
+
   def [](key)
     ensure_current_config!
 
@@ -251,6 +255,16 @@ class Config # rubocop:disable Metrics/ClassLength
     return unless current&.key?(:default_location)
 
     strip_str_and_validate(current.fetch(:default_location))
+  end
+
+  def load_domain_from_options
+    strip_str_and_validate(options[:domain])
+  end
+
+  def load_domain_from_file
+    return unless current&.key?(:default_domain)
+
+    strip_str_and_validate(current.fetch(:default_domain))
   end
 
   def warn_deprecated_options(app_options)

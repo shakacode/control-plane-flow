@@ -258,6 +258,10 @@ apps:
     # This is relative to the `.controlplane/` directory.
     release_script: release_script
 
+    # default_domain is used for commands that require a domain
+    # including `maintenance`, `maintenance:on`, `maintenance:off`.
+    default_domain: domain.com
+
   my-app-other:
     <<: *common
 
