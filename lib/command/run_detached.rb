@@ -10,7 +10,8 @@ module Command
       image_option,
       workload_option,
       location_option,
-      use_local_token_option
+      use_local_token_option,
+      clean_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
     LONG_DESCRIPTION = <<~DESC
@@ -19,6 +20,7 @@ module Command
       - Implemented with only async execution methods, more suitable for production tasks
       - Has alternative log fetch implementation with only JSON-polling and no WebSockets
       - Less responsive but more stable, useful for CI tasks
+      - Deletes the workload when disconnecting by default (can be disabled with `--no-clean` - the workload will still self-delete when finishing)
     DESC
     EXAMPLES = <<~EX
       ```sh
@@ -59,7 +61,7 @@ module Command
       wait_for_workload(one_off)
       show_logs_waiting
     ensure
-      if cp.fetch_workload(one_off)
+      if config.options[:clean] && cp.fetch_workload(one_off)
         progress.puts
         ensure_workload_deleted(one_off)
       end
