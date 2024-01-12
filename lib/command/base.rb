@@ -125,6 +125,18 @@ module Command
       }
     end
 
+    def self.domain_option(required: false)
+      {
+        name: :domain,
+        params: {
+          banner: "DOMAIN_NAME",
+          desc: "Domain name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.upstream_token_option(required: false)
       {
         name: :upstream_token,
