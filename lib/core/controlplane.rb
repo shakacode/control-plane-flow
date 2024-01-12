@@ -277,9 +277,9 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     domain_data
   end
 
-  def get_domain_workload(data)
+  def domain_workload_matches?(data, workload)
     route = find_domain_route(data)
-    route["workloadLink"].split("/").last
+    route["workloadLink"].match?(%r{/org/#{org}/gvc/#{gvc}/workload/#{workload}})
   end
 
   def set_domain_workload(data, workload)

@@ -32,8 +32,7 @@ module Command
               "and have a route configured for the prefix '/' on either port 80 or 443."
       end
 
-      domain_workload = cp.get_domain_workload(domain_data)
-      if domain_workload == maintenance_workload
+      if cp.domain_workload_matches?(domain_data, maintenance_workload)
         puts "on"
       else
         puts "off"
