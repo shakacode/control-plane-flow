@@ -41,6 +41,7 @@ cpl apply-template gvc postgres redis rails -a $APP_NAME
 - Automatically assigns image numbers, e.g., `app:1`, `app:2`, etc.
 - Uses `.controlplane/Dockerfile` or a different Dockerfile specified through `dockerfile` in the `.controlplane/controlplane.yml` file
 - If a commit is provided through `--commit` or `-c`, it will be set as the runtime env var `GIT_COMMIT`
+- Accepts extra options that are passed to `docker build`
 
 ```sh
 cpl build-image -a $APP_NAME

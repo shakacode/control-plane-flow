@@ -44,12 +44,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.query_images(org: a_org, gvc: a_gvc, gvc_op_type: gvc_op)
   end
 
-  def image_build(image, dockerfile:, build_args: [], push: true)
+  def image_build(image, dockerfile:, docker_args: [], build_args: [], push: true)
     # https://docs.controlplane.com/guides/push-image#step-2
     # Might need to use `docker buildx build` if compatiblitity issues arise
     cmd = "docker build --platform=linux/amd64 -t #{image} -f #{dockerfile}"
     cmd += " --progress=plain" if ControlplaneApiDirect.trace
 
+    cmd += " #{docker_args.join(' ')}" if docker_args.any?
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
     cmd += " #{config.app_dir}"
     perform!(cmd)
