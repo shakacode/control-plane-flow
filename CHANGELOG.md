@@ -23,6 +23,7 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Added `--domain` option to `maintenance`, `maintenance:on` and `maintenance:off` commands. [PR 131](https://github.com/shakacode/heroku-to-control-plane/pull/131) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `default_domain` config to specify domain for `maintenance`, `maintenance:on` and `maintenance:off` commands. [PR 131](https://github.com/shakacode/heroku-to-control-plane/pull/131) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added option to specify upstream for `copy-image-from-upstream` command through `CPLN_UPSTREAM` env var. [PR 138](https://github.com/shakacode/heroku-to-control-plane/pull/138) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
 
