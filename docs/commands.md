@@ -87,7 +87,7 @@ cpl config -a $APP_NAME
 ### `copy-image-from-upstream`
 
 - Copies an image (by default the latest) from a source org to the current org
-- The source org must be specified through `upstream` in the `.controlplane/controlplane.yml` file
+- The source app must be specified either through the `CPLN_UPSTREAM` env var or `upstream` in the `.controlplane/controlplane.yml` file
 - Additionally, the token for the source org must be provided through `--upstream-token` or `-t`
 - A `cpln` profile will be temporarily created to pull the image from the source org
 

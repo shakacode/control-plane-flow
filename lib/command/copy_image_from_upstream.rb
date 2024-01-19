@@ -11,7 +11,7 @@ module Command
     DESCRIPTION = "Copies an image (by default the latest) from a source org to the current org"
     LONG_DESCRIPTION = <<~DESC
       - Copies an image (by default the latest) from a source org to the current org
-      - The source org must be specified through `upstream` in the `.controlplane/controlplane.yml` file
+      - The source app must be specified either through the `CPLN_UPSTREAM` env var or `upstream` in the `.controlplane/controlplane.yml` file
       - Additionally, the token for the source org must be provided through `--upstream-token` or `-t`
       - A `cpln` profile will be temporarily created to pull the image from the source org
     DESC
@@ -28,7 +28,7 @@ module Command
     def call # rubocop:disable Metrics/MethodLength
       ensure_docker_running!
 
-      @upstream = config[:upstream]
+      @upstream = ENV.fetch("CPLN_UPSTREAM", nil) || config[:upstream]
       @upstream_org = ENV.fetch("CPLN_ORG_UPSTREAM", nil) || config.find_app_config(@upstream)&.dig(:cpln_org)
       ensure_upstream_org!
 
