@@ -1,0 +1,56 @@
+name: RSpec Shared
+
+on:
+  workflow_call:
+    inputs:
+      os-version:
+        required: true
+        type: string
+      ruby-version:
+        required: true
+        type: string
+      test-tag:
+        required: true
+        type: string
+
+jobs:
+  rspec:
+    runs-on: ${{ inputs.os-version }}
+    env:
+      RAILS_ENV: test
+      # We have to add "_CI" to the end, otherwise it messes with tests where we switch profiles,
+      # as Control Plane will try to use this token's profile instead.
+      CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
+      CPLN_ORG: ${{ vars.CPLN_ORG }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ inputs.ruby-version }}
+          bundler-cache: true
+      - name: Install dependencies
+        run: bundle install
+      - name: Install Control Plane tools
+        run: |
+          sudo npm install -g @controlplane/cli
+          cpln --version
+      - name: Setup Control Plane tools
+        run: |
+          cpln profile create default --token $CPLN_TOKEN_CI --org $CPLN_ORG
+          cpln image docker-login
+      - name: Run tests
+        run: bundle exec rspec --format documentation --tag ${{ inputs.test-tag }}
+      - name: Upload spec log
+        uses: actions/upload-artifact@master
+        if: always()
+        with:
+          name: spec-${{ inputs.test-tag }}-${{ github.run_id }}-${{ inputs.os-version }}-${{ inputs.ruby-version }}.log
+          path: spec.log
+      - name: Upload coverage results
+        uses: actions/upload-artifact@master
+        if: always()
+        with:
+          name: coverage-report-${{ inputs.test-tag }}-${{ github.run_id }}-${{ inputs.os-version }}-${{ inputs.ruby-version }}
+          path: coverage
