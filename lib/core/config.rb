@@ -102,6 +102,13 @@ class Config # rubocop:disable Metrics/ClassLength
     end
   end
 
+  def find_app_config(app_name1)
+    @app_configs ||= {}
+    @app_configs[app_name1] ||= apps.find do |app_name2, app_config|
+                                  app_matches?(app_name1, app_name2, app_config)
+                                end&.last
+  end
+
   private
 
   def ensure_current_config!
@@ -125,13 +132,6 @@ class Config # rubocop:disable Metrics/ClassLength
       (app_name1.to_s == app_name2.to_s ||
         (app_options[:match_if_app_name_starts_with] && app_name1.to_s.start_with?(app_name2.to_s))
       )
-  end
-
-  def find_app_config(app_name1)
-    @app_configs ||= {}
-    @app_configs[app_name1] ||= apps.find do |app_name2, app_config|
-                                  app_matches?(app_name1, app_name2, app_config)
-                                end&.last
   end
 
   def ensure_app!
