@@ -32,7 +32,7 @@ module Command
       @missing_apps_workloads = {}
       @missing_apps_starting_with = {}
 
-      if config.app && !config.current[:match_if_app_name_starts_with]
+      if config.app && !config.should_app_start_with?(config.app)
         single_app_info
       else
         multiple_apps_info
@@ -41,20 +41,8 @@ module Command
 
     private
 
-    def app_matches?(app, app_name, app_options)
-      app == app_name.to_s || (app_options[:match_if_app_name_starts_with] && app.start_with?(app_name.to_s))
-    end
-
-    def find_app_options(app)
-      @app_options ||= {}
-      @app_options[app] ||= config.apps.find do |app_name, app_options|
-                              app_matches?(app, app_name, app_options)
-                            end&.last
-    end
-
     def find_workloads(app)
-      app_options = find_app_options(app)
-      return [] if app_options.nil?
+      app_options = config.find_app_config(app)
 
       (app_options[:app_workloads] + app_options[:additional_workloads] + [app_options[:one_off_workload]]).uniq
     end
@@ -75,21 +63,19 @@ module Command
       end
 
       if config.app
-        result.select { |app, _| app_matches?(app, config.app, config.current) }
+        result.select { |app, _| config.app_matches?(app, config.app, config.current) }
       else
-        result.reject { |app, _| find_app_options(app).nil? }
+        result.reject { |app, _| config.find_app_config(app).nil? }
       end
     end
 
-    def orgs # rubocop:disable Metrics/MethodLength
+    def orgs
       result = []
 
       if config.org
         result.push(config.org)
       else
-        config.apps.each do |app_name, app_options|
-          next if config.app && !app_matches?(config.app, app_name, app_options)
-
+        config.apps.each do |_, app_options|
           org = app_options[:cpln_org]
           result.push(org) if org && !result.include?(org)
         end
@@ -102,7 +88,7 @@ module Command
       result = []
 
       config.apps.each do |app_name, app_options|
-        next if config.app && !app_matches?(config.app, app_name, app_options)
+        next if config.app && !config.app_matches?(config.app, app_name, app_options)
 
         app_org = app_options[:cpln_org]
         result.push(app_name.to_s) if app_org == org
@@ -113,7 +99,7 @@ module Command
     end
 
     def any_app_starts_with?(app)
-      @app_workloads.keys.find { |app_name| app_matches?(app_name, app, config.apps[app.to_sym]) }
+      @app_workloads.keys.find { |app_name| config.app_matches?(app_name, app, config.apps[app.to_sym]) }
     end
 
     def check_any_app_starts_with(app)
@@ -184,8 +170,7 @@ module Command
            "(replace 'whatever' with whatever suffix you want):"
 
       @missing_apps_starting_with.each do |app, _workloads|
-        app_with_suffix = "#{app}#{app.end_with?('-') ? '' : '-'}whatever"
-        puts "  - `cpl setup-app -a #{app_with_suffix}`"
+        puts "  - `cpl setup-app -a #{app}-whatever`"
       end
     end
 
@@ -197,7 +182,7 @@ module Command
       @defined_workloads = find_workloads(config.app)
       @available_workloads = fetch_workloads(config.app)
 
-      workloads = (@defined_workloads + @available_workloads).uniq.sort
+      workloads = (@defined_workloads + @available_workloads).uniq
       workloads.each do |workload|
         print_workload(config.app, workload)
       end
@@ -217,7 +202,7 @@ module Command
           @defined_workloads = find_workloads(app)
           @available_workloads = @app_workloads[app] || []
 
-          workloads = (@defined_workloads + @available_workloads).uniq.sort
+          workloads = (@defined_workloads + @available_workloads).uniq
           workloads.each do |workload|
             print_workload(app, workload)
           end
