@@ -38,6 +38,7 @@ module Command
       pull_image_from_upstream
       push_image_to_app
     ensure
+      cp.profile_switch("default")
       delete_upstream_profile
     end
 

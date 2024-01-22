@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Fixed
+
+- Fixed issue where cpln profile was not switched back to `default` if an error happened while running `copy-image-from-upstream` command. [PR 135](https://github.com/shakacode/heroku-to-control-plane/pull/135) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Added
 
 - Added `--domain` option to `maintenance`, `maintenance:on` and `maintenance:off` commands. [PR 131](https://github.com/shakacode/heroku-to-control-plane/pull/131) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
