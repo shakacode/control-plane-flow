@@ -102,6 +102,13 @@ class Config # rubocop:disable Metrics/ClassLength
     end
   end
 
+  def app_matches?(app_name1, app_name2, app_options)
+    app_name1 && app_name2 &&
+      (app_name1.to_s == app_name2.to_s ||
+        (app_options[:match_if_app_name_starts_with] && app_name1.to_s.start_with?(app_name2.to_s))
+      )
+  end
+
   def find_app_config(app_name1)
     @app_configs ||= {}
     @app_configs[app_name1] ||= apps.find do |app_name2, app_config|
@@ -125,13 +132,6 @@ class Config # rubocop:disable Metrics/ClassLength
 
   def ensure_config_app!(app_name, app_options)
     raise "Can't find config for app '#{app_name}' in 'controlplane.yml'." unless app_options
-  end
-
-  def app_matches?(app_name1, app_name2, app_options)
-    app_name1 && app_name2 &&
-      (app_name1.to_s == app_name2.to_s ||
-        (app_options[:match_if_app_name_starts_with] && app_name1.to_s.start_with?(app_name2.to_s))
-      )
   end
 
   def ensure_app!

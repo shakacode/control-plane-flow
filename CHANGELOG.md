@@ -29,6 +29,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - `build-image` command now accepts extra options and passes them to `docker build`. [PR 126](https://github.com/shakacode/heroku-to-control-plane/pull/126) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `CPLN_ORG_UPSTREAM` env var now takes precedence over config from `controlplane.yml` in `copy-image-from-upstream` command. [PR 137](https://github.com/shakacode/heroku-to-control-plane/pull/137) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `info` command now works properly for apps with `match_if_app_name_starts_with` set to `true`.[PR 139](https://github.com/shakacode/heroku-to-control-plane/pull/139) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `info` command now lists workloads in the same order as `controlplane.yml`. [PR 139](https://github.com/shakacode/heroku-to-control-plane/pull/139) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [1.2.0] - 2024-01-03
 
