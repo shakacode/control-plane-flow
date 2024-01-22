@@ -17,6 +17,7 @@ _Please add entries here for your pull requests that are not yet released._
 ### Fixed
 
 - Fixed issue where cpln profile was not switched back to `default` if an error happened while running `copy-image-from-upstream` command. [PR 135](https://github.com/shakacode/heroku-to-control-plane/pull/135) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed issue that didn't allow using upstream with `match_if_app_name_starts_with` set to `true` in `copy-image-from-upstream` command. [PR 136](https://github.com/shakacode/heroku-to-control-plane/pull/136) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Added
 
