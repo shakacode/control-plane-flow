@@ -29,7 +29,7 @@ module Command
       ensure_docker_running!
 
       @upstream = config[:upstream]
-      @upstream_org = config.find_app_config(@upstream)&.dig(:cpln_org) || ENV.fetch("CPLN_ORG_UPSTREAM", nil)
+      @upstream_org = ENV.fetch("CPLN_ORG_UPSTREAM", nil) || config.find_app_config(@upstream)&.dig(:cpln_org)
       ensure_upstream_org!
 
       create_upstream_profile
