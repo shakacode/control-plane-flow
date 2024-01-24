@@ -31,6 +31,7 @@ _Please add entries here for your pull requests that are not yet released._
 - `CPLN_ORG_UPSTREAM` env var now takes precedence over config from `controlplane.yml` in `copy-image-from-upstream` command. [PR 137](https://github.com/shakacode/heroku-to-control-plane/pull/137) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `info` command now works properly for apps with `match_if_app_name_starts_with` set to `true`.[PR 139](https://github.com/shakacode/heroku-to-control-plane/pull/139) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `info` command now lists workloads in the same order as `controlplane.yml`. [PR 139](https://github.com/shakacode/heroku-to-control-plane/pull/139) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Improved domain workload matching for `maintenance`, `maintenance:on` and `maintenance:off` commands (instead of matching only by workload, it now matches by org + app + workload, which is more accurate). [PR 140](https://github.com/shakacode/heroku-to-control-plane/pull/140) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [1.2.0] - 2024-01-03
 
