@@ -10,7 +10,8 @@ module Command
       image_option,
       workload_option,
       location_option,
-      use_local_token_option
+      use_local_token_option,
+      clean_on_failure_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
     LONG_DESCRIPTION = <<~DESC
@@ -19,6 +20,9 @@ module Command
       - Implemented with only async execution methods, more suitable for production tasks
       - Has alternative log fetch implementation with only JSON-polling and no WebSockets
       - Less responsive but more stable, useful for CI tasks
+      - Deletes the workload whenever finished with success
+      - Deletes the workload whenever finished with failure by default
+      - Use `--no-clean-on-failure` to disable cleanup to help with debugging failed runs
     DESC
     EXAMPLES = <<~EX
       ```sh
@@ -47,7 +51,7 @@ module Command
 
     attr_reader :location, :workload_to_clone, :workload_clone, :container
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call
       @location = config.location
       @workload_to_clone = config.options["workload"] || config[:one_off_workload]
       @workload_clone = "#{workload_to_clone}-runner-#{random_four_digits}"
@@ -59,10 +63,6 @@ module Command
       wait_for_workload(workload_clone)
       show_logs_waiting
     ensure
-      if cp.fetch_workload(workload_clone)
-        progress.puts
-        ensure_workload_deleted(workload_clone)
-      end
       exit(1) if @crashed
     end
 
@@ -119,12 +119,20 @@ module Command
       end
 
       script += <<~SHELL
-        if ! eval "#{args_join(config.args)}"; then echo "----- CRASHED -----"; fi
-
-        echo "-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --"
-        sleep 10 # grace time for logs propagation
-        curl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H "Authorization: ${CONTROLPLANE_TOKEN}" -X DELETE -s -o /dev/null
-        while true; do sleep 1; done # wait for SIGTERM
+        crashed=0
+        if ! eval "#{args_join(config.args)}"; then
+          crashed=1
+          echo "----- CRASHED -----"
+        fi
+        clean_on_failure=#{config.options[:clean_on_failure] ? 1 : 0}
+        if [ $crashed -eq 0 ] || [ $clean_on_failure -eq 1 ]; then
+          echo "-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --"
+          sleep 30 # grace time for logs propagation
+          curl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H "Authorization: ${CONTROLPLANE_TOKEN}" -X DELETE -s -o /dev/null
+          while true; do sleep 1; done # wait for SIGTERM
+        else
+          echo "-- FINISHED RUNNER SCRIPT --"
+        fi
       SHELL
 
       script
@@ -133,7 +141,8 @@ module Command
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
       begin
-        while cp.fetch_workload(workload_clone)
+        @finished = false
+        while cp.fetch_workload(workload_clone) && !@finished
           sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end
@@ -151,6 +160,7 @@ module Command
 
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         @crashed = true if val.match?(/^----- CRASHED -----$/)
+        @finished = true if val.match?(/^-- FINISHED RUNNER SCRIPT(, DELETING WORKLOAD)? --$/)
         puts val
       end
 

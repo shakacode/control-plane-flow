@@ -237,6 +237,18 @@ module Command
       }
     end
 
+    def self.clean_on_failure_option(required: false)
+      {
+        name: :clean_on_failure,
+        params: {
+          desc: "Deletes workload when finished with failure (success always deletes)",
+          type: :boolean,
+          required: required,
+          default: true
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end

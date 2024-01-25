@@ -375,6 +375,9 @@ cpl run:cleanup -a $APP_NAME
 - Implemented with only async execution methods, more suitable for production tasks
 - Has alternative log fetch implementation with only JSON-polling and no WebSockets
 - Less responsive but more stable, useful for CI tasks
+- Deletes the workload whenever finished with success
+- Deletes the workload whenever finished with failure by default
+- Use `--no-clean-on-failure` to disable cleanup to help with debugging failed runs
 
 ```sh
 cpl run:detached rails db:prepare -a $APP_NAME
