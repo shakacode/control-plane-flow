@@ -29,21 +29,18 @@ module Command
       cpl run:detached rails db:prepare -a $APP_NAME
 
       # Need to quote COMMAND if setting ENV value or passing args.
-      cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-      # COMMAND may also be passed at the end.
       cpl run:detached -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
       # Uses a different image (which may not be promoted yet).
-      cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
-      cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+      cpl run:detached -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+      cpl run:detached -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
       # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-      cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
+      cpl run:detached -a $APP_NAME -w other-workload -- rails db:migrate:status
 
       # Overrides remote CPLN_TOKEN env variable with local token.
       # Useful when superuser rights are needed in remote container.
-      cpl run:detached rails db:migrate:status -a $APP_NAME --use-local-token
+      cpl run:detached -a $APP_NAME --use-local-token -- rails db:migrate:status
       ```
     EX
 

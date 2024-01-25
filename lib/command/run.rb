@@ -29,28 +29,25 @@ module Command
       cpl run -a $APP_NAME
 
       # Need to quote COMMAND if setting ENV value or passing args.
-      cpl run 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-      # COMMAND may also be passed at the end.
       cpl run -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
       # Runs command, displays output, and exits shell.
-      cpl run ls / -a $APP_NAME
-      cpl run rails db:migrate:status -a $APP_NAME
+      cpl run -a $APP_NAME -- ls /
+      cpl run -a $APP_NAME -- rails db:migrate:status
 
       # Runs command and keeps shell open.
-      cpl run rails c -a $APP_NAME
+      cpl run -a $APP_NAME -- rails c
 
       # Uses a different image (which may not be promoted yet).
-      cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
-      cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+      cpl run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+      cpl run -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
       # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-      cpl run bash -a $APP_NAME -w other-workload
+      cpl run -a $APP_NAME -w other-workload -- bash
 
       # Overrides remote CPLN_TOKEN env variable with local token.
       # Useful when superuser rights are needed in remote container.
-      cpl run bash -a $APP_NAME --use-local-token
+      cpl run -a $APP_NAME --use-local-token -- bash
       ```
     EX
 
