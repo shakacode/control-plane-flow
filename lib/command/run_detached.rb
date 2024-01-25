@@ -45,23 +45,23 @@ module Command
 
     WORKLOAD_SLEEP_CHECK = 2
 
-    attr_reader :location, :workload, :one_off, :container
+    attr_reader :location, :workload_to_clone, :workload_clone, :container
 
     def call # rubocop:disable Metrics/MethodLength
       @location = config.location
-      @workload = config.options["workload"] || config[:one_off_workload]
-      @one_off = "#{workload}-runner-#{rand(1000..9999)}"
+      @workload_to_clone = config.options["workload"] || config[:one_off_workload]
+      @workload_clone = "#{workload_to_clone}-runner-#{rand(1000..9999)}"
 
-      step("Cloning workload '#{workload}' on app '#{config.options[:app]}' to '#{one_off}'") do
+      step("Cloning workload '#{workload_to_clone}' on app '#{config.options[:app]}' to '#{workload_clone}'") do
         clone_workload
       end
 
-      wait_for_workload(one_off)
+      wait_for_workload(workload_clone)
       show_logs_waiting
     ensure
-      if cp.fetch_workload(one_off)
+      if cp.fetch_workload(workload_clone)
         progress.puts
-        ensure_workload_deleted(one_off)
+        ensure_workload_deleted(workload_clone)
       end
       exit(1) if @crashed
     end
@@ -70,8 +70,8 @@ module Command
 
     def clone_workload # rubocop:disable Metrics/MethodLength
       # Get base specs of workload
-      spec = cp.fetch_workload!(workload).fetch("spec")
-      container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      spec = cp.fetch_workload!(workload_to_clone).fetch("spec")
+      container_spec = spec["containers"].detect { _1["name"] == workload_to_clone } || spec["containers"].first
       @container = container_spec["name"]
 
       # remove other containers if any
@@ -105,7 +105,7 @@ module Command
       container_spec["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
-      cp.apply_hash("kind" => "workload", "name" => one_off, "spec" => spec)
+      cp.apply_hash("kind" => "workload", "name" => workload_clone, "spec" => spec)
     end
 
     def runner_script # rubocop:disable Metrics/MethodLength
@@ -133,7 +133,7 @@ module Command
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
       begin
-        while cp.fetch_workload(one_off)
+        while cp.fetch_workload(workload_clone)
           sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end
@@ -158,7 +158,7 @@ module Command
     end
 
     def normalized_log_entries(from:, to:)
-      log = cp.log_get(workload: one_off, from: from, to: to)
+      log = cp.log_get(workload: workload_clone, from: from, to: to)
 
       log["data"]["result"]
         .each_with_object([]) { |obj, result| result.concat(obj["values"]) }

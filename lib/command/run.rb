@@ -54,31 +54,31 @@ module Command
       ```
     EX
 
-    attr_reader :location, :workload, :one_off, :container
+    attr_reader :location, :workload_to_clone, :workload_clone, :container
 
     def call # rubocop:disable Metrics/MethodLength
       @location = config.location
-      @workload = config.options["workload"] || config[:one_off_workload]
-      @one_off = "#{workload}-run-#{rand(1000..9999)}"
+      @workload_to_clone = config.options["workload"] || config[:one_off_workload]
+      @workload_clone = "#{workload_to_clone}-run-#{rand(1000..9999)}"
 
-      step("Cloning workload '#{workload}' on app '#{config.options[:app]}' to '#{one_off}'") do
+      step("Cloning workload '#{workload_to_clone}' on app '#{config.options[:app]}' to '#{workload_clone}'") do
         clone_workload
       end
 
-      wait_for_workload(one_off)
-      wait_for_replica(one_off, location)
+      wait_for_workload(workload_clone)
+      wait_for_replica(workload_clone, location)
       run_in_replica
     ensure
       progress.puts
-      ensure_workload_deleted(one_off)
+      ensure_workload_deleted(workload_clone)
     end
 
     private
 
     def clone_workload # rubocop:disable Metrics/MethodLength
       # Create a base copy of workload props
-      spec = cp.fetch_workload!(workload).fetch("spec")
-      container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      spec = cp.fetch_workload!(workload_to_clone).fetch("spec")
+      container_spec = spec["containers"].detect { _1["name"] == workload_to_clone } || spec["containers"].first
       @container = container_spec["name"]
 
       # remove other containers if any
@@ -111,7 +111,7 @@ module Command
       end
 
       # Create workload clone
-      cp.apply_hash("kind" => "workload", "name" => one_off, "spec" => spec)
+      cp.apply_hash("kind" => "workload", "name" => workload_clone, "spec" => spec)
     end
 
     def runner_script # rubocop:disable Metrics/MethodLength
@@ -141,7 +141,7 @@ module Command
     def run_in_replica
       progress.puts("Connecting...\n\n")
       command = %(bash -c 'eval "$CONTROLPLANE_RUNNER"')
-      cp.workload_exec(one_off, location: location, container: container, command: command)
+      cp.workload_exec(workload_clone, location: location, container: container, command: command)
     end
   end
 end
