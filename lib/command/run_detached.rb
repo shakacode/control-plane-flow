@@ -50,7 +50,7 @@ module Command
     def call # rubocop:disable Metrics/MethodLength
       @location = config.location
       @workload_to_clone = config.options["workload"] || config[:one_off_workload]
-      @workload_clone = "#{workload_to_clone}-runner-#{rand(1000..9999)}"
+      @workload_clone = "#{workload_to_clone}-runner-#{random_four_digits}"
 
       step("Cloning workload '#{workload_to_clone}' on app '#{config.options[:app]}' to '#{workload_clone}'") do
         clone_workload

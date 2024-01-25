@@ -61,7 +61,7 @@ module Command
     def create_upstream_profile
       step("Creating upstream profile") do
         loop do
-          @upstream_profile = "upstream-#{rand(1000..9999)}"
+          @upstream_profile = "upstream-#{random_four_digits}"
           break unless cp.profile_exists?(@upstream_profile)
         end
 

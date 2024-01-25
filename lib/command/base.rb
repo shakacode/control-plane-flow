@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "../core/helpers"
+
 module Command
   class Base # rubocop:disable Metrics/ClassLength
     attr_reader :config
+
+    include Helpers
 
     # Used to call the command (`cpl NAME`)
     # NAME = ""
