@@ -15,7 +15,14 @@ _A gem that provides **Heroku Flow** functionality on Control Plane, including d
 
 ---
 
-_If you need a free demo account for Control Plane (no CC required), you can contact [controlplane@shakacode.com](mailto:controlplane@shakacode.com)._
+_If you need a free demo account for Control Plane (no CC required), you can contact [Justin Gordon, CEO of ShakaCode](mailto:justin@shakacode.com)._
+
+---
+
+Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) 
+if you would like to see the simple YAML config and set up. 
+Also, check [how the `cpl` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
+Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
 ---
 
@@ -479,6 +486,8 @@ cpl --help
 
 ## Examples
 
-- See the `examples/` and `templates/` directories of this repository.
+- See this repository's `examples/` and `templates/` directories.
 - See the `.controlplane/` directory of this live example:
-  [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane)
+  [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane).
+- See [how the `cpl` gem is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
+- Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
