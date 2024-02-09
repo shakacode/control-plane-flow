@@ -21,6 +21,7 @@ _Please add entries here for your pull requests that are not yet released._
 
 ### Added
 
+- Added `--no-clean-on-failure` option to `run:detached` command to skip deletion of failed workload run. [PR 133](https://github.com/shakacode/heroku-to-control-plane/pull/133) by [Justin Gordon](https://github.com/justin808) and [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `--domain` option to `maintenance`, `maintenance:on` and `maintenance:off` commands. [PR 131](https://github.com/shakacode/heroku-to-control-plane/pull/131) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `default_domain` config to specify domain for `maintenance`, `maintenance:on` and `maintenance:off` commands. [PR 131](https://github.com/shakacode/heroku-to-control-plane/pull/131) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added option to specify upstream for `copy-image-from-upstream` command through `CPLN_UPSTREAM` env var. [PR 138](https://github.com/shakacode/heroku-to-control-plane/pull/138) by [Rafael Gomes](https://github.com/rafaelgomesxyz).

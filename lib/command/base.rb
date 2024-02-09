@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "../core/helpers"
+
 module Command
   class Base # rubocop:disable Metrics/ClassLength
     attr_reader :config
+
+    include Helpers
 
     # Used to call the command (`cpl NAME`)
     # NAME = ""
@@ -229,6 +233,18 @@ module Command
           desc: "Shows trace of API calls. WARNING: may contain sensitive data",
           type: :boolean,
           required: required
+        }
+      }
+    end
+
+    def self.clean_on_failure_option(required: false)
+      {
+        name: :clean_on_failure,
+        params: {
+          desc: "Deletes workload when finished with failure (success always deletes)",
+          type: :boolean,
+          required: required,
+          default: true
         }
       }
     end

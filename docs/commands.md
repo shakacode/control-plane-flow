@@ -332,28 +332,25 @@ cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
 cpl run -a $APP_NAME
 
 # Need to quote COMMAND if setting ENV value or passing args.
-cpl run 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-# COMMAND may also be passed at the end.
 cpl run -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
 # Runs command, displays output, and exits shell.
-cpl run ls / -a $APP_NAME
-cpl run rails db:migrate:status -a $APP_NAME
+cpl run -a $APP_NAME -- ls /
+cpl run -a $APP_NAME -- rails db:migrate:status
 
 # Runs command and keeps shell open.
-cpl run rails c -a $APP_NAME
+cpl run -a $APP_NAME -- rails c
 
 # Uses a different image (which may not be promoted yet).
-cpl run rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
-cpl run rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+cpl run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+cpl run -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
 # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-cpl run bash -a $APP_NAME -w other-workload
+cpl run -a $APP_NAME -w other-workload -- bash
 
 # Overrides remote CPLN_TOKEN env variable with local token.
 # Useful when superuser rights are needed in remote container.
-cpl run bash -a $APP_NAME --use-local-token
+cpl run -a $APP_NAME --use-local-token -- bash
 ```
 
 ### `run:cleanup`
@@ -375,26 +372,26 @@ cpl run:cleanup -a $APP_NAME
 - Implemented with only async execution methods, more suitable for production tasks
 - Has alternative log fetch implementation with only JSON-polling and no WebSockets
 - Less responsive but more stable, useful for CI tasks
+- Deletes the workload whenever finished with success
+- Deletes the workload whenever finished with failure by default
+- Use `--no-clean-on-failure` to disable cleanup to help with debugging failed runs
 
 ```sh
 cpl run:detached rails db:prepare -a $APP_NAME
 
 # Need to quote COMMAND if setting ENV value or passing args.
-cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-# COMMAND may also be passed at the end.
 cpl run:detached -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
 # Uses a different image (which may not be promoted yet).
-cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
-cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+cpl run:detached -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+cpl run:detached -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
 # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
+cpl run:detached -a $APP_NAME -w other-workload -- rails db:migrate:status
 
 # Overrides remote CPLN_TOKEN env variable with local token.
 # Useful when superuser rights are needed in remote container.
-cpl run:detached rails db:migrate:status -a $APP_NAME --use-local-token
+cpl run:detached -a $APP_NAME --use-local-token -- rails db:migrate:status
 ```
 
 ### `setup-app`

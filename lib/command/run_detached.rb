@@ -10,7 +10,8 @@ module Command
       image_option,
       workload_option,
       location_option,
-      use_local_token_option
+      use_local_token_option,
+      clean_on_failure_option
     ].freeze
     DESCRIPTION = "Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)"
     LONG_DESCRIPTION = <<~DESC
@@ -19,50 +20,46 @@ module Command
       - Implemented with only async execution methods, more suitable for production tasks
       - Has alternative log fetch implementation with only JSON-polling and no WebSockets
       - Less responsive but more stable, useful for CI tasks
+      - Deletes the workload whenever finished with success
+      - Deletes the workload whenever finished with failure by default
+      - Use `--no-clean-on-failure` to disable cleanup to help with debugging failed runs
     DESC
     EXAMPLES = <<~EX
       ```sh
       cpl run:detached rails db:prepare -a $APP_NAME
 
       # Need to quote COMMAND if setting ENV value or passing args.
-      cpl run:detached 'LOG_LEVEL=warn rails db:migrate' -a $APP_NAME
-
-      # COMMAND may also be passed at the end.
       cpl run:detached -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
 
       # Uses a different image (which may not be promoted yet).
-      cpl run:detached rails db:migrate -a $APP_NAME --image appimage:123 # Exact image name
-      cpl run:detached rails db:migrate -a $APP_NAME --image latest       # Latest sequential image
+      cpl run:detached -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+      cpl run:detached -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
       # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-      cpl run:detached rails db:migrate:status -a $APP_NAME -w other-workload
+      cpl run:detached -a $APP_NAME -w other-workload -- rails db:migrate:status
 
       # Overrides remote CPLN_TOKEN env variable with local token.
       # Useful when superuser rights are needed in remote container.
-      cpl run:detached rails db:migrate:status -a $APP_NAME --use-local-token
+      cpl run:detached -a $APP_NAME --use-local-token -- rails db:migrate:status
       ```
     EX
 
     WORKLOAD_SLEEP_CHECK = 2
 
-    attr_reader :location, :workload, :one_off, :container
+    attr_reader :location, :workload_to_clone, :workload_clone, :container
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call
       @location = config.location
-      @workload = config.options["workload"] || config[:one_off_workload]
-      @one_off = "#{workload}-runner-#{rand(1000..9999)}"
+      @workload_to_clone = config.options["workload"] || config[:one_off_workload]
+      @workload_clone = "#{workload_to_clone}-runner-#{random_four_digits}"
 
-      step("Cloning workload '#{workload}' on app '#{config.options[:app]}' to '#{one_off}'") do
+      step("Cloning workload '#{workload_to_clone}' on app '#{config.options[:app]}' to '#{workload_clone}'") do
         clone_workload
       end
 
-      wait_for_workload(one_off)
+      wait_for_workload(workload_clone)
       show_logs_waiting
     ensure
-      if cp.fetch_workload(one_off)
-        progress.puts
-        ensure_workload_deleted(one_off)
-      end
       exit(1) if @crashed
     end
 
@@ -70,8 +67,8 @@ module Command
 
     def clone_workload # rubocop:disable Metrics/MethodLength
       # Get base specs of workload
-      spec = cp.fetch_workload!(workload).fetch("spec")
-      container_spec = spec["containers"].detect { _1["name"] == workload } || spec["containers"].first
+      spec = cp.fetch_workload!(workload_to_clone).fetch("spec")
+      container_spec = spec["containers"].detect { _1["name"] == workload_to_clone } || spec["containers"].first
       @container = container_spec["name"]
 
       # remove other containers if any
@@ -105,7 +102,7 @@ module Command
       container_spec["env"] << { "name" => "CONTROLPLANE_RUNNER", "value" => runner_script }
 
       # Create workload clone
-      cp.apply_hash("kind" => "workload", "name" => one_off, "spec" => spec)
+      cp.apply_hash("kind" => "workload", "name" => workload_clone, "spec" => spec)
     end
 
     def runner_script # rubocop:disable Metrics/MethodLength
@@ -119,12 +116,20 @@ module Command
       end
 
       script += <<~SHELL
-        if ! eval "#{args_join(config.args)}"; then echo "----- CRASHED -----"; fi
-
-        echo "-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --"
-        sleep 10 # grace time for logs propagation
-        curl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H "Authorization: ${CONTROLPLANE_TOKEN}" -X DELETE -s -o /dev/null
-        while true; do sleep 1; done # wait for SIGTERM
+        crashed=0
+        if ! eval "#{args_join(config.args)}"; then
+          crashed=1
+          echo "----- CRASHED -----"
+        fi
+        clean_on_failure=#{config.options[:clean_on_failure] ? 1 : 0}
+        if [ $crashed -eq 0 ] || [ $clean_on_failure -eq 1 ]; then
+          echo "-- FINISHED RUNNER SCRIPT, DELETING WORKLOAD --"
+          sleep 30 # grace time for logs propagation
+          curl ${CPLN_ENDPOINT}${CPLN_WORKLOAD} -H "Authorization: ${CONTROLPLANE_TOKEN}" -X DELETE -s -o /dev/null
+          while true; do sleep 1; done # wait for SIGTERM
+        else
+          echo "-- FINISHED RUNNER SCRIPT --"
+        fi
       SHELL
 
       script
@@ -133,7 +138,8 @@ module Command
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
       begin
-        while cp.fetch_workload(one_off)
+        @finished = false
+        while cp.fetch_workload(workload_clone) && !@finished
           sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end
@@ -151,6 +157,7 @@ module Command
 
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         @crashed = true if val.match?(/^----- CRASHED -----$/)
+        @finished = true if val.match?(/^-- FINISHED RUNNER SCRIPT(, DELETING WORKLOAD)? --$/)
         puts val
       end
 
@@ -158,7 +165,7 @@ module Command
     end
 
     def normalized_log_entries(from:, to:)
-      log = cp.log_get(workload: one_off, from: from, to: to)
+      log = cp.log_get(workload: workload_clone, from: from, to: to)
 
       log["data"]["result"]
         .each_with_object([]) { |obj, result| result.concat(obj["values"]) }
