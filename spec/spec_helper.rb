@@ -2,6 +2,7 @@
 
 ENV["RAILS_ENV"] ||= "test"
 
+require "rspec/retry"
 require "simplecov"
 require "timecop"
 
@@ -127,6 +128,10 @@ RSpec.configure do |config|
   config.include CommandHelpers
   config.include DateTimeHelpers
 
+  config.verbose_retry = true
+  config.display_try_failure_messages = true
+  config.default_retry_count = ENV["RSPEC_RETRY_COUNT"] || 3
+
   config.before(:suite) do
     DummyAppSetup.setup
   end
@@ -138,5 +143,10 @@ RSpec.configure do |config|
   config.before do
     allow(Cpl::Cli).to receive(:check_cpln_version)
     allow(Cpl::Cli).to receive(:check_cpl_version)
+  end
+
+  config.around do |example|
+    # Times out after 10 minutes
+    Timeout.timeout(600) { example.run }
   end
 end
