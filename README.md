@@ -1,4 +1,4 @@
-# Heroku to Control Plane `cpl` CLI
+# The power of Kubernetes with the ease of Heroku! 
 
 <meta name="author" content="Justin Gordon and Sergey Tarasov">
 <meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpl to make it easier.">
@@ -6,21 +6,22 @@
 <meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
 
-_A gem that provides **Heroku Flow** functionality on Control Plane, including docs for migrating from [Heroku](https://heroku.com) to [Control Plane](https://shakacode.controlplane.com/)._
-
 [![RSpec](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml)
 [![Rubocop](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml)
 
 [![Gem](https://badge.fury.io/rb/cpl.svg)](https://badge.fury.io/rb/cpl)
 
----
+
+Here's a playbook for migrating from [Heroku Flow](https://www.heroku.com/flow) to [Control Plane](https://controlplane.com/shakacode) with our `cpl` gem source code.
+
+----
 
 _If you need a free demo account for Control Plane (no CC required), you can contact [Justin Gordon, CEO of ShakaCode](mailto:justin@shakacode.com)._
 
 ---
 
 Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) 
-if you would like to see the simple YAML config and set up. 
+If you would like to see the simple YAML configuration and setup, 
 Also, check [how the `cpl` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
@@ -491,3 +492,8 @@ cpl --help
   [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane).
 - See [how the `cpl` gem is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
 - Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
+
+## Resources  
+* If you need a free demo account for Control Plane (no CC required), you can contact [Justin Gordon, CEO of ShakaCode](mailto:justin@shakacode.com).
+* [Control Plane Site](https://controlplane.com/shakacode)
+* [Join our Slack to Discuss Heroku to Control Plane](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE)
