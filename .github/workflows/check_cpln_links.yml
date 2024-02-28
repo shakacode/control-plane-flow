@@ -1,0 +1,19 @@
+name: Check Links
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  check_cpln_links:
+    runs-on: ubuntu-latest
+    name: Check Links
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Validate outgoing links to Control Plane
+        run: |
+          ./script/check_cpln_links
+        shell: bash
