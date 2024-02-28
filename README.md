@@ -12,7 +12,7 @@
 [![Gem](https://badge.fury.io/rb/cpl.svg)](https://badge.fury.io/rb/cpl)
 
 
-Here's a playbook for migrating from [Heroku Flow](https://www.heroku.com/flow) to [Control Plane](https://controlplane.com/shakacode) with our `cpl` gem source code.
+Here's a playbook for migrating from [Heroku Flow](https://www.heroku.com/flow) to [Control Plane](https://shakacode.controlplane.com) with our `cpl` gem source code.
 
 ----
 
@@ -495,5 +495,5 @@ cpl --help
 
 ## Resources
 * If you need a free demo account for Control Plane (no CC required), you can contact [Justin Gordon, CEO of ShakaCode](mailto:justin@shakacode.com).
-* [Control Plane Site](https://controlplane.com/shakacode)
+* [Control Plane Site](https://shakacode.controlplane.com)
 * [Join our Slack to Discuss Heroku to Control Plane](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE)
