@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+bad_links=("controlplane.com/shakacode")
+proper_links=("shakacode.controlplane.com")
+
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+exit_status=0
+accumulated_results=""
+seen_bad_links_indexes=()
+
+for ((idx = 0; idx < ${#bad_links[@]}; idx++)); do
+    results=$(git grep \
+        --recursive \
+        --line-number \
+        --fixed-strings \
+        --break \
+        --heading \
+        --color=always -- \
+        "${bad_links[idx]}" \
+        ':!script/check_cpln_links')
+
+    # Line would become really unwieldly if everything was mushed into the
+    # conditional, so let's ignore this check here.
+    # shellcheck disable=SC2181
+    if [ $? -eq 0 ]; then
+        accumulated_results+="$results"
+        seen_bad_links_indexes+=("$idx")
+        exit_status=1
+    fi
+done
+
+if [ "$exit_status" -eq 1 ]; then
+    echo "${bold}[!] Found the following bad links:${normal}"
+    echo ""
+    echo "$accumulated_results"
+    echo ""
+    echo "${bold}[*] Please update accordingly:${normal}"
+    for bad_link_index in "${seen_bad_links_indexes[@]}"; do
+        echo "  ${bad_links[bad_link_index]} -> ${proper_links[bad_link_index]}"
+    done
+fi
+
+exit "$exit_status"

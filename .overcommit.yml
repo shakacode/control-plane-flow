@@ -1,4 +1,7 @@
 PreCommit:
+  ValidateLinks:
+    enabled: true
+    command: ["bash", "./script/check_cpln_links"]
   CommandDocs:
     enabled: true
     command: ["bundle", "exec", "rake", "check_command_docs"]
