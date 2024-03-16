@@ -1,5 +1,10 @@
 # DNS Setup Example
 
+## Docs
+https://docs.controlplane.com/guides/configure-domain#dns-records
+
+## Example
+
 About reactrails.com DNS, steps:
 1. create CNAME or ALIAS record pointing to rails-xxxx.cpln.app
 1. go to CPLN Domains -> create
