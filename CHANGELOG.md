@@ -14,6 +14,8 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.3.0] - 2024-03-19
+
 ### Fixed
 
 - Fixed issue where cpln profile was not switched back to `default` if an error happened while running `copy-image-from-upstream` command. [PR 135](https://github.com/shakacode/heroku-to-control-plane/pull/135) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -139,7 +141,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.0...v1.1.1
