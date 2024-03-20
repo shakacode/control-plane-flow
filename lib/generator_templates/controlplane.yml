@@ -19,10 +19,13 @@ aliases:
     one_off_workload: rails
 
     # Workloads that are for the application itself and are using application Docker images.
+    # These are updated with the new image when running the `deploy-image` command,
+    # and are also used by the `info`, `ps:`, and `run:cleanup` commands in order to get all of the defined workloads.
     app_workloads:
       - rails
 
     # Additional "service type" workloads, using non-application Docker images.
+    # These are only used by the `info`, `ps:` and `run:cleanup` commands in order to get all of the defined workloads.
     additional_workloads:
       - postgres
 
