@@ -16,12 +16,13 @@ _Please add entries here for your pull requests that are not yet released._
 
 ### Added
 
-- Added new template substitution variables (used by `apply-template` and `setup-app` commands): `{{APP_LOCATION_LINK}}`, `{{APP_IMAGE_LINK}}`, `{{APP_IDENTITY}}` and `{{APP_IDENTITY_LINK}}`. [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added new template substitution variables (used by `apply-template` and `setup-app` commands): `{{APP_LOCATION_LINK}}`, `{{APP_IMAGE_LINK}}`, `{{APP_IDENTITY}}`, `{{APP_IDENTITY_LINK}}`, `{{APP_SECRETS}}` and `{{APP_SECRETS_POLICY}}`. [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
 
 - Template substitution (used by `apply-template` and `setup-app` commands) now uses double braces (e.g., `APP_ORG` -> `{{APP_ORG}}`). This change is backwards compatible. [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Renamed template substitution variable `APP_GVC` to `{{APP_NAME}}` (used by `apply-template` and `setup-app` commands). This change is backwards compatible. [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `setup-app` command now automatically binds the app to the secrets policy, as long as both the identity and the policy exist. Added `--skip-secret-access-binding` option to prevent this behavior. [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [1.3.0] - 2024-03-19
 

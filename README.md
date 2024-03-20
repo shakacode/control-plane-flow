@@ -192,6 +192,12 @@ aliases:
     # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
     setup_app_templates:
       - gvc
+
+      # These templates are only required if using secrets.
+      - identity
+      - secrets
+      - secrets-policy
+
       - redis
       - postgres
       - memcached

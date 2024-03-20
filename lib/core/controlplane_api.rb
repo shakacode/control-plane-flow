@@ -106,6 +106,14 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     api_json("/org/#{org}/domain/#{domain}", method: :patch, body: data)
   end
 
+  def fetch_identity(org:, gvc:, identity:)
+    api_json("/org/#{org}/gvc/#{gvc}/identity/#{identity}", method: :get)
+  end
+
+  def fetch_policy(org:, policy:)
+    api_json("/org/#{org}/policy/#{policy}", method: :get)
+  end
+
   private
 
   def fetch_query_pages(result)

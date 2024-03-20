@@ -1,2 +1,3 @@
+# Identity is needed to access secrets
 kind: identity
 name: {{APP_IDENTITY}}

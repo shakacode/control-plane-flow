@@ -300,6 +300,24 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.log_get(org: org, gvc: gvc, workload: workload, from: from, to: to)
   end
 
+  # identities
+
+  def fetch_identity(identity, a_gvc = gvc)
+    api.fetch_identity(org: org, gvc: a_gvc, identity: identity)
+  end
+
+  # policies
+
+  def fetch_policy(policy)
+    api.fetch_policy(org: org, policy: policy)
+  end
+
+  def bind_identity_to_policy(identity_link, policy)
+    cmd = "cpln policy add-binding #{policy} --org #{org} --identity #{identity_link} --permission reveal"
+    cmd += "> /dev/null 2>&1"
+    perform!(cmd)
+  end
+
   # apply
   def apply_template(data) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|

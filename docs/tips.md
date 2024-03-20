@@ -85,7 +85,17 @@ For storing ENVs in the source code, we can use a level of indirection so that y
 code like `cpln://secret/my-app-review-env-secrets.SECRET_KEY_BASE` and then have the secret value stored at the org
 level, which applies to your GVCs mapped to that org.
 
-Here is how you do this:
+You can do this during the initial app setup, like this:
+
+1. Add the templates for `identity`, `secrets` and `secrets-policy` to `.controlplane/templates`
+2. Ensure that the templates are listed in `setup_app_templates` for the app in `.controlplane/controlplane.yml`
+3. Run `cpl setup-app -a $APP_NAME`
+4. The identity, secrets and secrets policy will be automatically created, along with the proper binding
+5. In the upper left "Manage Org" menu, click on "Secrets"
+6. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there
+7. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/$APP_PREFIX-secrets.SOME_VAR`)
+
+You can also do it manually after. Here is how you do this:
 
 1. In the upper left "Manage Org" menu, click on "Secrets"
 2. Create a secret with `Secret Type: Dictionary` (e.g., `my-secrets`) and add the secret env vars there

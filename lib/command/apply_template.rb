@@ -138,6 +138,8 @@ module Command
                  .gsub("{{APP_IMAGE_LINK}}", app_image_link)
                  .gsub("{{APP_IDENTITY}}", app_identity)
                  .gsub("{{APP_IDENTITY_LINK}}", app_identity_link)
+                 .gsub("{{APP_SECRETS}}", app_secrets)
+                 .gsub("{{APP_SECRETS_POLICY}}", app_secrets_policy)
                  # Kept for backwards compatibility
                  .gsub("APP_ORG", config.org)
                  .gsub("APP_GVC", config.app)
