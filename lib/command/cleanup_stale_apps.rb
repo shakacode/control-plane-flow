@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "date"
-
 module Command
   class CleanupStaleApps < Base
     NAME = "cleanup-stale-apps"

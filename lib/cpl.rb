@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
+require "date"
 require "dotenv/load"
 require "cgi"
 require "json"
+require "jwt"
 require "net/http"
 require "pathname"
 require "tempfile"
