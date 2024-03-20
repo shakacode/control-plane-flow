@@ -21,10 +21,14 @@ This `-a` option is used in most of the commands and will pick all other app con
 **Preprocessed template variables:**
 
 ```
-APP_GVC      - basically GVC or app name
-APP_LOCATION - default location
-APP_ORG      - organization
-APP_IMAGE    - will use latest app image
+{{APP_ORG}}           - organization name
+{{APP_NAME}}          - GVC/app name
+{{APP_LOCATION}}      - default location
+{{APP_LOCATION_LINK}} - full link for default location, ready to be used in `staticPlacement.locationLinks`
+{{APP_IMAGE}}         - latest app image
+{{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used in `containers[].image`
+{{APP_IDENTITY}}      - default identity
+{{APP_IDENTITY_LINK}} - full link for default identity, ready to be used in `identityLink`
 ```
 
 ```sh

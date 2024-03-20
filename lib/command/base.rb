@@ -376,6 +376,22 @@ module Command
       system(cmd) || exit(false)
     end
 
+    def app_location_link
+      "/org/#{config.org}/location/#{config.location}"
+    end
+
+    def app_image_link
+      "/org/#{config.org}/image/#{latest_image}"
+    end
+
+    def app_identity
+      "#{config.app}-identity"
+    end
+
+    def app_identity_link
+      "/org/#{config.org}/gvc/#{config.app}/identity/#{app_identity}"
+    end
+
     private
 
     # returns 0 if no prior image

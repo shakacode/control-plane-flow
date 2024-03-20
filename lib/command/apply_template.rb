@@ -20,10 +20,14 @@ module Command
       **Preprocessed template variables:**
 
       ```
-      APP_GVC      - basically GVC or app name
-      APP_LOCATION - default location
-      APP_ORG      - organization
-      APP_IMAGE    - will use latest app image
+      {{APP_ORG}}           - organization name
+      {{APP_NAME}}          - GVC/app name
+      {{APP_LOCATION}}      - default location
+      {{APP_LOCATION_LINK}} - full link for default location, ready to be used in `staticPlacement.locationLinks`
+      {{APP_IMAGE}}         - latest app image
+      {{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used in `containers[].image`
+      {{APP_IDENTITY}}      - default identity
+      {{APP_IDENTITY_LINK}} - full link for default identity, ready to be used in `identityLink`
       ```
     DESC
     EXAMPLES = <<~EX
@@ -124,11 +128,20 @@ module Command
       false
     end
 
-    def apply_template(filename)
+    def apply_template(filename) # rubocop:disable Metrics/MethodLength
       data = File.read(filename)
+                 .gsub("{{APP_ORG}}", config.org)
+                 .gsub("{{APP_NAME}}", config.app)
+                 .gsub("{{APP_LOCATION}}", config.location)
+                 .gsub("{{APP_LOCATION_LINK}}", app_location_link)
+                 .gsub("{{APP_IMAGE}}", latest_image)
+                 .gsub("{{APP_IMAGE_LINK}}", app_image_link)
+                 .gsub("{{APP_IDENTITY}}", app_identity)
+                 .gsub("{{APP_IDENTITY_LINK}}", app_identity_link)
+                 # Kept for backwards compatibility
+                 .gsub("APP_ORG", config.org)
                  .gsub("APP_GVC", config.app)
                  .gsub("APP_LOCATION", config.location)
-                 .gsub("APP_ORG", config.org)
                  .gsub("APP_IMAGE", latest_image)
 
       # Don't read in YAML.safe_load as that doesn't handle multiple documents

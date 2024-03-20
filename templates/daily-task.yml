@@ -18,7 +18,7 @@ spec:
         - rails
         - db:prepare
       inheritEnv: true
-      image: "/org/APP_ORG/image/APP_IMAGE"
+      image: {{APP_IMAGE_LINK}}
   defaultOptions:
     autoscaling:
       minScale: 1
@@ -28,4 +28,4 @@ spec:
     external:
       outboundAllowCIDR:
         - 0.0.0.0/0
-  identityLink: /org/APP_ORG/gvc/APP_GVC/identity/APP_GVC-identity
+  identityLink: {{APP_IDENTITY_LINK}}

@@ -1,2 +1,2 @@
 kind: identity
-name: APP_GVC-identity
+name: {{APP_IDENTITY}}
