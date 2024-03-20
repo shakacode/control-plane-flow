@@ -40,7 +40,7 @@ module Command
       ```
     EX
 
-    def call # rubocop:disable Metrics/MethodLength, Metrics/PerceivedComplexity
+    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       ensure_templates!
 
       @created_items = []
@@ -77,6 +77,8 @@ module Command
       print_created_items
       print_failed_templates
       print_skipped_templates
+
+      exit(1) if @failed_templates.any?
     end
 
     private
