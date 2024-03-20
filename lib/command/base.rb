@@ -260,6 +260,17 @@ module Command
       }
     end
 
+    def self.run_release_phase_option(required: false)
+      {
+        name: :run_release_phase,
+        params: {
+          desc: "Runs release phase",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
@@ -383,7 +394,7 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def perform(cmd)
+    def perform!(cmd)
       system(cmd) || exit(false)
     end
 

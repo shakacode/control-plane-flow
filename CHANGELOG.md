@@ -17,6 +17,7 @@ _Please add entries here for your pull requests that are not yet released._
 ### Added
 
 - Added new template substitution variables (used by `apply-template` and `setup-app` commands): `{{APP_LOCATION_LINK}}`, `{{APP_IMAGE_LINK}}`, `{{APP_IDENTITY}}`, `{{APP_IDENTITY_LINK}}`, `{{APP_SECRETS}}` and `{{APP_SECRETS_POLICY}}`. [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added `--run-release-phase` option to `deploy-image` command to run release script before deploying (same step as in `promote-app-from-upstream` command). [PR 146](https://github.com/shakacode/heroku-to-control-plane/pull/146) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
 

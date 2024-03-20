@@ -115,6 +115,8 @@ cpl delete -a $APP_NAME
 ### `deploy-image`
 
 - Deploys the latest image to app workloads
+- Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
+- The deploy will fail if the release script exits with a non-zero code
 
 ```sh
 cpl deploy-image -a $APP_NAME
@@ -255,8 +257,9 @@ cpl open-console -a $APP_NAME
 - Copies the latest image from upstream, runs a release script (optional), and deploys the image
 - It performs the following steps:
   - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
-  - Runs a release script if specified through `release_script` in the `.controlplane/controlplane.yml` file
   - Runs `cpl deploy-image` to deploy the image
+  - If `release_script` is specified in the `.controlplane/controlplane.yml` file, passes `--run-release-phase` to `cpl deploy-image`
+  - The deploy will fail if the release script exits with a non-zero code
 
 ```sh
 cpl promote-app-from-upstream -a $APP_NAME -t $UPSTREAM_TOKEN
