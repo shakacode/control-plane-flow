@@ -28,11 +28,16 @@ module Command
 
       Cpl::Cli.start(["apply-template", *templates, "-a", config.app])
 
-      return if config.options[:skip_secret_access_binding] ||
-                cp.fetch_identity(app_identity).nil? ||
-                cp.fetch_policy(app_secrets_policy).nil?
+      return if config.options[:skip_secret_access_binding]
 
       progress.puts
+
+      if cp.fetch_identity(app_identity).nil? || cp.fetch_policy(app_secrets_policy).nil?
+        raise "Can't bind identity to policy: identity '#{app_identity}' or " \
+              "policy '#{app_secrets_policy}' doesn't exist. " \
+              "Please create them or use `--skip-secret-access-binding` to ignore this message."
+      end
+
       step("Binding identity to policy") do
         cp.bind_identity_to_policy(app_identity_link, app_secrets_policy)
       end
