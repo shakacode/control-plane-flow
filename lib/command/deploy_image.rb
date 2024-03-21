@@ -11,7 +11,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Deploys the latest image to app workloads
       - Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
-      - The deploy will fail if the release script exits with a non-zero code
+      - The deploy will fail if the release script exits with a non-zero code or doesn't exist
     DESC
 
     def call # rubocop:disable Metrics/MethodLength

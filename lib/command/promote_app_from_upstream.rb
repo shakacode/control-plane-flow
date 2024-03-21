@@ -13,7 +13,7 @@ module Command
       - It performs the following steps:
         - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
         - Runs `cpl deploy-image` to deploy the image
-        - If `release_script` is specified in the `.controlplane/controlplane.yml` file, passes `--run-release-phase` to `cpl deploy-image`
+        - If `.controlplane/controlplane.yml` includes the `release_script`, `cpl deploy-image` will use the `--run-release-phase` option
         - The deploy will fail if the release script exits with a non-zero code
     DESC
 

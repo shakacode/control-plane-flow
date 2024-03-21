@@ -23,12 +23,12 @@ This `-a` option is used in most of the commands and will pick all other app con
 ```
 {{APP_ORG}}           - organization name
 {{APP_NAME}}          - GVC/app name
-{{APP_LOCATION}}      - default location
-{{APP_LOCATION_LINK}} - full link for default location, ready to be used in `staticPlacement.locationLinks`
+{{APP_LOCATION}}      - location, per YML file, ENV, or command line arg
+{{APP_LOCATION_LINK}} - full link for location, ready to be used for the value of `staticPlacement.locationLinks` in the templates
 {{APP_IMAGE}}         - latest app image
-{{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used in `containers[].image`
+{{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used for the value of `containers[].image` in the templates
 {{APP_IDENTITY}}      - default identity
-{{APP_IDENTITY_LINK}} - full link for default identity, ready to be used in `identityLink`
+{{APP_IDENTITY_LINK}} - full link for identity, ready to be used for the value of `identityLink` in the templates
 ```
 
 ```sh
@@ -116,7 +116,7 @@ cpl delete -a $APP_NAME
 
 - Deploys the latest image to app workloads
 - Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
-- The deploy will fail if the release script exits with a non-zero code
+- The deploy will fail if the release script exits with a non-zero code or doesn't exist
 
 ```sh
 cpl deploy-image -a $APP_NAME
@@ -258,7 +258,7 @@ cpl open-console -a $APP_NAME
 - It performs the following steps:
   - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
   - Runs `cpl deploy-image` to deploy the image
-  - If `release_script` is specified in the `.controlplane/controlplane.yml` file, passes `--run-release-phase` to `cpl deploy-image`
+  - If `.controlplane/controlplane.yml` includes the `release_script`, `cpl deploy-image` will use the `--run-release-phase` option
   - The deploy will fail if the release script exits with a non-zero code
 
 ```sh

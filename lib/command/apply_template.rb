@@ -22,12 +22,12 @@ module Command
       ```
       {{APP_ORG}}           - organization name
       {{APP_NAME}}          - GVC/app name
-      {{APP_LOCATION}}      - default location
-      {{APP_LOCATION_LINK}} - full link for default location, ready to be used in `staticPlacement.locationLinks`
+      {{APP_LOCATION}}      - location, per YML file, ENV, or command line arg
+      {{APP_LOCATION_LINK}} - full link for location, ready to be used for the value of `staticPlacement.locationLinks` in the templates
       {{APP_IMAGE}}         - latest app image
-      {{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used in `containers[].image`
+      {{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used for the value of `containers[].image` in the templates
       {{APP_IDENTITY}}      - default identity
-      {{APP_IDENTITY_LINK}} - full link for default identity, ready to be used in `identityLink`
+      {{APP_IDENTITY_LINK}} - full link for identity, ready to be used for the value of `identityLink` in the templates
       ```
     DESC
     EXAMPLES = <<~EX
