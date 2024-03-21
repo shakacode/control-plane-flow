@@ -395,7 +395,7 @@ module Command
     end
 
     def perform!(cmd)
-      system(cmd) || exit(false)
+      system(cmd) || exit(1)
     end
 
     def app_location_link

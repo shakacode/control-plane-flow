@@ -335,7 +335,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
         Shell.debug("CMD", cmd)
 
         result = `#{cmd}`
-        $CHILD_STATUS.success? ? parse_apply_result(result) : exit(false)
+        $CHILD_STATUS.success? ? parse_apply_result(result) : exit(1)
       end
     end
   end
@@ -388,14 +388,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def perform!(cmd, sensitive_data_pattern: nil)
     Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
-    system(cmd) || exit(false)
+    system(cmd) || exit(1)
   end
 
   def perform_yaml(cmd)
     Shell.debug("CMD", cmd)
 
     result = `#{cmd}`
-    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(false)
+    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(1)
   end
 
   def gvc_org
