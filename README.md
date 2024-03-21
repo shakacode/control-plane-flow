@@ -190,8 +190,20 @@ aliases:
 
     # Allows running the command `cpl setup-app`
     # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
+    #
+    # Note:
+    # 1. These names correspond to files in the `./controlplane/templates` directory.
+    # 2. Each file can contain many objects, such as in the case of templates that create a resource, like `postgres`.
+    # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary. 
+    #    Naming does not need to match anything other than the file name without the `.yml` extension.
     setup_app_templates:
       - gvc
+
+      # These templates are only required if using secrets.
+      - identity
+      - secrets
+      - secrets-policy
+
       - redis
       - postgres
       - memcached
@@ -202,11 +214,16 @@ aliases:
     one_off_workload: rails
 
     # Workloads that are for the application itself and are using application Docker images.
+    # These are updated with the new image when running the `deploy-image` command,
+    # and are also used by the `info`, `ps:`, and `run:cleanup` commands in order to get all of the defined workloads.
+    # On the other hand, if you have a workload for Redis, that would NOT use the application Docker image
+    # and not be listed here.
     app_workloads:
       - rails
       - sidekiq
 
     # Additional "service type" workloads, using non-application Docker images.
+    # These are only used by the `info`, `ps:` and `run:cleanup` commands in order to get all of the defined workloads.
     additional_workloads:
       - redis
       - postgres

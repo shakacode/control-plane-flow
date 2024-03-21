@@ -4,14 +4,19 @@ module Command
   class DeployImage < Base
     NAME = "deploy-image"
     OPTIONS = [
-      app_option(required: true)
+      app_option(required: true),
+      run_release_phase_option
     ].freeze
-    DESCRIPTION = "Deploys the latest image to app workloads"
+    DESCRIPTION = "Deploys the latest image to app workloads, and runs a release script (optional)"
     LONG_DESCRIPTION = <<~DESC
       - Deploys the latest image to app workloads
+      - Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
+      - The deploy will fail if the release script exits with a non-zero code or doesn't exist
     DESC
 
     def call # rubocop:disable Metrics/MethodLength
+      run_release_script if config.options[:run_release_phase]
+
       deployed_endpoints = {}
 
       image = latest_image
@@ -33,6 +38,19 @@ module Command
       deployed_endpoints.each do |workload, endpoint|
         progress.puts("  - #{workload}: #{endpoint}")
       end
+    end
+
+    private
+
+    def run_release_script
+      release_script_name = config[:release_script]
+      release_script_path = Pathname.new("#{config.app_cpln_dir}/#{release_script_name}").expand_path
+
+      raise "Can't find release script in '#{release_script_path}'." unless File.exist?(release_script_path)
+
+      progress.puts("Running release script...\n\n")
+      perform!("bash #{release_script_path}")
+      progress.puts
     end
   end
 end

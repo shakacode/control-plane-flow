@@ -1,13 +1,13 @@
 kind: gvc
-name: APP_GVC
+name: {{APP_NAME}}
 spec:
   env:
     - name: MEMCACHE_SERVERS
-      value: memcached.APP_GVC.cpln.local
+      value: memcached.{{APP_NAME}}.cpln.local
     - name: REDIS_URL
-      value: redis://redis.APP_GVC.cpln.local:6379
+      value: redis://redis.{{APP_NAME}}.cpln.local:6379
     - name: DATABASE_URL
-      value: postgres://postgres:password123@postgres.APP_GVC.cpln.local:5432/APP_GVC
+      value: postgres://postgres:password123@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}
   staticPlacement:
     locationLinks:
-      - /org/APP_ORG/location/APP_LOCATION
+      - {{APP_LOCATION_LINK}}

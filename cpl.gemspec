@@ -17,6 +17,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "debug",    "~> 1.7.1"
   spec.add_dependency "dotenv",   "~> 2.8.1"
+  spec.add_dependency "jwt",      "~> 2.8.1"
   spec.add_dependency "psych",    "~> 5.1.0"
   spec.add_dependency "thor",     "~> 1.2.1"
 

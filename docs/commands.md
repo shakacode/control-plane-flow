@@ -21,10 +21,14 @@ This `-a` option is used in most of the commands and will pick all other app con
 **Preprocessed template variables:**
 
 ```
-APP_GVC      - basically GVC or app name
-APP_LOCATION - default location
-APP_ORG      - organization
-APP_IMAGE    - will use latest app image
+{{APP_ORG}}           - organization name
+{{APP_NAME}}          - GVC/app name
+{{APP_LOCATION}}      - location, per YML file, ENV, or command line arg
+{{APP_LOCATION_LINK}} - full link for location, ready to be used for the value of `staticPlacement.locationLinks` in the templates
+{{APP_IMAGE}}         - latest app image
+{{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used for the value of `containers[].image` in the templates
+{{APP_IDENTITY}}      - default identity
+{{APP_IDENTITY_LINK}} - full link for identity, ready to be used for the value of `identityLink` in the templates
 ```
 
 ```sh
@@ -111,6 +115,8 @@ cpl delete -a $APP_NAME
 ### `deploy-image`
 
 - Deploys the latest image to app workloads
+- Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
+- The deploy will fail if the release script exits with a non-zero code or doesn't exist
 
 ```sh
 cpl deploy-image -a $APP_NAME
@@ -251,8 +257,9 @@ cpl open-console -a $APP_NAME
 - Copies the latest image from upstream, runs a release script (optional), and deploys the image
 - It performs the following steps:
   - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
-  - Runs a release script if specified through `release_script` in the `.controlplane/controlplane.yml` file
   - Runs `cpl deploy-image` to deploy the image
+  - If `.controlplane/controlplane.yml` includes the `release_script`, `cpl deploy-image` will use the `--run-release-phase` option
+  - The deploy will fail if the release script exits with a non-zero code
 
 ```sh
 cpl promote-app-from-upstream -a $APP_NAME -t $UPSTREAM_TOKEN
@@ -399,6 +406,8 @@ cpl run:detached -a $APP_NAME --use-local-token -- rails db:migrate:status
 - Creates an app and all its workloads
 - Specify the templates for the app and workloads through `setup_app_templates` in the `.controlplane/controlplane.yml` file
 - This should only be used for temporary apps like review apps, never for persistent apps like production (to update workloads for those, use 'cpl apply-template' instead)
+- Automatically binds the app to the secrets policy, as long as both the identity and the policy exist
+- Use `--skip-secret-access-binding` to prevent the automatic bind
 
 ```sh
 cpl setup-app -a $APP_NAME

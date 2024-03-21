@@ -13,7 +13,7 @@ spec:
         - "-C"
         - config/sidekiq.yml
       inheritEnv: true
-      image: "/org/APP_ORG/image/APP_IMAGE"
+      image: {{APP_IMAGE_LINK}}
       ports:
         - number: 7433
           protocol: http
@@ -34,4 +34,5 @@ spec:
     external:
       outboundAllowCIDR:
         - 0.0.0.0/0
-  identityLink: /org/APP_ORG/gvc/APP_GVC/identity/APP_GVC-identity
+  # Identity is used for binding workload to secrets
+  identityLink: {{APP_IDENTITY_LINK}}

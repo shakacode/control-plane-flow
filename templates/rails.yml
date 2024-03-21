@@ -7,7 +7,7 @@ spec:
       cpu: 512m
       memory: 1Gi
       inheritEnv: true
-      image: "/org/APP_ORG/image/APP_IMAGE"
+      image: {{APP_IMAGE_LINK}}
       ports:
         - number: 3000
           protocol: http
@@ -23,4 +23,5 @@ spec:
         - 0.0.0.0/0
       outboundAllowCIDR:
         - 0.0.0.0/0
-  identityLink: /org/APP_ORG/gvc/APP_GVC/identity/APP_GVC-identity
+  # Identity is used for binding workload to secrets
+  identityLink: {{APP_IDENTITY_LINK}}

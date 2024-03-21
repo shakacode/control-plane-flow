@@ -300,6 +300,24 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.log_get(org: org, gvc: gvc, workload: workload, from: from, to: to)
   end
 
+  # identities
+
+  def fetch_identity(identity, a_gvc = gvc)
+    api.fetch_identity(org: org, gvc: a_gvc, identity: identity)
+  end
+
+  # policies
+
+  def fetch_policy(policy)
+    api.fetch_policy(org: org, policy: policy)
+  end
+
+  def bind_identity_to_policy(identity_link, policy)
+    cmd = "cpln policy add-binding #{policy} --org #{org} --identity #{identity_link} --permission reveal"
+    cmd += " > /dev/null" if Shell.should_hide_output?
+    perform!(cmd)
+  end
+
   # apply
   def apply_template(data) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|
@@ -317,7 +335,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
         Shell.debug("CMD", cmd)
 
         result = `#{cmd}`
-        $CHILD_STATUS.success? ? parse_apply_result(result) : exit(false)
+        $CHILD_STATUS.success? ? parse_apply_result(result) : exit(1)
       end
     end
   end
@@ -370,14 +388,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def perform!(cmd, sensitive_data_pattern: nil)
     Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
-    system(cmd) || exit(false)
+    system(cmd) || exit(1)
   end
 
   def perform_yaml(cmd)
     Shell.debug("CMD", cmd)
 
     result = `#{cmd}`
-    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(false)
+    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(1)
   end
 
   def gvc_org

@@ -37,18 +37,20 @@ describe ControlplaneApiDirect do
     it "returns token from CPLN_TOKEN" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token_1")
 
-      token = described_instance.api_token
+      result = described_instance.api_token
 
-      expect(token).to eq("token_1")
+      expect(result[:token]).to eq("token_1")
+      expect(result[:comes_from_profile]).to be(false)
     end
 
     it "returns token from 'cpln profile token'" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
       allow(described_instance).to receive(:`).with("cpln profile token").and_return("token_2")
 
-      token = described_instance.api_token
+      result = described_instance.api_token
 
-      expect(token).to eq("token_2")
+      expect(result[:token]).to eq("token_2")
+      expect(result[:comes_from_profile]).to be(true)
     end
 
     it "raises error if token is not found" do

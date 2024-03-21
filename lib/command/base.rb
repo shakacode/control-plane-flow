@@ -249,6 +249,28 @@ module Command
       }
     end
 
+    def self.skip_secret_access_binding_option(required: false)
+      {
+        name: :skip_secret_access_binding,
+        params: {
+          desc: "Skips secret access binding",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.run_release_phase_option(required: false)
+      {
+        name: :run_release_phase,
+        params: {
+          desc: "Runs release phase",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
@@ -372,8 +394,32 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def perform(cmd)
-      system(cmd) || exit(false)
+    def perform!(cmd)
+      system(cmd) || exit(1)
+    end
+
+    def app_location_link
+      "/org/#{config.org}/location/#{config.location}"
+    end
+
+    def app_image_link
+      "/org/#{config.org}/image/#{latest_image}"
+    end
+
+    def app_identity
+      "#{config.app}-identity"
+    end
+
+    def app_identity_link
+      "/org/#{config.org}/gvc/#{config.app}/identity/#{app_identity}"
+    end
+
+    def app_secrets
+      "#{config.app_prefix}-secrets"
+    end
+
+    def app_secrets_policy
+      "#{app_secrets}-policy"
     end
 
     private

@@ -16,6 +16,7 @@ class ControlplaneApiDirect
   # ).freeze
 
   API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
+  API_TOKEN_EXPIRY_SECONDS = 300
 
   class << self
     attr_accessor :trace
@@ -26,7 +27,10 @@ class ControlplaneApiDirect
     uri = URI("#{api_host(host)}#{url}")
     request = API_METHODS[method].new(uri)
     request["Content-Type"] = "application/json"
-    request["Authorization"] = api_token
+
+    refresh_api_token if should_refresh_api_token?
+
+    request["Authorization"] = api_token[:token]
     request.body = body.to_json if body
 
     Shell.debug(method.upcase, "#{uri} #{body&.to_json}")
@@ -62,15 +66,39 @@ class ControlplaneApiDirect
   end
 
   # rubocop:disable Style/ClassVars
-  def api_token
+  def api_token # rubocop:disable Metrics/MethodLength
     return @@api_token if defined?(@@api_token)
 
-    @@api_token = ENV.fetch("CPLN_TOKEN", nil)
-    @@api_token = `cpln profile token`.chomp if @@api_token.nil?
-    return @@api_token if @@api_token.match?(API_TOKEN_REGEX)
+    @@api_token = {
+      token: ENV.fetch("CPLN_TOKEN", nil),
+      comes_from_profile: false
+    }
+    if @@api_token[:token].nil?
+      @@api_token = {
+        token: `cpln profile token`.chomp,
+        comes_from_profile: true
+      }
+    end
+    return @@api_token if @@api_token[:token].match?(API_TOKEN_REGEX)
 
     raise "Unknown API token format. " \
           "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."
+  end
+
+  # Returns `true` when the token is about to expire in 5 minutes
+  def should_refresh_api_token?
+    return false unless api_token[:comes_from_profile]
+
+    payload, = JWT.decode(api_token[:token], nil, false)
+    difference_in_seconds = payload["exp"] - Time.now.to_i
+
+    difference_in_seconds <= API_TOKEN_EXPIRY_SECONDS
+  rescue JWT::DecodeError
+    false
+  end
+
+  def refresh_api_token
+    @@api_token[:token] = `cpln profile token`.chomp
   end
 
   def self.reset_api_token
