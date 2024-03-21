@@ -59,6 +59,8 @@ module Command
 
       progress.puts if @asked_for_confirmation
 
+      @deprecated_variables = []
+
       pending_templates.each do |template, filename|
         step("Applying template '#{template}'", abort_on_error: false) do
           items = apply_template(filename)
@@ -73,6 +75,8 @@ module Command
           $CHILD_STATUS.success?
         end
       end
+
+      warn_deprecated_variables
 
       print_created_items
       print_failed_templates
@@ -142,14 +146,41 @@ module Command
                  .gsub("{{APP_IDENTITY_LINK}}", app_identity_link)
                  .gsub("{{APP_SECRETS}}", app_secrets)
                  .gsub("{{APP_SECRETS_POLICY}}", app_secrets_policy)
-                 # Kept for backwards compatibility
-                 .gsub("APP_ORG", config.org)
-                 .gsub("APP_GVC", config.app)
-                 .gsub("APP_LOCATION", config.location)
-                 .gsub("APP_IMAGE", latest_image)
+
+      find_deprecated_variables(data)
+
+      # Kept for backwards compatibility
+      data = data
+             .gsub("APP_ORG", config.org)
+             .gsub("APP_GVC", config.app)
+             .gsub("APP_LOCATION", config.location)
+             .gsub("APP_IMAGE", latest_image)
 
       # Don't read in YAML.safe_load as that doesn't handle multiple documents
       cp.apply_template(data)
+    end
+
+    def new_variables
+      {
+        "APP_ORG" => "{{APP_ORG}}",
+        "APP_GVC" => "{{APP_NAME}}",
+        "APP_LOCATION" => "{{APP_LOCATION}}",
+        "APP_IMAGE" => "{{APP_IMAGE}}"
+      }
+    end
+
+    def find_deprecated_variables(data)
+      @deprecated_variables.push(*new_variables.keys.select { |old_key| data.include?(old_key) })
+      @deprecated_variables = @deprecated_variables.uniq.sort
+    end
+
+    def warn_deprecated_variables
+      return unless @deprecated_variables.any?
+
+      message = "Please replace these variables in the templates, " \
+                "as support for them will be removed in a future major version bump:"
+      deprecated = @deprecated_variables.map { |old_key| "  - #{old_key} -> #{new_variables[old_key]}" }.join("\n")
+      progress.puts("\n#{Shell.color("DEPRECATED: #{message}", :yellow)}\n#{deprecated}")
     end
 
     def report_success(item)
