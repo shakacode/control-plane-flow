@@ -314,7 +314,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def bind_identity_to_policy(identity_link, policy)
     cmd = "cpln policy add-binding #{policy} --org #{org} --identity #{identity_link} --permission reveal"
-    cmd += "> /dev/null 2>&1"
+    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
