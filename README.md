@@ -164,19 +164,20 @@ Here's a complete example of all supported config keys explained for the `contro
 ### `controlplane.yml`
 
 ```yaml
-# Keys beginning with "cpln_" correspond to your settings in Control Plane.
-
 # Global settings that apply to `cpl` usage.
 # You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
 # to avoid any accidents with the wrong org / app.
+
+# Choose if you allow using the CPLN_ORG env for commands. Recommend false for production.
 allow_org_override_by_env: true
+# Choose if you allow using the CPLN_APP env for commands. Recommend false for production.
 allow_app_override_by_env: true
 
 aliases:
   common: &common
     # Organization for staging and QA apps is typically set as an alias.
     # Production apps will use a different organization, specified in `apps`, for security.
-    # Change this value to your organization name
+    # Change this value to your organization name.
     # or set the CPLN_ORG env var and it will override this for all `cpl` commands
     # (provided that `allow_org_override_by_env` is set to `true`).
     cpln_org: my-org-staging
@@ -196,17 +197,21 @@ aliases:
     # 2. Each file can contain many objects, such as in the case of templates that create a resource, like `postgres`.
     # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary. 
     #    Naming does not need to match anything other than the file name without the `.yml` extension.
+    # 4. If you want to use org level secrets, then you need to include the `identity` template. You also need to 
+    #     install the secret and secret-policy templates.
     setup_app_templates:
+      # cpl_basics includes the gvc, identity, secrets, secrets-policy
       - gvc
 
       # These templates are only required if using secrets.
       - identity
-      - secrets
-      - secrets-policy
 
+      # Your infrastructure templates for the app. For non-production, it's OK to use Control Plane rather than external services.
       - redis
       - postgres
       - memcached
+      
+      # Your app workload templates
       - rails
       - sidekiq
 

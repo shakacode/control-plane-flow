@@ -29,8 +29,10 @@ aliases:
     # Note:
     # 1. These names correspond to files in the `./controlplane/templates` directory.
     # 2. Each file can contain many objects, such as in the case of templates that create a resource, like `postgres`.
-    # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary. 
+    # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary.
     #    Naming does not need to match anything other than the file name without the `.yml` extension.
+    # 4. Order matters. The gvc template should be first, as it sets up the app. Put dependencies next, such as the identity
+    #    and secrets templates. Then put the services, such as redis, postgres, and memcached. Finally, put the app templates.
     setup_app_templates:
       - gvc
 
