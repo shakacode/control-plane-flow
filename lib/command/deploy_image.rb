@@ -44,13 +44,19 @@ module Command
 
     def run_release_script
       release_script_name = config[:release_script]
-      release_script_path = Pathname.new("#{config.app_cpln_dir}/#{release_script_name}").expand_path
+      release_script_path = ".controlplane/#{release_script_name}"
 
       raise "Can't find release script in '#{release_script_path}'." unless File.exist?(release_script_path)
 
       progress.puts("Running release script...\n\n")
-      perform!("bash #{release_script_path}")
-      progress.puts
+
+      cloned_config = config.clone
+      cloned_config.options = cloned_config.options.to_h
+      cloned_config.options[:image] = 'latest'
+      cloned_config.args = [ release_script_path ]
+      Command::Run.new(cloned_config).call
+
+      progress.puts("Finished running release script...\n\n")
     end
   end
 end

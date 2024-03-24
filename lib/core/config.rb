@@ -6,6 +6,7 @@ class Config # rubocop:disable Metrics/ClassLength
   attr_reader :org_comes_from_env, :app_comes_from_env,
               # command line options
               :args, :options, :required_options
+  attr_writer :args, :options
 
   include Helpers
 
