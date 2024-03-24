@@ -399,7 +399,7 @@ module Command
     end
 
     def app_location_link
-      "/org/#{config.org}/location/#{config.location}"
+      "/location/#{config.location}"
     end
 
     def app_image_link
