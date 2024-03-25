@@ -3,10 +3,8 @@
 require_relative "helpers"
 
 class Config # rubocop:disable Metrics/ClassLength
-  attr_reader :org_comes_from_env, :app_comes_from_env,
-              # command line options
-              :args, :options, :required_options
-  attr_writer :args, :options
+  attr_accessor :args, :options
+  attr_reader :org_comes_from_env, :app_comes_from_env, :required_options
 
   include Helpers
 

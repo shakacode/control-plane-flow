@@ -52,8 +52,10 @@ module Command
 
       cloned_config = config.clone
       cloned_config.options = cloned_config.options.to_h
-      cloned_config.options[:image] = 'latest'
-      cloned_config.args = [ release_script_path ]
+      cloned_config.options[:image] = "latest"
+      cloned_config.args = [release_script_path]
+
+      # Need to confirm raises if the release script fails
       Command::Run.new(cloned_config).call
 
       progress.puts("Finished running release script...\n\n")
