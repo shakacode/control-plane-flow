@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [1.4.1] - 2024-03-25
+
+- Fixed deploy-image and promote-app-from-upstream commands to run the release script using `cpl run` and not on the CI image [PR 147](https://github.com/shakacode/heroku-to-control-plane/pull/147) by [justin808](https://github.com/justin808).
+
 ## [1.4.0] - 2024-03-20
 
 ### Added
@@ -156,7 +160,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.1...HEAD
+[1.4.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.1...v1.4.1
 [1.4.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...v1.2.0
