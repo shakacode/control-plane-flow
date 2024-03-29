@@ -389,7 +389,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     Shell.debug("CMD", cmd)
 
-    system(cmd)
+    Kernel.system(cmd)
   end
 
   def perform!(cmd, show_stdout: true, show_stderr: true, show_in_tests: false, sensitive_data_pattern: nil)
@@ -397,7 +397,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
-    system(cmd) || exit(1)
+    Kernel.system(cmd) || exit(1)
   end
 
   def perform_yaml(cmd)

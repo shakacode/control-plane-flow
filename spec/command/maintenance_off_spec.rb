@@ -10,7 +10,7 @@ describe Command::MaintenanceOff do
     allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
     allow(ENV).to receive(:fetch).with("CPLN_APP", nil).and_return(nil)
     allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml")
-    allow_any_instance_of(described_class).to receive(:sleep).and_return(true)
+    allow(Kernel).to receive(:sleep).and_return(true)
   end
   # rubocop:enable RSpec/AnyInstance
 

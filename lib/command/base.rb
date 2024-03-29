@@ -377,7 +377,7 @@ module Command
           if retry_on_failure
             until (success = yield)
               progress.print(".")
-              sleep 1
+              Kernel.sleep(1)
             end
           else
             success = yield
@@ -395,7 +395,7 @@ module Command
     end
 
     def perform!(cmd)
-      system(cmd) || exit(1)
+      Kernel.system(cmd) || exit(1)
     end
 
     def app_location_link

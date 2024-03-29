@@ -27,7 +27,7 @@ module Command
       url = data["status"]["endpoint"]
       opener = `which xdg-open open`.split("\n").grep_v("not found").first
 
-      exec %(#{opener} "#{url}")
+      Kernel.exec %(#{opener} "#{url}")
     end
   end
 end

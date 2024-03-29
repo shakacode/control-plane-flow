@@ -141,7 +141,7 @@ module Command
       begin
         @finished = false
         while cp.fetch_workload(workload_clone) && !@finished
-          sleep(WORKLOAD_SLEEP_CHECK)
+          Kernel.sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end
       rescue RuntimeError => e
