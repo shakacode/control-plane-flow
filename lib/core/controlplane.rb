@@ -25,13 +25,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def profile_create(profile, token)
     sensitive_data_pattern = /(?<=--token )(\S+)/
     cmd = "cpln profile create #{profile} --token #{token}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd, sensitive_data_pattern: sensitive_data_pattern)
   end
 
   def profile_delete(profile)
     cmd = "cpln profile delete #{profile}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -68,25 +66,21 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def image_login(org_name = config.org)
     cmd = "cpln image docker-login --org #{org_name}"
-    cmd += " > /dev/null 2>&1" if Shell.should_hide_output?
-    perform!(cmd)
+    perform!(cmd, show_stderr: false)
   end
 
   def image_pull(image)
     cmd = "docker pull #{image}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
-    perform!(cmd)
+    perform!(cmd, show_stderr: false)
   end
 
   def image_tag(old_tag, new_tag)
     cmd = "docker tag #{old_tag} #{new_tag}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
   def image_push(image)
     cmd = "docker push #{image}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -191,7 +185,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -219,7 +212,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def workload_force_redeployment(workload)
     cmd = "cpln workload force-redeployment #{workload} #{gvc_org}"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -231,14 +223,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd = "cpln workload connect #{workload} #{gvc_org} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " --shell #{shell}" if shell
-    perform!(cmd)
+    perform!(cmd, show_in_tests: true)
   end
 
   def workload_exec(workload, location:, container: nil, command: nil)
     cmd = "cpln workload exec #{workload} #{gvc_org} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
-    perform!(cmd)
+    perform!(cmd, show_in_tests: true)
   end
 
   # volumeset
@@ -297,7 +289,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def logs(workload:)
     cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw --limit 200"
-    perform!(cmd)
+    perform!(cmd, show_in_tests: true)
   end
 
   def log_get(workload:, from:, to:)
@@ -318,7 +310,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def bind_identity_to_policy(identity_link, policy)
     cmd = "cpln policy add-binding #{policy} --org #{org} --identity #{identity_link} --permission reveal"
-    cmd += " > /dev/null" if Shell.should_hide_output?
     perform!(cmd)
   end
 
@@ -383,13 +374,27 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   private
 
-  def perform(cmd)
+  def build_command(cmd, show_stdout: true, show_stderr: true, show_in_tests: false)
+    show_stdout &&= !Shell.should_hide_output?
+
+    show_for_env = ENV["RAILS_ENV"] != "test" || show_in_tests
+    cmd += " > /dev/null" unless show_stdout && show_for_env
+    cmd += " 2> /dev/null" unless show_stderr && show_for_env
+
+    cmd
+  end
+
+  def perform(cmd, show_stdout: true, show_stderr: true, show_in_tests: false)
+    cmd = build_command(cmd, show_stdout: show_stdout, show_stderr: show_stderr, show_in_tests: show_in_tests)
+
     Shell.debug("CMD", cmd)
 
     system(cmd)
   end
 
-  def perform!(cmd, sensitive_data_pattern: nil)
+  def perform!(cmd, show_stdout: true, show_stderr: true, show_in_tests: false, sensitive_data_pattern: nil)
+    cmd = build_command(cmd, show_stdout: show_stdout, show_stderr: show_stderr, show_in_tests: show_in_tests)
+
     Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
     system(cmd) || exit(1)

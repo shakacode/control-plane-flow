@@ -5,7 +5,7 @@ module Command
     include Thor::Actions
 
     def copy_files
-      directory("generator_templates", ".controlplane")
+      directory("generator_templates", ".controlplane", verbose: ENV.fetch("RAILS_ENV", nil) != "test")
     end
 
     def self.source_root
