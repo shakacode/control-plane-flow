@@ -21,12 +21,7 @@ module Command
 
       progress.puts("Stale run workloads:")
       stale_run_workloads.each do |workload|
-        output = ""
-        output += if config.should_app_start_with?(config.app)
-                    "  #{workload[:app]} - #{workload[:name]}"
-                  else
-                    "  #{workload[:name]}"
-                  end
+        output = "  - #{workload[:app]}: #{workload[:name]}"
         output += " (#{Shell.color("#{workload[:date]} - #{workload[:days]} days ago", :red)})"
         progress.puts(output)
       end
@@ -103,12 +98,7 @@ module Command
     end
 
     def delete_workload(workload)
-      message = if config.should_app_start_with?(config.app)
-                  "Deleting run workload '#{workload[:app]} - #{workload[:name]}'"
-                else
-                  "Deleting run workload '#{workload[:name]}'"
-                end
-      step(message) do
+      step("Deleting run workload '#{workload[:app]}: #{workload[:name]}'") do
         cp.delete_workload(workload[:name], workload[:app])
       end
     end

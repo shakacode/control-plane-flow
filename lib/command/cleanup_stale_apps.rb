@@ -21,7 +21,7 @@ module Command
 
       progress.puts("Stale apps:")
       stale_apps.each do |app|
-        progress.puts("  #{app[:name]} (#{Shell.color((app[:date]).to_s, :red)})")
+        progress.puts("  - #{app[:name]} (#{Shell.color((app[:date]).to_s, :red)})")
       end
 
       return unless confirm_delete

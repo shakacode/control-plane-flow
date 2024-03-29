@@ -164,7 +164,7 @@ module Command
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         @crashed = true if val.match?(/^----- CRASHED -----$/)
         @finished = true if val.match?(/^-- FINISHED RUNNER SCRIPT(, DELETING WORKLOAD)? --$/)
-        puts val
+        progress.puts(val)
       end
 
       @printed_log_entries = entries # as well truncate old entries if any

@@ -40,10 +40,10 @@ describe Command::RunCleanup do
 
     expected_output = <<~OUTPUT
       Stale run workloads:
-        rails-run-4137 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        rails-run-7025 (2023-05-13T00:00:00+00:00 - 2 days ago)
-        rails-runner-4985 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        rails-runner-6669 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-staging: rails-run-4137 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-staging: rails-run-7025 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-staging: rails-runner-4985 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-staging: rails-runner-6669 (2023-05-13T00:00:00+00:00 - 2 days ago)
     OUTPUT
 
     args = ["-a", "my-app-staging"]
@@ -59,10 +59,10 @@ describe Command::RunCleanup do
 
     expected_output = <<~OUTPUT
       Stale run workloads:
-        my-app-review-1 - rails-run-1527 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        my-app-review-2 - rails-run-9213 (2023-05-13T00:00:00+00:00 - 2 days ago)
-        my-app-review-1 - rails-runner-8931 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        my-app-review-2 - rails-runner-1273 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-review-1: rails-run-1527 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-review-2: rails-run-9213 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-review-1: rails-runner-8931 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-review-2: rails-runner-1273 (2023-05-13T00:00:00+00:00 - 2 days ago)
     OUTPUT
 
     args = ["-a", "my-app-review"]
@@ -78,15 +78,15 @@ describe Command::RunCleanup do
 
     expected_output = <<~OUTPUT
       Stale run workloads:
-        rails-run-4137 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        rails-run-7025 (2023-05-13T00:00:00+00:00 - 2 days ago)
-        rails-runner-4985 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        rails-runner-6669 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-staging: rails-run-4137 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-staging: rails-run-7025 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-staging: rails-runner-4985 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-staging: rails-runner-6669 (2023-05-13T00:00:00+00:00 - 2 days ago)
 
-      Deleting run workload 'rails-run-4137'... done!
-      Deleting run workload 'rails-run-7025'... done!
-      Deleting run workload 'rails-runner-4985'... done!
-      Deleting run workload 'rails-runner-6669'... done!
+      Deleting run workload 'my-app-staging: rails-run-4137'... done!
+      Deleting run workload 'my-app-staging: rails-run-7025'... done!
+      Deleting run workload 'my-app-staging: rails-runner-4985'... done!
+      Deleting run workload 'my-app-staging: rails-runner-6669'... done!
     OUTPUT
 
     args = ["-a", "my-app-staging"]
@@ -102,15 +102,15 @@ describe Command::RunCleanup do
 
     expected_output = <<~OUTPUT
       Stale run workloads:
-        my-app-review-1 - rails-run-1527 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        my-app-review-2 - rails-run-9213 (2023-05-13T00:00:00+00:00 - 2 days ago)
-        my-app-review-1 - rails-runner-8931 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        my-app-review-2 - rails-runner-1273 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-review-1: rails-run-1527 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-review-2: rails-run-9213 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-review-1: rails-runner-8931 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-review-2: rails-runner-1273 (2023-05-13T00:00:00+00:00 - 2 days ago)
 
-      Deleting run workload 'my-app-review-1 - rails-run-1527'... done!
-      Deleting run workload 'my-app-review-2 - rails-run-9213'... done!
-      Deleting run workload 'my-app-review-1 - rails-runner-8931'... done!
-      Deleting run workload 'my-app-review-2 - rails-runner-1273'... done!
+      Deleting run workload 'my-app-review-1: rails-run-1527'... done!
+      Deleting run workload 'my-app-review-2: rails-run-9213'... done!
+      Deleting run workload 'my-app-review-1: rails-runner-8931'... done!
+      Deleting run workload 'my-app-review-2: rails-runner-1273'... done!
     OUTPUT
 
     args = ["-a", "my-app-review"]
@@ -125,15 +125,15 @@ describe Command::RunCleanup do
 
     expected_output = <<~OUTPUT
       Stale run workloads:
-        rails-run-4137 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        rails-run-7025 (2023-05-13T00:00:00+00:00 - 2 days ago)
-        rails-runner-4985 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        rails-runner-6669 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-staging: rails-run-4137 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-staging: rails-run-7025 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-staging: rails-runner-4985 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-staging: rails-runner-6669 (2023-05-13T00:00:00+00:00 - 2 days ago)
 
-      Deleting run workload 'rails-run-4137'... done!
-      Deleting run workload 'rails-run-7025'... done!
-      Deleting run workload 'rails-runner-4985'... done!
-      Deleting run workload 'rails-runner-6669'... done!
+      Deleting run workload 'my-app-staging: rails-run-4137'... done!
+      Deleting run workload 'my-app-staging: rails-run-7025'... done!
+      Deleting run workload 'my-app-staging: rails-runner-4985'... done!
+      Deleting run workload 'my-app-staging: rails-runner-6669'... done!
     OUTPUT
 
     args = ["-a", "my-app-staging", "-y"]
@@ -148,15 +148,15 @@ describe Command::RunCleanup do
 
     expected_output = <<~OUTPUT
       Stale run workloads:
-        my-app-review-1 - rails-run-1527 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        my-app-review-2 - rails-run-9213 (2023-05-13T00:00:00+00:00 - 2 days ago)
-        my-app-review-1 - rails-runner-8931 (2023-05-10T12:00:00+00:00 - 4 days ago)
-        my-app-review-2 - rails-runner-1273 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-review-1: rails-run-1527 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-review-2: rails-run-9213 (2023-05-13T00:00:00+00:00 - 2 days ago)
+        - my-app-review-1: rails-runner-8931 (2023-05-10T12:00:00+00:00 - 4 days ago)
+        - my-app-review-2: rails-runner-1273 (2023-05-13T00:00:00+00:00 - 2 days ago)
 
-      Deleting run workload 'my-app-review-1 - rails-run-1527'... done!
-      Deleting run workload 'my-app-review-2 - rails-run-9213'... done!
-      Deleting run workload 'my-app-review-1 - rails-runner-8931'... done!
-      Deleting run workload 'my-app-review-2 - rails-runner-1273'... done!
+      Deleting run workload 'my-app-review-1: rails-run-1527'... done!
+      Deleting run workload 'my-app-review-2: rails-run-9213'... done!
+      Deleting run workload 'my-app-review-1: rails-runner-8931'... done!
+      Deleting run workload 'my-app-review-2: rails-runner-1273'... done!
     OUTPUT
 
     args = ["-a", "my-app-review", "-y"]
