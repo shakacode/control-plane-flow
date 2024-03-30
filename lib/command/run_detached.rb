@@ -45,6 +45,7 @@ module Command
     EX
 
     WORKLOAD_SLEEP_CHECK = 2
+    MAX_RETRIES = Float::INFINITY
 
     attr_reader :location, :workload_to_clone, :workload_clone, :container
 
@@ -138,6 +139,7 @@ module Command
 
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
+      retries = 0
       begin
         @finished = false
         while cp.fetch_workload(workload_clone) && !@finished
@@ -145,7 +147,10 @@ module Command
           print_uniq_logs
         end
       rescue RuntimeError => e
-        progress.puts(Shell.color("ERROR: #{e}", :red))
+        raise "#{e} Exiting..." unless retries < MAX_RETRIES
+
+        progress.puts(Shell.color("ERROR: #{e} Retrying...", :red))
+        retries += 1
         retry
       end
       progress.puts("\nFinished workload and logger.")
