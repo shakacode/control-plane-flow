@@ -116,11 +116,10 @@ class Config # rubocop:disable Metrics/ClassLength
   def find_app_config(app_name1)
     @app_configs ||= {}
 
-    @app_configs[app_name1] ||= apps.filter_map do |app_name2, app_config|
+    @app_configs[app_name1] ||= apps.find do |app_name2, app_config|
                                   next unless app_matches?(app_name1, app_name2, app_config)
 
                                   app_config[:name] = app_name2
-                                  app_config
                                 end&.last
   end
 
