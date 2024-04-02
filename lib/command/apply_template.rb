@@ -76,6 +76,10 @@ module Command
       end
     end
 
+    def template_duplicate?(template1, template2)
+      template1["kind"] == template2["kind"] && template1["name"] == template2["name"]
+    end
+
     def ensure_templates!
       missing_templates = config.args.reject { |name| File.exist?(template_filename(name)) }
       return if missing_templates.empty?
@@ -88,13 +92,20 @@ module Command
       raise "Can't find templates above, please create them."
     end
 
-    def parse_templates
+    def parse_templates # rubocop:disable Metrics/MethodLength
       config.args.each_with_object([]) do |name, templates|
         data = File.read(template_filename(name))
         data = replace_variables(data)
         templates_data = data.split(/^---\s*$/)
         templates_data.each do |template_data|
           template = YAML.safe_load(template_data)
+
+          duplicate_template = templates.any? { |current_template| template_duplicate?(template, current_template) }
+          if duplicate_template
+            raise "Multiple templates detected with kind '#{template['kind']}' and name '#{template['name']}'. " \
+                  "Please ensure that templates are unique."
+          end
+
           templates.push(template)
         end
       end
