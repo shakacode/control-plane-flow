@@ -87,4 +87,65 @@ describe Command::Delete do
       expect(result[:stderr]).to match(/Deleting image '#{app}:1'[.]+? done!/)
     end
   end
+
+  context "when workload does not exist" do
+    let!(:app) { dummy_test_app }
+
+    before do
+      run_cpl_command!("apply-template", "gvc", "-a", app)
+    end
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+    end
+
+    it "displays message" do
+      result = run_cpl_command("delete", "-a", app, "--workload", "rails")
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("Workload 'rails' does not exist")
+    end
+  end
+
+  context "when workload exists" do
+    let!(:app) { dummy_test_app }
+
+    before do
+      run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+    end
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+    end
+
+    it "asks for confirmation and does nothing" do
+      allow(Shell).to receive(:confirm).with(include("rails")).and_return(false)
+
+      result = run_cpl_command("delete", "-a", app, "--workload", "rails")
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting workload")
+    end
+
+    it "asks for confirmation and deletes workload" do
+      allow(Shell).to receive(:confirm).with(include("rails")).and_return(true)
+
+      result = run_cpl_command("delete", "-a", app, "--workload", "rails")
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting workload 'rails'[.]+? done!/)
+    end
+
+    it "skips confirmation and deletes workload" do
+      allow(Shell).to receive(:confirm).and_return(false)
+
+      result = run_cpl_command("delete", "-a", app, "--workload", "rails", "--yes")
+
+      expect(Shell).not_to have_received(:confirm)
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting workload 'rails'[.]+? done!/)
+    end
+  end
 end

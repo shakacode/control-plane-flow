@@ -5,27 +5,53 @@ module Command
     NAME = "delete"
     OPTIONS = [
       app_option(required: true),
+      workload_option,
       skip_confirm_option
     ].freeze
-    DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images)"
+    DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload"
     LONG_DESCRIPTION = <<~DESC
-      - Deletes the whole app (GVC with all workloads, all volumesets and all images)
+      - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
       - Will ask for explicit user confirmation
     DESC
+    EXAMPLES = <<~EX
+      ```sh
+      # Deletes the whole app (GVC with all workloads, all volumesets and all images).
+      cpl delete -a $APP_NAME
+
+      # Deletes a specific workload.
+      cpl delete -a $APP_NAME -w $WORKLOAD_NAME
+      ```
+    EX
 
     def call
+      workload = config.options[:workload]
+      if workload
+        delete_single_workload(workload)
+      else
+        delete_whole_app
+      end
+    end
+
+    private
+
+    def delete_single_workload(workload)
+      return progress.puts("Workload '#{workload}' does not exist.") if cp.fetch_workload(workload).nil?
+      return unless confirm_delete(workload)
+
+      delete_workload(workload)
+    end
+
+    def delete_whole_app
       return progress.puts("App '#{config.app}' does not exist.") if cp.fetch_gvc.nil?
 
       check_volumesets
       check_images
-      return unless confirm_delete
+      return unless confirm_delete(config.app)
 
       delete_volumesets
       delete_gvc
       delete_images
     end
-
-    private
 
     def check_volumesets
       @volumesets = cp.fetch_volumesets["items"]
@@ -46,10 +72,10 @@ module Command
       progress.puts("#{Shell.color(message, :red)}\n#{images_list}\n\n")
     end
 
-    def confirm_delete
+    def confirm_delete(item)
       return true if config.options[:yes]
 
-      confirmed = Shell.confirm("Are you sure you want to delete '#{config.app}'?")
+      confirmed = Shell.confirm("Are you sure you want to delete '#{item}'?")
       return false unless confirmed
 
       progress.puts
@@ -59,6 +85,12 @@ module Command
     def delete_gvc
       step("Deleting app '#{config.app}'") do
         cp.gvc_delete
+      end
+    end
+
+    def delete_workload(workload)
+      step("Deleting workload '#{workload}'") do
+        cp.delete_workload(workload)
       end
     end
 
