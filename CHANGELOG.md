@@ -14,6 +14,11 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Changed
+
+- Improved template parsing in `apply-template` command when handling templates with multiple items in the same file. [PR 152](https://github.com/shakacode/heroku-to-control-plane/pull/152) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `apply-template` command now raises an error if duplicate templates are found. [PR 152](https://github.com/shakacode/heroku-to-control-plane/pull/152) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [1.4.0] - 2024-03-20
 
 ### Added
