@@ -20,6 +20,7 @@ module Command
       deployed_endpoints = {}
 
       image = latest_image
+      raise "Image '#{image}' does not exist." if cp.fetch_image(image).nil?
 
       config[:app_workloads].each do |workload|
         workload_data = cp.fetch_workload!(workload)
