@@ -36,28 +36,12 @@ module Command
 
     private
 
-    def app_matches?(app, app_name, app_options)
-      app == app_name.to_s || (app_options[:match_if_app_name_starts_with] && app.start_with?(app_name.to_s))
-    end
-
-    def find_app_options(app)
-      @app_options ||= {}
-      @app_options[app] ||= config.apps.find do |app_name, app_options|
-                              app_matches?(app, app_name, app_options)
-                            end&.last
-    end
-
-    def find_workloads(app)
-      app_options = find_app_options(app)
-      return [] if app_options.nil?
-
-      (app_options[:app_workloads] + app_options[:additional_workloads] + [app_options[:one_off_workload]]).uniq
-    end
-
     def stale_run_workloads # rubocop:disable Metrics/MethodLength
       @stale_run_workloads ||=
         begin
-          defined_workloads = find_workloads(config.app)
+          defined_workloads = (config.current[:app_workloads] +
+                              config.current[:additional_workloads] +
+                              [config.current[:one_off_workload]]).uniq
 
           run_workloads = []
 
