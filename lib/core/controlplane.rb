@@ -58,8 +58,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     image_push(image) if push
   end
 
-  def fetch_image(image)
-    api.fetch_image(org: org, image: image)
+  def fetch_image_details(image)
+    api.fetch_image_details(org: org, image: image)
   end
 
   def image_delete(image)

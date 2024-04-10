@@ -25,7 +25,7 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     query("/org/#{org}/image", terms)
   end
 
-  def fetch_image(org:, image:)
+  def fetch_image_details(org:, image:)
     api_json("/org/#{org}/image/#{image}", method: :get)
   end
 
