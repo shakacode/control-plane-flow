@@ -98,7 +98,6 @@ GEM
     thor (1.2.2)
     timecop (0.9.8)
     unicode-display_width (2.5.0)
-    vcr (6.1.0)
     webmock (3.18.1)
       addressable (>= 2.8.0)
       crack (>= 0.3.2)
@@ -118,7 +117,6 @@ DEPENDENCIES
   rubocop-rspec (~> 2.18.1)
   simplecov (~> 0.22.0)
   timecop (~> 0.9.6)
-  vcr (~> 6.1.0)
   webmock (~> 3.18.1)
 
 BUNDLED WITH

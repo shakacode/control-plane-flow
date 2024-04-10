@@ -4,7 +4,6 @@ ENV["RAILS_ENV"] ||= "test"
 
 require "simplecov"
 require "timecop"
-require "vcr"
 
 SimpleCov.start do
   enable_coverage :branch
@@ -21,16 +20,6 @@ SimpleCov.start do
     start do
       enable_coverage :branch
     end
-  end
-end
-
-VCR.configure do |config|
-  config.cassette_library_dir = "spec/cassettes"
-  config.hook_into :webmock
-  config.configure_rspec_metadata!
-
-  config.filter_sensitive_data("<AUTHORIZATION>") do |interaction|
-    interaction.request.headers["Authorization"]&.first
   end
 end
 
