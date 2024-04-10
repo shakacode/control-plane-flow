@@ -20,6 +20,11 @@ module Command
       deployed_endpoints = {}
 
       image = latest_image
+      if cp.fetch_image_details(image).nil?
+        raise "Image '#{image}' does not exist in the Docker repository on Control Plane " \
+              "(see https://console.cpln.io/console/org/#{config.org}/repository/#{config.app}). " \
+              "Use `cpl build-image` first."
+      end
 
       config[:app_workloads].each do |workload|
         workload_data = cp.fetch_workload!(workload)
