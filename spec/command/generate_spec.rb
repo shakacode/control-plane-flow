@@ -28,7 +28,7 @@ describe Command::Generate do
   end
 
   context "when no configuration exist in the project" do
-    it "generates base config files" do
+    it "generates base config files", :fast do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Cpl::Cli.start([described_class::NAME])
         controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
@@ -38,7 +38,7 @@ describe Command::Generate do
   end
 
   context "when .controlplane directory already exist" do
-    it "doesn't generates base config files" do
+    it "doesn't generates base config files", :fast do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Dir.mkdir(CONTROLPLANE_CONFIG_DIR_PATH)
 

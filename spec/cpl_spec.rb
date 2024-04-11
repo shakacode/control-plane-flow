@@ -1,16 +1,18 @@
 # frozen_string_literal: true
 
+require "spec_helper"
+
 commands = Command::Base.all_commands
 options_by_key_name = Command::Base.all_options_by_key_name
 
 describe Cpl do
-  it "has a version number" do
+  it "has a version number", :fast do
     expect(Cpl::VERSION).not_to be_nil
   end
 
   commands.each do |_command_key, command_class|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "calls '#{command_class.name}' for '#{command_class::NAME}' command" do
+    it "calls '#{command_class.name}' for '#{command_class::NAME}' command", :fast do
       args = command_class::REQUIRES_ARGS ? ["test"] : []
       command_class::OPTIONS.each do |option|
         if option[:params][:required]
@@ -28,7 +30,7 @@ describe Cpl do
 
   options_by_key_name.each do |option_key_name, option|
     # Temporary tests to ensure nothing breaks when converting to Thor
-    it "parses '#{option_key_name}' option" do
+    it "parses '#{option_key_name}' option", :fast do
       if option[:params][:type] == :boolean
         option_value = true
         args = [option_key_name]

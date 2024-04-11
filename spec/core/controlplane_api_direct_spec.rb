@@ -6,7 +6,7 @@ describe ControlplaneApiDirect do
   let(:described_instance) { described_class.new }
 
   describe "#api_host" do
-    it "returns correct host for 'api' when CPLN_ENDPOINT is not set" do
+    it "returns correct host for 'api' when CPLN_ENDPOINT is not set", :fast do
       allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
 
       host = described_instance.api_host(:api)
@@ -14,7 +14,7 @@ describe ControlplaneApiDirect do
       expect(host).to eq("https://api.cpln.io")
     end
 
-    it "returns correct host for 'api' when CPLN_ENDPOINT is set" do
+    it "returns correct host for 'api' when CPLN_ENDPOINT is set", :fast do
       allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("http://api.cpln.io")
 
       host = described_instance.api_host(:api)
@@ -22,7 +22,7 @@ describe ControlplaneApiDirect do
       expect(host).to eq("http://api.cpln.io")
     end
 
-    it "returns correct host for 'logs'" do
+    it "returns correct host for 'logs'", :fast do
       host = described_instance.api_host(:logs)
 
       expect(host).to eq("https://logs.cpln.io")
@@ -30,7 +30,7 @@ describe ControlplaneApiDirect do
   end
 
   describe "#api_token" do
-    it "returns token from CPLN_TOKEN" do
+    it "returns token from CPLN_TOKEN", :fast do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token_1")
 
       token = described_instance.api_token
@@ -38,7 +38,7 @@ describe ControlplaneApiDirect do
       expect(token).to eq("token_1")
     end
 
-    it "returns token from 'cpln profile token'" do
+    it "returns token from 'cpln profile token'", :fast do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
       allow(described_instance).to receive(:`).with("cpln profile token $CPLN_PROFILE").and_return("token_2")
 
@@ -47,7 +47,7 @@ describe ControlplaneApiDirect do
       expect(token).to eq("token_2")
     end
 
-    it "raises error if token is not found" do
+    it "raises error if token is not found", :fast do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
       allow(described_instance).to receive(:`).with("cpln profile token $CPLN_PROFILE").and_return("")
 
@@ -60,7 +60,7 @@ describe ControlplaneApiDirect do
   end
 
   describe ".parse_org" do
-    it "returns correct org" do
+    it "returns correct org", :fast do
       url = "/org/org1/gvc/gvc1"
       org = described_instance.class.parse_org(url)
       expect(org).to eq("org1")
