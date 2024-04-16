@@ -1,6 +1,7 @@
 # DNS Setup Example
 
 ## Docs
+
 https://docs.controlplane.com/guides/configure-domain#dns-records
 
 ## Example
