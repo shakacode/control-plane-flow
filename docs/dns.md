@@ -2,7 +2,7 @@
 
 ## Docs
 
-https://docs.controlplane.com/guides/configure-domain#dns-records
+https://shakadocs.controlplane.com/guides/configure-domain#dns-records
 
 ## Example
 

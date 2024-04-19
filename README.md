@@ -110,7 +110,7 @@ For the typical Rails app, this means:
 
 3. Install [Ruby](https://www.ruby-lang.org/en/) (required for these helpers).
 
-4. Install Control Plane CLI, and configure access ([docs here](https://docs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)).
+4. Install Control Plane CLI, and configure access ([docs here](https://shakadocs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)).
 
 ```sh
 # Install CLI
@@ -446,7 +446,7 @@ development purposes.
 
 ## Scheduled Jobs
 
-Control Plane supports scheduled jobs via [cron workloads](https://docs.controlplane.com/reference/workload#cron).
+Control Plane supports scheduled jobs via [cron workloads](https://shakadocs.controlplane.com/reference/workload#cron).
 
 Here's a partial example of a template for a cron workload, using the app image:
 
