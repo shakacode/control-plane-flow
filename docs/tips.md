@@ -65,7 +65,7 @@ The actual remote IP of the workload container is in the 127.0.0.x network, so t
 `REMOTE_ADDR` env var.
 
 However, Control Plane additionally sets the `x-forwarded-for` and `x-envoy-external-address` headers (and others - see:
-https://docs.controlplane.com/concepts/security#headers). On Rails, the `ActionDispatch::RemoteIp` middleware should
+https://shakadocs.controlplane.com/concepts/security#headers). On Rails, the `ActionDispatch::RemoteIp` middleware should
 pick those up and automatically populate `request.remote_ip`.
 
 So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
