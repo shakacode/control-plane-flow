@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-bad_links=("controlplane.com/shakacode")
-proper_links=("shakacode.controlplane.com")
+bad_links=("controlplane.com/shakacode" "https://docs.controlplane.com")
+proper_links=("shakacode.controlplane.com" "https://shakadocs.controlplane.com")
 
 bold=$(tput bold)
 normal=$(tput sgr0)
@@ -19,7 +19,7 @@ for ((idx = 0; idx < ${#bad_links[@]}; idx++)); do
         --heading \
         --color=always -- \
         "${bad_links[idx]}" \
-        ':!script/check_cpln_links')
+        ':!script/check_cpln_links' '*.md')
 
     # Line would become really unwieldly if everything was mushed into the
     # conditional, so let's ignore this check here.
