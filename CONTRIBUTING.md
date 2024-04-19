@@ -12,13 +12,12 @@ git clone https://github.com/shakacode/heroku-to-control-plane
 alias cpl="~/projects/heroku-to-control-plane/bin/cpl"
 ```
 
-## Linting/Testing
+## Linting
 
 Before committing or pushing code, be sure to:
 
 - Run `bundle exec rake update_command_docs` to sync any doc changes made in the source code to the docs
 - Run `bundle exec rubocop -a` to fix any linting errors
-- Run `bundle exec rspec` to run the test suite
 
 You can also install [overcommit](https://github.com/sds/overcommit) and let it automatically check for you:
 
@@ -26,6 +25,28 @@ You can also install [overcommit](https://github.com/sds/overcommit) and let it 
 gem install overcommit
 
 overcommit --install
+```
+
+## Testing
+
+We use real apps for the tests. You'll need to have full access to a Control Plane org, and then set it as the env var `CPLN_ORG` when running the tests (or in the `.env` file):
+
+```sh
+CPLN_ORG=your-org-for-tests bundle exec rspec
+```
+
+Tests are separated between fast and slow. Slow tests can take a long time and usually involve building / deploying images and waiting for workloads to be ready / not ready, so they should only be run once in a while.
+
+To run fast tests:
+
+```sh
+CPLN_ORG=your-org-for-tests bundle exec rspec --tag fast
+```
+
+To run slow tests:
+
+```sh
+CPLN_ORG=your-org-for-tests bundle exec rspec --tag slow
 ```
 
 ## Debugging
