@@ -312,8 +312,9 @@ module Command
       end
     end
 
-    def latest_image(app = config.app, org = config.org)
+    def latest_image(app = config.app, org = config.org, refresh: false)
       @latest_image ||= {}
+      @latest_image[app] = nil if refresh
       @latest_image[app] ||=
         begin
           items = cp.query_images(app, org)["items"]
