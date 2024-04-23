@@ -28,9 +28,7 @@ class ControlplaneApiDirect
     request = API_METHODS[method].new(uri)
     request["Content-Type"] = "application/json"
 
-    refresh_api_token if should_refresh_api_token?
-
-    request["Authorization"] = api_token[:token]
+    request["Authorization"] = api_token
     request.body = body.to_json if body
 
     Shell.debug(method.upcase, "#{uri} #{body&.to_json}")
@@ -65,46 +63,13 @@ class ControlplaneApiDirect
     end
   end
 
-  # rubocop:disable Style/ClassVars
-  def api_token # rubocop:disable Metrics/MethodLength
-    return @@api_token if defined?(@@api_token)
-
-    @@api_token = {
-      token: ENV.fetch("CPLN_TOKEN", nil),
-      comes_from_profile: false
-    }
-    if @@api_token[:token].nil?
-      @@api_token = {
-        token: `cpln profile token`.chomp,
-        comes_from_profile: true
-      }
-    end
-    return @@api_token if @@api_token[:token].match?(API_TOKEN_REGEX)
+  def api_token
+    token = ENV.fetch("CPLN_TOKEN", nil) || `cpln profile token $CPLN_PROFILE`.chomp
+    return token if token.match?(API_TOKEN_REGEX)
 
     raise "Unknown API token format. " \
           "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."
   end
-
-  # Returns `true` when the token is about to expire in 5 minutes
-  def should_refresh_api_token?
-    return false unless api_token[:comes_from_profile]
-
-    payload, = JWT.decode(api_token[:token], nil, false)
-    difference_in_seconds = payload["exp"] - Time.now.to_i
-
-    difference_in_seconds <= API_TOKEN_EXPIRY_SECONDS
-  rescue JWT::DecodeError
-    false
-  end
-
-  def refresh_api_token
-    @@api_token[:token] = `cpln profile token`.chomp
-  end
-
-  def self.reset_api_token
-    remove_class_variable(:@@api_token) if defined?(@@api_token)
-  end
-  # rubocop:enable Style/ClassVars
 
   def self.parse_org(url)
     url.match(%r{^/org/([^/]+)})[1]

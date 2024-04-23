@@ -30,32 +30,26 @@ describe ControlplaneApiDirect do
   end
 
   describe "#api_token" do
-    before do
-      described_class.remove_class_variable(:@@api_token) if described_class.class_variable_defined?(:@@api_token)
-    end
-
     it "returns token from CPLN_TOKEN" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token_1")
 
-      result = described_instance.api_token
+      token = described_instance.api_token
 
-      expect(result[:token]).to eq("token_1")
-      expect(result[:comes_from_profile]).to be(false)
+      expect(token).to eq("token_1")
     end
 
     it "returns token from 'cpln profile token'" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
-      allow(described_instance).to receive(:`).with("cpln profile token").and_return("token_2")
+      allow(described_instance).to receive(:`).with("cpln profile token $CPLN_PROFILE").and_return("token_2")
 
-      result = described_instance.api_token
+      token = described_instance.api_token
 
-      expect(result[:token]).to eq("token_2")
-      expect(result[:comes_from_profile]).to be(true)
+      expect(token).to eq("token_2")
     end
 
     it "raises error if token is not found" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
-      allow(described_instance).to receive(:`).with("cpln profile token").and_return("")
+      allow(described_instance).to receive(:`).with("cpln profile token $CPLN_PROFILE").and_return("")
 
       message = "Unknown API token format. " \
                 "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."

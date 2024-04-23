@@ -105,7 +105,7 @@ module Command
 
       if config.options["use_local_token"]
         container_spec["env"] << { "name" => "CONTROLPLANE_TOKEN",
-                                   "value" => ControlplaneApiDirect.new.api_token[:token] }
+                                   "value" => ControlplaneApiDirect.new.api_token }
       end
 
       # Create workload clone

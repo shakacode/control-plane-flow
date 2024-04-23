@@ -14,7 +14,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def profile_switch(profile)
     ENV["CPLN_PROFILE"] = profile
-    ControlplaneApiDirect.reset_api_token
   end
 
   def profile_exists?(profile)
