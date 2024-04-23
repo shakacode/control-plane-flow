@@ -75,8 +75,8 @@ module Command
       if config.org
         result.push(config.org)
       else
-        config.apps.each do |_, app_options|
-          org = app_options[:cpln_org]
+        config.apps.each do |app_name, app_options|
+          org = app_org(app_name, app_options)
           result.push(org) if org && !result.include?(org)
         end
       end
@@ -90,12 +90,16 @@ module Command
       config.apps.each do |app_name, app_options|
         next if config.app && !config.app_matches?(config.app, app_name, app_options)
 
-        app_org = app_options[:cpln_org]
+        app_org = app_org(app_name, app_options)
         result.push(app_name.to_s) if app_org == org
       end
 
       result += @app_workloads.keys.map(&:to_s)
       result.uniq.sort
+    end
+
+    def app_org(_app_name, app_options)
+      app_options[:cpln_org]
     end
 
     def any_app_starts_with?(app)
