@@ -65,12 +65,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def image_login(org_name = config.org)
     cmd = "cpln image docker-login --org #{org_name}"
-    perform!(cmd, show_stderr: false)
+    perform!(cmd, output_mode: :none)
   end
 
   def image_pull(image)
     cmd = "docker pull #{image}"
-    perform!(cmd, show_stderr: false)
+    perform!(cmd, output_mode: :none)
   end
 
   def image_tag(old_tag, new_tag)
@@ -222,14 +222,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd = "cpln workload connect #{workload} #{gvc_org} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " --shell #{shell}" if shell
-    perform!(cmd, show_in_tests: true)
+    perform!(cmd, output_mode: :all)
   end
 
   def workload_exec(workload, location:, container: nil, command: nil)
     cmd = "cpln workload exec #{workload} #{gvc_org} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
-    perform!(cmd, show_in_tests: true)
+    perform!(cmd, output_mode: :all)
   end
 
   # volumeset
@@ -288,7 +288,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def logs(workload:)
     cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw --limit 200"
-    perform!(cmd, show_in_tests: true)
+    perform!(cmd, output_mode: :all)
   end
 
   def log_get(workload:, from:, to:)
@@ -373,30 +373,42 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   private
 
-  def build_command(cmd, show_stdout: true, show_stderr: true, show_in_tests: false)
-    show_stdout &&= !Shell.should_hide_output?
+  # `output_mode` can be :all, :errors_only or :none.
+  # If not provided, it will be determined based on the `HIDE_COMMAND_OUTPUT` env var
+  # or the return value of `Shell.should_hide_output?`.
+  def build_command(cmd, output_mode: nil)
+    output_mode ||= determine_command_output_mode
 
-    show_for_env = ENV["RAILS_ENV"] != "test" || show_in_tests
-    cmd += " > /dev/null" unless show_stdout && show_for_env
-    cmd += " 2> /dev/null" unless show_stderr && show_for_env
-
-    cmd
+    case output_mode
+    when :errors_only
+      "#{cmd} > /dev/null"
+    when :none
+      "#{cmd} > /dev/null 2>&1"
+    else
+      cmd
+    end
   end
 
-  def perform(cmd, show_stdout: true, show_stderr: true, show_in_tests: false)
-    cmd = build_command(cmd, show_stdout: show_stdout, show_stderr: show_stderr, show_in_tests: show_in_tests)
+  def determine_command_output_mode
+    if ENV.fetch("HIDE_COMMAND_OUTPUT", nil) == "true"
+      :none
+    elsif Shell.should_hide_output?
+      :errors_only
+    else
+      :all
+    end
+  end
 
-    Shell.debug("CMD", cmd)
+  def perform(cmd, output_mode: nil, sensitive_data_pattern: nil)
+    cmd = build_command(cmd, output_mode: output_mode)
+
+    Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
     Kernel.system(cmd)
   end
 
-  def perform!(cmd, show_stdout: true, show_stderr: true, show_in_tests: false, sensitive_data_pattern: nil)
-    cmd = build_command(cmd, show_stdout: show_stdout, show_stderr: show_stderr, show_in_tests: show_in_tests)
-
-    Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
-
-    Kernel.system(cmd) || exit(1)
+  def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
+    perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern) || exit(1)
   end
 
   def perform_yaml(cmd)

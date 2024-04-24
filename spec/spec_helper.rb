@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 ENV["RAILS_ENV"] ||= "test"
+ENV["HIDE_COMMAND_OUTPUT"] = "true"
 
 require "rspec/retry"
 require "simplecov"
