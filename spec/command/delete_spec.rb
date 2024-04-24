@@ -66,7 +66,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "rails", "redis-with-volume", "detached-volume", "-a", app)
+      run_cpl_command!("apply-template", "gvc", "rails", "postgres-with-volume", "detached-volume", "-a", app)
       run_cpl_command!("build-image", "-a", app)
     end
 
@@ -82,7 +82,7 @@ describe Command::Delete do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting volumeset 'detached-volume'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting volumeset 'redis-volume'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting image '#{app}:1'[.]+? done!/)
     end

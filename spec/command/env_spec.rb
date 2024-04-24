@@ -21,7 +21,6 @@ describe Command::Env do
       result = run_cpl_command("env", "-a", app)
 
       expect(result[:status]).to eq(0)
-      expect(result[:stdout]).to include("REDIS_URL=redis://redis.#{app}.cpln.local:6379")
       expect(result[:stdout])
         .to include("DATABASE_URL=postgres://postgres:password@postgres.#{app}.cpln.local:5432/#{app}")
     end

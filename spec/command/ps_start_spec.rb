@@ -14,7 +14,6 @@ describe Command::PsStart do
 
     expect(result[:status]).to eq(0)
     expect(result[:stderr]).to match(/Starting workload 'rails'[.]+? done!/)
-    expect(result[:stderr]).to match(/Starting workload 'redis'[.]+? done!/)
     expect(result[:stderr]).to match(/Starting workload 'postgres'[.]+? done!/)
   end
 
@@ -23,7 +22,6 @@ describe Command::PsStart do
 
     expect(result[:status]).to eq(0)
     expect(result[:stderr]).to match(/Starting workload 'rails'[.]+? done!/)
-    expect(result[:stderr]).not_to include("redis")
     expect(result[:stderr]).not_to include("postgres")
   end
 
@@ -32,10 +30,8 @@ describe Command::PsStart do
 
     expect(result[:status]).to eq(0)
     expect(result[:stderr]).to match(/Starting workload 'rails'[.]+? done!/)
-    expect(result[:stderr]).to match(/Starting workload 'redis'[.]+? done!/)
     expect(result[:stderr]).to match(/Starting workload 'postgres'[.]+? done!/)
     expect(result[:stderr]).to match(/Waiting for workload 'rails' to be ready[.]+? done!/)
-    expect(result[:stderr]).to match(/Waiting for workload 'redis' to be ready[.]+? done!/)
     expect(result[:stderr]).to match(/Waiting for workload 'postgres' to be ready[.]+? done!/)
   end
 end

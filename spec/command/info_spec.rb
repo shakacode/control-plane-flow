@@ -38,7 +38,6 @@ describe Command::Info do
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
-      expect(Shell).not_to have_received(:color).with("redis", :red)
       expect(Shell).not_to have_received(:color).with("postgres", :red)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
@@ -55,7 +54,6 @@ describe Command::Info do
       expect(Shell).not_to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
-      expect(Shell).not_to have_received(:color).with("redis", :red)
       expect(Shell).not_to have_received(:color).with("postgres", :red)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
@@ -77,7 +75,6 @@ describe Command::Info do
 
       expect(Shell).to have_received(:color).with(app1, :red)
       expect(Shell).to have_received(:color).with("rails", :red)
-      expect(Shell).to have_received(:color).with("redis", :red)
       expect(Shell).to have_received(:color).with("postgres", :red)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
@@ -93,7 +90,6 @@ describe Command::Info do
       expect(Shell).to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
       expect(Shell).to have_received(:color).with("rails", :red).at_least(:once)
-      expect(Shell).to have_received(:color).with("redis", :red).at_least(:once)
       expect(Shell).to have_received(:color).with("postgres", :red).at_least(:once)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).not_to include("- #{app1}")
@@ -109,7 +105,6 @@ describe Command::Info do
       expect(Shell).to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
       expect(Shell).to have_received(:color).with("rails", :red).at_least(:once)
-      expect(Shell).to have_received(:color).with("redis", :red).at_least(:once)
       expect(Shell).to have_received(:color).with("postgres", :red).at_least(:once)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).not_to include("- #{app1}")
@@ -125,7 +120,6 @@ describe Command::Info do
       expect(Shell).to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
       expect(Shell).to have_received(:color).with("rails", :red).at_least(:once)
-      expect(Shell).to have_received(:color).with("redis", :red).at_least(:once)
       expect(Shell).to have_received(:color).with("postgres", :red).at_least(:once)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).not_to include("- #{app1}")
@@ -146,12 +140,11 @@ describe Command::Info do
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
-      expect(Shell).to have_received(:color).with("redis", :red)
       expect(Shell).to have_received(:color).with("postgres", :red)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
     end
 
     it "highlights workloads for multiple apps with red" do
@@ -161,13 +154,12 @@ describe Command::Info do
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
-      expect(Shell).to have_received(:color).with("redis", :red).at_least(:once)
       expect(Shell).to have_received(:color).with("postgres", :red).at_least(:once)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app1}`")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app2}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app2}`")
     end
 
     it "highlights workloads for single org with red" do
@@ -177,13 +169,12 @@ describe Command::Info do
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
-      expect(Shell).to have_received(:color).with("redis", :red).at_least(:once)
       expect(Shell).to have_received(:color).with("postgres", :red).at_least(:once)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app1}`")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app2}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app2}`")
     end
 
     it "highlights workloads for multiple orgs with red" do
@@ -193,13 +184,12 @@ describe Command::Info do
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
-      expect(Shell).to have_received(:color).with("redis", :red).at_least(:once)
       expect(Shell).to have_received(:color).with("postgres", :red).at_least(:once)
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app1}`")
-      expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app2}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app2}`")
     end
   end
 
@@ -215,7 +205,6 @@ describe Command::Info do
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
-      expect(Shell).not_to have_received(:color).with("redis", :red)
       expect(Shell).not_to have_received(:color).with("postgres", :red)
       expect(Shell).to have_received(:color).with("rails-with-non-app-image", :green)
       expect(result[:status]).to eq(0)

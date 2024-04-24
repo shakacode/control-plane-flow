@@ -40,7 +40,6 @@ describe Command::SetupApp do
       expect(result[:stderr]).to include("[app] #{app}")
       expect(result[:stderr]).to include("[identity] #{app}-identity")
       expect(result[:stderr]).to include("[workload] rails")
-      expect(result[:stderr]).to include("[workload] redis")
       expect(result[:stderr]).to include("[workload] postgres")
       expect(result[:stderr]).not_to include("Failed to apply templates")
     end

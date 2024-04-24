@@ -2,8 +2,6 @@ kind: gvc
 name: {{APP_NAME}}
 spec:
   env:
-    - name: REDIS_URL
-      value: redis://redis.{{APP_NAME}}.cpln.local:6379
     - name: DATABASE_URL
       value: postgres://postgres:password@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}
     - name: SECRET_KEY_BASE

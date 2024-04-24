@@ -8,7 +8,6 @@ aliases:
     app_workloads:
       - rails
     additional_workloads:
-      - redis
       - postgres
 
 apps:
@@ -27,7 +26,6 @@ apps:
     setup_app_templates:
       - gvc
       - rails
-      - redis
       - postgres
 
   dummy-test-with-nothing:
@@ -60,7 +58,6 @@ apps:
     setup_app_templates:
       - gvc
       - rails
-      - redis
       - postgres
       - maintenance
 
@@ -126,7 +123,6 @@ apps:
     setup_app_templates:
       - gvc
       - rails
-      - redis
       - postgres
       - rails-with-non-app-image
 
@@ -182,7 +178,6 @@ apps:
     setup_app_templates:
       - gvc
       - rails
-      - redis
       - postgres
 
   dummy-test-info-with-missing-apps:
@@ -205,6 +200,5 @@ apps:
     setup_app_templates:
       - gvc
       - rails
-      - redis
       - postgres
       - rails-with-non-app-image

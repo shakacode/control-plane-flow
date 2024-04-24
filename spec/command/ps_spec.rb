@@ -53,7 +53,6 @@ describe Command::Ps do
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("rails-")
-      expect(result[:stdout]).to include("redis-")
       expect(result[:stdout]).to include("postgres-")
     end
 
@@ -62,7 +61,6 @@ describe Command::Ps do
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("rails-")
-      expect(result[:stdout]).not_to include("redis-")
       expect(result[:stdout]).not_to include("postgres-")
     end
   end

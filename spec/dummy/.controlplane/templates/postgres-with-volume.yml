@@ -1,0 +1,41 @@
+# Based on https://github.com/controlplane-com/examples/blob/main/examples/postgres
+
+kind: volumeset
+name: postgres-volume
+spec:
+  fileSystemType: ext4
+  performanceClass: general-purpose-ssd
+  initialCapacity: 10
+---
+kind: workload
+name: postgres
+spec:
+  type: stateful
+  containers:
+    - name: postgres
+      cpu: 50m
+      memory: 256Mi
+      env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pg_data
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: password
+      image: postgres:15-alpine
+      ports:
+        - number: 5432
+          protocol: tcp
+      volumes:
+        - path: /var/lib/postgresql/data
+          uri: cpln://volumeset/postgres-volume
+          recoveryPolicy: retain
+  defaultOptions:
+    autoscaling:
+      metric: latency
+      minScale: 1
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    internal:
+      inboundAllowType: same-gvc

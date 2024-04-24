@@ -26,7 +26,6 @@ describe Command::PsRestart do
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Restarting workload 'rails'[.]+? done!/)
-      expect(result[:stderr]).to match(/Restarting workload 'redis'[.]+? done!/)
       expect(result[:stderr]).to match(/Restarting workload 'postgres'[.]+? done!/)
     end
 
@@ -35,7 +34,6 @@ describe Command::PsRestart do
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Restarting workload 'rails'[.]+? done!/)
-      expect(result[:stderr]).not_to include("redis")
       expect(result[:stderr]).not_to include("postgres")
     end
   end

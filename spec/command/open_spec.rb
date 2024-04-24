@@ -34,9 +34,9 @@ describe Command::Open do
     it "opens endpoint of specific workload" do
       allow(Kernel).to receive(:exec)
 
-      result = run_cpl_command("open", "-a", app, "--workload", "redis")
+      result = run_cpl_command("open", "-a", app, "--workload", "postgres")
 
-      expected_url = %r{https://redis-.+?.cpln.app}
+      expected_url = %r{https://postgres-.+?.cpln.app}
       expect(Kernel).to have_received(:exec).with(match(expected_url))
       expect(result[:status]).to eq(0)
     end

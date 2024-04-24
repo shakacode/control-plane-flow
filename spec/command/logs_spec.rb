@@ -26,9 +26,9 @@ describe Command::Logs do
   context "when workload is provided" do
     it "displays logs for specific workload", :slow do
       result = nil
-      expected_regex = /Server initialized/
+      expected_regex = /PostgreSQL init process complete/
 
-      spawn_cpl_command("logs", "-a", app, "--workload", "redis") do |it|
+      spawn_cpl_command("logs", "-a", app, "--workload", "postgres") do |it|
         result = it.wait_for(expected_regex)
         it.kill
       end
