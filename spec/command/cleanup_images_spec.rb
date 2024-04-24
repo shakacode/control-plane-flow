@@ -6,7 +6,7 @@ describe Command::CleanupImages do
   context "when 'image_retention_max_qty' or 'image_retention_days' are not defined" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("cleanup-images", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -17,7 +17,7 @@ describe Command::CleanupImages do
   context "when there are no images to delete" do
     let!(:app) { dummy_test_app }
 
-    it "displays message", :fast do
+    it "displays message" do
       result = run_cpl_command("cleanup-images", "-a", app)
 
       expect(result[:status]).to eq(0)

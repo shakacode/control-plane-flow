@@ -37,10 +37,12 @@ CPLN_ORG=your-org-for-tests bundle exec rspec
 
 Tests are separated between fast and slow. Slow tests can take a long time and usually involve building / deploying images and waiting for workloads to be ready / not ready, so they should only be run once in a while.
 
+If you add a slow test, tag it with `slow`. Tests without a `slow` tag are considered fast by default.
+
 To run fast tests:
 
 ```sh
-CPLN_ORG=your-org-for-tests bundle exec rspec --tag fast
+CPLN_ORG=your-org-for-tests bundle exec rspec --tag ~slow
 ```
 
 To run slow tests:

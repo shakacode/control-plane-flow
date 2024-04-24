@@ -8,7 +8,7 @@ describe Command::CleanupStaleApps do
   context "when 'stale_app_image_deployed_days' is not defined" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("cleanup-stale-apps", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -19,7 +19,7 @@ describe Command::CleanupStaleApps do
   context "when there are no stale apps to delete" do
     let!(:app) { dummy_test_app }
 
-    it "displays message", :fast do
+    it "displays message" do
       result = run_cpl_command("cleanup-stale-apps", "-a", app)
 
       expect(result[:status]).to eq(0)

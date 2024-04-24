@@ -6,7 +6,7 @@ describe Command::MaintenanceOff do
   context "when app has no domain" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("maintenance:off", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -17,7 +17,7 @@ describe Command::MaintenanceOff do
   context "when maintenance workload does not exist" do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("maintenance:off", "-a", app)
 
       expect(result[:status]).to eq(1)

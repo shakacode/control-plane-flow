@@ -6,7 +6,7 @@ describe Command::SetupApp do
   context "when 'setup_app_templates' is not defined" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -17,7 +17,7 @@ describe Command::SetupApp do
   context "when app already exists" do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -32,7 +32,7 @@ describe Command::SetupApp do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "applies templates from 'setup_app_templates'", :fast do
+    it "applies templates from 'setup_app_templates'" do
       result = run_cpl_command("setup-app", "-a", app, "--skip-secret-access-binding")
 
       expect(result[:status]).to eq(0)
@@ -53,7 +53,7 @@ describe Command::SetupApp do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -72,7 +72,7 @@ describe Command::SetupApp do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "binds identity to policy", :fast do
+    it "binds identity to policy" do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(0)

@@ -6,7 +6,7 @@ describe Command::ApplyTemplate do
   context "when any template does not exist" do
     let!(:app) { dummy_test_app }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("apply-template", "gvc", "rails", "unexistent", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -22,7 +22,7 @@ describe Command::ApplyTemplate do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "applies valid templates", :fast do
+    it "applies valid templates" do
       result = run_cpl_command("apply-template", "gvc", "rails", "-a", app)
 
       expect(result[:status]).to eq(0)
@@ -32,7 +32,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- [workload] rails")
     end
 
-    it "fails to apply invalid templates", :fast do
+    it "fails to apply invalid templates" do
       result = run_cpl_command("apply-template", "invalid", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -40,7 +40,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- invalid")
     end
 
-    it "applies valid templates and fails to apply invalid templates", :fast do
+    it "applies valid templates and fails to apply invalid templates" do
       result = run_cpl_command("apply-template", "gvc", "invalid", "rails", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -52,7 +52,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- invalid")
     end
 
-    it "replaces all variables correctly", :fast do
+    it "replaces all variables correctly" do
       apply_result = run_cpl_command("apply-template", "gvc-with-all-variables", "-a", app)
       env_result = run_cpl_command("env", "-a", app)
 
@@ -76,7 +76,7 @@ describe Command::ApplyTemplate do
       expect(env_result[:stdout]).to include("SECRETS_POLICY=#{prefix}-secrets-policy")
     end
 
-    it "replaces deprecated variables correctly and warns about them", :fast do
+    it "replaces deprecated variables correctly and warns about them" do
       apply_result = run_cpl_command("apply-template", "gvc-with-deprecated-variables", "-a", app)
       env_result = run_cpl_command("env", "-a", app)
 
@@ -100,7 +100,7 @@ describe Command::ApplyTemplate do
   context "when app already exists" do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
-    it "asks for confirmation and does nothing", :fast do
+    it "asks for confirmation and does nothing" do
       allow(Shell).to receive(:confirm).with(include("App '#{app}' already exists")).and_return(false)
 
       result = run_cpl_command("apply-template", "gvc", "-a", app)
@@ -111,7 +111,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- gvc")
     end
 
-    it "asks for confirmation and re-creates app", :fast do
+    it "asks for confirmation and re-creates app" do
       allow(Shell).to receive(:confirm).with(include("App '#{app}' already exists")).and_return(true)
 
       result = run_cpl_command("apply-template", "gvc", "-a", app)
@@ -122,7 +122,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- [app] #{app}")
     end
 
-    it "skips confirmation and re-creates app", :fast do
+    it "skips confirmation and re-creates app" do
       allow(Shell).to receive(:confirm).and_return(false)
 
       result = run_cpl_command("apply-template", "gvc", "-a", app, "--yes")
@@ -137,7 +137,7 @@ describe Command::ApplyTemplate do
   context "when workload already exists" do
     let!(:app) { dummy_test_app("with-rails", create_if_not_exists: true) }
 
-    it "asks for confirmation and does nothing", :fast do
+    it "asks for confirmation and does nothing" do
       allow(Shell).to receive(:confirm).with(include("Workload 'rails' already exists")).and_return(false)
 
       result = run_cpl_command("apply-template", "rails", "-a", app)
@@ -148,7 +148,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- rails")
     end
 
-    it "asks for confirmation and re-creates workload", :fast do
+    it "asks for confirmation and re-creates workload" do
       allow(Shell).to receive(:confirm).with(include("Workload 'rails' already exists")).and_return(true)
 
       result = run_cpl_command("apply-template", "rails", "-a", app)
@@ -159,7 +159,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- [workload] rails")
     end
 
-    it "skips confirmation and re-creates workload", :fast do
+    it "skips confirmation and re-creates workload" do
       allow(Shell).to receive(:confirm).and_return(false)
 
       result = run_cpl_command("apply-template", "rails", "-a", app, "--yes")

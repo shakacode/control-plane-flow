@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::Config do
   context "when no app is provided" do
-    it "displays config for each app", :fast do
+    it "displays config for each app" do
       result = run_cpl_command("config")
 
       expect(result[:status]).to eq(0)
@@ -18,7 +18,7 @@ describe Command::Config do
   context "when app is provided" do
     let!(:app) { dummy_test_app }
 
-    it "displays config for specific app", :fast do
+    it "displays config for specific app" do
       result = run_cpl_command("config", "-a", app)
 
       expect(result[:status]).to eq(0)

@@ -10,7 +10,7 @@ describe Command::BuildImage do
       allow(Shell).to receive(:cmd).with(include("docker version")).and_return({ success: false })
     end
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("build-image", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -21,7 +21,7 @@ describe Command::BuildImage do
   context "when Dockerfile does not exist" do
     let!(:app) { dummy_test_app("with-unexistent-dockerfile") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("build-image", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -32,7 +32,7 @@ describe Command::BuildImage do
   context "when Dockerfile is invalid" do
     let!(:app) { dummy_test_app("with-invalid-dockerfile") }
 
-    it "fails to build and push image", :fast do
+    it "fails to build and push image" do
       result = run_cpl_command("build-image", "-a", app)
 
       expect(result[:status]).to eq(1)

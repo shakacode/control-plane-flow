@@ -6,7 +6,7 @@ describe Command::Maintenance do
   context "when app has no domain" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("maintenance", "-a", app)
 
       expect(result[:status]).to eq(1)

@@ -14,7 +14,7 @@ describe Command::Info do
       allow_any_instance_of(described_class).to receive(:app_org).with(app_prefix.to_sym, anything).and_call_original # rubocop:disable RSpec/AnyInstance
     end
 
-    it "does not include app", :fast do
+    it "does not include app" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app_prefix)
@@ -31,7 +31,7 @@ describe Command::Info do
     let!(:app1) { dummy_test_app("info-with-nothing-missing", "1", create_if_not_exists: true) }
     let!(:app2) { dummy_test_app("info-with-nothing-missing", "2", create_if_not_exists: true) }
 
-    it "does not highlight anything for single app", :fast do
+    it "does not highlight anything for single app" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app1)
@@ -47,7 +47,7 @@ describe Command::Info do
       expect(result[:stdout]).not_to include("cpl apply-template")
     end
 
-    it "does not highlight anything for multiple apps", :fast do
+    it "does not highlight anything for multiple apps" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app_prefix)
@@ -70,7 +70,7 @@ describe Command::Info do
     let!(:app1) { dummy_test_app("info-with-missing-apps") }
     let!(:app2) { dummy_test_app("info-with-missing-apps") }
 
-    it "highlights single app with red", :fast do
+    it "highlights single app with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app1)
@@ -85,7 +85,7 @@ describe Command::Info do
       expect(result[:stdout]).to include("`cpl setup-app -a #{app1}`")
     end
 
-    it "highlights multiple apps with red", :fast do
+    it "highlights multiple apps with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app_prefix)
@@ -101,7 +101,7 @@ describe Command::Info do
       expect(result[:stdout]).to include("`cpl setup-app -a #{app_prefix}-whatever`")
     end
 
-    it "highlights apps for single org with red", :fast do
+    it "highlights apps for single org with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-o", dummy_test_org)
@@ -117,7 +117,7 @@ describe Command::Info do
       expect(result[:stdout]).to include("`cpl setup-app -a #{app_prefix}-whatever`")
     end
 
-    it "highlights apps for multiple orgs with red", :fast do
+    it "highlights apps for multiple orgs with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info")
@@ -139,7 +139,7 @@ describe Command::Info do
     let!(:app1) { dummy_test_app("info-with-missing-workloads", "1", create_if_not_exists: true) }
     let!(:app2) { dummy_test_app("info-with-missing-workloads", "2", create_if_not_exists: true) }
 
-    it "highlights workloads for single app with red", :fast do
+    it "highlights workloads for single app with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app1)
@@ -154,7 +154,7 @@ describe Command::Info do
       expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app1}`")
     end
 
-    it "highlights workloads for multiple apps with red", :fast do
+    it "highlights workloads for multiple apps with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app_prefix)
@@ -170,7 +170,7 @@ describe Command::Info do
       expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app2}`")
     end
 
-    it "highlights workloads for single org with red", :fast do
+    it "highlights workloads for single org with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-o", dummy_test_org)
@@ -186,7 +186,7 @@ describe Command::Info do
       expect(result[:stdout]).to include("`cpl apply-template redis postgres -a #{app2}`")
     end
 
-    it "highlights workloads for multiple orgs with red", :fast do
+    it "highlights workloads for multiple orgs with red" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info")
@@ -208,7 +208,7 @@ describe Command::Info do
     let!(:app1) { dummy_test_app("info-with-extra-workloads", "1", create_if_not_exists: true) }
     let!(:app2) { dummy_test_app("info-with-extra-workloads", "2", create_if_not_exists: true) }
 
-    it "highlights workloads for single app with green", :fast do
+    it "highlights workloads for single app with green" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app1)
@@ -225,7 +225,7 @@ describe Command::Info do
       expect(result[:stdout]).not_to include("cpl apply-template")
     end
 
-    it "highlights workloads for multiple apps with green", :fast do
+    it "highlights workloads for multiple apps with green" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-a", app_prefix)
@@ -239,7 +239,7 @@ describe Command::Info do
       expect(result[:stdout]).not_to include("`cpl setup-app -a #{app_prefix}-whatever`")
     end
 
-    it "highlights workloads for single org with green", :fast do
+    it "highlights workloads for single org with green" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info", "-o", dummy_test_org)
@@ -253,7 +253,7 @@ describe Command::Info do
       expect(result[:stdout]).not_to include("`cpl setup-app -a #{app_prefix}-whatever`")
     end
 
-    it "highlights workloads for multiple orgs with green", :fast do
+    it "highlights workloads for multiple orgs with green" do
       allow(Shell).to receive(:color).and_call_original
 
       result = run_cpl_command("info")

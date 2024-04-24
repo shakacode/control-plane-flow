@@ -6,7 +6,7 @@ describe Command::LatestImage do
   context "when no images have been built" do
     let!(:app) { dummy_test_app }
 
-    it "displays default image for app", :fast do
+    it "displays default image for app" do
       result = run_cpl_command("latest-image", "-a", app)
 
       expect(result[:status]).to eq(0)
@@ -17,7 +17,7 @@ describe Command::LatestImage do
   context "when images have been built" do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    it "displays latest image for app", :fast do
+    it "displays latest image for app" do
       result = run_cpl_command("latest-image", "-a", app)
 
       expect(result[:status]).to eq(0)

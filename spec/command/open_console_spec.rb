@@ -6,7 +6,7 @@ describe Command::OpenConsole do
   let!(:app) { dummy_test_app }
 
   context "when no workload is provided" do
-    it "opens app console on Control Plane", :fast do
+    it "opens app console on Control Plane" do
       allow(Kernel).to receive(:exec)
 
       result = run_cpl_command("open-console", "-a", app)
@@ -18,7 +18,7 @@ describe Command::OpenConsole do
   end
 
   context "when workload is provided" do
-    it "opens workload page on Control Plane", :fast do
+    it "opens workload page on Control Plane" do
       allow(Kernel).to receive(:exec)
 
       result = run_cpl_command("open-console", "-a", app, "--workload", "rails")

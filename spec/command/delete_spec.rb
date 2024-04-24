@@ -6,7 +6,7 @@ describe Command::Delete do
   context "when app does not exist" do
     let!(:app) { dummy_test_app }
 
-    it "displays message", :fast do
+    it "displays message" do
       result = run_cpl_command("delete", "-a", app)
 
       expect(result[:status]).to eq(0)
@@ -25,7 +25,7 @@ describe Command::Delete do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "asks for confirmation and does nothing", :fast do
+    it "asks for confirmation and does nothing" do
       allow(Shell).to receive(:confirm).with(include(app)).and_return(false)
 
       result = run_cpl_command("delete", "-a", app)
@@ -37,7 +37,7 @@ describe Command::Delete do
       expect(result[:stderr]).not_to include("Deleting app")
     end
 
-    it "asks for confirmation and deletes app", :fast do
+    it "asks for confirmation and deletes app" do
       allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
 
       result = run_cpl_command("delete", "-a", app)
@@ -49,7 +49,7 @@ describe Command::Delete do
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
     end
 
-    it "skips confirmation and deletes app", :fast do
+    it "skips confirmation and deletes app" do
       allow(Shell).to receive(:confirm).and_return(false)
 
       result = run_cpl_command("delete", "-a", app, "--yes")

@@ -6,7 +6,7 @@ describe Command::RunCleanup do
   context "when 'stale_run_workload_created_days' is not defined" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("run:cleanup", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -17,7 +17,7 @@ describe Command::RunCleanup do
   context "when there are no stale run workloads to delete" do
     let!(:app) { dummy_test_app }
 
-    it "displays message", :fast do
+    it "displays message" do
       result = run_cpl_command("run:cleanup", "-a", app)
 
       expect(result[:status]).to eq(0)
@@ -36,7 +36,7 @@ describe Command::RunCleanup do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "lists nothing", :fast do
+    it "lists nothing" do
       travel_to_days_later(3)
       result = run_cpl_command("run:cleanup", "-a", app)
       travel_back
@@ -57,7 +57,7 @@ describe Command::RunCleanup do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "lists nothing", :fast do
+    it "lists nothing" do
       travel_to_days_later(3)
       result = run_cpl_command("run:cleanup", "-a", app)
       travel_back

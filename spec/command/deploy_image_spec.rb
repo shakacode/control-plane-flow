@@ -6,7 +6,7 @@ describe Command::DeployImage do
   context "when image does not exist" do
     let!(:app) { dummy_test_app("with-rails", create_if_not_exists: true) }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -50,7 +50,7 @@ describe Command::DeployImage do
   context "when 'release_script' is not defined" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
 
       expect(result[:status]).to eq(1)
@@ -61,7 +61,7 @@ describe Command::DeployImage do
   context "when release script does not exist" do
     let!(:app) { dummy_test_app("with-unexistent-release-script") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
 
       expect(result[:status]).to eq(1)

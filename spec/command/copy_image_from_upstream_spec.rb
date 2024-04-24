@@ -10,7 +10,7 @@ describe Command::CopyImageFromUpstream do
       allow(Shell).to receive(:cmd).with(include("docker version")).and_return({ success: false })
     end
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).to eq(1)
@@ -21,7 +21,7 @@ describe Command::CopyImageFromUpstream do
   context "when 'upstream' is not defined" do
     let!(:app) { dummy_test_app("with-nothing") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).to eq(1)
@@ -32,7 +32,7 @@ describe Command::CopyImageFromUpstream do
   context "when upstream app is not defined" do
     let!(:app) { dummy_test_app("with-undefined-upstream") }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).to eq(1)
@@ -48,7 +48,7 @@ describe Command::CopyImageFromUpstream do
       ENV["CPLN_UPSTREAM"] = upstream_app
     end
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).to eq(1)

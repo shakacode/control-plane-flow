@@ -6,7 +6,7 @@ describe Command::Env do
   context "when app does not exist" do
     let!(:app) { dummy_test_app }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("env", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -17,7 +17,7 @@ describe Command::Env do
   context "when app exists" do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
-    it "displays app-specific environment variables", :fast do
+    it "displays app-specific environment variables" do
       result = run_cpl_command("env", "-a", app)
 
       expect(result[:status]).to eq(0)

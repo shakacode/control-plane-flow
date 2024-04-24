@@ -6,7 +6,7 @@ describe Command::Open do
   context "when one-off workload does not exist" do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("open", "-a", app)
 
       expect(result[:status]).to eq(1)
@@ -17,7 +17,7 @@ describe Command::Open do
   context "when no workload is provided" do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    it "opens endpoint of one-off workload", :fast do
+    it "opens endpoint of one-off workload" do
       allow(Kernel).to receive(:exec)
 
       result = run_cpl_command("open", "-a", app)
@@ -31,7 +31,7 @@ describe Command::Open do
   context "when workload is provided" do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    it "opens endpoint of specific workload", :fast do
+    it "opens endpoint of specific workload" do
       allow(Kernel).to receive(:exec)
 
       result = run_cpl_command("open", "-a", app, "--workload", "redis")

@@ -6,7 +6,7 @@ describe Command::Run do
   context "when workload to clone does not exist" do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
-    it "raises error", :fast do
+    it "raises error" do
       result = run_cpl_command("run", "-a", app)
 
       expect(result[:status]).to eq(1)
