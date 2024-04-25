@@ -10,7 +10,7 @@ class Shell
   end
 
   def self.stderr
-    @stderr ||= $stderr
+    $stderr
   end
 
   def self.use_tmp_stderr
@@ -66,13 +66,13 @@ class Shell
     tmp_stderr && !verbose
   end
 
-  def self.cmd(cmd_to_run)
-    output = `#{cmd_to_run}`
-    success = $CHILD_STATUS.success?
+  def self.cmd(cmd_to_run, capture_stderr: false)
+    method = capture_stderr ? :capture2e : :capture2
+    output, status = Open3.send(method, cmd_to_run)
 
     {
       output: output,
-      success: success
+      success: status.success?
     }
   end
 

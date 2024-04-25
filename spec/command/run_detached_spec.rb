@@ -72,7 +72,7 @@ describe Command::RunDetached do
   end
 
   context "when specifying token" do
-    let!(:token) { `cpln profile token default`.strip }
+    let!(:token) { Shell.cmd("cpln profile token default")[:output].strip }
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
     it "clones workload and runs with remote token", :slow do

@@ -395,10 +395,6 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def perform!(cmd)
-      Kernel.system(cmd) || exit(1)
-    end
-
     def app_location_link
       "/org/#{config.org}/location/#{config.location}"
     end
@@ -424,7 +420,7 @@ module Command
     end
 
     def ensure_docker_running!
-      result = Shell.cmd("docker version > /dev/null 2>&1")
+      result = Shell.cmd("docker version", capture_stderr: true)
       return if result[:success]
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."

@@ -64,7 +64,7 @@ class ControlplaneApiDirect
   end
 
   def api_token
-    token = ENV.fetch("CPLN_TOKEN", nil) || `cpln profile token $CPLN_PROFILE`.chomp
+    token = ENV.fetch("CPLN_TOKEN", nil) || Shell.cmd("cpln profile token $CPLN_PROFILE")[:output].chomp
     return token if token.match?(API_TOKEN_REGEX)
 
     raise "Unknown API token format. " \

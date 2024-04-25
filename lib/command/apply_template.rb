@@ -72,7 +72,7 @@ module Command
             report_failure(template)
           end
 
-          $CHILD_STATUS.success?
+          !items.nil?
         end
       end
 

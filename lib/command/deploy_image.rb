@@ -55,7 +55,7 @@ module Command
 
       progress.puts("Running release script...\n\n")
 
-      result = Shell.cmd("bash #{release_script_path} 2>&1")
+      result = Shell.cmd("bash #{release_script_path}", capture_stderr: true)
       progress.puts(result[:output])
 
       raise "Failed to run release script." unless result[:success]

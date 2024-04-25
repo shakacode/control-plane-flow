@@ -149,12 +149,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def workload_get_replicas_safely(workload, location:)
     cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
-    cmd += " 2> /dev/null" if Shell.should_hide_output?
 
     Shell.debug("CMD", cmd)
 
-    result = `#{cmd}`
-    $CHILD_STATUS.success? ? YAML.safe_load(result) : nil
+    result = Shell.cmd(cmd, capture_stderr: true)
+    result[:success] ? YAML.safe_load(result[:output]) : nil
   end
 
   def fetch_workload_deployments(workload)
@@ -323,13 +322,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
         Shell.debug("CMD", cmd)
 
-        result = `#{cmd}`
-        $CHILD_STATUS.success? ? parse_apply_result(result) : false
+        result = Shell.cmd(cmd)
+        result[:success] ? parse_apply_result(result[:output]) : nil
       else
         Shell.debug("CMD", cmd)
 
-        result = `#{cmd}`
-        $CHILD_STATUS.success? ? parse_apply_result(result) : exit(1)
+        result = Shell.cmd(cmd)
+        result[:success] ? parse_apply_result(result[:output]) : exit(1)
       end
     end
   end
@@ -414,8 +413,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def perform_yaml(cmd)
     Shell.debug("CMD", cmd)
 
-    result = `#{cmd}`
-    $CHILD_STATUS.success? ? YAML.safe_load(result) : exit(1)
+    result = Shell.cmd(cmd)
+    result[:success] ? YAML.safe_load(result[:output]) : exit(1)
   end
 
   def gvc_org

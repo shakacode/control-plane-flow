@@ -18,7 +18,7 @@ module Command
       url = "https://console.cpln.io/console/org/#{config.org}/gvc/#{config.app}"
       url += "/workload/#{workload}" if workload
       url += "/-info"
-      opener = `which xdg-open open`.split("\n").grep_v("not found").first
+      opener = Shell.cmd("which xdg-open open")[:output].split("\n").grep_v("not found").first
 
       Kernel.exec %(#{opener} "#{url}")
     end

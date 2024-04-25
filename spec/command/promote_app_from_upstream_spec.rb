@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::PromoteAppFromUpstream do
   context "when release script is not provided" do
-    let!(:token) { `cpln profile token default`.strip }
+    let!(:token) { Shell.cmd("cpln profile token default")[:output].strip }
     let!(:upstream_app) { dummy_test_app }
     let!(:app) { dummy_test_app("with-nothing") }
 
@@ -35,7 +35,7 @@ describe Command::PromoteAppFromUpstream do
   end
 
   context "when release script is invalid" do
-    let!(:token) { `cpln profile token default`.strip }
+    let!(:token) { Shell.cmd("cpln profile token default")[:output].strip }
     let!(:upstream_app) { dummy_test_app }
     let!(:app) { dummy_test_app("with-invalid-release-script") }
 
@@ -68,7 +68,7 @@ describe Command::PromoteAppFromUpstream do
   end
 
   context "when release script is valid" do
-    let!(:token) { `cpln profile token default`.strip }
+    let!(:token) { Shell.cmd("cpln profile token default")[:output].strip }
     let!(:upstream_app) { dummy_test_app }
     let!(:app) { dummy_test_app }
 

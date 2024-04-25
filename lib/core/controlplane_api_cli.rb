@@ -2,9 +2,9 @@
 
 class ControlplaneApiCli
   def call(url, method:)
-    response = `cpln rest #{method} #{url} -o json`
-    raise(response) unless $CHILD_STATUS.success?
+    result = Shell.cmd("cpln rest #{method} #{url} -o json", capture_stderr: true)
+    raise(result[:output]) unless result[:success]
 
-    JSON.parse(response)
+    JSON.parse(result[:output])
   end
 end
