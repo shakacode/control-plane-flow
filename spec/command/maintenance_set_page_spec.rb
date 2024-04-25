@@ -11,7 +11,7 @@ describe Command::MaintenanceSetPage do
     it "raises error" do
       result = run_cpl_command("maintenance:set-page", example_maintenance_page, "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'maintenance'")
     end
   end

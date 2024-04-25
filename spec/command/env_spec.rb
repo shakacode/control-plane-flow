@@ -9,7 +9,7 @@ describe Command::Env do
     it "raises error" do
       result = run_cpl_command("env", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find app '#{app}'")
     end
   end

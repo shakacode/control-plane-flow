@@ -9,7 +9,7 @@ describe Command::DeployImage do
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to match(/Image '#{app}:NO_IMAGE_AVAILABLE' does not exist/)
     end
   end
@@ -29,7 +29,7 @@ describe Command::DeployImage do
     it "raises error", :slow do
       result = run_cpl_command("deploy-image", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'rails'")
     end
   end
@@ -53,7 +53,7 @@ describe Command::DeployImage do
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'release_script'")
     end
   end
@@ -64,7 +64,7 @@ describe Command::DeployImage do
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find release script")
     end
   end
@@ -88,7 +88,7 @@ describe Command::DeployImage do
     it "fails to run release script and fails to deploy image", :slow do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Running release script")
       expect(result[:stderr]).to include("Failed to run release script")
       expect(result[:stderr]).not_to include("- rails:")

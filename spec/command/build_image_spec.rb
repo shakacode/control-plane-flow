@@ -13,7 +13,7 @@ describe Command::BuildImage do
     it "raises error" do
       result = run_cpl_command("build-image", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't run Docker")
     end
   end
@@ -24,7 +24,7 @@ describe Command::BuildImage do
     it "raises error" do
       result = run_cpl_command("build-image", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find Dockerfile")
     end
   end
@@ -35,7 +35,7 @@ describe Command::BuildImage do
     it "fails to build and push image" do
       result = run_cpl_command("build-image", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).not_to include("Pushed image")
     end
   end

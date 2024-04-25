@@ -9,7 +9,7 @@ describe Command::Ps do
     it "raises error" do
       result = run_cpl_command("ps", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find app '#{app}'")
     end
   end
@@ -20,7 +20,7 @@ describe Command::Ps do
     it "raises error" do
       result = run_cpl_command("ps", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'rails'")
     end
   end

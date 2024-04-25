@@ -117,7 +117,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
   def create_app_if_not_exists(app, deploy: false, image_before_deploy_count: 0, image_after_deploy_count: 0) # rubocop:disable Metrics/MethodLength
     result = run_cpl_command("exists", "-a", app)
-    return app unless result[:status] == 1
+    return app if result[:status].zero?
 
     puts "\nCreating app '#{app}' for tests\n\n" if ENV.fetch("VERBOSE_TESTS", nil) == "true"
 
@@ -158,7 +158,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
     write_command_result_to_log(result)
 
-    raise result.to_json if result[:status] != 0 && raise_errors
+    raise result.to_json if result[:status].nonzero? && raise_errors
 
     result
   end

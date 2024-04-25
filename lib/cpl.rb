@@ -224,5 +224,5 @@ end
 # nice Ctrl+C
 trap "INT" do
   puts
-  exit(1)
+  exit(130)
 end

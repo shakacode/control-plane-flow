@@ -58,7 +58,7 @@ describe Command::PromoteAppFromUpstream do
     it "copies latest image from upstream, fails to run release script and fails to deploy image", :slow do
       result = run_cpl_command("promote-app-from-upstream", "-a", app, "--upstream-token", token)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to match(%r{Pulling image from '.+?/#{upstream_app}:1'})
       expect(result[:stderr]).to match(%r{Pushing image to '.+?/#{app}:1'})
       expect(result[:stderr]).to include("Running release script")

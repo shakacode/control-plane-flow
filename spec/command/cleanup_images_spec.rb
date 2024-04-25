@@ -9,7 +9,7 @@ describe Command::CleanupImages do
     it "raises error" do
       result = run_cpl_command("cleanup-images", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find either option 'image_retention_max_qty' or 'image_retention_days'")
     end
   end

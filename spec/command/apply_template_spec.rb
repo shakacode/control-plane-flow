@@ -9,7 +9,7 @@ describe Command::ApplyTemplate do
     it "raises error" do
       result = run_cpl_command("apply-template", "gvc", "rails", "unexistent", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Missing templates")
       expect(result[:stderr]).to include("- unexistent")
     end
@@ -35,7 +35,7 @@ describe Command::ApplyTemplate do
     it "fails to apply invalid templates" do
       result = run_cpl_command("apply-template", "invalid", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Failed to apply templates")
       expect(result[:stderr]).to include("- invalid")
     end
@@ -43,7 +43,7 @@ describe Command::ApplyTemplate do
     it "applies valid templates and fails to apply invalid templates" do
       result = run_cpl_command("apply-template", "gvc", "invalid", "rails", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Created items")
       expect(result[:stderr]).to include("- [app] #{app}")
       expect(result[:stderr]).to include("- [identity] #{app}-identity")

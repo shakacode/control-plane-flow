@@ -47,8 +47,9 @@ class Shell
     stderr.puts(color("DEPRECATED: #{message}", :yellow))
   end
 
-  def self.abort(message)
-    Kernel.abort(color("ERROR: #{message}", :red))
+  def self.abort(message, exit_status = 64)
+    stderr.puts(color("ERROR: #{message}", :red))
+    exit(exit_status)
   end
 
   def self.verbose_mode(verbose)

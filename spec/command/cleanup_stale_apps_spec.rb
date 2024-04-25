@@ -11,7 +11,7 @@ describe Command::CleanupStaleApps do
     it "raises error" do
       result = run_cpl_command("cleanup-stale-apps", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'stale_app_image_deployed_days'")
     end
   end

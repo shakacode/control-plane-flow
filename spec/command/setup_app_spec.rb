@@ -9,7 +9,7 @@ describe Command::SetupApp do
     it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'setup_app_templates'")
     end
   end
@@ -20,7 +20,7 @@ describe Command::SetupApp do
     it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("App '#{app}' already exists")
     end
   end
@@ -55,7 +55,7 @@ describe Command::SetupApp do
     it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't bind identity to policy")
     end
   end

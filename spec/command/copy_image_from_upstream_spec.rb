@@ -13,7 +13,7 @@ describe Command::CopyImageFromUpstream do
     it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't run Docker")
     end
   end
@@ -24,7 +24,7 @@ describe Command::CopyImageFromUpstream do
     it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'upstream'")
     end
   end
@@ -35,7 +35,7 @@ describe Command::CopyImageFromUpstream do
     it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'cpln_org' for app 'undefined'")
     end
   end
@@ -51,7 +51,7 @@ describe Command::CopyImageFromUpstream do
     it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'cpln_org' for app '#{upstream_app}'")
     end
   end
@@ -79,7 +79,7 @@ describe Command::CopyImageFromUpstream do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(ENV.fetch("CPLN_PROFILE", nil)).to eq("default")
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to match(/Creating upstream profile[.]+? done!/)
       expect(result[:stderr]).to match(/Fetching upstream image URL[.]+? failed!/)
       expect(result[:stderr]).to match(/Deleting upstream profile[.]+? done!/)

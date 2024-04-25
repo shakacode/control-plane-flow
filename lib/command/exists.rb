@@ -17,7 +17,7 @@ module Command
     EX
 
     def call
-      exit(!cp.fetch_gvc.nil?)
+      exit(cp.fetch_gvc.nil? ? 64 : 0)
     end
   end
 end

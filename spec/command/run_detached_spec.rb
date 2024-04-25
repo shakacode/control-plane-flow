@@ -9,7 +9,7 @@ describe Command::RunDetached do
     it "raises error" do
       result = run_cpl_command("run:detached", "-a", app, "--", "ls")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'rails'")
     end
   end
@@ -23,7 +23,7 @@ describe Command::RunDetached do
 
       result = run_cpl_command("run:detached", "-a", app, "--", "ls")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Retrying").exactly(3).times
       expect(result[:stderr]).to include("Exiting")
     end
@@ -39,7 +39,7 @@ describe Command::RunDetached do
     it "deletes workload if finished with failure by default", :slow do
       result = run_cpl_command("run:detached", "-a", app, "--", "unexistent")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("CRASHED")
       expect(result[:stderr]).to include("DELETING WORKLOAD")
     end
@@ -47,7 +47,7 @@ describe Command::RunDetached do
     it "does not delete workload if finished with failure and --no-clean-on-failure is provided", :slow do
       result = run_cpl_command("run:detached", "-a", app, "--no-clean-on-failure", "--", "unexistent")
 
-      expect(result[:status]).to eq(1)
+      expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("CRASHED")
       expect(result[:stderr]).not_to include("DELETING WORKLOAD")
     end
