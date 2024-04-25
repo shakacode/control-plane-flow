@@ -11,7 +11,7 @@ module DummyAppSetup
 
   def cleanup
     if CommandHelpers.apps_to_delete.empty?
-      puts "\nNo dummy apps to delete\n\n"
+      puts "\n\nNo dummy apps to delete\n"
       return
     end
 
