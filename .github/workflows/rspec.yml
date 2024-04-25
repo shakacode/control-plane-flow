@@ -13,7 +13,7 @@ jobs:
     uses: ./.github/workflows/rspec-shared.yml
     with:
       os-version: ubuntu-latest
-      ruby-version: "3.0"
+      ruby-version: "3.3"
       test-tag: fast
     secrets: inherit
 
@@ -23,6 +23,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     with:
       os-version: ubuntu-latest
-      ruby-version: "3.0"
+      ruby-version: "3.3"
       test-tag: slow
     secrets: inherit
