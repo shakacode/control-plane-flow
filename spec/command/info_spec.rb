@@ -11,7 +11,7 @@ describe Command::Info do
     let!(:app_prefix) { dummy_test_app_prefix("info") }
 
     before do
-      allow_any_instance_of(described_class).to receive(:app_org).with(app_prefix.to_sym, anything).and_call_original # rubocop:disable RSpec/AnyInstance
+      allow_any_instance_of(described_class).to receive(:app_org).and_call_original # rubocop:disable RSpec/AnyInstance
     end
 
     it "does not include app" do
