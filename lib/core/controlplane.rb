@@ -328,7 +328,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
         Shell.debug("CMD", cmd)
 
         result = Shell.cmd(cmd)
-        result[:success] ? parse_apply_result(result[:output]) : exit(64)
+        if result[:success]
+          parse_apply_result(result[:output])
+        else
+          Shell.abort("Command exited with non-zero status.")
+        end
       end
     end
   end
@@ -407,14 +411,19 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
-    perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern) || exit(64)
+    success = perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern)
+    success || Shell.abort("Command exited with non-zero status.")
   end
 
   def perform_yaml(cmd)
     Shell.debug("CMD", cmd)
 
     result = Shell.cmd(cmd)
-    result[:success] ? YAML.safe_load(result[:output]) : exit(64)
+    if result[:success]
+      YAML.safe_load(result[:output])
+    else
+      Shell.abort("Command exited with non-zero status.")
+    end
   end
 
   def gvc_org
