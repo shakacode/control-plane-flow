@@ -12,7 +12,7 @@ describe Command::OpenConsole do
       result = run_cpl_command("open-console", "-a", app)
 
       expected_url = %r{https://console.cpln.io/console/org/.+?/gvc/#{app}/-info}
-      expect(Kernel).to have_received(:exec).with(match(expected_url))
+      expect(Kernel).to have_received(:exec).with(anything, match(expected_url))
       expect(result[:status]).to eq(0)
     end
   end
@@ -24,7 +24,7 @@ describe Command::OpenConsole do
       result = run_cpl_command("open-console", "-a", app, "--workload", "rails")
 
       expected_url = %r{https://console.cpln.io/console/org/.+?/gvc/#{app}/workload/rails/-info}
-      expect(Kernel).to have_received(:exec).with(match(expected_url))
+      expect(Kernel).to have_received(:exec).with(anything, match(expected_url))
       expect(result[:status]).to eq(0)
     end
   end

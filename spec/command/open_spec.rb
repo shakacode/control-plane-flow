@@ -23,7 +23,7 @@ describe Command::Open do
       result = run_cpl_command("open", "-a", app)
 
       expected_url = %r{https://rails-.+?.cpln.app}
-      expect(Kernel).to have_received(:exec).with(match(expected_url))
+      expect(Kernel).to have_received(:exec).with(anything, match(expected_url))
       expect(result[:status]).to eq(0)
     end
   end
@@ -37,7 +37,7 @@ describe Command::Open do
       result = run_cpl_command("open", "-a", app, "--workload", "postgres")
 
       expected_url = %r{https://postgres-.+?.cpln.app}
-      expect(Kernel).to have_received(:exec).with(match(expected_url))
+      expect(Kernel).to have_received(:exec).with(anything, match(expected_url))
       expect(result[:status]).to eq(0)
     end
   end
