@@ -154,7 +154,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     Shell.debug("CMD", cmd)
 
     result = Shell.cmd(cmd, capture_stderr: true)
-    result[:success] ? YAML.safe_load(result[:output]) : nil
+    YAML.safe_load(result[:output]) if result[:success]
   end
 
   def fetch_workload_deployments(workload)
@@ -324,7 +324,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
         Shell.debug("CMD", cmd)
 
         result = Shell.cmd(cmd)
-        result[:success] ? parse_apply_result(result[:output]) : nil
+        parse_apply_result(result[:output]) if result[:success]
       else
         Shell.debug("CMD", cmd)
 
