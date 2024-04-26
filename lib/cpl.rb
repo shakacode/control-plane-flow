@@ -12,6 +12,8 @@ require "tempfile"
 require "thor"
 require "yaml"
 
+require_relative "constants/exit_codes"
+
 # We need to require base before all commands, since the commands inherit from it
 require_relative "command/base"
 
@@ -224,5 +226,5 @@ end
 # nice Ctrl+C
 trap "INT" do
   puts
-  exit(130)
+  exit(ExitCodes::INTERRUPT)
 end

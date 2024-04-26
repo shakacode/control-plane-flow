@@ -61,7 +61,7 @@ module Command
       wait_for_workload(workload_clone)
       show_logs_waiting
     ensure
-      exit(64) if @crashed
+      exit(ExitCodes::ERROR_DEFAULT) if @crashed
     end
 
     private
