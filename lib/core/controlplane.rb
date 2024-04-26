@@ -380,16 +380,18 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # `output_mode` can be :all, :errors_only or :none.
   # If not provided, it will be determined based on the `HIDE_COMMAND_OUTPUT` env var
   # or the return value of `Shell.should_hide_output?`.
-  def build_command(cmd, output_mode: nil)
+  def build_command(cmd, output_mode: nil) # rubocop:disable Metrics/MethodLength
     output_mode ||= determine_command_output_mode
 
     case output_mode
+    when :all
+      cmd
     when :errors_only
       "#{cmd} > /dev/null"
     when :none
       "#{cmd} > /dev/null 2>&1"
     else
-      cmd
+      raise "Invalid command output mode '#{output_mode}'."
     end
   end
 

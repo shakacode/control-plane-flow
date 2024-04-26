@@ -61,5 +61,11 @@ describe Controlplane do
 
       expect(cmd).to eq("#{original_cmd} > /dev/null")
     end
+
+    it "raises error when 'output_mode' is invalid" do
+      expect do
+        described_instance.send(:build_command, original_cmd, output_mode: :invalid)
+      end.to raise_error("Invalid command output mode 'invalid'.")
+    end
   end
 end
