@@ -64,15 +64,15 @@ module Command
       pending_templates.each do |template, filename|
         step("Applying template '#{template}'", abort_on_error: false) do
           items = apply_template(filename)
-          if items
-            items.each do |item|
-              report_success(item)
-            end
-          else
+          unless items
             report_failure(template)
+            next false
           end
 
-          !items.nil?
+          items.each do |item|
+            report_success(item)
+          end
+          true
         end
       end
 
