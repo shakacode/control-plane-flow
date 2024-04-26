@@ -116,13 +116,14 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   end
 
   def create_app_if_not_exists(app, deploy: false, image_before_deploy_count: 0, image_after_deploy_count: 0) # rubocop:disable Metrics/MethodLength
+    apps_to_delete.push(app)
+
     result = run_cpl_command("exists", "-a", app)
     return app if result[:status].zero?
 
     puts "\nCreating app '#{app}' for tests\n\n" if ENV.fetch("VERBOSE_TESTS", nil) == "true"
 
     run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
-    apps_to_delete.push(app)
 
     image_before_deploy_count.times do
       run_cpl_command!("build-image", "-a", app)

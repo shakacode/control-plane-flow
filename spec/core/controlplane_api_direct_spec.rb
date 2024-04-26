@@ -34,6 +34,10 @@ describe ControlplaneApiDirect do
       described_class.remove_class_variable(:@@api_token) if described_class.class_variable_defined?(:@@api_token)
     end
 
+    after do
+      described_class.remove_class_variable(:@@api_token) if described_class.class_variable_defined?(:@@api_token)
+    end
+
     it "returns token from CPLN_TOKEN" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token_1")
 
