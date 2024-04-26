@@ -67,9 +67,8 @@ class Shell
     tmp_stderr && !verbose
   end
 
-  def self.cmd(cmd_to_run, capture_stderr: false)
-    method = capture_stderr ? :capture2e : :capture2
-    output, status = Open3.send(method, cmd_to_run)
+  def self.cmd(*cmd_to_run, capture_stderr: false)
+    output, status = capture_stderr ? Open3.capture2e(*cmd_to_run) : Open3.capture2(*cmd_to_run)
 
     {
       output: output,

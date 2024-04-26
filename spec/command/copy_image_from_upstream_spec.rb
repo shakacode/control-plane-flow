@@ -7,7 +7,7 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
-      allow(Shell).to receive(:cmd).with("docker version", anything).and_return({ success: false })
+      allow(Shell).to receive(:cmd).with("docker", "version", anything).and_return({ success: false })
     end
 
     it "raises error" do
@@ -87,7 +87,7 @@ describe Command::CopyImageFromUpstream do
   end
 
   context "when using valid token for upstream org" do
-    let!(:token) { Shell.cmd("cpln profile token default")[:output].strip }
+    let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
     let!(:upstream_app) { dummy_test_app }
     let!(:app) { dummy_test_app }
 

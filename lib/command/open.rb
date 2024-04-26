@@ -25,7 +25,7 @@ module Command
       workload = config.options[:workload] || config[:one_off_workload]
       data = cp.fetch_workload!(workload)
       url = data["status"]["endpoint"]
-      opener = Shell.cmd("which xdg-open open")[:output].split("\n").grep_v("not found").first
+      opener = Shell.cmd("which", "xdg-open", "open")[:output].split("\n").grep_v("not found").first
 
       Kernel.exec %(#{opener} "#{url}")
     end

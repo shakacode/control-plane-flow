@@ -45,7 +45,7 @@ describe ControlplaneApiDirect do
 
     it "returns token from 'cpln profile token'" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
-      allow(Shell).to receive(:cmd).with("cpln profile token").and_return({ output: "token_2" })
+      allow(Shell).to receive(:cmd).with("cpln", "profile", "token").and_return({ output: "token_2" })
 
       result = described_instance.api_token
 
@@ -55,7 +55,7 @@ describe ControlplaneApiDirect do
 
     it "raises error if token is not found" do
       allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
-      allow(Shell).to receive(:cmd).with("cpln profile token").and_return({ output: "" })
+      allow(Shell).to receive(:cmd).with("cpln", "profile", "token").and_return({ output: "" })
 
       message = "Unknown API token format. " \
                 "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."

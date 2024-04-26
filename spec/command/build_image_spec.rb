@@ -7,7 +7,7 @@ describe Command::BuildImage do
     let!(:app) { dummy_test_app }
 
     before do
-      allow(Shell).to receive(:cmd).with("docker version", anything).and_return({ success: false })
+      allow(Shell).to receive(:cmd).with("docker", "version", anything).and_return({ success: false })
     end
 
     it "raises error" do

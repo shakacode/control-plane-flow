@@ -60,7 +60,7 @@ module Cpl
 
       @checked_cpln_version = true
 
-      result = ::Shell.cmd("cpln --version", capture_stderr: true)
+      result = ::Shell.cmd("cpln", "--version", capture_stderr: true)
       if result[:success]
         data = JSON.parse(result[:output])
 
@@ -80,7 +80,7 @@ module Cpl
 
       @checked_cpl_version = true
 
-      result = ::Shell.cmd("gem search ^cpl$ --remote", capture_stderr: true)
+      result = ::Shell.cmd("gem", "search", "^cpl$", "--remote", capture_stderr: true)
       return unless result[:success]
 
       matches = result[:output].match(/cpl \((.+)\)/)

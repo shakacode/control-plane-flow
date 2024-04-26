@@ -420,7 +420,7 @@ module Command
     end
 
     def ensure_docker_running!
-      result = Shell.cmd("docker version", capture_stderr: true)
+      result = Shell.cmd("docker", "version", capture_stderr: true)
       return if result[:success]
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."
