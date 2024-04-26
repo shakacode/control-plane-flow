@@ -90,8 +90,8 @@ module Command
       config.apps.each do |app_name, app_options|
         next if config.app && !config.app_matches?(config.app, app_name, app_options)
 
-        app_org = app_org(app_options)
-        result.push(app_name.to_s) if app_org == org
+        current_app_org = app_org(app_options)
+        result.push(app_name.to_s) if current_app_org == org
       end
 
       result += @app_workloads.keys.map(&:to_s)
