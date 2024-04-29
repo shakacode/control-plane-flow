@@ -17,7 +17,7 @@ module Command
     EX
 
     def call
-      exit(cp.fetch_gvc.nil? ? ExitCodes::ERROR_DEFAULT : ExitCodes::SUCCESS)
+      exit(cp.fetch_gvc.nil? ? ExitCode::ERROR_DEFAULT : ExitCode::SUCCESS)
     end
   end
 end

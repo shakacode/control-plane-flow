@@ -82,7 +82,7 @@ module Command
       print_failed_templates
       print_skipped_templates
 
-      exit(ExitCodes::ERROR_DEFAULT) if @failed_templates.any?
+      exit(ExitCode::ERROR_DEFAULT) if @failed_templates.any?
     end
 
     private

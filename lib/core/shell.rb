@@ -47,7 +47,7 @@ class Shell
     stderr.puts(color("DEPRECATED: #{message}", :yellow))
   end
 
-  def self.abort(message, exit_status = ExitCodes::ERROR_DEFAULT)
+  def self.abort(message, exit_status = ExitCode::ERROR_DEFAULT)
     stderr.puts(color("ERROR: #{message}", :red))
     exit(exit_status)
   end
