@@ -91,6 +91,19 @@ module Command
       }
     end
 
+    def self.replica_option(required: false)
+      {
+        name: :replica,
+        params: {
+          aliases: ["-r"],
+          banner: "REPLICA_NAME",
+          desc: "Replica name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.image_option(required: false)
       {
         name: :image,

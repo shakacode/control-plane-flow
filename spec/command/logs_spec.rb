@@ -4,6 +4,7 @@ require "spec_helper"
 
 describe Command::Logs do
   let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+  let!(:message_regex) { /Fetching logs .+?\n/ }
 
   before do
     run_cpl_command!("ps:start", "-a", app, "--wait")
@@ -11,29 +12,60 @@ describe Command::Logs do
 
   context "when no workload is provided" do
     it "displays logs for one-off workload", :slow do
-      result = nil
-      expected_regex = /Rails .+? application starting in production/
+      message_result = nil
+      logs_result = nil
+      logs_regex = /Rails .+? application starting in production/
 
       spawn_cpl_command("logs", "-a", app) do |it|
-        result = it.wait_for(expected_regex)
+        message_result = it.wait_for(message_regex)
+        logs_result = it.wait_for(logs_regex)
         it.kill
       end
 
-      expect(result).to match(expected_regex)
+      expect(message_result).to include("Fetching logs for workload 'rails'")
+      expect(logs_result).to match(logs_regex)
     end
   end
 
   context "when workload is provided" do
     it "displays logs for specific workload", :slow do
-      result = nil
-      expected_regex = /PostgreSQL init process complete/
+      message_result = nil
+      logs_result = nil
+      logs_regex = /PostgreSQL init process complete/
 
       spawn_cpl_command("logs", "-a", app, "--workload", "postgres") do |it|
-        result = it.wait_for(expected_regex)
+        message_result = it.wait_for(message_regex)
+        logs_result = it.wait_for(logs_regex)
         it.kill
       end
 
-      expect(result).to match(expected_regex)
+      expect(message_result).to include("Fetching logs for workload 'postgres'")
+      expect(logs_result).to match(logs_regex)
+    end
+  end
+
+  context "when replica is provided" do
+    let!(:replica) do
+      run_cpl_command!("ps:stop", "-a", app, "--wait")
+      run_cpl_command!("ps:start", "-a", app, "--wait")
+
+      result = run_cpl_command!("ps", "-a", app, "--workload", "postgres")
+      result[:stdout].strip
+    end
+
+    it "displays logs for specific replica", :slow do
+      message_result = nil
+      logs_result = nil
+      logs_regex = /PostgreSQL init process complete/
+
+      spawn_cpl_command("logs", "-a", app, "--workload", "postgres", "--replica", replica) do |it|
+        message_result = it.wait_for(message_regex)
+        logs_result = it.wait_for(logs_regex)
+        it.kill
+      end
+
+      expect(message_result).to include("Fetching logs for replica '#{replica}'")
+      expect(logs_result).to match(logs_regex)
     end
   end
 

@@ -286,8 +286,9 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # logs
 
-  def logs(workload:, limit:, since:)
+  def logs(workload:, limit:, since:, replica: nil)
     query_parts = ["gvc=\"#{gvc}\"", "workload=\"#{workload}\""]
+    query_parts.push("replica=\"#{replica}\"") if replica
     query = "{#{query_parts.join(',')}}"
 
     cmd = "cpln logs '#{query}' --org #{org} -t -o raw --limit #{limit} --since #{since}"

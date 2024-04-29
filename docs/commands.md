@@ -190,6 +190,9 @@ cpl logs -a $APP_NAME
 # Displays logs for a specific workload.
 cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 
+# Displays logs for a specific replica of a workload.
+cpl logs -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
+
 # Uses a different limit on number of entries.
 cpl logs -a $APP_NAME --limit 100
 

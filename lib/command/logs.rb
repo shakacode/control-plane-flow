@@ -6,6 +6,7 @@ module Command
     OPTIONS = [
       app_option(required: true),
       workload_option,
+      replica_option,
       logs_limit_option,
       logs_since_option
     ].freeze
@@ -22,6 +23,9 @@ module Command
       # Displays logs for a specific workload.
       cpl logs -a $APP_NAME -w $WORKLOAD_NAME
 
+      # Displays logs for a specific replica of a workload.
+      cpl logs -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
+
       # Uses a different limit on number of entries.
       cpl logs -a $APP_NAME --limit 100
 
@@ -32,10 +36,14 @@ module Command
 
     def call
       workload = config.options[:workload] || config[:one_off_workload]
+      replica = config.options[:replica]
       limit = config.options[:limit]
       since = config.options[:since]
 
-      cp.logs(workload: workload, limit: limit, since: since)
+      message = replica ? "replica '#{replica}'" : "workload '#{workload}'"
+      progress.puts("Fetching logs for #{message}...\n\n")
+
+      cp.logs(workload: workload, replica: replica, limit: limit, since: since)
     end
   end
 end
