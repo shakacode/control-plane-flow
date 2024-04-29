@@ -19,7 +19,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def profile_exists?(profile)
     cmd = "cpln profile get #{profile} -o yaml"
-    perform_yaml(cmd).length.positive?
+    perform_yaml!(cmd).length.positive?
   end
 
   def profile_create(profile, token)
@@ -96,7 +96,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     op = config.should_app_start_with?(app_name) ? "~" : "="
 
     cmd = "cpln gvc query --org #{org} -o yaml --prop name#{op}#{app_name}"
-    perform_yaml(cmd)
+    perform_yaml!(cmd)
   end
 
   def fetch_gvc(a_gvc = gvc, a_org = org)
@@ -143,40 +143,38 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.query_workloads(org: a_org, gvc: a_gvc, workload: workload, gvc_op_type: gvc_op, workload_op_type: workload_op)
   end
 
-  def workload_get_replicas(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
+  def fetch_workload_replicas(workload, location:)
+    cmd = "cpln workload replica get #{workload} #{gvc_org} --location #{location} -o yaml"
     perform_yaml(cmd)
   end
 
-  def workload_get_replicas_safely(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
-
-    Shell.debug("CMD", cmd)
-
-    result = Shell.cmd(cmd, capture_stderr: true)
-    YAML.safe_load(result[:output]) if result[:success]
+  def stop_workload_replica(workload, replica, location:)
+    cmd = "cpln workload replica stop #{workload} #{gvc_org} --replica-name #{replica} --location #{location}"
+    perform(cmd, output_mode: :none)
   end
 
   def fetch_workload_deployments(workload)
     api.workload_deployments(workload: workload, gvc: gvc, org: org)
   end
 
-  def workload_deployment_version_ready?(version, next_version, expected_status:)
+  def workload_deployment_version_ready?(version, next_version)
     return false unless version["workload"] == next_version
 
     version["containers"]&.all? do |_, container|
-      ready = container.dig("resources", "replicas") == container.dig("resources", "replicasReady")
-      expected_status == true ? ready : !ready
+      container.dig("resources", "replicas") == container.dig("resources", "replicasReady")
     end
   end
 
-  def workload_deployments_ready?(workload, expected_status:)
+  def workload_deployments_ready?(workload, location:, expected_status:)
+    deployed_replicas = fetch_workload_replicas(workload, location: location)["items"].length
+    return deployed_replicas.zero? if expected_status == false
+
     deployments = fetch_workload_deployments(workload)["items"]
     deployments.all? do |deployment|
       next_version = deployment.dig("status", "expectedDeploymentVersion")
 
       deployment.dig("status", "versions")&.all? do |version|
-        workload_deployment_version_ready?(version, next_version, expected_status: expected_status)
+        workload_deployment_version_ready?(version, next_version)
       end
     end
   end
@@ -426,11 +424,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     Shell.debug("CMD", cmd)
 
     result = Shell.cmd(cmd)
-    if result[:success]
-      YAML.safe_load(result[:output])
-    else
-      Shell.abort("Command exited with non-zero status.")
-    end
+    YAML.safe_load(result[:output]) if result[:success]
+  end
+
+  def perform_yaml!(cmd)
+    perform_yaml(cmd) || Shell.abort("Command exited with non-zero status.")
   end
 
   def gvc_org

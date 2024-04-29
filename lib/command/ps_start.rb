@@ -6,6 +6,7 @@ module Command
     OPTIONS = [
       app_option(required: true),
       workload_option,
+      location_option,
       wait_option("workload to be ready")
     ].freeze
     DESCRIPTION = "Starts workloads in app"
@@ -42,7 +43,7 @@ module Command
 
       @workloads.reverse_each do |workload|
         step("Waiting for workload '#{workload}' to be ready", retry_on_failure: true) do
-          cp.workload_deployments_ready?(workload, expected_status: true)
+          cp.workload_deployments_ready?(workload, location: config.location, expected_status: true)
         end
       end
     end

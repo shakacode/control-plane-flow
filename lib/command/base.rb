@@ -332,7 +332,7 @@ module Command
 
     def wait_for_replica(workload, location)
       step("Waiting for replica", retry_on_failure: true) do
-        cp.workload_get_replicas_safely(workload, location: location)&.dig("items", 0)
+        cp.fetch_workload_replicas(workload, location: location)["items"].first
       end
     end
 

@@ -325,6 +325,9 @@ cpl ps:stop -a $APP_NAME
 
 # Stops a specific workload in app.
 cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
+
+# Stops a specific replica of a workload.
+cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
 ```
 
 ### `ps:wait`
