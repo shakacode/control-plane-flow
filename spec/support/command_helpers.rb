@@ -35,6 +35,9 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     }
   }.freeze
 
+  COMMAND_SEPARATOR = "#" * 100
+  SECTION_SEPARATOR = "-" * 100
+
   def dummy_test_org
     DUMMY_TEST_ORG
   end
@@ -151,32 +154,24 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
   def write_command_to_log(cmd)
     File.open(LOG_FILE, "a") do |file|
-      file.puts(command_separator)
+      file.puts(COMMAND_SEPARATOR)
       file.puts(cmd)
     end
   end
 
   def write_command_result_to_log(result) # rubocop:disable Metrics/MethodLength
     File.open(LOG_FILE, "a") do |file|
-      file.puts(section_separator)
+      file.puts(SECTION_SEPARATOR)
       file.puts("STATUS: #{result[:status]}")
-      file.puts(section_separator)
+      file.puts(SECTION_SEPARATOR)
       file.puts("STDERR:")
-      file.puts(section_separator)
+      file.puts(SECTION_SEPARATOR)
       file.puts(result[:stderr])
-      file.puts(section_separator)
+      file.puts(SECTION_SEPARATOR)
       file.puts("STDOUT:")
-      file.puts(section_separator)
+      file.puts(SECTION_SEPARATOR)
       file.puts(result[:stdout])
     end
-  end
-
-  def command_separator
-    "#" * 100
-  end
-
-  def section_separator
-    "-" * 100
   end
 
   def replace_stderr
