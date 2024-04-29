@@ -59,7 +59,7 @@ describe Command::DeployImage do
   end
 
   context "when release script does not exist" do
-    let!(:app) { dummy_test_app("with-unexistent-release-script") }
+    let!(:app) { dummy_test_app("with-nonexistent-release-script") }
 
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")

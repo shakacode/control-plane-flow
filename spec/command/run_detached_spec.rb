@@ -37,7 +37,7 @@ describe Command::RunDetached do
     end
 
     it "deletes workload if finished with failure by default", :slow do
-      result = run_cpl_command("run:detached", "-a", app, "--", "unexistent")
+      result = run_cpl_command("run:detached", "-a", app, "--", "nonexistent")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("CRASHED")
@@ -45,7 +45,7 @@ describe Command::RunDetached do
     end
 
     it "does not delete workload if finished with failure and --no-clean-on-failure is provided", :slow do
-      result = run_cpl_command("run:detached", "-a", app, "--no-clean-on-failure", "--", "unexistent")
+      result = run_cpl_command("run:detached", "-a", app, "--no-clean-on-failure", "--", "nonexistent")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("CRASHED")

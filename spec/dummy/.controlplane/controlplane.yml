@@ -61,11 +61,11 @@ apps:
       - postgres
       - maintenance
 
-  dummy-test-with-unexistent-dockerfile:
+  dummy-test-with-nonexistent-dockerfile:
     <<: *common
 
     match_if_app_name_starts_with: true
-    dockerfile: Dockerfile.unexistent
+    dockerfile: Dockerfile.nonexistent
 
   dummy-test-with-invalid-dockerfile:
     <<: *common
@@ -126,11 +126,11 @@ apps:
       - postgres
       - rails-with-non-app-image
 
-  dummy-test-with-unexistent-release-script:
+  dummy-test-with-nonexistent-release-script:
     <<: *common
 
     match_if_app_name_starts_with: true
-    release_script: release-unexistent.sh
+    release_script: release-nonexistent.sh
 
   dummy-test-with-invalid-release-script:
     <<: *common

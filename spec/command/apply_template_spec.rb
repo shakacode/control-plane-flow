@@ -7,11 +7,11 @@ describe Command::ApplyTemplate do
     let!(:app) { dummy_test_app }
 
     it "raises error" do
-      result = run_cpl_command("apply-template", "gvc", "rails", "unexistent", "-a", app)
+      result = run_cpl_command("apply-template", "gvc", "rails", "nonexistent", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Missing templates")
-      expect(result[:stderr]).to include("- unexistent")
+      expect(result[:stderr]).to include("- nonexistent")
     end
   end
 

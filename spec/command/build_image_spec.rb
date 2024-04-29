@@ -19,7 +19,7 @@ describe Command::BuildImage do
   end
 
   context "when Dockerfile does not exist" do
-    let!(:app) { dummy_test_app("with-unexistent-dockerfile") }
+    let!(:app) { dummy_test_app("with-nonexistent-dockerfile") }
 
     it "raises error" do
       result = run_cpl_command("build-image", "-a", app)
