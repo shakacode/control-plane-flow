@@ -9,10 +9,6 @@ class Shell
     @shell ||= Thor::Shell::Color.new
   end
 
-  def self.stderr
-    $stderr
-  end
-
   def self.use_tmp_stderr
     @tmp_stderr = Tempfile.create
 
@@ -40,15 +36,15 @@ class Shell
   end
 
   def self.warn(message)
-    stderr.puts(color("WARNING: #{message}", :yellow))
+    Kernel.warn(color("WARNING: #{message}", :yellow))
   end
 
   def self.warn_deprecated(message)
-    stderr.puts(color("DEPRECATED: #{message}", :yellow))
+    Kernel.warn(color("DEPRECATED: #{message}", :yellow))
   end
 
   def self.abort(message, exit_status = ExitCode::ERROR_DEFAULT)
-    stderr.puts(color("ERROR: #{message}", :red))
+    Kernel.warn(color("ERROR: #{message}", :red))
     exit(exit_status)
   end
 
@@ -60,7 +56,7 @@ class Shell
     return unless verbose
 
     filtered_message = hide_sensitive_data(message, sensitive_data_pattern)
-    stderr.puts("\n[#{color(prefix, :red)}] #{filtered_message}")
+    Kernel.warn("\n[#{color(prefix, :red)}] #{filtered_message}")
   end
 
   def self.should_hide_output?
