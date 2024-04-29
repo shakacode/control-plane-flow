@@ -164,7 +164,13 @@ module Cpl
       long_desc(long_description)
 
       command_options.each do |option|
-        method_option(option[:name], **option[:params])
+        params = option[:params]
+
+        # Ensures that if no value is provided for a non-boolean option (e.g., `cpl command --option`),
+        # it defaults to an empty string instead of the option name (which is the default Thor behavior)
+        params[:lazy_default] ||= "" if params[:type] != :boolean
+
+        method_option(option[:name], **params)
       end
 
       # We'll handle required options manually in `Config`
@@ -189,6 +195,8 @@ module Cpl
         end
 
         begin
+          Cpl::Cli.validate_options!(options)
+
           config = Config.new(args, options, required_options)
 
           Cpl::Cli.show_info_header(config) if with_info_header
@@ -200,6 +208,12 @@ module Cpl
       end
     rescue StandardError => e
       ::Shell.abort("Unable to load command: #{e.message}")
+    end
+
+    def self.validate_options!(options)
+      options.each do |name, value|
+        raise "No value provided for option '#{name}'." if value.to_s.strip.empty?
+      end
     end
 
     def self.show_info_header(config) # rubocop:disable Metrics/MethodLength
