@@ -8,15 +8,7 @@ on:
 
 jobs:
   rubocop:
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-        ruby:
-          - "2.7"
-          - "3.0"
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     name: Rubocop
     steps:
       - name: Checkout code
@@ -24,7 +16,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
+          ruby-version: "2.7"
           bundler-cache: true
       - name: Install dependencies
         run: bundle install

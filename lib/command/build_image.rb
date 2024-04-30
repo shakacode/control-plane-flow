@@ -38,16 +38,11 @@ module Command
                                 docker_args: config.args,
                                 build_args: build_args)
 
-      progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.")
-    end
+      progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.\n\n")
 
-    private
-
-    def ensure_docker_running!
-      `docker version > /dev/null 2>&1`
-      return if $CHILD_STATUS.success?
-
-      raise "Can't run Docker. Please make sure that it's installed and started, then try again."
+      step("Waiting for image to be available", retry_on_failure: true) do
+        image_name == latest_image(refresh: true)
+      end
     end
   end
 end

@@ -54,7 +54,12 @@ module Command
       raise "Can't find release script in '#{release_script_path}'." unless File.exist?(release_script_path)
 
       progress.puts("Running release script...\n\n")
-      perform!("bash #{release_script_path}")
+
+      result = Shell.cmd("bash", release_script_path, capture_stderr: true)
+      progress.puts(result[:output])
+
+      raise "Failed to run release script." unless result[:success]
+
       progress.puts
     end
   end

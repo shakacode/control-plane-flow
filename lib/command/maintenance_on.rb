@@ -48,7 +48,7 @@ module Command
         cp.set_domain_workload(domain_data, maintenance_workload)
 
         # Give it a bit of time for the domain to update
-        sleep 30
+        Kernel.sleep(30)
       end
 
       progress.puts

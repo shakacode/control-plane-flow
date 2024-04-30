@@ -6,10 +6,13 @@ require "cgi"
 require "json"
 require "jwt"
 require "net/http"
+require "open3"
 require "pathname"
 require "tempfile"
 require "thor"
 require "yaml"
+
+require_relative "constants/exit_code"
 
 # We need to require base before all commands, since the commands inherit from it
 require_relative "command/base"
@@ -59,9 +62,9 @@ module Cpl
 
       @checked_cpln_version = true
 
-      result = `cpln --version 2>/dev/null`
-      if $CHILD_STATUS.success?
-        data = JSON.parse(result)
+      result = ::Shell.cmd("cpln", "--version", capture_stderr: true)
+      if result[:success]
+        data = JSON.parse(result[:output])
 
         version = data["npm"]
         min_version = Cpl::MIN_CPLN_VERSION
@@ -79,10 +82,10 @@ module Cpl
 
       @checked_cpl_version = true
 
-      result = `gem search ^cpl$ --remote 2>/dev/null`
-      return unless $CHILD_STATUS.success?
+      result = ::Shell.cmd("gem", "search", "^cpl$", "--remote", capture_stderr: true)
+      return unless result[:success]
 
-      matches = result.match(/cpl \((.+)\)/)
+      matches = result[:output].match(/cpl \((.+)\)/)
       return unless matches
 
       version = Cpl::VERSION
@@ -223,5 +226,5 @@ end
 # nice Ctrl+C
 trap "INT" do
   puts
-  exit(1)
+  exit(ExitCode::INTERRUPT)
 end

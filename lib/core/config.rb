@@ -174,7 +174,7 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def config_file_path # rubocop:disable Metrics/MethodLength
-    @config_file_path ||= begin
+    @config_file_path ||= ENV["CONFIG_FILE_PATH"] || begin
       path = Pathname.new(".").expand_path
 
       loop do

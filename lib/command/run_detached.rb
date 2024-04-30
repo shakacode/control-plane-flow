@@ -45,6 +45,7 @@ module Command
     EX
 
     WORKLOAD_SLEEP_CHECK = 2
+    MAX_RETRIES = Float::INFINITY
 
     attr_reader :location, :workload_to_clone, :workload_clone, :container
 
@@ -60,7 +61,7 @@ module Command
       wait_for_workload(workload_clone)
       show_logs_waiting
     ensure
-      exit(1) if @crashed
+      exit(ExitCode::ERROR_DEFAULT) if @crashed
     end
 
     private
@@ -138,14 +139,18 @@ module Command
 
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
       progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
+      retries = 0
       begin
         @finished = false
         while cp.fetch_workload(workload_clone) && !@finished
-          sleep(WORKLOAD_SLEEP_CHECK)
+          Kernel.sleep(WORKLOAD_SLEEP_CHECK)
           print_uniq_logs
         end
       rescue RuntimeError => e
-        progress.puts(Shell.color("ERROR: #{e}", :red))
+        raise "#{e} Exiting..." unless retries < MAX_RETRIES
+
+        progress.puts(Shell.color("ERROR: #{e} Retrying...", :red))
+        retries += 1
         retry
       end
       progress.puts("\nFinished workload and logger.")
@@ -159,7 +164,7 @@ module Command
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         @crashed = true if val.match?(/^----- CRASHED -----$/)
         @finished = true if val.match?(/^-- FINISHED RUNNER SCRIPT(, DELETING WORKLOAD)? --$/)
-        puts val
+        progress.puts(val)
       end
 
       @printed_log_entries = entries # as well truncate old entries if any

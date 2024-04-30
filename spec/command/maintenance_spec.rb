@@ -3,41 +3,40 @@
 require "spec_helper"
 
 describe Command::Maintenance do
-  before do
-    allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
-    allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
-    allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
-    allow(ENV).to receive(:fetch).with("CPLN_APP", nil).and_return(nil)
-    allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
+  context "when app has no domain" do
+    let!(:app) { dummy_test_app("with-nothing") }
+
+    it "raises error" do
+      result = run_cpl_command("maintenance", "-a", app)
+
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Can't find domain")
+    end
   end
 
-  it "displays error if domain is not found", vcr: true do
-    allow(Shell).to receive(:abort)
-      .with("Can't find domain. " \
-            "Maintenance mode is only supported for domains that use path based routing mode " \
-            "and have a route configured for the prefix '/' on either port 80 or 443.")
+  context "when app has domain" do
+    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    args = ["-a", "my-app-staging"]
-    Cpl::Cli.start([described_class::NAME, *args])
+    before do
+      allow(Kernel).to receive(:sleep)
 
-    expect(Shell).to have_received(:abort).once
-  end
+      run_cpl_command!("ps:start", "-a", app, "--wait")
+    end
 
-  it "displays 'on' if maintenance mode is enabled", vcr: true do
-    allow($stdout).to receive(:puts).with("on")
+    it "displays 'off' if maintenance mode is disabled", :slow do
+      run_cpl_command!("maintenance:off", "-a", app)
+      result = run_cpl_command("maintenance", "-a", app)
 
-    args = ["-a", "my-app-staging"]
-    Cpl::Cli.start([described_class::NAME, *args])
+      expect(result[:status]).to eq(0)
+      expect(result[:stdout]).to include("off")
+    end
 
-    expect($stdout).to have_received(:puts).once
-  end
+    it "displays 'on' if maintenance mode is enabled", :slow do
+      run_cpl_command!("maintenance:on", "-a", app)
+      result = run_cpl_command("maintenance", "-a", app)
 
-  it "displays 'off' if maintenance mode is disabled", vcr: true do
-    allow($stdout).to receive(:puts).with("off")
-
-    args = ["-a", "my-app-staging"]
-    Cpl::Cli.start([described_class::NAME, *args])
-
-    expect($stdout).to have_received(:puts).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stdout]).to include("on")
+    end
   end
 end

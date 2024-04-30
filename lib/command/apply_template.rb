@@ -64,15 +64,15 @@ module Command
       pending_templates.each do |template, filename|
         step("Applying template '#{template}'", abort_on_error: false) do
           items = apply_template(filename)
-          if items
-            items.each do |item|
-              report_success(item)
-            end
-          else
+          unless items
             report_failure(template)
+            next false
           end
 
-          $CHILD_STATUS.success?
+          items.each do |item|
+            report_success(item)
+          end
+          true
         end
       end
 
@@ -82,7 +82,7 @@ module Command
       print_failed_templates
       print_skipped_templates
 
-      exit(1) if @failed_templates.any?
+      exit(ExitCode::ERROR_DEFAULT) if @failed_templates.any?
     end
 
     private

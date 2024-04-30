@@ -1,0 +1,6 @@
+kind: volumeset
+name: detached-volume
+spec:
+  fileSystemType: ext4
+  performanceClass: general-purpose-ssd
+  initialCapacity: 10

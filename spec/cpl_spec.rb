@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "spec_helper"
+
 commands = Command::Base.all_commands
 options_by_key_name = Command::Base.all_options_by_key_name
 

@@ -3,180 +3,177 @@
 require "spec_helper"
 
 describe Command::RunCleanup do
-  before do
-    allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
-    allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token")
-    allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
-    allow(ENV).to receive(:fetch).with("CPLN_APP", nil).and_return(nil)
-    allow_any_instance_of(Config).to receive(:config_file_path).and_return("spec/fixtures/config.yml") # rubocop:disable RSpec/AnyInstance
+  context "when 'stale_run_workload_created_days' is not defined" do
+    let!(:app) { dummy_test_app("with-nothing") }
 
-    Timecop.freeze(Time.local(2023, 5, 15))
+    it "raises error" do
+      result = run_cpl_command("run:cleanup", "-a", app)
+
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Can't find option 'stale_run_workload_created_days'")
+    end
   end
 
-  it "displays error if 'stale_run_workload_created_days' is not set" do
-    allow(Shell).to receive(:abort).with("Can't find option 'stale_run_workload_created_days' " \
-                                         "for app 'my-app-other' in 'controlplane.yml'.")
+  context "when there are no stale run workloads to delete" do
+    let!(:app) { dummy_test_app }
 
-    args = ["-a", "my-app-other"]
-    Cpl::Cli.start([described_class::NAME, *args])
+    it "displays message" do
+      result = run_cpl_command("run:cleanup", "-a", app)
 
-    expect(Shell).to have_received(:abort).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("No stale run workloads found")
+    end
   end
 
-  it "displays empty message", vcr: true do
-    expected_output = <<~OUTPUT
-      No stale run workloads found.
-    OUTPUT
+  context "when run workload matches defined workload exactly" do
+    let!(:app) { dummy_test_app("with-fake-run-workload") }
 
-    output = command_output do
-      args = ["-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    before do
+      run_cpl_command!("apply-template", "gvc", "fake-run-12345", "-a", app)
     end
 
-    expect(output).to eq(expected_output)
-  end
-
-  it "lists stale run workloads", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 4 run workloads?")
-                                     .and_return(false)
-
-    expected_output = <<~OUTPUT
-      Stale run workloads:
-        rails-run-4137 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        rails-run-7025 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-        rails-runner-4985 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        rails-runner-6669 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-    OUTPUT
-
-    output = command_output do
-      args = ["-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    expect(Shell).to have_received(:confirm).once
-    expect(output).to eq(expected_output)
+    it "lists nothing" do
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app)
+      travel_back
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("No stale run workloads found")
+    end
   end
 
-  it "lists stale run workloads for all apps that start with name", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 4 run workloads?")
-                                     .and_return(false)
+  context "when run workloads do not match naming pattern exactly" do
+    let!(:app) { dummy_test_app }
 
-    expected_output = <<~OUTPUT
-      Stale run workloads:
-        my-app-review-1 - rails-run-1527 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        my-app-review-2 - rails-run-9213 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-        my-app-review-1 - rails-runner-8931 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        my-app-review-2 - rails-runner-1273 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-    OUTPUT
-
-    output = command_output do
-      args = ["-a", "my-app-review"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    before do
+      run_cpl_command!("apply-template", "gvc", "fake-run-12345", "fake-runner-12345", "-a", app)
     end
 
-    expect(Shell).to have_received(:confirm).once
-    expect(output).to eq(expected_output)
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+    end
+
+    it "lists nothing" do
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app)
+      travel_back
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("No stale run workloads found")
+    end
   end
 
-  it "deletes stale run workloads", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 4 run workloads?")
-                                     .and_return(true)
+  context "when run workloads are not older than 'stale_run_workload_created_days'" do
+    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    expected_output = <<~OUTPUT
-      Stale run workloads:
-        rails-run-4137 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        rails-run-7025 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-        rails-runner-4985 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        rails-runner-6669 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-
-      Deleting run workload 'rails-run-4137'... #{Shell.color('done!', :green)}
-      Deleting run workload 'rails-run-7025'... #{Shell.color('done!', :green)}
-      Deleting run workload 'rails-runner-4985'... #{Shell.color('done!', :green)}
-      Deleting run workload 'rails-runner-6669'... #{Shell.color('done!', :green)}
-    OUTPUT
-
-    output = command_output do
-      args = ["-a", "my-app-staging"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    before do
+      create_run_workloads(app)
     end
 
-    expect(Shell).to have_received(:confirm).once
-    expect(output).to eq(expected_output)
+    it "lists nothing", :slow do
+      result = run_cpl_command("run:cleanup", "-a", app)
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("No stale run workloads found")
+    end
   end
 
-  it "deletes stale run workloads for all apps that start with name", vcr: true do
-    allow(Shell).to receive(:confirm).with("\nAre you sure you want to delete these 4 run workloads?")
-                                     .and_return(true)
+  context "when there are stale run workloads to delete" do
+    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    expected_output = <<~OUTPUT
-      Stale run workloads:
-        my-app-review-1 - rails-run-1527 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        my-app-review-2 - rails-run-9213 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-        my-app-review-1 - rails-runner-8931 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        my-app-review-2 - rails-runner-1273 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-
-      Deleting run workload 'my-app-review-1 - rails-run-1527'... #{Shell.color('done!', :green)}
-      Deleting run workload 'my-app-review-2 - rails-run-9213'... #{Shell.color('done!', :green)}
-      Deleting run workload 'my-app-review-1 - rails-runner-8931'... #{Shell.color('done!', :green)}
-      Deleting run workload 'my-app-review-2 - rails-runner-1273'... #{Shell.color('done!', :green)}
-    OUTPUT
-
-    output = command_output do
-      args = ["-a", "my-app-review"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    before do
+      create_run_workloads(app)
     end
 
-    expect(Shell).to have_received(:confirm).once
-    expect(output).to eq(expected_output)
+    it "asks for confirmation and does nothing", :slow do
+      allow(Shell).to receive(:confirm).with(match(/\d+ run workloads/)).and_return(false)
+
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app)
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting run workload")
+    end
+
+    it "asks for confirmation and deletes stale run workloads", :slow do
+      allow(Shell).to receive(:confirm).with(match(/\d+ run workloads/)).and_return(true)
+
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app)
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting run workload '#{app}: rails-run-\d{4}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting run workload '#{app}: rails-runner-\d{4}'[.]+? done!/)
+    end
+
+    it "skips confirmation and deletes stale run workloads", :slow do
+      allow(Shell).to receive(:confirm).and_return(false)
+
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app, "--yes")
+      travel_back
+
+      expect(Shell).not_to have_received(:confirm)
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting run workload '#{app}: rails-run-\d{4}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting run workload '#{app}: rails-runner-\d{4}'[.]+? done!/)
+    end
   end
 
-  it "skips delete confirmation", vcr: true do
-    allow(Shell).to receive(:confirm)
+  context "with multiple apps" do
+    let!(:app_prefix) { dummy_test_app_prefix("full") }
+    let!(:app1) { dummy_test_app("full", "1", create_if_not_exists: true) }
+    let!(:app2) { dummy_test_app("full", "2", create_if_not_exists: true) }
 
-    expected_output = <<~OUTPUT
-      Stale run workloads:
-        rails-run-4137 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        rails-run-7025 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-        rails-runner-4985 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        rails-runner-6669 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-
-      Deleting run workload 'rails-run-4137'... #{Shell.color('done!', :green)}
-      Deleting run workload 'rails-run-7025'... #{Shell.color('done!', :green)}
-      Deleting run workload 'rails-runner-4985'... #{Shell.color('done!', :green)}
-      Deleting run workload 'rails-runner-6669'... #{Shell.color('done!', :green)}
-    OUTPUT
-
-    output = command_output do
-      args = ["-a", "my-app-staging", "-y"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    before do
+      create_run_workloads(app1)
+      create_run_workloads(app2)
     end
 
-    expect(Shell).not_to have_received(:confirm)
-    expect(output).to eq(expected_output)
+    it "lists correct run workloads from exact app", :slow do
+      allow(Shell).to receive(:confirm).with(match(/\d+ run workloads/)).and_return(false)
+
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app1)
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/- #{app1}: rails-run-\d{4}/)
+      expect(result[:stderr]).to match(/- #{app1}: rails-runner-\d{4}/)
+    end
+
+    it "lists correct run workloads from all matching apps", :slow do
+      allow(Shell).to receive(:confirm).with(match(/\d+ run workloads/)).and_return(false)
+
+      travel_to_days_later(3)
+      result = run_cpl_command("run:cleanup", "-a", app_prefix)
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/- #{app1}: rails-run-\d{4}/)
+      expect(result[:stderr]).to match(/- #{app1}: rails-runner-\d{4}/)
+      expect(result[:stderr]).to match(/- #{app2}: rails-run-\d{4}/)
+      expect(result[:stderr]).to match(/- #{app2}: rails-runner-\d{4}/)
+    end
   end
 
-  it "skips delete confirmation for all apps that start with name", vcr: true do
-    allow(Shell).to receive(:confirm)
+  def create_run_workloads(app)
+    spawn_cpl_command("run", "-a", app, wait_for_process: false, &:wait_for_prompt)
 
-    expected_output = <<~OUTPUT
-      Stale run workloads:
-        my-app-review-1 - rails-run-1527 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        my-app-review-2 - rails-run-9213 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-        my-app-review-1 - rails-runner-8931 (#{Shell.color('2023-05-10T12:00:00+00:00 - 4 days ago', :red)})
-        my-app-review-2 - rails-runner-1273 (#{Shell.color('2023-05-13T00:00:00+00:00 - 2 days ago', :red)})
-
-      Deleting run workload 'my-app-review-1 - rails-run-1527'... #{Shell.color('done!', :green)}
-      Deleting run workload 'my-app-review-2 - rails-run-9213'... #{Shell.color('done!', :green)}
-      Deleting run workload 'my-app-review-1 - rails-runner-8931'... #{Shell.color('done!', :green)}
-      Deleting run workload 'my-app-review-2 - rails-runner-1273'... #{Shell.color('done!', :green)}
-    OUTPUT
-
-    output = command_output do
-      args = ["-a", "my-app-review", "-y"]
-      Cpl::Cli.start([described_class::NAME, *args])
+    cmd = "\"bash -c 'while true; do sleep 1; done'\""
+    expected_regex = /STARTED RUNNER SCRIPT/
+    spawn_cpl_command("run:detached", "-a", app, "--", cmd, wait_for_process: false) do |it|
+      it.wait_for(expected_regex)
     end
-
-    expect(Shell).not_to have_received(:confirm)
-    expect(output).to eq(expected_output)
   end
 end

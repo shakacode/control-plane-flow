@@ -75,7 +75,7 @@ class ControlplaneApiDirect
     }
     if @@api_token[:token].nil?
       @@api_token = {
-        token: `cpln profile token`.chomp,
+        token: Shell.cmd("cpln", "profile", "token")[:output].chomp,
         comes_from_profile: true
       }
     end

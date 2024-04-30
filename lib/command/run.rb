@@ -127,7 +127,7 @@ module Command
         if config.options[:terminal_size]
           rows, cols = config.options[:terminal_size].split(",")
         else
-          rows, cols = `stty size`.split(/\s+/)
+          rows, cols = Shell.cmd("stty", "size")[:output].split(/\s+/)
         end
         script += "stty rows #{rows}\nstty cols #{cols}\n" if rows && cols
       end

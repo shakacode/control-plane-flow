@@ -312,8 +312,9 @@ module Command
       end
     end
 
-    def latest_image(app = config.app, org = config.org)
+    def latest_image(app = config.app, org = config.org, refresh: false)
       @latest_image ||= {}
+      @latest_image[app] = nil if refresh
       @latest_image[app] ||=
         begin
           items = cp.query_images(app, org)["items"]
@@ -377,7 +378,7 @@ module Command
           if retry_on_failure
             until (success = yield)
               progress.print(".")
-              sleep 1
+              Kernel.sleep(1)
             end
           else
             success = yield
@@ -392,10 +393,6 @@ module Command
 
     def cp
       @cp ||= Controlplane.new(config)
-    end
-
-    def perform!(cmd)
-      system(cmd) || exit(1)
     end
 
     def app_location_link
@@ -420,6 +417,13 @@ module Command
 
     def app_secrets_policy
       "#{app_secrets}-policy"
+    end
+
+    def ensure_docker_running!
+      result = Shell.cmd("docker", "version", capture_stderr: true)
+      return if result[:success]
+
+      raise "Can't run Docker. Please make sure that it's installed and started, then try again."
     end
 
     private

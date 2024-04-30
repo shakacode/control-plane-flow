@@ -23,12 +23,12 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "overcommit",    "~> 0.60.0"
   spec.add_development_dependency "rspec",         "~> 3.12.0"
+  spec.add_development_dependency "rspec-retry",   "~> 0.6.2"
   spec.add_development_dependency "rubocop",       "~> 1.45.0"
   spec.add_development_dependency "rubocop-rake",  "~> 0.6.0"
   spec.add_development_dependency "rubocop-rspec", "~> 2.18.1"
   spec.add_development_dependency "simplecov",     "~> 0.22.0"
   spec.add_development_dependency "timecop",       "~> 0.9.6"
-  spec.add_development_dependency "vcr",           "~> 6.1.0"
   spec.add_development_dependency "webmock",       "~> 3.18.1"
 
   spec.files = `git ls-files -z`.split("\x0").reject do |file|
