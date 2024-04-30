@@ -181,6 +181,7 @@ cpl latest-image -a $APP_NAME
 ### `logs`
 
 - Light wrapper to display tailed raw logs for app/workload syntax
+- Defaults to showing the last 200 entries from the past 1 hour before tailing
 
 ```sh
 # Displays logs for the default workload (`one_off_workload`).
@@ -188,6 +189,12 @@ cpl logs -a $APP_NAME
 
 # Displays logs for a specific workload.
 cpl logs -a $APP_NAME -w $WORKLOAD_NAME
+
+# Uses a different limit on number of entries.
+cpl logs -a $APP_NAME --limit 100
+
+# Uses a different loopback window.
+cpl logs -a $APP_NAME --since 30min
 ```
 
 ### `maintenance`

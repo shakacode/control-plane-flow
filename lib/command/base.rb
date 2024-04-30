@@ -51,6 +51,7 @@ module Command
       [org_option, verbose_option, trace_option]
     end
 
+    # rubocop:disable Metrics/MethodLength
     def self.org_option(required: false)
       {
         name: :org,
@@ -270,6 +271,34 @@ module Command
         }
       }
     end
+
+    def self.logs_limit_option(required: false)
+      {
+        name: :limit,
+        params: {
+          banner: "NUMBER",
+          desc: "Limit on number of log entries to show",
+          type: :numeric,
+          required: required,
+          default: 200
+        }
+      }
+    end
+
+    def self.logs_since_option(required: false)
+      {
+        name: :since,
+        params: {
+          banner: "DURATION",
+          desc: "Loopback window for showing logs " \
+                "(see https://www.npmjs.com/package/parse-duration for the accepted formats, e.g., '1h')",
+          type: :string,
+          required: required,
+          default: "1h"
+        }
+      }
+    end
+    # rubocop:enable Metrics/MethodLength
 
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
