@@ -85,7 +85,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   end
 
   def create_app_if_not_exists(app, deploy: false, image_before_deploy_count: 0, image_after_deploy_count: 0) # rubocop:disable Metrics/MethodLength
-    apps_to_delete.push(app)
+    apps_to_delete.push(app) unless apps_to_delete.include?(app)
 
     result = run_cpl_command("exists", "-a", app)
     return app if result[:status].zero?
