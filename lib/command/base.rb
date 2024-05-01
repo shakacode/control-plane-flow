@@ -212,7 +212,8 @@ module Command
           banner: "ROWS,COLS",
           desc: "Override remote terminal size (e.g. `--terminal-size 10,20`)",
           type: :string,
-          required: required
+          required: required,
+          valid_regex: /^\d+,\d+$/
         }
       }
     end

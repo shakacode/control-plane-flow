@@ -10,7 +10,6 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
   DUMMY_TEST_ORG = ENV.fetch("CPLN_ORG")
   DUMMY_TEST_APP_PREFIX = "dummy-test"
-  LOG_FILE = ENV.fetch("SPEC_LOG_FILE", "spec.log")
 
   CREATE_APP_PARAMS = {
     "default" => {
@@ -34,9 +33,6 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
       image_after_deploy_count: 0
     }
   }.freeze
-
-  COMMAND_SEPARATOR = "#" * 100
-  SECTION_SEPARATOR = "-" * 100
 
   def dummy_test_org
     DUMMY_TEST_ORG
@@ -106,7 +102,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   end
 
   def run_cpl_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
-    write_command_to_log(args.join(" "))
+    LogHelpers.write_command_to_log(args.join(" "))
 
     result = {
       status: 0,
@@ -126,7 +122,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     result[:stderr] = restore_stderr(original_stderr)
     result[:stdout] = restore_stdout(original_stdout)
 
-    write_command_result_to_log(result)
+    LogHelpers.write_command_result_to_log(result)
 
     raise result.to_json if result[:status].nonzero? && raise_errors
 
@@ -143,34 +139,12 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     cmd += "stty cols #{stty_cols} && " if stty_cols
     cmd += "#{cpl_executable_with_simplecov} #{args.join(' ')}"
 
-    write_command_to_log(cmd)
+    LogHelpers.write_command_to_log(cmd)
 
     PTY.spawn(cmd) do |output, input, pid|
       yield(SpawnedCommand.new(output, input, pid))
     ensure
       Process.wait(pid) if wait_for_process
-    end
-  end
-
-  def write_command_to_log(cmd)
-    File.open(LOG_FILE, "a") do |file|
-      file.puts(COMMAND_SEPARATOR)
-      file.puts(cmd)
-    end
-  end
-
-  def write_command_result_to_log(result) # rubocop:disable Metrics/MethodLength
-    File.open(LOG_FILE, "a") do |file|
-      file.puts(SECTION_SEPARATOR)
-      file.puts("STATUS: #{result[:status]}")
-      file.puts(SECTION_SEPARATOR)
-      file.puts("STDERR:")
-      file.puts(SECTION_SEPARATOR)
-      file.puts(result[:stderr])
-      file.puts(SECTION_SEPARATOR)
-      file.puts("STDOUT:")
-      file.puts(SECTION_SEPARATOR)
-      file.puts(result[:stdout])
     end
   end
 

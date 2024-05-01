@@ -255,7 +255,7 @@ module Command
 
       if config.options[:use_local_token]
         job_start_hash["env"] ||= []
-        job_start_hash["env"].push({ "name" => "CPLN_TOKEN", "value" => ControlplaneApiDirect.new.api_token[:token] })
+        job_start_hash["env"].push({ "name" => "CPL_TOKEN", "value" => ControlplaneApiDirect.new.api_token[:token] })
       end
 
       entrypoint = nil
@@ -267,15 +267,15 @@ module Command
       job_start_hash["args"] ||= []
       job_start_hash["args"].push("bash") unless entrypoint == "bash"
       job_start_hash["args"].push("-c")
+      job_start_hash["env"] ||= []
+      job_start_hash["env"].push({ "name" => "CPL_RUNNER_SCRIPT", "value" => runner_script })
       if interactive
-        job_start_hash["env"] ||= []
-        job_start_hash["env"].push({ "name" => "CPL_RUNNER_SCRIPT", "value" => interactive_runner_script })
         job_start_hash["env"].push({ "name" => "CPL_MONITORING_SCRIPT", "value" => interactive_monitoring_script })
 
         job_start_hash["args"].push('eval "$CPL_MONITORING_SCRIPT"')
         @command = %(bash -c 'eval "$CPL_RUNNER_SCRIPT"')
       else
-        job_start_hash["args"].push(%(eval "#{args_join(config.args)}"))
+        job_start_hash["args"].push('eval "$CPL_RUNNER_SCRIPT"')
       end
 
       job_start_hash.to_yaml
@@ -307,7 +307,7 @@ module Command
       SCRIPT
     end
 
-    def interactive_runner_script # rubocop:disable Metrics/MethodLength
+    def interactive_runner_script
       script = ""
 
       # NOTE: fixes terminal size to match local terminal
@@ -317,9 +317,24 @@ module Command
         else
           rows, cols = `stty size`.split(/\s+/)
         end
-        script += "stty rows #{rows}\nstty cols #{cols}\n" if rows && cols
+        script += "stty rows #{rows}\nstty cols #{cols}\n"
       end
 
+      script
+    end
+
+    def runner_script # rubocop:disable Metrics/MethodLength
+      script = <<~SCRIPT
+        unset CPL_RUNNER_SCRIPT
+        unset CPL_MONITORING_SCRIPT
+
+        if [ -n "$CPL_TOKEN" ]; then
+          CPLN_TOKEN=$CPL_TOKEN
+          unset CPL_TOKEN
+        fi
+      SCRIPT
+
+      script += interactive_runner_script if interactive
       script += args_join(config.args)
       script
     end

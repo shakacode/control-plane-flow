@@ -71,7 +71,7 @@ describe Command::Logs do
 
   context "when using different limit on number of entries" do
     let!(:workload) do
-      cmd = "\"bash -c 'for i in {1..10}; do echo \\\"Line \\\\\\$i\\\"; done; while true; do sleep 1; done'\""
+      cmd = "'for i in {1..10}; do echo \"Line $i\"; done; while true; do sleep 1; done'"
       create_run_workload(cmd)
     end
 
@@ -90,7 +90,7 @@ describe Command::Logs do
 
   context "when using different loopback window" do
     let!(:workload) do
-      cmd = "\"bash -c 'echo \\\"Line 1\\\"; sleep 30; echo \\\"Line 2\\\"; while true; do sleep 1; done'\""
+      cmd = "'echo \"Line 1\"; sleep 30; echo \"Line 2\"; while true; do sleep 1; done'"
       create_run_workload(cmd)
     end
 
@@ -112,17 +112,16 @@ describe Command::Logs do
   end
 
   def create_run_workload(cmd)
-    workload_clone = nil
+    runner_workload = nil
 
-    cloning_regex = /Cloning workload '.+?' on app '.+?' to '(.+?)'/
-    started_regex = /STARTED RUNNER SCRIPT/
+    runner_workload_regex = /runner workload '(.+?)'/
     spawn_cpl_command("run", "-a", app, "--", cmd, wait_for_process: false) do |it|
-      cloning_result = it.wait_for(cloning_regex)
-      workload_clone = cloning_result.match(cloning_regex)[1]
+      runner_workload_result = it.wait_for(runner_workload_regex)
+      runner_workload = runner_workload_result.match(runner_workload_regex)[1]
 
-      it.wait_for(started_regex)
+      it.wait_for(message_regex)
     end
 
-    workload_clone
+    runner_workload
   end
 end
