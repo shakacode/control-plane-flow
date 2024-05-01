@@ -27,7 +27,7 @@ build-staging:
         command: cpl build-image -a ${APP_NAME}
     - run:
         name: Database tasks
-        command: cpl run:detached -a ${APP_NAME} --image latest -- rails db:migrate
+        command: cpl run -a ${APP_NAME} --image latest -- rails db:migrate
     - run:
         name: Deploy image
         command: cpl deploy-image -a ${APP_NAME}
@@ -75,9 +75,9 @@ build-review-app:
         name: Database tasks
         command: |
           if [ -n "${NEW_APP}" ]; then
-            cpl run:detached -a ${APP_NAME} --image latest -- LOG_LEVEL=warn rails db:reset
+            cpl run -a ${APP_NAME} --image latest -- rails db:reset
           else
-            cpl run:detached -a ${APP_NAME} --image latest -- LOG_LEVEL=warn rails db:migrate
+            cpl run -a ${APP_NAME} --image latest -- rails db:migrate
           fi
     - run:
         name: Deploy image

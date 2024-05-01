@@ -344,26 +344,43 @@ cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
 
 ### `run`
 
-- Runs one-off **_interactive_** replicas (analog of `heroku run`)
-- Uses `Standard` workload type and `cpln exec` as the execution method, with CLI streaming
-- If `fix_terminal_size` is `true` in the `.controlplane/controlplane.yml` file, the remote terminal size will be fixed to match the local terminal size (may also be overriden through `--terminal-size`)
-
-> **IMPORTANT:** Useful for development where it's needed for interaction, and where network connection drops and
-> task crashing are tolerable. For production tasks, it's better to use `cpl run:detached`.
+- Runs one-off interactive or non-interactive replicas (analog of `heroku run`)
+- Uses `Cron` workload type and either:
+- - `cpln workload exec` for interactive mode, with CLI streaming
+- - log async fetching for non-interactive mode
+- The Dockerfile entrypoint is used as the command by default, which assumes `exec "${@}"` to be present,
+  and the args ["bash", "-c", cmd_to_run] are passed
+- The entrypoint can be overriden through `--entrypoint`, which must be a single command or a script path that exists in the container,
+  and the args ["bash", "-c", cmd_to_run] are passed,
+  unless the entrypoint is `bash`, in which case the args ["-c", cmd_to_run] are passed
+- Providing `--entrypoint none` sets the entrypoint to `bash` by default
+- If `fix_terminal_size` is `true` in the `.controlplane/controlplane.yml` file,
+  the remote terminal size will be fixed to match the local terminal size (may also be overriden through `--terminal-size`)
 
 ```sh
 # Opens shell (bash by default).
 cpl run -a $APP_NAME
 
-# Need to quote COMMAND if setting ENV value or passing args.
-cpl run -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
+# Runs interactive command, keeps shell open, and stops job when exiting.
+cpl run -a $APP_NAME --interactive -- rails c
 
-# Runs command, displays output, and exits shell.
-cpl run -a $APP_NAME -- ls /
-cpl run -a $APP_NAME -- rails db:migrate:status
+# Some commands are automatically detected as interactive, so no need to pass `--interactive`.
+cpl run -a $APP_NAME -- bash
+      cpl run -a $APP_NAME -- rails console
+      cpl run -a $APP_NAME -- rails c
+      cpl run -a $APP_NAME -- rails dbconsole
+      cpl run -a $APP_NAME -- rails db
 
-# Runs command and keeps shell open.
-cpl run -a $APP_NAME -- rails c
+# Runs non-interactive command, outputs logs, exits with the exit code of the command and stops job.
+cpl run -a $APP_NAME -- rails db:migrate
+
+# Runs non-iteractive command, detaches, exits with 0, and prints commands to:
+# - see logs from the job
+# - stop the job
+cpl run -a $APP_NAME --detached -- rails db:migrate
+
+# The command needs to be quoted if setting an env variable or passing args.
+cpl run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
 
 # Uses a different image (which may not be promoted yet).
 cpl run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
@@ -375,47 +392,12 @@ cpl run -a $APP_NAME -w other-workload -- bash
 # Overrides remote CPLN_TOKEN env variable with local token.
 # Useful when superuser rights are needed in remote container.
 cpl run -a $APP_NAME --use-local-token -- bash
-```
 
-### `run:cleanup`
+# Replaces the existing Dockerfile entrypoint with `bash`.
+cpl run -a $APP_NAME --entrypoint none -- rails db:migrate
 
-- Deletes stale run workloads for an app
-- Workloads are considered stale based on how many days since created
-- `stale_run_workload_created_days` in the `.controlplane/controlplane.yml` file specifies the number of days after created that the workload is considered stale
-- Works for both interactive workloads (created with `cpl run`) and non-interactive workloads (created with `cpl run:detached`)
-- Will ask for explicit user confirmation of deletion
-
-```sh
-cpl run:cleanup -a $APP_NAME
-```
-
-### `run:detached`
-
-- Runs one-off **_non-interactive_** replicas (close analog of `heroku run:detached`)
-- Uses `Cron` workload type with log async fetching
-- Implemented with only async execution methods, more suitable for production tasks
-- Has alternative log fetch implementation with only JSON-polling and no WebSockets
-- Less responsive but more stable, useful for CI tasks
-- Deletes the workload whenever finished with success
-- Deletes the workload whenever finished with failure by default
-- Use `--no-clean-on-failure` to disable cleanup to help with debugging failed runs
-
-```sh
-cpl run:detached rails db:prepare -a $APP_NAME
-
-# Need to quote COMMAND if setting ENV value or passing args.
-cpl run:detached -a $APP_NAME -- 'LOG_LEVEL=warn rails db:migrate'
-
-# Uses a different image (which may not be promoted yet).
-cpl run:detached -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
-cpl run:detached -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
-
-# Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-cpl run:detached -a $APP_NAME -w other-workload -- rails db:migrate:status
-
-# Overrides remote CPLN_TOKEN env variable with local token.
-# Useful when superuser rights are needed in remote container.
-cpl run:detached -a $APP_NAME --use-local-token -- rails db:migrate:status
+# Replaces the existing Dockerfile entrypoint.
+cpl run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:migrate
 ```
 
 ### `setup-app`

@@ -183,7 +183,7 @@ aliases:
 
     # Control Plane offers the ability to use multiple locations.
     # default_location is used for commands that require a location
-    # including `ps`, `run`, `run:detached`, `apply-template`.
+    # including `ps`, `run`, `apply-template`.
     # This can be overridden with option --location=<location> and
     # CPLN_LOCATION environment variable.
     default_location: aws-us-east-2
@@ -215,7 +215,7 @@ aliases:
 
     # Workloads that are for the application itself and are using application Docker images.
     # These are updated with the new image when running the `deploy-image` command,
-    # and are also used by the `info`, `ps:`, and `run:cleanup` commands in order to get all of the defined workloads.
+    # and are also used by the `info` and `ps:` commands in order to get all of the defined workloads.
     # On the other hand, if you have a workload for Redis, that would NOT use the application Docker image
     # and not be listed here.
     app_workloads:
@@ -223,7 +223,7 @@ aliases:
       - sidekiq
 
     # Additional "service type" workloads, using non-application Docker images.
-    # These are only used by the `info`, `ps:` and `run:cleanup` commands in order to get all of the defined workloads.
+    # These are only used by the `info` and `ps:` commands in order to get all of the defined workloads.
     additional_workloads:
       - redis
       - postgres
@@ -233,7 +233,7 @@ aliases:
     maintenance_workload: maintenance
 
     # Fixes the remote terminal size to match the local terminal size
-    # when running the commands `cpl run` or `cpl run:detached`.
+    # when running `cpl run`.
     fix_terminal_size: true
 
     # Apps with a deployed image created before this amount of days will be listed for deletion
@@ -247,10 +247,6 @@ aliases:
     # Images created before this amount of days will be listed for deletion
     # when running the command `cpl cleanup-images` (`image_retention_max_qty` takes precedence).
     image_retention_days: 5
-
-    # Run workloads created before this amount of days will be listed for deletion
-    # when running the command `cpl run:cleanup`.
-    stale_run_workload_created_days: 2
 
 apps:
   my-app-staging:
@@ -336,7 +332,7 @@ cpl build-image -a tutorial-app
 # Run database migrations (or other release tasks) with the latest image,
 # while the app is still running on the previous image.
 # This is analogous to the release phase.
-cpl run:detached rails db:migrate -a tutorial-app --image latest
+cpl run -a tutorial-app --image latest -- rails db:migrate
 
 # Pomote the latest image to the app.
 cpl deploy-image -a tutorial-app

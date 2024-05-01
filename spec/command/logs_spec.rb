@@ -116,7 +116,7 @@ describe Command::Logs do
 
     cloning_regex = /Cloning workload '.+?' on app '.+?' to '(.+?)'/
     started_regex = /STARTED RUNNER SCRIPT/
-    spawn_cpl_command("run:detached", "-a", app, "--", cmd, wait_for_process: false) do |it|
+    spawn_cpl_command("run", "-a", app, "--", cmd, wait_for_process: false) do |it|
       cloning_result = it.wait_for(cloning_regex)
       workload_clone = cloning_result.match(cloning_regex)[1]
 

@@ -223,11 +223,26 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd, output_mode: :all)
   end
 
-  def workload_exec(workload, location:, container: nil, command: nil)
-    cmd = "cpln workload exec #{workload} #{gvc_org} --location #{location}"
+  def workload_exec(workload, replica, location:, container: nil, command: nil)
+    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
     perform!(cmd, output_mode: :all)
+  end
+
+  def start_cron_workload(workload, job_start_yaml, location:)
+    Tempfile.create do |f|
+      f.write(job_start_yaml)
+      f.rewind
+
+      cmd = "cpln workload cron start #{workload} #{gvc_org} --file #{f.path} --location #{location} -o yaml"
+      perform_yaml(cmd)
+    end
+  end
+
+  def fetch_cron_workload(workload, location:)
+    cmd = "cpln workload cron get #{workload} #{gvc_org} --location #{location} -o yaml"
+    perform_yaml(cmd)
   end
 
   # volumeset
@@ -291,10 +306,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     cmd = "cpln logs '#{query}' --org #{org} -t -o raw --limit #{limit} --since #{since}"
     perform!(cmd, output_mode: :all)
-  end
-
-  def log_get(workload:, from:, to:)
-    api.log_get(org: org, gvc: gvc, workload: workload, from: from, to: to)
   end
 
   # identities
@@ -424,7 +435,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     Shell.debug("CMD", cmd)
 
     result = Shell.cmd(cmd)
-    YAML.safe_load(result[:output]) if result[:success]
+    YAML.safe_load(result[:output], permitted_classes: [Time]) if result[:success]
   end
 
   def perform_yaml!(cmd)

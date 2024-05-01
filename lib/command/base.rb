@@ -251,18 +251,6 @@ module Command
       }
     end
 
-    def self.clean_on_failure_option(required: false)
-      {
-        name: :clean_on_failure,
-        params: {
-          desc: "Deletes workload when finished with failure (success always deletes)",
-          type: :boolean,
-          required: required,
-          default: true
-        }
-      }
-    end
-
     def self.skip_secret_access_binding_option(required: false)
       {
         name: :skip_secret_access_binding,
@@ -311,6 +299,70 @@ module Command
         }
       }
     end
+
+    def self.interactive_option(required: false)
+      {
+        name: :interactive,
+        params: {
+          desc: "Runs interactive command",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.detached_option(required: false)
+      {
+        name: :detached,
+        params: {
+          desc: "Runs non-interactive command, detaches, and prints commands to log and stop the job",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.cpu_option(required: false)
+      {
+        name: :cpu,
+        params: {
+          banner: "CPU",
+          desc: "Overrides CPU millicores " \
+                "(e.g., '100m' for 100 millicores, '1' for 1 core)",
+          type: :string,
+          required: required,
+          valid_regex: /^\d+m?$/
+        }
+      }
+    end
+
+    def self.memory_option(required: false)
+      {
+        name: :memory,
+        params: {
+          banner: "MEMORY",
+          desc: "Overrides memory size " \
+                "(e.g., '100Mi' for 100 mebibytes, '1Gi' for 1 gibibyte)",
+          type: :string,
+          required: required,
+          valid_regex: /^\d+[MG]i$/
+        }
+      }
+    end
+
+    def self.entrypoint_option(required: false)
+      {
+        name: :entrypoint,
+        params: {
+          banner: "ENTRYPOINT",
+          desc: "Overrides entrypoint " \
+                "(must be a single command or a script path that exists in the container)",
+          type: :string,
+          required: required,
+          valid_regex: /^\S+$/
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options
@@ -321,24 +373,6 @@ module Command
       all_options.each_with_object({}) do |option, result|
         option[:params][:aliases]&.each { |current_alias| result[current_alias.to_s] = option }
         result["--#{option[:name]}"] = option
-      end
-    end
-
-    def wait_for_workload(workload)
-      step("Waiting for workload", retry_on_failure: true) do
-        cp.fetch_workload(workload)
-      end
-    end
-
-    def wait_for_replica(workload, location)
-      step("Waiting for replica", retry_on_failure: true) do
-        cp.fetch_workload_replicas(workload, location: location)["items"].first
-      end
-    end
-
-    def ensure_workload_deleted(workload)
-      step("Deleting workload") do
-        cp.delete_workload(workload)
       end
     end
 

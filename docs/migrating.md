@@ -93,7 +93,7 @@ cpl setup-app -a my-app-staging
 cpl build-image -a my-app-staging --commit 456
 
 # Prepare database.
-cpl run:detached -a my-app-staging --image latest -- rails db:prepare
+cpl run -a my-app-staging --image latest -- rails db:prepare
 
 # Deploy latest image.
 cpl deploy-image -a my-app-staging
@@ -113,7 +113,7 @@ cpl build-image -a my-app-staging --commit ABC
 
 # Run database migrations (or other release tasks) with latest image, while app is still running on previous image.
 # This is analogous to the release phase.
-cpl run:detached -a my-app-staging --image latest -- rails db:migrate
+cpl run -a my-app-staging --image latest -- rails db:migrate
 
 # Deploy latest image.
 cpl deploy-image -a my-app-staging
@@ -215,9 +215,9 @@ fi
 
 # The `NEW_APP` env var that we exported above can be used to either reset or migrate the database before deploying.
 if [ -n "${NEW_APP}" ]; then
-  cpl run:detached 'LOG_LEVEL=warn rails db:reset' -a ${APP_NAME} --image latest
+  cpl run -a ${APP_NAME} --image latest -- rails db:reset
 else
-  cpl run:detached 'LOG_LEVEL=warn rails db:migrate_and_wait_replica' -a ${APP_NAME} --image latest
+  cpl run -a ${APP_NAME} --image latest -- rails db:migrate
 fi
 ```
 

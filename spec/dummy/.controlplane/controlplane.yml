@@ -18,7 +18,6 @@ apps:
     image_retention_max_qty: 3
     image_retention_days: 30
     stale_app_image_deployed_days: 30
-    stale_run_workload_created_days: 3
     upstream: dummy-test-upstream
     release_script: release.sh
     default_domain: cpl.rafaelgomes.xyz
@@ -53,7 +52,6 @@ apps:
     <<: *common
 
     match_if_app_name_starts_with: true
-    stale_run_workload_created_days: 3
     default_domain: cpl.rafaelgomes.xyz
     setup_app_templates:
       - gvc
@@ -150,14 +148,6 @@ apps:
 
     match_if_app_name_starts_with: true
     fix_terminal_size: true
-
-  dummy-test-with-fake-run-workload:
-    <<: *common
-
-    match_if_app_name_starts_with: true
-    stale_run_workload_created_days: 3
-    additional_workloads:
-      - fake-run-12345
 
   dummy-test-without-identity:
     <<: *common

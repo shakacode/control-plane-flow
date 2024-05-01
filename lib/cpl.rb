@@ -195,7 +195,7 @@ module Cpl
         end
 
         begin
-          Cpl::Cli.validate_options!(options)
+          Cpl::Cli.validate_options!(options, command_options)
 
           config = Config.new(args, options, required_options)
 
@@ -210,9 +210,14 @@ module Cpl
       ::Shell.abort("Unable to load command: #{e.message}")
     end
 
-    def self.validate_options!(options)
+    def self.validate_options!(options, command_options)
       options.each do |name, value|
         raise "No value provided for option '#{name}'." if value.to_s.strip.empty?
+
+        params = command_options.find { |option| option[:name].to_s == name }[:params]
+        next unless params[:valid_regex]
+
+        raise "Invalid value provided for option '#{name}'." unless value.match?(params[:valid_regex])
       end
     end
 
