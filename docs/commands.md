@@ -120,6 +120,7 @@ cpl delete -a $APP_NAME -w $WORKLOAD_NAME
 
 - Deploys the latest image to app workloads
 - Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
+- The release script is run in the context of `cpl run` with the latest image
 - The deploy will fail if the release script exits with a non-zero code or doesn't exist
 
 ```sh

@@ -77,8 +77,9 @@ describe Command::DeployImage do
 
       allow(Kernel).to receive(:sleep)
 
-      run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+      run_cpl_command!("apply-template", "gvc", "rails", "postgres", "-a", app)
       run_cpl_command!("build-image", "-a", app)
+      run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
 
     after do
@@ -86,12 +87,15 @@ describe Command::DeployImage do
     end
 
     it "fails to run release script and fails to deploy image", :slow do
-      result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
+      result = nil
 
-      expect(result[:status]).not_to eq(0)
-      expect(result[:stderr]).to include("Running release script")
-      expect(result[:stderr]).to include("Failed to run release script")
-      expect(result[:stderr]).not_to include("- rails:")
+      spawn_cpl_command("deploy-image", "-a", app, "--run-release-phase") do |it|
+        result = it.read_full_output
+      end
+
+      expect(result).to include("Running release script")
+      expect(result).to include("Failed to run release script")
+      expect(result).not_to include("- rails:")
     end
   end
 
@@ -107,13 +111,16 @@ describe Command::DeployImage do
     end
 
     it "runs release script and deploys image", :slow do
-      result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
+      result = nil
 
-      expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("Running release script")
-      expect(result[:stderr]).not_to include("Failed to run release script")
-      expect(result[:stderr]).to match(%r{- rails: https://rails-.+?.cpln.app})
-      expect(result[:stderr]).not_to include("- rails-with-non-app-image:")
+      spawn_cpl_command("deploy-image", "-a", app, "--run-release-phase") do |it|
+        result = it.read_full_output
+      end
+
+      expect(result).to include("Running release script")
+      expect(result).to include("Finished running release script")
+      expect(result).to match(%r{- rails: https://rails-.+?.cpln.app})
+      expect(result).not_to include("- rails-with-non-app-image:")
     end
   end
 end
