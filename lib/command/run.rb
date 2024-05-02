@@ -84,9 +84,9 @@ module Command
     EX
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
-                :container, :image_link, :job, :replica, :command
+                :container, :image_link, :image_changed, :job, :replica, :command
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       @interactive = config.options[:interactive] || interactive_command?
       @detached = config.options[:detached]
 
@@ -112,6 +112,11 @@ module Command
       end
       update_runner_workload
       wait_for_runner_workload_update
+
+      # NOTE: need to wait some time before starting the job,
+      # otherwise the image may not be updated yet
+      # TODO: need to figure out if there's a better way to do this
+      sleep 1 if image_changed
 
       start_job
       wait_for_replica_for_job
@@ -181,6 +186,7 @@ module Command
         else
           @image_link = original_container_spec["image"]
         end
+        @image_changed = container_spec["image"] != image_link
         container_spec["image"] = image_link
 
         # Container overrides
