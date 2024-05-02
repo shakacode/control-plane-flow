@@ -64,7 +64,7 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "secrets-policy", "-a", app)
+      run_cpl_command!("apply-template", "secrets", "-a", app)
     end
 
     after do

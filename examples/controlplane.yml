@@ -31,13 +31,11 @@ aliases:
     # 2. Each file can contain many objects, such as in the case of templates that create a resource, like `postgres`.
     # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary. 
     #    Naming does not need to match anything other than the file name without the `.yml` extension.
+    #
+    # If you're going to use secrets, you need to apply the `secrets.yml` template separately (one-time setup):
+    # `cpl apply-template secrets -a my-app`
     setup_app_templates:
       - app
-
-      # These templates are only required if using secrets.
-      - secrets
-      - secrets-policy
-
       - redis
       - postgres
       - memcached
