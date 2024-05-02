@@ -35,7 +35,10 @@ module Command
       if cp.fetch_identity(app_identity).nil? || cp.fetch_policy(app_secrets_policy).nil?
         raise "Can't bind identity to policy: identity '#{app_identity}' or " \
               "policy '#{app_secrets_policy}' doesn't exist. " \
-              "Please create them or use `--skip-secret-access-binding` to ignore this message."
+              "Please create them or use `--skip-secret-access-binding` to ignore this message." \
+              "You can also set a custom secrets name with `secrets_name` " \
+              "and a custom secrets policy name with `secrets_policy_name` " \
+              "in the `.controlplane/controlplane.yml` file."
       end
 
       step("Binding identity to policy") do

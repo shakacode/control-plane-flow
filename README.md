@@ -207,6 +207,22 @@ aliases:
       - rails
       - sidekiq
 
+    # Only needed if using a custom secrets name.
+    # The default is '{APP_PREFIX}-secrets'. For example:
+    # - for an app 'my-app-staging' with `match_if_app_name_starts_with` set to `false`,
+    #   it would be 'my-app-staging-secrets'
+    # - for an app 'my-app-review-1234' with `match_if_app_name_starts_with` set to `true`,
+    #   it would be 'my-app-review-secrets'
+    secrets_name: my-secrets
+
+    # Only needed if using a custom secrets policy name.
+    # The default is '{APP_SECRETS}-policy'. For example:
+    # - for an app 'my-app-staging' with `match_if_app_name_starts_with` set to `false`,
+    #   it would be 'my-app-staging-secrets-policy'
+    # - for an app 'my-app-review-1234' with `match_if_app_name_starts_with` set to `true`,
+    #   it would be 'my-app-review-secrets-policy'
+    secrets_policy_name: my-secrets-policy
+
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
 
