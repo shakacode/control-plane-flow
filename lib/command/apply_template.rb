@@ -36,7 +36,7 @@ module Command
       cpl apply-template redis -a $APP_NAME
 
       # Applies several templates (practically creating full app).
-      cpl apply-template gvc postgres redis rails -a $APP_NAME
+      cpl apply-template app postgres redis rails -a $APP_NAME
       ```
     EX
 
@@ -50,7 +50,7 @@ module Command
       @asked_for_confirmation = false
 
       pending_templates = templates.select do |template|
-        if template == "gvc"
+        if template == "app"
           confirm_app(template)
         else
           confirm_workload(template)

@@ -36,7 +36,7 @@ This `-a` option is used in most of the commands and will pick all other app con
 cpl apply-template redis -a $APP_NAME
 
 # Applies several templates (practically creating full app).
-cpl apply-template gvc postgres redis rails -a $APP_NAME
+cpl apply-template app postgres redis rails -a $APP_NAME
 ```
 
 ### `build-image`

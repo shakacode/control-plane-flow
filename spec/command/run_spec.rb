@@ -41,7 +41,7 @@ describe Command::Run do
       let!(:app) { dummy_test_app("with-fix-terminal-size") }
 
       before do
-        run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+        run_cpl_command!("apply-template", "app", "rails", "-a", app)
         run_cpl_command!("build-image", "-a", app)
         run_cpl_command!("deploy-image", "-a", app)
       end

@@ -24,7 +24,7 @@ aliases:
     default_location: aws-us-east-2
 
     # Allows running the command `cpl setup-app`
-    # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
+    # instead of `cpl apply-template app redis postgres memcached rails sidekiq`.
     #
     # Note:
     # 1. These names correspond to files in the `./controlplane/templates` directory.
@@ -32,10 +32,9 @@ aliases:
     # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary. 
     #    Naming does not need to match anything other than the file name without the `.yml` extension.
     setup_app_templates:
-      - gvc
+      - app
 
       # These templates are only required if using secrets.
-      - identity
       - secrets
       - secrets-policy
 

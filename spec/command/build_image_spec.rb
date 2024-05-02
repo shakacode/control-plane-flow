@@ -44,7 +44,7 @@ describe Command::BuildImage do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do

@@ -7,7 +7,7 @@ describe Command::ApplyTemplate do
     let!(:app) { dummy_test_app }
 
     it "raises error" do
-      result = run_cpl_command("apply-template", "gvc", "rails", "nonexistent", "-a", app)
+      result = run_cpl_command("apply-template", "app", "rails", "nonexistent", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Missing templates")
@@ -23,7 +23,7 @@ describe Command::ApplyTemplate do
     end
 
     it "applies valid templates" do
-      result = run_cpl_command("apply-template", "gvc", "rails", "-a", app)
+      result = run_cpl_command("apply-template", "app", "rails", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Created items")
@@ -41,7 +41,7 @@ describe Command::ApplyTemplate do
     end
 
     it "applies valid templates and fails to apply invalid templates" do
-      result = run_cpl_command("apply-template", "gvc", "invalid", "rails", "-a", app)
+      result = run_cpl_command("apply-template", "app", "invalid", "rails", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Created items")
@@ -53,7 +53,7 @@ describe Command::ApplyTemplate do
     end
 
     it "replaces all variables correctly" do
-      apply_result = run_cpl_command("apply-template", "gvc-with-all-variables", "-a", app)
+      apply_result = run_cpl_command("apply-template", "app-with-all-variables", "-a", app)
       env_result = run_cpl_command("env", "-a", app)
 
       org = dummy_test_org
@@ -77,7 +77,7 @@ describe Command::ApplyTemplate do
     end
 
     it "replaces deprecated variables correctly and warns about them" do
-      apply_result = run_cpl_command("apply-template", "gvc-with-deprecated-variables", "-a", app)
+      apply_result = run_cpl_command("apply-template", "app-with-deprecated-variables", "-a", app)
       env_result = run_cpl_command("env", "-a", app)
 
       org = dummy_test_org
@@ -103,18 +103,18 @@ describe Command::ApplyTemplate do
     it "asks for confirmation and does nothing" do
       allow(Shell).to receive(:confirm).with(include("App '#{app}' already exists")).and_return(false)
 
-      result = run_cpl_command("apply-template", "gvc", "-a", app)
+      result = run_cpl_command("apply-template", "app", "-a", app)
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Skipped templates")
-      expect(result[:stderr]).to include("- gvc")
+      expect(result[:stderr]).to include("- app")
     end
 
     it "asks for confirmation and re-creates app" do
       allow(Shell).to receive(:confirm).with(include("App '#{app}' already exists")).and_return(true)
 
-      result = run_cpl_command("apply-template", "gvc", "-a", app)
+      result = run_cpl_command("apply-template", "app", "-a", app)
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
@@ -125,7 +125,7 @@ describe Command::ApplyTemplate do
     it "skips confirmation and re-creates app" do
       allow(Shell).to receive(:confirm).and_return(false)
 
-      result = run_cpl_command("apply-template", "gvc", "-a", app, "--yes")
+      result = run_cpl_command("apply-template", "app", "-a", app, "--yes")
 
       expect(Shell).not_to have_received(:confirm)
       expect(result[:status]).to eq(0)

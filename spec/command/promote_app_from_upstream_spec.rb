@@ -13,8 +13,8 @@ describe Command::PromoteAppFromUpstream do
       # Ideally, we should have a different org, but for testing purposes, this works
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
 
-      run_cpl_command!("apply-template", "gvc", "-a", upstream_app)
-      run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", upstream_app)
+      run_cpl_command!("apply-template", "app", "rails", "-a", app)
       run_cpl_command!("build-image", "-a", upstream_app)
     end
 
@@ -45,8 +45,8 @@ describe Command::PromoteAppFromUpstream do
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
       ENV["APP_NAME"] = app
 
-      run_cpl_command!("apply-template", "gvc", "-a", upstream_app)
-      run_cpl_command!("apply-template", "gvc", "rails", "postgres", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", upstream_app)
+      run_cpl_command!("apply-template", "app", "rails", "postgres", "-a", app)
       run_cpl_command!("build-image", "-a", upstream_app)
       run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
@@ -82,8 +82,8 @@ describe Command::PromoteAppFromUpstream do
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
       ENV["APP_NAME"] = app
 
-      run_cpl_command!("apply-template", "gvc", "-a", upstream_app)
-      run_cpl_command!("apply-template", "gvc", "rails", "postgres", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", upstream_app)
+      run_cpl_command!("apply-template", "app", "rails", "postgres", "-a", app)
       run_cpl_command!("build-image", "-a", upstream_app)
       run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
