@@ -329,6 +329,7 @@ module Command
         if config.options[:terminal_size]
           rows, cols = config.options[:terminal_size].split(",")
         else
+          # NOTE: cannot use `Shell.cmd` here, as `stty size` has to run in a terminal environment
           rows, cols = `stty size`.split(/\s+/)
         end
         script += "stty rows #{rows}\nstty cols #{cols}\n"
