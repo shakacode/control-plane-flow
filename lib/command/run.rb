@@ -167,14 +167,19 @@ module Command
       end
     end
 
-    def update_runner_workload
+    def update_runner_workload # rubocop:disable Metrics/MethodLength
       step("Updating runner workload '#{runner_workload}' based on '#{original_workload}'") do
+        _, original_container_spec = base_workload_specs(original_workload)
         spec, container_spec = base_workload_specs(runner_workload)
 
         # Override image if specified
         image = config.options[:image]
-        image = latest_image if image == "latest"
-        container_spec["image"] = "/org/#{config.org}/image/#{image}" if image
+        if image
+          image = latest_image if image == "latest"
+          container_spec["image"] = "/org/#{config.org}/image/#{image}"
+        else
+          container_spec["image"] = original_container_spec["image"]
+        end
 
         # Container overrides
         container_spec["cpu"] = config.options[:cpu] if config.options[:cpu]
