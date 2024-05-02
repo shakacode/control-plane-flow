@@ -85,9 +85,9 @@ describe Command::Run do
   end
 
   context "when using non-interactive mode" do
-    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-
     context "when workload to clone exists" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+
       it "clones workload and runs provided command with success", :slow do
         result = nil
 
@@ -109,7 +109,39 @@ describe Command::Run do
       end
     end
 
+    context "when not specifying image" do
+      let!(:app) { dummy_test_app }
+      let!(:cmd) { "'echo $CPLN_IMAGE'" }
+
+      before do
+        run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+        run_cpl_command!("build-image", "-a", app)
+        run_cpl_command!("deploy-image", "-a", app)
+        run_cpl_command!("build-image", "-a", app)
+      end
+
+      after do
+        run_cpl_command!("delete", "-a", app, "--yes")
+      end
+
+      it "clones workload and runs with exact same image as original workload after running with latest image", :slow do
+        result1 = nil
+        result2 = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
+          result1 = it.read_full_output
+        end
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
+          result2 = it.read_full_output
+        end
+
+        expect(result1).to match(%r{/org/.+?/image/#{app}:2})
+        expect(result2).to match(%r{/org/.+?/image/#{app}:1})
+      end
+    end
+
     context "when specifying image" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
       let!(:cmd) { "'echo $CPLN_IMAGE'" }
 
       it "clones workload and runs with latest image", :slow do
@@ -135,6 +167,7 @@ describe Command::Run do
 
     context "when specifying token" do
       let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
       let!(:cmd) { "'if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi'" }
 
       it "clones workload and runs with remote token", :slow do
@@ -159,6 +192,8 @@ describe Command::Run do
     end
 
     context "when detatching" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+
       it "prints commands to log and stop the job", :slow do
         result = nil
 
