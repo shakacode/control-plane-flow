@@ -84,7 +84,7 @@ module Command
     EX
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
-                :container, :job, :replica, :command
+                :container, :image_link, :job, :replica, :command
 
     def call # rubocop:disable Metrics/MethodLength
       @interactive = config.options[:interactive] || interactive_command?
@@ -108,9 +108,10 @@ module Command
 
       if cp.fetch_workload(runner_workload).nil?
         create_runner_workload
-        wait_for_runner_workload
+        wait_for_runner_workload_create
       end
       update_runner_workload
+      wait_for_runner_workload_update
 
       start_job
       wait_for_replica_for_job
@@ -176,10 +177,11 @@ module Command
         image = config.options[:image]
         if image
           image = latest_image if image == "latest"
-          container_spec["image"] = "/org/#{config.org}/image/#{image}"
+          @image_link = "/org/#{config.org}/image/#{image}"
         else
-          container_spec["image"] = original_container_spec["image"]
+          @image_link = original_container_spec["image"]
         end
+        container_spec["image"] = image_link
 
         # Container overrides
         container_spec["cpu"] = config.options[:cpu] if config.options[:cpu]
@@ -190,9 +192,16 @@ module Command
       end
     end
 
-    def wait_for_runner_workload
+    def wait_for_runner_workload_create
       step("Waiting for runner workload '#{runner_workload}' to be created", retry_on_failure: true) do
         cp.fetch_workload(runner_workload)
+      end
+    end
+
+    def wait_for_runner_workload_update
+      step("Waiting for runner workload '#{runner_workload}' to be updated", retry_on_failure: true) do
+        _, container_spec = base_workload_specs(runner_workload)
+        container_spec["image"] == image_link
       end
     end
 
