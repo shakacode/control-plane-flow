@@ -308,6 +308,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd, output_mode: :all)
   end
 
+  def log_get(workload:, replica: nil, from:, to:)
+    api.log_get(org: org, gvc: gvc, workload: workload, replica: replica, from: from, to: to)
+  end
+
   # identities
 
   def fetch_identity(identity, a_gvc = gvc)
