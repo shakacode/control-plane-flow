@@ -427,7 +427,20 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
-    Kernel.system(cmd)
+    kernel_system_with_pid_handling(cmd)
+  end
+
+  # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing
+  def kernel_system_with_pid_handling(cmd)
+    pid = Process.spawn(cmd)
+    $child_pids << pid # rubocop:disable Style/GlobalVars
+
+    _, status = Process.wait2(pid)
+    $child_pids.delete(pid) # rubocop:disable Style/GlobalVars
+
+    status.exited? ? status.success? : nil
+  rescue SystemCallError
+    nil
   end
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)

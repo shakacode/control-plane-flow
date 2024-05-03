@@ -22,6 +22,14 @@ modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
 end
 modules.sort.each { require(_1) }
 
+# NOTE: this snippet combines all subprocesses into a group and kills all on exit to avoid hanging orphans
+$child_pids = [] # rubocop:disable Style/GlobalVars
+at_exit do
+  $child_pids.each do |pid| # rubocop:disable Style/GlobalVars
+    Process.kill("TERM", pid)
+  end
+end
+
 # Fix for https://github.com/erikhuda/thor/issues/398
 # Copied from https://github.com/rails/thor/issues/398#issuecomment-622988390
 class Thor

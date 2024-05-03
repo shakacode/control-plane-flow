@@ -277,7 +277,8 @@ module Command
     end
 
     def run_non_interactive_v2
-      logs_pipe = IO.popen(["cpl", "logs", *app_workload_replica_args])
+      current_cpl = File.expand_path("cpl", "#{__dir__}/../..")
+      logs_pipe = IO.popen([current_cpl, "logs", *app_workload_replica_args])
 
       exit_status = wait_for_job_status_and_log(logs_pipe)
 
