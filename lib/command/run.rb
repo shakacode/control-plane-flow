@@ -17,6 +17,7 @@ module Command
     OPTIONS = [
       app_option(required: true),
       image_option,
+      log_method_option,
       workload_option,
       location_option,
       use_local_token_option,
@@ -91,6 +92,7 @@ module Command
     def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       @interactive = config.options[:interactive] || interactive_command?
       @detached = config.options[:detached]
+      @log_method = config.options[:log_method]
 
       @location = config.location
       @original_workload = config.options[:workload] || config[:one_off_workload]
@@ -244,7 +246,12 @@ module Command
         exit(ExitCode::SUCCESS)
       end
 
-      run_non_interactive_v3
+      case @log_method
+      when 1 then run_non_interactive_v1
+      when 2 then run_non_interactive_v2
+      when 3 then run_non_interactive_v3
+      else raise "Invalid log method: #{@log_method}"
+      end
     end
 
     def run_non_interactive_v1 # rubocop:disable Metrics/MethodLength
@@ -258,11 +265,12 @@ module Command
       end
       Process.detach(logs_pid)
 
+      exit_status = wait_for_job_status
+
       # We need to wait a bit for the logs to appear,
       # otherwise it may exit without showing them
       Kernel.sleep(30)
 
-      exit_status = wait_for_job_status
       @internal_sigint = true
       Process.kill("INT", logs_pid)
       exit(exit_status)
@@ -272,6 +280,7 @@ module Command
       logs_pipe = IO.popen(["cpl", "logs", *app_workload_replica_args])
 
       exit_status = wait_for_job_status_and_log(logs_pipe)
+
       @internal_sigint = true
       Process.kill("INT", logs_pipe.pid)
       exit(exit_status)
@@ -375,43 +384,44 @@ module Command
       SCRIPT
 
       script += interactive_runner_script if interactive
-      script += "(" + args_join(config.args) + ")" # we need a subshell to continue on error from here
-      script += <<~SCRIPT
 
-        CPL_EXIT_CODE=$?
-        echo '#{MAGIC_END}'
-        exit $CPL_EXIT_CODE
-      SCRIPT
+      script +=
+        if @log_method == 1
+          args_join(config.args)
+        else
+          <<~SCRIPT
+            ( #{args_join(config.args)} )
+            CPL_EXIT_CODE=$?
+            echo '#{MAGIC_END}'
+            exit $CPL_EXIT_CODE
+          SCRIPT
+        end
+
       script
     end
 
-    def wait_for_job_status # rubocop:disable Metrics/MethodLength
-      loop do
-        exit_code = resolve_job_status
-        break exit_code unless exit_code.nil?
-
-        Kernel.sleep(1)
-      end
+    def wait_for_job_status
+      Kernel.sleep(1) until (exit_code = resolve_job_status)
+      exit_code
     end
 
-    def wait_for_job_status_and_log(logs_pipe)
-      magic_found = false
-      no_logs_count = 0
+    def wait_for_job_status_and_log(logs_pipe) # rubocop:disable Metrics/MethodLength
+      no_logs_counter = 0
+
       loop do
-        if logs_pipe.ready?
-          no_logs_count = 0
-          line = logs_pipe.gets
-          magic_found ||= line.chomp == MAGIC_END
-          next puts(line) unless magic_found
-        end
+        no_logs_counter += 1
+        break if no_logs_counter > 60 # 30s
+        break if logs_pipe.eof?
+        next Kernel.sleep(0.5) unless logs_pipe.ready?
 
-        Kernel.sleep(0.5)
-        no_logs_count += 1
-        next if !magic_found && no_logs_count < 60
+        no_logs_counter = 0
+        line = logs_pipe.gets
+        break if line.chomp == MAGIC_END
 
-        exit_code = resolve_job_status
-        break exit_code unless exit_code.nil?
+        puts(line)
       end
+
+      resolve_job_status
     end
 
     def print_detached_commands
@@ -423,14 +433,12 @@ module Command
       )
     end
 
-    def get_job_status
+    def resolve_job_status
       result = cp.fetch_cron_workload(runner_workload, location: location)
       job_details = result&.dig("items")&.find { |item| item["id"] == job }
-      job_details&.dig("status")
-    end
+      status = job_details&.dig("status")
 
-    def resolve_job_status
-      case get_job_status
+      case status
       when "failed"
         ExitCode::ERROR_DEFAULT
       when "successful"
@@ -442,24 +450,26 @@ module Command
     ### temporary extaction from run:detached
     ###########################################
     def show_logs_waiting # rubocop:disable Metrics/MethodLength
-      progress.puts("Scheduled, fetching logs (it's a cron job, so it may take up to a minute to start)...\n\n")
       retries = 0
       begin
-        @finished = false
         job_finished_count = 0
         loop do
-          print_uniq_logs
-          break if @finished
-          next if @printed_log_entries_changed
+          case print_uniq_logs
+          when :finished
+            break
+          when :changed
+            next
+          else
+            job_finished_count += 1 if resolve_job_status
+            break if job_finished_count > 5
 
-          sleep(1)
-          status = get_job_status
-          job_finished_count += 1 if %w[failed successful].include?(status)
-          break if job_finished_count > 5
+            sleep(1)
+          end
         end
+
         resolve_job_status
       rescue RuntimeError => e
-        raise "#{e} Exiting..." unless retries < 10 #MAX_RETRIES
+        raise "#{e} Exiting..." unless retries < 10 # MAX_RETRIES
 
         progress.puts(Shell.color("ERROR: #{e} Retrying...", :red))
         retries += 1
@@ -468,21 +478,24 @@ module Command
     end
 
     def print_uniq_logs
+      status = nil
+
       @printed_log_entries ||= []
       ts = Time.now.to_i
       entries = normalized_log_entries(from: ts - 60, to: ts)
 
-      @printed_log_entries_changed = false
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
-        @printed_log_entries_changed = true
-        val.chomp == MAGIC_END ? @finished = true : progress.puts(val)
+        status ||= :changed
+        val.chomp == MAGIC_END ? status = :finished : progress.puts(val)
       end
 
       @printed_log_entries = entries # as well truncate old entries if any
+
+      status || :unchanged
     end
 
     def normalized_log_entries(from:, to:)
-      log = cp.log_get(workload: runner_workload, from: from, to: to, replica:)
+      log = cp.log_get(workload: runner_workload, from: from, to: to, replica: replica)
 
       log["data"]["result"]
         .each_with_object([]) { |obj, result| result.concat(obj["values"]) }

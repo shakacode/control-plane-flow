@@ -117,6 +117,20 @@ module Command
       }
     end
 
+    def self.log_method_option(required: false)
+      {
+        name: :log_method,
+        params: {
+          type: :numeric,
+          banner: "LOG_METHOD",
+          desc: "Log method",
+          required: required,
+          valid_values: [1, 2, 3],
+          default: 3
+        }
+      }
+    end
+
     def self.commit_option(required: false)
       {
         name: :commit,
