@@ -47,7 +47,7 @@ Note how the templates correspond to files in the `.controlplane/templates/` dir
 `cpl setup-app` and `cpl apply-template` commands.
 
 Ensure that env vars point to the Heroku add-ons in the template for the app (`.controlplane/templates/app.yml`). See
-[this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/templates/gvc.yml).
+[this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/templates/app.yml).
 
 After that, create a Dockerfile in `.controlplane/Dockerfile` for your deployment. See
 [this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile).
