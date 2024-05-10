@@ -1,6 +1,22 @@
-# Migrating Redis database from Heroku infrastructure
+# Migrating Redis databases
 
-**General considerations:**
+There are two templates examples in this repo:
+- `redis` - basic non-persistent template. It is good for review-apps or staging or where no persistence is required
+- `redis2` - basic persistent template. Good for production where persistence is needed, but cluster is overkill.
+
+## Option 1: use SLAVEOF (easier way)
+
+1. create a redis workload that will accept data
+2. execute `SLAVEOF source_host source_port`, if needed use `masterauth` to provide auth details
+3. wait for replication to pick up all changes (usually very quick), use `INFO` or `DBSIZE` to check progress
+4. stop app completely and ensure nothing is writing to any of redises
+5. execute `SLAVEOF no one` to disconnect replication
+6. switch `REDIS_URL` in the app to point to new server
+7. start the app
+
+## Option 2: use Redis-RIOT (harder way, where option 1 is not possible)
+
+### General considerations:
 
 1. Heroku uses self-signed TLS certificates, which are not verifiable. It needs special handling by setting
 TLS verification to `none`, otherwise most apps are not able to connect.
@@ -9,7 +25,7 @@ TLS verification to `none`, otherwise most apps are not able to connect.
 
 The tool that satisfies those criteria is [Redis-RIOT](https://developer.redis.com/riot/riot-redis/index.html)
 
-**Heroku Redis:**
+### Heroku Redis:
 
 As Redis-RIOT says, master redis should have keyspace-notifications set to `KA` to be able to do live replication.
 To do that:
@@ -23,7 +39,7 @@ Connect to heroku Redis CLI:
 heroku redis:cli -a my-app
 ```
 
-**Control Plane Redis:**
+### Control Plane Redis:
 
 Connect to Control Plane Redis CLI:
 
@@ -36,10 +52,10 @@ apt-get update
 apt-get install redis -y
 
 # connect to local cloud Redis
-redis-cli -u MY_CONTROL_PLANE_REDIS_URL
+redis-cli -u MY_CONTROL_PLANE_REDIS_URL -p 6379
 ```
 
-**Useful Redis CLI commands:**
+### Useful Redis CLI commands:
 
 Quick-check keys qty:
 ```
@@ -49,7 +65,7 @@ info keyspace
 db0:keys=9496,expires=2941,avg_ttl=77670114535
 ```
 
-**Create a Control Plane sync workload**
+### Create a Control Plane sync workload
 
 ```
 name: riot-redis
@@ -76,7 +92,7 @@ command args:
   live
 ```
 
-**Sync process**
+### Sync process
 
 1. open 1st terminal window with heroku redis CLI, check keys qty
 2. open 2nd terminal window with controlplane redis CLI, check keys qty

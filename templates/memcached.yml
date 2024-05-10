@@ -4,8 +4,8 @@ spec:
   type: standard
   containers:
     - name: memcached
-      cpu: 3m
-      memory: 10Mi
+      cpu: 25m
+      memory: 32Mi
       args:
         - "-l"
         - 0.0.0.0
@@ -15,7 +15,7 @@ spec:
           protocol: tcp
   defaultOptions:
     autoscaling:
-      metric: latency
+      metric: disabled
       minScale: 1
       maxScale: 1
     capacityAI: false

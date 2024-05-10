@@ -1,0 +1,37 @@
+kind: volumeset
+name: redis-data
+spec:
+  fileSystemType: ext4
+  initialCapacity: 10
+  performanceClass: general-purpose-ssd
+---
+kind: workload
+name: redis2
+spec:
+  type: stateful
+  containers:
+    - name: redis
+      args:
+        - '--appendonly'
+        - 'yes'
+        - '--maxmemory'
+        - 25mb
+      cpu: 25m
+      memory: 32Mi
+      image: "redis:latest"
+      ports:
+        - number: 6379
+          protocol: tcp
+      volumes:
+        - path: /data
+          recoveryPolicy: retain
+          uri: cpln://volumeset/redis-data
+  defaultOptions:
+    autoscaling:
+      metric: disabled
+      minScale: 1
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    internal:
+      inboundAllowType: same-gvc
