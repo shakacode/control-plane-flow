@@ -93,13 +93,13 @@ You can do this during the initial app setup, like this:
 4. Run `cpl apply-template secrets -a $APP_NAME` (one-time setup)
 5. Run `cpl setup-app -a $APP_NAME`
 6. The secrets, secrets policy and identity will be automatically created, along with the proper binding
-7. In the upper left "Manage Org" menu, click on "Secrets"
+7. In the Control Plane console, upper left "Manage Org" menu, click on "Secrets"
 8. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there
 9. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/$APP_PREFIX-secrets.SOME_VAR`)
 
-You can also do it manually after. Here is how you do this:
+Here are the manual steps for reference. We recommend that you follow the steps above:
 
-1. In the upper left "Manage Org" menu, click on "Secrets"
+1. In the upper left of the Control Plane console, "Manage Org" menu, click on "Secrets"
 2. Create a secret with `Secret Type: Dictionary` (e.g., `my-secrets`) and add the secret env vars there
 3. In the upper left "Manage GVC" menu, click on "Identities"
 4. Create an identity (e.g., `my-identity`)

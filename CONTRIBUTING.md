@@ -35,6 +35,13 @@ We use real apps for the tests. You'll need to have full access to a Control Pla
 CPLN_ORG=your-org-for-tests bundle exec rspec
 ```
 
+Alternatively, you might have a `.envrc` file with:
+
+```sh
+export CPLN_ORG=shakacode-heroku-to-control-plane-ci
+export RSPEC_RETRY_RETRY_COUNT=1
+```
+
 Tests are separated between fast and slow. Slow tests can take a long time and usually involve building / deploying images and waiting for workloads to be ready / not ready, so they should only be run once in a while.
 
 If you add a slow test, tag it with `slow`. Tests without a `slow` tag are considered fast by default.
