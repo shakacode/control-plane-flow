@@ -14,157 +14,196 @@ describe Command::Run do
     end
   end
 
-  context "when workload to clone exists" do
-    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+  context "when using interactive mode" do
+    context "when workload to clone exists" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    it "clones workload and runs bash by default", :slow do
-      result = nil
-      expected_regex = /Gemfile/
-
-      spawn_cpl_command("run", "-a", app) do |it|
-        it.wait_for_prompt
-        it.type("ls")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+      before do
+        run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
       end
 
-      expect(result).to match(expected_regex)
+      it "clones workload and runs provided command", :slow do
+        result = nil
+        expected_regex = /Gemfile/
+
+        spawn_cpl_command("run", "-a", app, "--interactive", "--", "bash") do |it|
+          it.wait_for_prompt
+          it.type("ls")
+          result = it.wait_for(expected_regex)
+          it.type("exit")
+        end
+
+        expect(result).to match(expected_regex)
+      end
     end
 
-    it "clones workload and runs provided command", :slow do
-      result = nil
-      expected_regex = /Gemfile/
+    context "when 'fix_terminal_size' is provided" do
+      let!(:app) { dummy_test_app("with-fix-terminal-size") }
 
-      spawn_cpl_command("run", "-a", app, "--", "ls") do |it|
-        result = it.wait_for(expected_regex)
+      before do
+        run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+        run_cpl_command!("build-image", "-a", app)
+        run_cpl_command!("deploy-image", "-a", app)
       end
 
-      expect(result).to match(expected_regex)
+      after do
+        run_cpl_command!("delete", "-a", app, "--yes")
+      end
+
+      it "clones workload and runs with fixed terminal size", :slow do
+        result = nil
+        expected_regex = /10 150/
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "bash", stty_rows: 10, stty_cols: 150) do |it|
+          it.wait_for_prompt
+          it.type("stty size")
+          result = it.wait_for(expected_regex)
+          it.type("exit")
+        end
+
+        expect(result).to match(expected_regex)
+      end
+    end
+
+    context "when terminal size is provided" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+
+      it "clones workload and runs with provided terminal size", :slow do
+        result = nil
+        expected_regex = /20 300/
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "bash", "--terminal-size", "20,300") do |it|
+          it.wait_for_prompt
+          it.type("stty size")
+          result = it.wait_for(expected_regex)
+          it.type("exit")
+        end
+
+        expect(result).to match(expected_regex)
+      end
     end
   end
 
-  context "when specifying image" do
-    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+  context "when using non-interactive mode" do
+    context "when workload to clone exists" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-    it "clones workload and runs with latest image", :slow do
-      result = nil
-      expected_regex = %r{/org/.+?/image/#{app}:2}
+      it "clones workload and runs provided command with success", :slow do
+        result = nil
 
-      spawn_cpl_command("run", "-a", app, "--image", "latest") do |it|
-        it.wait_for_prompt
-        it.type("echo $CPLN_IMAGE")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("Gemfile")
       end
 
-      expect(result).to match(expected_regex)
+      it "clones workload and runs provided command with failure", :slow do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "nonexistent") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).not_to include("Gemfile")
+      end
     end
 
-    it "clones workload and runs with specific image", :slow do
-      result = nil
-      expected_regex = %r{/org/.+?/image/#{app}:1}
+    context "when not specifying image" do
+      let!(:app) { dummy_test_app }
+      let!(:cmd) { "'echo $CPLN_IMAGE'" }
 
-      spawn_cpl_command("run", "-a", app, "--image", "#{app}:1") do |it|
-        it.wait_for_prompt
-        it.type("echo $CPLN_IMAGE")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+      before do
+        run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+        run_cpl_command!("build-image", "-a", app)
+        run_cpl_command!("deploy-image", "-a", app)
+        run_cpl_command!("build-image", "-a", app)
       end
 
-      expect(result).to match(expected_regex)
-    end
-  end
-
-  context "when specifying token" do
-    let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
-    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-
-    it "clones workload and runs with remote token", :slow do
-      result = nil
-      expected_regex = /REMOTE/
-
-      spawn_cpl_command("run", "-a", app) do |it|
-        it.wait_for_prompt
-        it.type("if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+      after do
+        run_cpl_command!("delete", "-a", app, "--yes")
       end
 
-      expect(result).to match(expected_regex)
+      it "clones workload and runs with exact same image as original workload after running with latest image", :slow do
+        result1 = nil
+        result2 = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
+          result1 = it.read_full_output
+        end
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
+          result2 = it.read_full_output
+        end
+
+        expect(result1).to match(%r{/org/.+?/image/#{app}:2})
+        expect(result2).to match(%r{/org/.+?/image/#{app}:1})
+      end
     end
 
-    it "clones workload and runs with local token", :slow do
-      result = nil
-      expected_regex = /LOCAL/
+    context "when specifying image" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+      let!(:cmd) { "'echo $CPLN_IMAGE'" }
 
-      spawn_cpl_command("run", "-a", app, "--use-local-token") do |it|
-        it.wait_for_prompt
-        it.type("if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+      it "clones workload and runs with latest image", :slow do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to match(%r{/org/.+?/image/#{app}:2})
       end
 
-      expect(result).to match(expected_regex)
-    end
-  end
+      it "clones workload and runs with specific image", :slow do
+        result = nil
 
-  context "when 'fix_terminal_size' is provided" do
-    let!(:app) { dummy_test_app("with-fix-terminal-size") }
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "#{app}:1", "--", cmd) do |it|
+          result = it.read_full_output
+        end
 
-    before do
-      run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
-      run_cpl_command!("build-image", "-a", app)
-      run_cpl_command!("deploy-image", "-a", app)
+        expect(result).to match(%r{/org/.+?/image/#{app}:1})
+      end
     end
 
-    after do
-      run_cpl_command!("delete", "-a", app, "--yes")
-    end
+    context "when specifying token" do
+      let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+      let!(:cmd) { "'if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi'" }
 
-    it "clones workload and runs with fixed terminal size", :slow do
-      result = nil
-      expected_regex = /10 150/
+      it "clones workload and runs with remote token", :slow do
+        result = nil
 
-      spawn_cpl_command("run", "-a", app, stty_rows: 10, stty_cols: 150) do |it|
-        it.wait_for_prompt
-        it.type("stty size")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("REMOTE")
       end
 
-      expect(result).to match(expected_regex)
-    end
-  end
+      it "clones workload and runs with local token", :slow do
+        result = nil
 
-  context "when terminal size is provided" do
-    let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd) do |it|
+          result = it.read_full_output
+        end
 
-    it "clones workload and runs with provided terminal size", :slow do
-      result = nil
-      expected_regex = /20 300/
-
-      spawn_cpl_command("run", "-a", app, "--terminal-size", "20,300") do |it|
-        it.wait_for_prompt
-        it.type("stty size")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+        expect(result).to include("LOCAL")
       end
-
-      expect(result).to match(expected_regex)
     end
 
-    it "clones workload and fails to run with provided terminal size due to invalid format", :slow do
-      result = nil
-      expected_regex = /0 0/
+    context "when detatching" do
+      let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
-      spawn_cpl_command("run", "-a", app, "--terminal-size", "'20 300'") do |it|
-        it.wait_for_prompt
-        it.type("stty size")
-        result = it.wait_for(expected_regex)
-        it.type("exit")
+      it "prints commands to log and stop the job", :slow do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--detached", "--", "ls") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("cpl logs")
+        expect(result).to include("cpl ps:stop")
       end
-
-      expect(result).to match(expected_regex)
     end
   end
 end

@@ -2,6 +2,8 @@
 
 require "expect"
 
+require_relative "log_helpers"
+
 class SpawnedCommand
   attr_reader :output, :input, :pid
 
@@ -11,6 +13,21 @@ class SpawnedCommand
     @output = output
     @input = input
     @pid = pid
+  end
+
+  def read_full_output
+    LogHelpers.write_section_separator_to_log
+
+    full_output = ""
+    output.each do |line|
+      full_output += line
+
+      LogHelpers.write_line_to_log(line)
+    end
+
+    full_output
+  rescue Errno::EIO
+    full_output
   end
 
   def wait_for(regex, timeout: DEFAULT_TIMEOUT)

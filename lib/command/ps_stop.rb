@@ -6,6 +6,8 @@ module Command
     OPTIONS = [
       app_option(required: true),
       workload_option,
+      replica_option,
+      location_option,
       wait_option("workload to not be ready")
     ].freeze
     DESCRIPTION = "Stops workloads in app"
@@ -19,31 +21,61 @@ module Command
 
       # Stops a specific workload in app.
       cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
+
+      # Stops a specific replica of a workload.
+      cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
       ```
     EX
 
     def call
-      @workloads = [config.options[:workload]] if config.options[:workload]
-      @workloads ||= config[:app_workloads] + config[:additional_workloads]
+      workload = config.options[:workload]
+      replica = config.options[:replica]
+      if replica
+        stop_replica(workload, replica)
+      else
+        workloads = [workload] if workload
+        workloads ||= config[:app_workloads] + config[:additional_workloads]
 
-      @workloads.each do |workload|
+        stop_workloads(workloads)
+      end
+    end
+
+    private
+
+    def stop_workloads(workloads)
+      workloads.each do |workload|
         step("Stopping workload '#{workload}'") do
           cp.set_workload_suspend(workload, true)
         end
       end
 
-      wait_for_not_ready if config.options[:wait]
+      wait_for_workloads_not_ready(workloads) if config.options[:wait]
     end
 
-    private
+    def stop_replica(workload, replica)
+      step("Stopping replica '#{replica}'", retry_on_failure: true) do
+        cp.stop_workload_replica(workload, replica, location: config.location)
+      end
 
-    def wait_for_not_ready
+      wait_for_replica_not_ready(workload, replica) if config.options[:wait]
+    end
+
+    def wait_for_workloads_not_ready(workloads)
       progress.puts
 
-      @workloads.each do |workload|
+      workloads.each do |workload|
         step("Waiting for workload '#{workload}' to not be ready", retry_on_failure: true) do
-          cp.workload_deployments_ready?(workload, expected_status: false)
+          cp.workload_deployments_ready?(workload, location: config.location, expected_status: false)
         end
+      end
+    end
+
+    def wait_for_replica_not_ready(workload, replica)
+      progress.puts
+
+      step("Waiting for replica '#{replica}' to not be ready", retry_on_failure: true) do
+        result = cp.fetch_workload_replicas(workload, location: config.location)
+        !result["items"].include?(replica)
       end
     end
   end

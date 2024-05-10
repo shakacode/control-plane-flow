@@ -22,6 +22,14 @@ modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
 end
 modules.sort.each { require(_1) }
 
+# NOTE: this snippet combines all subprocesses into a group and kills all on exit to avoid hanging orphans
+$child_pids = [] # rubocop:disable Style/GlobalVars
+at_exit do
+  $child_pids.each do |pid| # rubocop:disable Style/GlobalVars
+    Process.kill("TERM", pid)
+  end
+end
+
 # Fix for https://github.com/erikhuda/thor/issues/398
 # Copied from https://github.com/rails/thor/issues/398#issuecomment-622988390
 class Thor
@@ -138,6 +146,9 @@ module Cpl
       ::Command::Base.all_commands.merge(deprecated_commands)
     end
 
+    @commands_with_required_options = []
+    @commands_with_extra_options = []
+
     all_base_commands.each do |command_key, command_class| # rubocop:disable Metrics/BlockLength
       deprecated = deprecated_commands[command_key]
 
@@ -164,12 +175,20 @@ module Cpl
       long_desc(long_description)
 
       command_options.each do |option|
-        method_option(option[:name], **option[:params])
+        params = option[:params]
+
+        # Ensures that if no value is provided for a non-boolean option (e.g., `cpl command --option`),
+        # it defaults to an empty string instead of the option name (which is the default Thor behavior)
+        params[:lazy_default] ||= "" if params[:type] != :boolean
+
+        method_option(option[:name], **params)
       end
 
       # We'll handle required options manually in `Config`
       required_options = command_options.select { |option| option[:params][:required] }.map { |option| option[:name] }
-      disable_required_check! name_for_method.to_sym if required_options.any?
+      @commands_with_required_options.push(name_for_method.to_sym) if required_options.any?
+
+      @commands_with_extra_options.push(name_for_method.to_sym) if accepts_extra_options
 
       define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/MethodLength
         if deprecated
@@ -189,6 +208,8 @@ module Cpl
         end
 
         begin
+          Cpl::Cli.validate_options!(options, command_options)
+
           config = Config.new(args, options, required_options)
 
           Cpl::Cli.show_info_header(config) if with_info_header
@@ -200,6 +221,21 @@ module Cpl
       end
     rescue StandardError => e
       ::Shell.abort("Unable to load command: #{e.message}")
+    end
+
+    disable_required_check!(*@commands_with_required_options)
+    check_unknown_options!(except: @commands_with_extra_options)
+    stop_on_unknown_option!
+
+    def self.validate_options!(options, command_options)
+      options.each do |name, value|
+        raise "No value provided for option '#{name}'." if value.to_s.strip.empty?
+
+        params = command_options.find { |option| option[:name].to_s == name }[:params]
+        next unless params[:valid_regex]
+
+        raise "Invalid value provided for option '#{name}'." unless value.match?(params[:valid_regex])
+      end
     end
 
     def self.show_info_header(config) # rubocop:disable Metrics/MethodLength

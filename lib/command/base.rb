@@ -51,6 +51,7 @@ module Command
       [org_option, verbose_option, trace_option]
     end
 
+    # rubocop:disable Metrics/MethodLength
     def self.org_option(required: false)
       {
         name: :org,
@@ -90,6 +91,19 @@ module Command
       }
     end
 
+    def self.replica_option(required: false)
+      {
+        name: :replica,
+        params: {
+          aliases: ["-r"],
+          banner: "REPLICA_NAME",
+          desc: "Replica name",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     def self.image_option(required: false)
       {
         name: :image,
@@ -99,6 +113,20 @@ module Command
           desc: "Image name",
           type: :string,
           required: required
+        }
+      }
+    end
+
+    def self.log_method_option(required: false)
+      {
+        name: :log_method,
+        params: {
+          type: :numeric,
+          banner: "LOG_METHOD",
+          desc: "Log method",
+          required: required,
+          valid_values: [1, 2, 3],
+          default: 3
         }
       }
     end
@@ -198,7 +226,8 @@ module Command
           banner: "ROWS,COLS",
           desc: "Override remote terminal size (e.g. `--terminal-size 10,20`)",
           type: :string,
-          required: required
+          required: required,
+          valid_regex: /^\d+,\d+$/
         }
       }
     end
@@ -237,18 +266,6 @@ module Command
       }
     end
 
-    def self.clean_on_failure_option(required: false)
-      {
-        name: :clean_on_failure,
-        params: {
-          desc: "Deletes workload when finished with failure (success always deletes)",
-          type: :boolean,
-          required: required,
-          default: true
-        }
-      }
-    end
-
     def self.skip_secret_access_binding_option(required: false)
       {
         name: :skip_secret_access_binding,
@@ -271,6 +288,98 @@ module Command
       }
     end
 
+    def self.logs_limit_option(required: false)
+      {
+        name: :limit,
+        params: {
+          banner: "NUMBER",
+          desc: "Limit on number of log entries to show",
+          type: :numeric,
+          required: required,
+          default: 200
+        }
+      }
+    end
+
+    def self.logs_since_option(required: false)
+      {
+        name: :since,
+        params: {
+          banner: "DURATION",
+          desc: "Loopback window for showing logs " \
+                "(see https://www.npmjs.com/package/parse-duration for the accepted formats, e.g., '1h')",
+          type: :string,
+          required: required,
+          default: "1h"
+        }
+      }
+    end
+
+    def self.interactive_option(required: false)
+      {
+        name: :interactive,
+        params: {
+          desc: "Runs interactive command",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.detached_option(required: false)
+      {
+        name: :detached,
+        params: {
+          desc: "Runs non-interactive command, detaches, and prints commands to log and stop the job",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.cpu_option(required: false)
+      {
+        name: :cpu,
+        params: {
+          banner: "CPU",
+          desc: "Overrides CPU millicores " \
+                "(e.g., '100m' for 100 millicores, '1' for 1 core)",
+          type: :string,
+          required: required,
+          valid_regex: /^\d+m?$/
+        }
+      }
+    end
+
+    def self.memory_option(required: false)
+      {
+        name: :memory,
+        params: {
+          banner: "MEMORY",
+          desc: "Overrides memory size " \
+                "(e.g., '100Mi' for 100 mebibytes, '1Gi' for 1 gibibyte)",
+          type: :string,
+          required: required,
+          valid_regex: /^\d+[MG]i$/
+        }
+      }
+    end
+
+    def self.entrypoint_option(required: false)
+      {
+        name: :entrypoint,
+        params: {
+          banner: "ENTRYPOINT",
+          desc: "Overrides entrypoint " \
+                "(must be a single command or a script path that exists in the container)",
+          type: :string,
+          required: required,
+          valid_regex: /^\S+$/
+        }
+      }
+    end
+    # rubocop:enable Metrics/MethodLength
+
     def self.all_options
       methods.grep(/_option$/).map { |method| send(method.to_s) }
     end
@@ -279,24 +388,6 @@ module Command
       all_options.each_with_object({}) do |option, result|
         option[:params][:aliases]&.each { |current_alias| result[current_alias.to_s] = option }
         result["--#{option[:name]}"] = option
-      end
-    end
-
-    def wait_for_workload(workload)
-      step("Waiting for workload", retry_on_failure: true) do
-        cp.fetch_workload(workload)
-      end
-    end
-
-    def wait_for_replica(workload, location)
-      step("Waiting for replica", retry_on_failure: true) do
-        cp.workload_get_replicas_safely(workload, location: location)&.dig("items", 0)
-      end
-    end
-
-    def ensure_workload_deleted(workload)
-      step("Deleting workload") do
-        cp.delete_workload(workload)
       end
     end
 

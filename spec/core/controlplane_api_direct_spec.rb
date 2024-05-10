@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe ControlplaneApiDirect do
-  let(:described_instance) { described_class.new }
+  let!(:described_instance) { described_class.new }
 
   describe "#api_host" do
     it "returns correct host for 'api' when CPLN_ENDPOINT is not set" do

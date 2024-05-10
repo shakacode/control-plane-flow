@@ -33,14 +33,16 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     api_json("/org/#{org}/image/#{image}", method: :delete)
   end
 
-  def log_get(org:, gvc:, workload: nil, from: nil, to: nil)
+  def log_get(org:, gvc:, workload: nil, replica: nil, from: nil, to: nil) # rubocop:disable Metrics/ParameterLists
     query = { gvc: gvc }
     query[:workload] = workload if workload
+    query[:replica] = replica if replica
     query = query.map { |k, v| %(#{k}="#{v}") }.join(",").then { "{#{_1}}" }
 
     params = { query: query }
     params[:from] = "#{from}000000000" if from
     params[:to] = "#{to}000000000" if to
+    params[:limit] = "5000"
     # params << "delay_for=0"
     # params << "limit=30"
     # params << "direction=forward"

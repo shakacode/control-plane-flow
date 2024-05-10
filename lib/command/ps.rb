@@ -33,7 +33,7 @@ module Command
       workloads.each do |workload|
         cp.fetch_workload!(workload)
 
-        result = cp.workload_get_replicas(workload, location: location)
+        result = cp.fetch_workload_replicas(workload, location: location)
         result["items"].each { |replica| puts replica }
       end
     end

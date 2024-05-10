@@ -19,7 +19,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def profile_exists?(profile)
     cmd = "cpln profile get #{profile} -o yaml"
-    perform_yaml(cmd).length.positive?
+    perform_yaml!(cmd).length.positive?
   end
 
   def profile_create(profile, token)
@@ -96,7 +96,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     op = config.should_app_start_with?(app_name) ? "~" : "="
 
     cmd = "cpln gvc query --org #{org} -o yaml --prop name#{op}#{app_name}"
-    perform_yaml(cmd)
+    perform_yaml!(cmd)
   end
 
   def fetch_gvc(a_gvc = gvc, a_org = org)
@@ -143,40 +143,38 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.query_workloads(org: a_org, gvc: a_gvc, workload: workload, gvc_op_type: gvc_op, workload_op_type: workload_op)
   end
 
-  def workload_get_replicas(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
+  def fetch_workload_replicas(workload, location:)
+    cmd = "cpln workload replica get #{workload} #{gvc_org} --location #{location} -o yaml"
     perform_yaml(cmd)
   end
 
-  def workload_get_replicas_safely(workload, location:)
-    cmd = "cpln workload get-replicas #{workload} #{gvc_org} --location #{location} -o yaml"
-
-    Shell.debug("CMD", cmd)
-
-    result = Shell.cmd(cmd, capture_stderr: true)
-    YAML.safe_load(result[:output]) if result[:success]
+  def stop_workload_replica(workload, replica, location:)
+    cmd = "cpln workload replica stop #{workload} #{gvc_org} --replica-name #{replica} --location #{location}"
+    perform(cmd, output_mode: :none)
   end
 
   def fetch_workload_deployments(workload)
     api.workload_deployments(workload: workload, gvc: gvc, org: org)
   end
 
-  def workload_deployment_version_ready?(version, next_version, expected_status:)
+  def workload_deployment_version_ready?(version, next_version)
     return false unless version["workload"] == next_version
 
     version["containers"]&.all? do |_, container|
-      ready = container.dig("resources", "replicas") == container.dig("resources", "replicasReady")
-      expected_status == true ? ready : !ready
+      container.dig("resources", "replicas") == container.dig("resources", "replicasReady")
     end
   end
 
-  def workload_deployments_ready?(workload, expected_status:)
+  def workload_deployments_ready?(workload, location:, expected_status:)
+    deployed_replicas = fetch_workload_replicas(workload, location: location)["items"].length
+    return deployed_replicas.zero? if expected_status == false
+
     deployments = fetch_workload_deployments(workload)["items"]
     deployments.all? do |deployment|
       next_version = deployment.dig("status", "expectedDeploymentVersion")
 
       deployment.dig("status", "versions")&.all? do |version|
-        workload_deployment_version_ready?(version, next_version, expected_status: expected_status)
+        workload_deployment_version_ready?(version, next_version)
       end
     end
   end
@@ -225,11 +223,26 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd, output_mode: :all)
   end
 
-  def workload_exec(workload, location:, container: nil, command: nil)
-    cmd = "cpln workload exec #{workload} #{gvc_org} --location #{location}"
+  def workload_exec(workload, replica, location:, container: nil, command: nil)
+    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location}"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
     perform!(cmd, output_mode: :all)
+  end
+
+  def start_cron_workload(workload, job_start_yaml, location:)
+    Tempfile.create do |f|
+      f.write(job_start_yaml)
+      f.rewind
+
+      cmd = "cpln workload cron start #{workload} #{gvc_org} --file #{f.path} --location #{location} -o yaml"
+      perform_yaml(cmd)
+    end
+  end
+
+  def fetch_cron_workload(workload, location:)
+    cmd = "cpln workload cron get #{workload} #{gvc_org} --location #{location} -o yaml"
+    perform_yaml(cmd)
   end
 
   # volumeset
@@ -286,13 +299,17 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # logs
 
-  def logs(workload:)
-    cmd = "cpln logs '{workload=\"#{workload}\"}' --org #{org} -t -o raw --limit 200"
+  def logs(workload:, limit:, since:, replica: nil)
+    query_parts = ["gvc=\"#{gvc}\"", "workload=\"#{workload}\""]
+    query_parts.push("replica=\"#{replica}\"") if replica
+    query = "{#{query_parts.join(',')}}"
+
+    cmd = "cpln logs '#{query}' --org #{org} -t -o raw --limit #{limit} --since #{since}"
     perform!(cmd, output_mode: :all)
   end
 
-  def log_get(workload:, from:, to:)
-    api.log_get(org: org, gvc: gvc, workload: workload, from: from, to: to)
+  def log_get(workload:, from:, to:, replica: nil)
+    api.log_get(org: org, gvc: gvc, workload: workload, replica: replica, from: from, to: to)
   end
 
   # identities
@@ -410,7 +427,20 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
 
-    Kernel.system(cmd)
+    kernel_system_with_pid_handling(cmd)
+  end
+
+  # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing
+  def kernel_system_with_pid_handling(cmd)
+    pid = Process.spawn(cmd)
+    $child_pids << pid # rubocop:disable Style/GlobalVars
+
+    _, status = Process.wait2(pid)
+    $child_pids.delete(pid) # rubocop:disable Style/GlobalVars
+
+    status.exited? ? status.success? : nil
+  rescue SystemCallError
+    nil
   end
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
@@ -422,11 +452,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     Shell.debug("CMD", cmd)
 
     result = Shell.cmd(cmd)
-    if result[:success]
-      YAML.safe_load(result[:output])
-    else
-      Shell.abort("Command exited with non-zero status.")
-    end
+    YAML.safe_load(result[:output], permitted_classes: [Time]) if result[:success]
+  end
+
+  def perform_yaml!(cmd)
+    perform_yaml(cmd) || Shell.abort("Command exited with non-zero status.")
   end
 
   def gvc_org

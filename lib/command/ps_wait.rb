@@ -5,7 +5,8 @@ module Command
     NAME = "ps:wait"
     OPTIONS = [
       app_option(required: true),
-      workload_option
+      workload_option,
+      location_option
     ].freeze
     DESCRIPTION = "Waits for workloads in app to be ready after re-deployment"
     LONG_DESCRIPTION = <<~DESC
@@ -27,7 +28,7 @@ module Command
 
       @workloads.reverse_each do |workload|
         step("Waiting for workload '#{workload}' to be ready", retry_on_failure: true) do
-          cp.workload_deployments_ready?(workload, expected_status: true)
+          cp.workload_deployments_ready?(workload, location: config.location, expected_status: true)
         end
       end
     end
