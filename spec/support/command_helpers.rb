@@ -124,10 +124,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
     LogHelpers.write_command_result_to_log(result)
 
-    if result[:status].nonzero? && raise_errors
-      cmd = args.join(" ")
-      raise "Command '#{cmd}' failed:  #{result.to_json}"
-    end
+    raise result.to_json if result[:status].nonzero? && raise_errors
 
     result
   end
