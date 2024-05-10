@@ -14,12 +14,26 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+## [2.0.0.rc.0] - 2024-05-10
+
+### BREAKING CHANGES
+
+- Commands that finished with a failure now exit with code `64` instead of `1`. [PR 132](https://github.com/shakacode/heroku-to-control-plane/pull/132) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `run:cleanup` command has been removed. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `deploy-image` command now runs the release script in the context of the `run` command. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Added
 
+- Added options to `run` command to override the workload container's `--cpu`, `--memory`, and `--entrypoint`. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added `--workload` option to `delete` command to delete a specific workload. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added `--replica` option to `logs` command to see logs from a specific replica. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added `--replica` option to `ps:stop` command to stop a specific replica. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added option to set custom names for secrets and secrets policy, using `secrets_name` and `secrets_policy_name` in `controlplane.yml`. [PR 159](https://github.com/shakacode/heroku-to-control-plane/pull/159) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
 
+- `run` command now uses a single reusable cron workload and works for both interactive and non-interactive jobs. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `run:detached` command has been deprecated in favor of `run`. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `deploy-image` command now raises an error if image does not exist. [PR 153](https://github.com/shakacode/heroku-to-control-plane/pull/153) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [1.4.0] - 2024-03-20
@@ -164,7 +178,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0.rc.0...HEAD
+[2.0.0.rc.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...v2.0.0.rc.0
 [1.4.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...v1.2.0
