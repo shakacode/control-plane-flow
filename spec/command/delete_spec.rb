@@ -18,7 +18,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do
@@ -66,7 +66,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "rails", "postgres-with-volume", "detached-volume", "-a", app)
+      run_cpl_command!("apply-template", "app", "rails", "postgres-with-volume", "detached-volume", "-a", app)
       run_cpl_command!("build-image", "-a", app)
     end
 
@@ -92,7 +92,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do
@@ -111,7 +111,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "rails", "-a", app)
+      run_cpl_command!("apply-template", "app", "rails", "-a", app)
     end
 
     after do

@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Added
+
+- Added option to set custom names for secrets and secrets policy, using `secrets_name` and `secrets_policy_name` in `controlplane.yml`. [PR 159](https://github.com/shakacode/heroku-to-control-plane/pull/159) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Changed
 
 - `deploy-image` command now raises an error if image does not exist. [PR 153](https://github.com/shakacode/heroku-to-control-plane/pull/153) by [Rafael Gomes](https://github.com/rafaelgomesxyz).

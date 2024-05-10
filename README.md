@@ -143,7 +143,7 @@ The `cpl` gem is based on several configuration files within a `/.controlplane` 
 ```
 .controlplane/
 ├─ templates/
-│  ├─ gvc.yml
+│  ├─ app.yml
 │  ├─ postgres.yml
 │  ├─ rails.yml
 ├─ controlplane.yml
@@ -154,8 +154,8 @@ The `cpl` gem is based on several configuration files within a `/.controlplane` 
 1. `controlplane.yml` describes the overall application. Be sure to have `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
 2. `Dockerfile` builds the production application. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
 3. `templates` directory contains the templates for the various workloads, such as `rails.yml` and `postgres.yml`.
-4. `templates/gvc.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
-5. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/gvc.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
+4. `templates/app.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
+5. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/app.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
 6. For other workloads (like lines in a Heroku `Procfile`), you create additional template files. For example, you can base a `templates/sidekiq.yml` on the `templates/rails.yml` file.
 7. You can have other files in the `templates` directory, such as `redis.yml` and `postgres.yml`, which could setup Redis and Postgres for a testing application.
 
@@ -189,26 +189,39 @@ aliases:
     default_location: aws-us-east-2
 
     # Allows running the command `cpl setup-app`
-    # instead of `cpl apply-template gvc redis postgres memcached rails sidekiq`.
+    # instead of `cpl apply-template app redis postgres memcached rails sidekiq`.
     #
     # Note:
     # 1. These names correspond to files in the `./controlplane/templates` directory.
     # 2. Each file can contain many objects, such as in the case of templates that create a resource, like `postgres`.
     # 3. While the naming often corresponds to a workload or other object name, the naming is arbitrary. 
     #    Naming does not need to match anything other than the file name without the `.yml` extension.
+    #
+    # If you're going to use secrets, you need to apply the `secrets.yml` template separately (one-time setup):
+    # `cpl apply-template secrets -a my-app`
     setup_app_templates:
-      - gvc
-
-      # These templates are only required if using secrets.
-      - identity
-      - secrets
-      - secrets-policy
-
+      - app
       - redis
       - postgres
       - memcached
       - rails
       - sidekiq
+
+    # Only needed if using a custom secrets name.
+    # The default is '{APP_PREFIX}-secrets'. For example:
+    # - for an app 'my-app-staging' with `match_if_app_name_starts_with` set to `false`,
+    #   it would be 'my-app-staging-secrets'
+    # - for an app 'my-app-review-1234' with `match_if_app_name_starts_with` set to `true`,
+    #   it would be 'my-app-review-secrets'
+    secrets_name: my-secrets
+
+    # Only needed if using a custom secrets policy name.
+    # The default is '{APP_SECRETS}-policy'. For example:
+    # - for an app 'my-app-staging' with `match_if_app_name_starts_with` set to `false`,
+    #   it would be 'my-app-staging-secrets-policy'
+    # - for an app 'my-app-review-1234' with `match_if_app_name_starts_with` set to `true`,
+    #   it would be 'my-app-review-secrets-policy'
+    secrets_policy_name: my-secrets-policy
 
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
@@ -303,7 +316,7 @@ Suppose your app is called `tutorial-app`. You can run the following commands.
 ```sh
 # Provision all infrastructure on Control Plane.
 # `tutorial-app` will be created per definition in .controlplane/controlplane.yml.
-cpl apply-template gvc postgres redis rails daily-task -a tutorial-app
+cpl apply-template app postgres redis rails daily-task -a tutorial-app
 
 # Build and push the Docker image to the Control Plane repository.
 # Note, it may take many minutes. Be patient.
@@ -370,7 +383,7 @@ It is also possible to set up a Secret store (of type `Dictionary`), which we ca
 `cpln://secret/MY_SECRET_STORE_NAME/MY_SECRET_VAR_NAME`. In such a case, we must set up an app Identity and proper
 Policy to access the secret.
 
-In `templates/gvc.yml`:
+In `templates/app.yml`:
 
 ```yaml
 spec:

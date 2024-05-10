@@ -18,7 +18,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
       run_cpl_command!("build-image", "-a", app)
     end
 
@@ -77,7 +77,7 @@ describe Command::DeployImage do
 
       allow(Kernel).to receive(:sleep)
 
-      run_cpl_command!("apply-template", "gvc", "rails", "postgres", "-a", app)
+      run_cpl_command!("apply-template", "app", "rails", "postgres", "-a", app)
       run_cpl_command!("build-image", "-a", app)
       run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end

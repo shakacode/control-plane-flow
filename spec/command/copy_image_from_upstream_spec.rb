@@ -65,8 +65,8 @@ describe Command::CopyImageFromUpstream do
       # Ideally, we should have a different org, but for testing purposes, this works
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
 
-      run_cpl_command!("apply-template", "gvc", "-a", upstream_app)
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", upstream_app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do
@@ -96,8 +96,8 @@ describe Command::CopyImageFromUpstream do
       # Ideally, we should have a different org, but for testing purposes, this works
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
 
-      run_cpl_command!("apply-template", "gvc", "-a", upstream_app)
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", upstream_app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do

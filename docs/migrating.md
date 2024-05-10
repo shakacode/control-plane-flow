@@ -36,7 +36,7 @@ key, e.g.:
 my-app-staging:
   <<: *common
   setup_app_templates:
-    - gvc
+    - app
     - redis
     - memcached
     - rails
@@ -46,8 +46,8 @@ my-app-staging:
 Note how the templates correspond to files in the `.controlplane/templates/` directory. These files will be used by the
 `cpl setup-app` and `cpl apply-template` commands.
 
-Ensure that env vars point to the Heroku add-ons in the template for the app (`.controlplane/templates/gvc.yml`). See
-[this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/templates/gvc.yml).
+Ensure that env vars point to the Heroku add-ons in the template for the app (`.controlplane/templates/app.yml`). See
+[this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/templates/app.yml).
 
 After that, create a Dockerfile in `.controlplane/Dockerfile` for your deployment. See
 [this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile).
@@ -61,7 +61,7 @@ app_main_folder/
     controlplane.yml
     entrypoint.sh       # App-specific - edit as needed.
     templates/
-      gvc.yml
+      app.yml
       memcached.yml
       rails.yml
       redis.yml
@@ -192,7 +192,7 @@ configure an entry for, e.g., `my-app-review`, and then create review apps start
     <<: *common
     match_if_app_name_starts_with: true
     setup_app_templates:
-      - gvc
+      - app
       - redis
       - memcached
       - rails
@@ -226,7 +226,7 @@ Then follow the same steps for the initial deployment or code upgrades.
 ### Database for Review Apps
 
 For the review app resources, these should be handled as env vars in the template for the app
-(`.controlplane/templates/gvc.yml`), .e.g.:
+(`.controlplane/templates/app.yml`), .e.g.:
 
 ```yaml
 - name: DATABASE_URL

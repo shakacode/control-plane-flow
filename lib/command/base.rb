@@ -503,11 +503,11 @@ module Command
     end
 
     def app_secrets
-      "#{config.app_prefix}-secrets"
+      config.current[:secrets_name] || "#{config.app_prefix}-secrets"
     end
 
     def app_secrets_policy
-      "#{app_secrets}-policy"
+      config.current[:secrets_policy_name] || "#{app_secrets}-policy"
     end
 
     def ensure_docker_running!

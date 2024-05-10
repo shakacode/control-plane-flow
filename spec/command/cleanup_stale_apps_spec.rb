@@ -32,8 +32,8 @@ describe Command::CleanupStaleApps do
     let!(:app2) { dummy_test_app("with-stale-app-image-deployed-days") }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app1)
-      run_cpl_command!("apply-template", "gvc", "-a", app2)
+      run_cpl_command!("apply-template", "app", "-a", app1)
+      run_cpl_command!("apply-template", "app", "-a", app2)
       run_cpl_command!("build-image", "-a", app1)
       run_cpl_command!("build-image", "-a", app2)
     end
@@ -93,10 +93,10 @@ describe Command::CleanupStaleApps do
     let!(:app4) { dummy_test_app("with-stale-app-image-deployed-days") }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app1)
-      run_cpl_command!("apply-template", "gvc", "-a", app2)
-      run_cpl_command!("apply-template", "gvc", "-a", app3)
-      run_cpl_command!("apply-template", "gvc", "-a", app4)
+      run_cpl_command!("apply-template", "app", "-a", app1)
+      run_cpl_command!("apply-template", "app", "-a", app2)
+      run_cpl_command!("apply-template", "app", "-a", app3)
+      run_cpl_command!("apply-template", "app", "-a", app4)
     end
 
     after do

@@ -49,7 +49,7 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
       run_cpl_command!("build-image", "-a", app) # app:1
       run_cpl_command!("build-image", "-a", app) # app:2
     end
@@ -99,7 +99,7 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app("with-image-retention-max-qty") }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do
@@ -131,7 +131,7 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app("with-image-retention-days") }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "-a", app)
+      run_cpl_command!("apply-template", "app", "-a", app)
     end
 
     after do

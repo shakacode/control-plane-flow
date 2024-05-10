@@ -20,7 +20,7 @@ describe Command::MaintenanceSetPage do
     let!(:app) { dummy_test_app("with-external-maintenance-image") }
 
     before do
-      run_cpl_command!("apply-template", "gvc", "maintenance-with-external-image", "-a", app)
+      run_cpl_command!("apply-template", "app", "maintenance-with-external-image", "-a", app)
     end
 
     after do
