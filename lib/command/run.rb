@@ -87,9 +87,9 @@ module Command
     MAGIC_END = "---cpl run command finished---"
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
-                :container, :image_link, :image_changed, :job, :replica, :command
+                :container, :expected_deployed_version, :job, :replica, :command
 
-    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def call # rubocop:disable Metrics/MethodLength
       @interactive = config.options[:interactive] || interactive_command?
       @detached = config.options[:detached]
       @log_method = config.options[:log_method]
@@ -116,11 +116,6 @@ module Command
       end
       update_runner_workload
       wait_for_runner_workload_update
-
-      # NOTE: need to wait some time before starting the job,
-      # otherwise the image may not be updated yet
-      # TODO: need to figure out if there's a better way to do this
-      sleep 1 if image_changed
 
       start_job
       wait_for_replica_for_job
@@ -177,41 +172,54 @@ module Command
       end
     end
 
-    def update_runner_workload # rubocop:disable Metrics/MethodLength
-      step("Updating runner workload '#{runner_workload}' based on '#{original_workload}'") do
+    def update_runner_workload # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+      step("Updating runner workload '#{runner_workload}' based on '#{original_workload}'") do # rubocop:disable Metrics/BlockLength
+        @expected_deployed_version = cp.cron_workload_deployed_version(runner_workload)
+        should_update = false
+
         _, original_container_spec = base_workload_specs(original_workload)
         spec, container_spec = base_workload_specs(runner_workload)
 
         # Override image if specified
         image = config.options[:image]
-        if image
-          image = latest_image if image == "latest"
-          @image_link = "/org/#{config.org}/image/#{image}"
-        else
-          @image_link = original_container_spec["image"]
+        image_link = if image
+                       image = latest_image if image == "latest"
+                       "/org/#{config.org}/image/#{image}"
+                     else
+                       original_container_spec["image"]
+                     end
+        if container_spec["image"] != image_link
+          container_spec["image"] = image_link
+          should_update = true
         end
-        @image_changed = container_spec["image"] != image_link
-        container_spec["image"] = image_link
 
         # Container overrides
-        container_spec["cpu"] = config.options[:cpu] if config.options[:cpu]
-        container_spec["memory"] = config.options[:memory] if config.options[:memory]
+        if config.options[:cpu] && container_spec["cpu"] != config.options[:cpu]
+          container_spec["cpu"] = config.options[:cpu]
+          should_update = true
+        end
+        if config.options[:memory] && container_spec["memory"] != config.options[:memory]
+          container_spec["memory"] = config.options[:memory]
+          should_update = true
+        end
+
+        next true unless should_update
 
         # Update runner workload
+        @expected_deployed_version += 1
         cp.apply_hash("kind" => "workload", "name" => runner_workload, "spec" => spec)
       end
     end
 
     def wait_for_runner_workload_create
       step("Waiting for runner workload '#{runner_workload}' to be created", retry_on_failure: true) do
-        cp.fetch_workload(runner_workload)
+        !cp.cron_workload_deployed_version(runner_workload).nil?
       end
     end
 
     def wait_for_runner_workload_update
       step("Waiting for runner workload '#{runner_workload}' to be updated", retry_on_failure: true) do
-        _, container_spec = base_workload_specs(runner_workload)
-        container_spec["image"] == image_link
+        cp.cron_workload_deployed_version(runner_workload) >= expected_deployed_version
       end
     end
 

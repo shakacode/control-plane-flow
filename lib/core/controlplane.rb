@@ -245,6 +245,16 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform_yaml(cmd)
   end
 
+  def cron_workload_deployed_version(workload)
+    current_deployment = fetch_workload_deployments(workload)&.dig("items")&.first
+    return nil unless current_deployment
+
+    ready = current_deployment.dig("status", "ready")
+    last_processed_version = current_deployment.dig("status", "lastProcessedVersion")
+
+    ready ? last_processed_version : nil
+  end
+
   # volumeset
 
   def fetch_volumesets(a_gvc = gvc)
