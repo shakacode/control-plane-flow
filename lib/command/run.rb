@@ -219,7 +219,7 @@ module Command
 
     def wait_for_runner_workload_update
       step("Waiting for runner workload '#{runner_workload}' to be updated", retry_on_failure: true) do
-        cp.cron_workload_deployed_version(runner_workload) == expected_deployed_version
+        cp.cron_workload_deployed_version(runner_workload) >= expected_deployed_version
       end
     end
 
