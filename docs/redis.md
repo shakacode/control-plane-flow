@@ -8,7 +8,7 @@ There are two templates examples in this repo:
 
 1. create a redis workload that will accept data
 2. execute `SLAVEOF source_host source_port`, if needed use `masterauth` to provide auth details
-3. wait for replication to pick up all changes (usually very quick), use `INFO` or `DBSIZE` to check progress
+3. wait for replication to pick up all changes (usually quickly), use `INFO` or `DBSIZE` to check progress
 4. stop app completely and ensure nothing is writing to any of redises
 5. execute `SLAVEOF no one` to disconnect replication
 6. switch `REDIS_URL` in the app to point to new server
