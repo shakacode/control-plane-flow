@@ -23,7 +23,7 @@ spec:
           uri: "scratch://postgres-vol"
   defaultOptions:
     autoscaling:
-      metric: latency
+      metric: disabled
       minScale: 1
       maxScale: 1
     capacityAI: false
