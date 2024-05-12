@@ -19,7 +19,7 @@ There are two templates examples in this repo:
 ### General considerations:
 
 1. Heroku uses self-signed TLS certificates, which are not verifiable. It needs special handling by setting
-TLS verification to `none`; otherwise, most apps cannot connect.
+The tool that satisfies those criteria is [Redis-RIOT](https://developer.redis.com/riot/riot-redis/index.html)
 
 2. We are moving to private Redis that don't have a public URL, so have to do it from a Control Plane GVC container.
 
