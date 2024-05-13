@@ -19,6 +19,7 @@ _Please add entries here for your pull requests that are not yet released._
 ### BREAKING CHANGES
 
 - Commands that finished with a failure now exit with code `64` instead of `1`. [PR 132](https://github.com/shakacode/heroku-to-control-plane/pull/132) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Bumped minimum `cpln` version to `2.0.1` (`cpln workload cron get` is required). [PR 171](https://github.com/shakacode/heroku-to-control-plane/pull/171) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `run:cleanup` command has been removed. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `deploy-image` command now runs the release script in the context of the `run` command. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
