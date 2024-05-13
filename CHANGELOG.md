@@ -14,13 +14,17 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
-## [2.0.0.rc.0] - 2024-05-10
+## [2.0.0.rc.1] - 2024-05-11
 
 ### BREAKING CHANGES
 
 - Commands that finished with a failure now exit with code `64` instead of `1`. [PR 132](https://github.com/shakacode/heroku-to-control-plane/pull/132) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `run:cleanup` command has been removed. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `deploy-image` command now runs the release script in the context of the `run` command. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+### Fixed
+
+- Fixed race conditions when using latest image in `run` command. [PR 163](https://github.com/shakacode/heroku-to-control-plane/pull/163) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Added
 
@@ -178,8 +182,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0.rc.0...HEAD
-[2.0.0.rc.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...v2.0.0.rc.0
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0.rc.1...HEAD
+[2.0.0.rc.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...v2.0.0.rc.1
 [1.4.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...v1.2.0
