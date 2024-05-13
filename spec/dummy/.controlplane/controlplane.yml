@@ -156,6 +156,14 @@ apps:
     setup_app_templates:
       - app-without-identity
 
+  dummy-test-without-policy:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    secrets_policy_name: nonexistent
+    setup_app_templates:
+      - app
+
   dummy-test-info:
     <<: *common
 

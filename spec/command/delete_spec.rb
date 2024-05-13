@@ -148,4 +148,82 @@ describe Command::Delete do
       expect(result[:stderr]).to match(/Deleting workload 'rails'[.]+? done!/)
     end
   end
+
+  context "when identity does not exist" do
+    let!(:app) { dummy_test_app("without-identity") }
+
+    before do
+      run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+    end
+
+    it "does not unbind identity from policy" do
+      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+
+      result = run_cpl_command("delete", "-a", app)
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
+      expect(result[:stderr]).not_to include("Unbinding identity from policy")
+    end
+  end
+
+  context "when policy does not exist" do
+    let!(:app) { dummy_test_app("without-policy") }
+
+    before do
+      run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+    end
+
+    it "does not unbind identity from policy" do
+      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+
+      result = run_cpl_command("delete", "-a", app)
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
+      expect(result[:stderr]).not_to include("Unbinding identity from policy")
+    end
+  end
+
+  context "when identity and policy are not bound" do
+    let!(:app) { dummy_test_app }
+
+    before do
+      run_cpl_command!("apply-template", "secrets", "-a", app)
+      run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+    end
+
+    it "does not unbind identity from policy" do
+      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+
+      result = run_cpl_command("delete", "-a", app)
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
+      expect(result[:stderr]).not_to include("Unbinding identity from policy")
+    end
+  end
+
+  context "when identity and policy are bound" do
+    let!(:app) { dummy_test_app }
+
+    before do
+      run_cpl_command!("apply-template", "secrets", "-a", app)
+      run_cpl_command!("setup-app", "-a", app)
+    end
+
+    it "unbinds identity from policy" do
+      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+
+      result = run_cpl_command("delete", "-a", app)
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Unbinding identity from policy[.]+? done!/)
+    end
+  end
 end
