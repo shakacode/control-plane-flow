@@ -146,8 +146,21 @@ module Cpl
       ::Command::Base.all_commands.merge(deprecated_commands)
     end
 
+    def self.process_option_params(params)
+      # Ensures that if no value is provided for a non-boolean option (e.g., `cpl command --option`),
+      # it defaults to an empty string instead of the option name (which is the default Thor behavior)
+      params[:lazy_default] ||= "" if params[:type] != :boolean
+
+      params
+    end
+
     @commands_with_required_options = []
     @commands_with_extra_options = []
+
+    ::Command::Base.common_options.each do |option|
+      params = process_option_params(option[:params])
+      class_option(option[:name], **params)
+    end
 
     all_base_commands.each do |command_key, command_class| # rubocop:disable Metrics/BlockLength
       deprecated = deprecated_commands[command_key]
@@ -157,7 +170,7 @@ module Cpl
       usage = command_class::USAGE.empty? ? name : command_class::USAGE
       requires_args = command_class::REQUIRES_ARGS
       default_args = command_class::DEFAULT_ARGS
-      command_options = command_class::OPTIONS + ::Command::Base.common_options
+      command_options = command_class::OPTIONS
       accepts_extra_options = command_class::ACCEPTS_EXTRA_OPTIONS
       description = command_class::DESCRIPTION
       long_description = command_class::LONG_DESCRIPTION
@@ -175,12 +188,7 @@ module Cpl
       long_desc(long_description)
 
       command_options.each do |option|
-        params = option[:params]
-
-        # Ensures that if no value is provided for a non-boolean option (e.g., `cpl command --option`),
-        # it defaults to an empty string instead of the option name (which is the default Thor behavior)
-        params[:lazy_default] ||= "" if params[:type] != :boolean
-
+        params = process_option_params(option[:params])
         method_option(option[:name], **params)
       end
 
@@ -208,7 +216,7 @@ module Cpl
         end
 
         begin
-          Cpl::Cli.validate_options!(options, command_options)
+          Cpl::Cli.validate_options!(options)
 
           config = Config.new(args, options, required_options)
 
@@ -227,11 +235,11 @@ module Cpl
     check_unknown_options!(except: @commands_with_extra_options)
     stop_on_unknown_option!
 
-    def self.validate_options!(options, command_options)
+    def self.validate_options!(options)
       options.each do |name, value|
         raise "No value provided for option '#{name}'." if value.to_s.strip.empty?
 
-        params = command_options.find { |option| option[:name].to_s == name }[:params]
+        params = ::Command::Base.all_options.find { |option| option[:name].to_s == name }[:params]
         next unless params[:valid_regex]
 
         raise "Invalid value provided for option '#{name}'." unless value.match?(params[:valid_regex])
