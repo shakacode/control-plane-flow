@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class Delete < Base
+  class Delete < Base # rubocop:disable Metrics/ClassLength
     NAME = "delete"
     OPTIONS = [
       app_option(required: true),
@@ -11,6 +11,7 @@ module Command
     DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload"
     LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
+      - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
       - Will ask for explicit user confirmation
     DESC
     EXAMPLES = <<~EX
@@ -48,6 +49,7 @@ module Command
       check_images
       return unless confirm_delete(config.app)
 
+      unbind_identity_from_policy
       delete_volumesets
       delete_gvc
       delete_images
@@ -111,6 +113,22 @@ module Command
         step("Deleting image '#{image['name']}'") do
           cp.image_delete(image["name"])
         end
+      end
+    end
+
+    def unbind_identity_from_policy
+      return if cp.fetch_identity(app_identity).nil?
+
+      policy = cp.fetch_policy(app_secrets_policy)
+      return if policy.nil?
+
+      is_bound = policy["bindings"].any? do |binding|
+        binding["principalLinks"].any? { |link| link == app_identity_link }
+      end
+      return unless is_bound
+
+      step("Unbinding identity from policy") do
+        cp.unbind_identity_from_policy(app_identity_link, app_secrets_policy)
       end
     end
   end

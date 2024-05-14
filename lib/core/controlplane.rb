@@ -341,6 +341,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform!(cmd)
   end
 
+  def unbind_identity_from_policy(identity_link, policy)
+    cmd = "cpln policy remove-binding #{policy} --org #{org} --identity #{identity_link} --permission reveal"
+    perform!(cmd)
+  end
+
   # apply
   def apply_template(data) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|
