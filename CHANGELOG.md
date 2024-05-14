@@ -37,6 +37,7 @@ _Please add entries here for your pull requests that are not yet released._
 
 ### Changed
 
+- An error is now raised if the org does not exist. [PR 167](https://github.com/shakacode/heroku-to-control-plane/pull/167) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `run` command now uses a single reusable cron workload and works for both interactive and non-interactive jobs. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `run:detached` command has been deprecated in favor of `run`. [PR 151](https://github.com/shakacode/heroku-to-control-plane/pull/151) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `deploy-image` command now raises an error if image does not exist. [PR 153](https://github.com/shakacode/heroku-to-control-plane/pull/153) by [Rafael Gomes](https://github.com/rafaelgomesxyz).

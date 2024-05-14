@@ -3,10 +3,19 @@
 require "spec_helper"
 
 describe Controlplane do
-  let!(:fake_config) { Struct.new(:app, :org).new("my-app", "my-org") }
-  let!(:described_instance) { described_class.new(fake_config) }
+  describe "#initialize" do
+    let!(:fake_config) { Struct.new(:app, :org).new("my-app", "my-org") }
+
+    it "raises error if org does not exist" do
+      expect do
+        described_class.new(fake_config)
+      end.to raise_error(include("Can't find org 'my-org'"))
+    end
+  end
 
   describe "#build_command" do
+    let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
+    let!(:described_instance) { described_class.new(fake_config) }
     let!(:original_cmd) { "cmd" }
 
     before do
