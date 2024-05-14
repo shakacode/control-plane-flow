@@ -8,6 +8,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     @api = ControlplaneApi.new
     @gvc = config.app
     @org = config.org
+
+    ensure_org_exists! if org
   end
 
   # profile
@@ -403,6 +405,18 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   private
+
+  def org_exists?
+    items = api.list_orgs["items"]
+    items.any? { |item| item["name"] == org }
+  end
+
+  def ensure_org_exists!
+    return if org_exists?
+
+    raise "Can't find org '#{org}', please create it in the Control Plane dashboard " \
+          "or ensure that the name is correct."
+  end
 
   # `output_mode` can be :all, :errors_only or :none.
   # If not provided, it will be determined based on the `HIDE_COMMAND_OUTPUT` env var

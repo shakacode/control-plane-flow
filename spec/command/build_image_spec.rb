@@ -67,12 +67,12 @@ describe Command::BuildImage do
     end
 
     it "passes additional options to `docker build`", :slow do
-      allow(Kernel).to receive(:system).with(match(/docker build.+?TEST=123/)).and_call_original
-      allow(Kernel).to receive(:system).with(include("docker push")).and_call_original
+      allow(Process).to receive(:spawn).with(match(/docker build.+?TEST=123/)).and_call_original
+      allow(Process).to receive(:spawn).with(include("docker push")).and_call_original
 
       result = run_cpl_command("build-image", "-a", app, "--build-arg", "TEST=123")
 
-      expect(Kernel).to have_received(:system).twice
+      expect(Process).to have_received(:spawn).twice
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(%r{Pushed image to '/org/.+?/image/#{app}:1'})
     end

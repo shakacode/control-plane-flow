@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 class ControlplaneApi # rubocop:disable Metrics/ClassLength
+  def list_orgs
+    api_json("/org", method: :get)
+  end
+
   def gvc_list(org:)
     api_json("/org/#{org}/gvc", method: :get)
   end

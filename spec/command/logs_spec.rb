@@ -115,11 +115,9 @@ describe Command::Logs do
     runner_workload = nil
 
     runner_workload_regex = /runner workload '(.+?)'/
-    spawn_cpl_command("run", "-a", app, "--", cmd, wait_for_process: false) do |it|
+    spawn_cpl_command("run", "-a", app, "--detached", "--", cmd) do |it|
       runner_workload_result = it.wait_for(runner_workload_regex)
       runner_workload = runner_workload_result.match(runner_workload_regex)[1]
-
-      it.wait_for(message_regex)
     end
 
     runner_workload
