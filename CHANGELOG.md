@@ -14,7 +14,7 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
-## [2.0.0.rc.1] - 2024-05-11
+## [2.0.0] - 2024-05-14
 
 ### BREAKING CHANGES
 
@@ -186,8 +186,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0.rc.1...HEAD
-[2.0.0.rc.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...v2.0.0.rc.1
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.1.2...v1.2.0
