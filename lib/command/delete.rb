@@ -36,7 +36,9 @@ module Command
     private
 
     def delete_single_workload(workload)
-      return progress.puts("Workload '#{workload}' does not exist.") if cp.fetch_workload(workload).nil?
+      if cp.fetch_workload(workload).nil?
+        return progress.puts("Workload '#{workload}' does not exist in app '#{config.app}'.")
+      end
       return unless confirm_delete(workload)
 
       delete_workload(workload)
@@ -57,9 +59,9 @@ module Command
 
     def check_volumesets
       @volumesets = cp.fetch_volumesets["items"]
-      return progress.puts("No volumesets to delete.") unless @volumesets.any?
+      return progress.puts("No volumesets to delete from app '#{config.app}'.") unless @volumesets.any?
 
-      message = "The following volumesets will be deleted along with the app:"
+      message = "The following volumesets will be deleted along with the app '#{config.app}':"
       volumesets_list = @volumesets.map { |volumeset| "- #{volumeset['name']}" }.join("\n")
       progress.puts("#{Shell.color(message, :red)}\n#{volumesets_list}\n\n")
     end
@@ -67,9 +69,9 @@ module Command
     def check_images
       @images = cp.query_images["items"]
                   .select { |image| image["name"].start_with?("#{config.app}:") }
-      return progress.puts("No images to delete.") unless @images.any?
+      return progress.puts("No images to delete from app '#{config.app}'.") unless @images.any?
 
-      message = "The following images will be deleted along with the app:"
+      message = "The following images will be deleted along with the app '#{config.app}':"
       images_list = @images.map { |image| "- #{image['name']}" }.join("\n")
       progress.puts("#{Shell.color(message, :red)}\n#{images_list}\n\n")
     end
@@ -91,14 +93,14 @@ module Command
     end
 
     def delete_workload(workload)
-      step("Deleting workload '#{workload}'") do
+      step("Deleting workload '#{workload}' from app '#{config.app}'") do
         cp.delete_workload(workload)
       end
     end
 
     def delete_volumesets
       @volumesets.each do |volumeset|
-        step("Deleting volumeset '#{volumeset['name']}'") do
+        step("Deleting volumeset '#{volumeset['name']}' from app '#{config.app}'") do
           # If the volumeset is attached to a workload, we need to delete the workload first
           workload = volumeset.dig("status", "usedByWorkload")&.split("/")&.last
           cp.delete_workload(workload) if workload
@@ -110,7 +112,7 @@ module Command
 
     def delete_images
       @images.each do |image|
-        step("Deleting image '#{image['name']}'") do
+        step("Deleting image '#{image['name']}' from app '#{config.app}'") do
           cp.image_delete(image["name"])
         end
       end
@@ -127,7 +129,7 @@ module Command
       end
       return unless is_bound
 
-      step("Unbinding identity from policy") do
+      step("Unbinding identity from policy for app '#{config.app}'") do
         cp.unbind_identity_from_policy(app_identity_link, app_secrets_policy)
       end
     end

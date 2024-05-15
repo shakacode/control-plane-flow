@@ -32,8 +32,8 @@ describe Command::Delete do
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("No volumesets to delete")
-      expect(result[:stderr]).to include("No images to delete")
+      expect(result[:stderr]).to include("No volumesets to delete from app '#{app}'")
+      expect(result[:stderr]).to include("No images to delete from app '#{app}'")
       expect(result[:stderr]).not_to include("Deleting app")
     end
 
@@ -44,8 +44,8 @@ describe Command::Delete do
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("No volumesets to delete")
-      expect(result[:stderr]).to include("No images to delete")
+      expect(result[:stderr]).to include("No volumesets to delete from app '#{app}'")
+      expect(result[:stderr]).to include("No images to delete from app '#{app}'")
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
     end
 
@@ -56,8 +56,8 @@ describe Command::Delete do
 
       expect(Shell).not_to have_received(:confirm)
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("No volumesets to delete")
-      expect(result[:stderr]).to include("No images to delete")
+      expect(result[:stderr]).to include("No volumesets to delete from app '#{app}'")
+      expect(result[:stderr]).to include("No images to delete from app '#{app}'")
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
     end
   end
@@ -81,10 +81,10 @@ describe Command::Delete do
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Deleting volumeset 'detached-volume'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting volumeset 'detached-volume' from app '#{app}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting image '#{app}:1'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting image '#{app}:1' from app '#{app}'[.]+? done!/)
     end
   end
 
@@ -103,7 +103,7 @@ describe Command::Delete do
       result = run_cpl_command("delete", "-a", app, "--workload", "rails")
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("Workload 'rails' does not exist")
+      expect(result[:stderr]).to include("Workload 'rails' does not exist in app '#{app}'")
     end
   end
 
@@ -135,7 +135,7 @@ describe Command::Delete do
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Deleting workload 'rails'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting workload 'rails' from app '#{app}'[.]+? done!/)
     end
 
     it "skips confirmation and deletes workload" do
@@ -145,7 +145,7 @@ describe Command::Delete do
 
       expect(Shell).not_to have_received(:confirm)
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Deleting workload 'rails'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting workload 'rails' from app '#{app}'[.]+? done!/)
     end
   end
 
@@ -223,7 +223,7 @@ describe Command::Delete do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Unbinding identity from policy[.]+? done!/)
+      expect(result[:stderr]).to match(/Unbinding identity from policy for app '#{app}'[.]+? done!/)
     end
   end
 end

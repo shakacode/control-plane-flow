@@ -32,8 +32,8 @@ describe Command::CleanupStaleApps do
     let!(:app2) { dummy_test_app("with-stale-app-image-deployed-days") }
 
     before do
-      run_cpl_command!("apply-template", "app", "-a", app1)
-      run_cpl_command!("apply-template", "app", "-a", app2)
+      run_cpl_command!("apply-template", "app", "postgres-with-volume", "-a", app1)
+      run_cpl_command!("apply-template", "app", "postgres-with-volume", "-a", app2)
       run_cpl_command!("build-image", "-a", app1)
       run_cpl_command!("build-image", "-a", app2)
     end
@@ -64,10 +64,12 @@ describe Command::CleanupStaleApps do
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app1}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app1}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting image '#{app1}:1'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting image '#{app1}:1' from app '#{app1}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app2}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app2}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting image '#{app2}:1'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting image '#{app2}:1' from app '#{app2}'[.]+? done!/)
     end
 
     it "skips confirmation and deletes stale apps", :slow do
@@ -79,10 +81,12 @@ describe Command::CleanupStaleApps do
 
       expect(Shell).not_to have_received(:confirm)
       expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app1}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app1}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting image '#{app1}:1'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting image '#{app1}:1' from app '#{app1}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app2}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app2}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Deleting image '#{app2}:1'[.]+? done!/)
+      expect(result[:stderr]).to match(/Deleting image '#{app2}:1' from app '#{app2}'[.]+? done!/)
     end
   end
 
