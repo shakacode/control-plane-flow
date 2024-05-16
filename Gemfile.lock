@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpl (2.0.0)
+    cpl (2.0.1)
       debug (~> 1.7.1)
       dotenv (~> 2.8.1)
       jwt (~> 2.8.1)
