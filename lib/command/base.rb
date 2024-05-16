@@ -486,30 +486,6 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def app_location_link
-      "/org/#{config.org}/location/#{config.location}"
-    end
-
-    def app_image_link
-      "/org/#{config.org}/image/#{latest_image}"
-    end
-
-    def app_identity
-      "#{config.app}-identity"
-    end
-
-    def app_identity_link
-      "/org/#{config.org}/gvc/#{config.app}/identity/#{app_identity}"
-    end
-
-    def app_secrets
-      config.current[:secrets_name] || "#{config.app_prefix}-secrets"
-    end
-
-    def app_secrets_policy
-      config.current[:secrets_policy_name] || "#{app_secrets}-policy"
-    end
-
     def ensure_docker_running!
       result = Shell.cmd("docker", "version", capture_stderr: true)
       return if result[:success]
