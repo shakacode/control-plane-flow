@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that are not yet released._
 
+### Fixed
+
+- Fixed issue where `cleanup-stale-apps` command fails to delete apps with volumesets. [PR 175](https://github.com/shakacode/heroku-to-control-plane/pull/175) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [2.0.0] - 2024-05-14
 
 ### BREAKING CHANGES

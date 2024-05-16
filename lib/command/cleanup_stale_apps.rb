@@ -7,9 +7,10 @@ module Command
       app_option(required: true),
       skip_confirm_option
     ].freeze
-    DESCRIPTION = "Deletes the whole app (GVC with all workloads and all images) for all stale apps"
+    DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps"
     LONG_DESCRIPTION = <<~DESC
-      - Deletes the whole app (GVC with all workloads and all images) for all stale apps
+      - Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
+      - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
       - Stale apps are identified based on the creation date of the latest image
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
       - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
@@ -28,8 +29,8 @@ module Command
 
       progress.puts
       stale_apps.each do |app|
-        delete_gvc(app)
-        delete_images(app)
+        delete_app(app[:name])
+        progress.puts
       end
     end
 
@@ -57,8 +58,7 @@ module Command
 
             apps.push({
                         name: app_name,
-                        date: created_date,
-                        images: images.map { |current_image| current_image["name"] }
+                        date: created_date
                       })
           end
 
@@ -72,18 +72,8 @@ module Command
       Shell.confirm("\nAre you sure you want to delete these #{stale_apps.length} apps?")
     end
 
-    def delete_gvc(app)
-      step("Deleting app '#{app[:name]}'") do
-        cp.gvc_delete(app[:name])
-      end
-    end
-
-    def delete_images(app)
-      app[:images].each do |image|
-        step("Deleting image '#{image}'") do
-          cp.image_delete(image)
-        end
-      end
+    def delete_app(app)
+      Cpl::Cli.start(["delete", "-a", app, "--yes"])
     end
   end
 end

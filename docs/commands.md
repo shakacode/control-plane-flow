@@ -66,7 +66,8 @@ cpl cleanup-images -a $APP_NAME
 
 ### `cleanup-stale-apps`
 
-- Deletes the whole app (GVC with all workloads and all images) for all stale apps
+- Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
+- Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
 - Stale apps are identified based on the creation date of the latest image
 - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
 - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
