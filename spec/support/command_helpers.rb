@@ -34,6 +34,51 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     }
   }.freeze
 
+  def config_dir
+    "#{spec_directory}/dummy/.controlplane"
+  end
+
+  def config_file_prefix(extra_prefix = "")
+    prefix = "controlplane"
+    prefix += "-#{extra_prefix}" unless extra_prefix.nil? || extra_prefix.empty?
+
+    prefix
+  end
+
+  def configure_config_file(extra_prefix = "")
+    prefix = config_file_prefix(extra_prefix)
+
+    config_file = File.read("#{config_dir}/#{prefix}.yml")
+    config_file = config_file.gsub("{GLOBAL_IDENTIFIER}", dummy_test_app_global_identifier)
+
+    @@tmp_config_file = Tempfile.create(["#{prefix}-tmp-", ".yml"], config_dir) # rubocop:disable Style/ClassVars
+    @@tmp_config_file.write(config_file)
+    @@tmp_config_file.rewind
+
+    ENV["CONFIG_FILE_PATH"] = @@tmp_config_file.path
+  end
+
+  def delete_config_file
+    return unless @@tmp_config_file
+
+    File.delete(@@tmp_config_file.path)
+    @@tmp_config_file = nil # rubocop:disable Style/ClassVars
+  end
+
+  def temporarily_switch_config_file(extra_prefix = "")
+    @@tmp_config_file_bkp = @@tmp_config_file # rubocop:disable Style/ClassVars
+
+    configure_config_file(extra_prefix)
+  end
+
+  def restore_config_file
+    delete_config_file
+    return unless @@tmp_config_file_bkp
+
+    @@tmp_config_file = @@tmp_config_file_bkp # rubocop:disable Style/ClassVars
+    ENV["CONFIG_FILE_PATH"] = @@tmp_config_file.path
+  end
+
   def dummy_test_org
     DUMMY_TEST_ORG
   end

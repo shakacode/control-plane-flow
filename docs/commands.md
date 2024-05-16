@@ -129,6 +129,21 @@ cpl delete -a $APP_NAME -w $WORKLOAD_NAME
 cpl deploy-image -a $APP_NAME
 ```
 
+### `doctor`
+
+- Runs validations
+
+```sh
+# Runs all validations that don't require additional options by default.
+cpl doctor
+
+# Runs config validation.
+cpl doctor --validations config
+
+# Runs templates validation (requires app).
+cpl doctor --validations templates -a $APP_NAME
+```
+
 ### `env`
 
 - Displays app-specific environment variables

@@ -8,6 +8,10 @@ module Command
 
     include Helpers
 
+    VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS = %w[config].freeze
+    VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
+    ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
+
     # Used to call the command (`cpl NAME`)
     # NAME = ""
     # Displayed when running `cpl help` or `cpl help NAME` (defaults to `NAME`)
@@ -373,6 +377,21 @@ module Command
           type: :string,
           required: required,
           valid_regex: /^\S+$/
+        }
+      }
+    end
+
+    def self.validations_option(required: false)
+      {
+        name: :validations,
+        params: {
+          banner: "VALIDATION_1,VALIDATION_2,...",
+          desc: "Which validations to run " \
+                "(must be separated by a comma)",
+          type: :string,
+          required: required,
+          default: VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS.join(","),
+          valid_regex: /^(#{ALL_VALIDATIONS.join("|")})(,(#{ALL_VALIDATIONS.join("|")}))*$/
         }
       }
     end
