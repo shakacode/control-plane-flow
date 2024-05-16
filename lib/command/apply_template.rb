@@ -58,8 +58,6 @@ module Command
         apply_template(template)
       end
 
-      warn_deprecated_variables
-
       print_created_items
       print_failed_templates
       print_skipped_templates
@@ -151,16 +149,6 @@ module Command
         end
         true
       end
-    end
-
-    def warn_deprecated_variables
-      deprecated_variables = @template_parser.deprecated_variables
-      return unless deprecated_variables.any?
-
-      message = "Please replace these variables in the templates, " \
-                "as support for them will be removed in a future major version bump:"
-      deprecated = deprecated_variables.map { |old_key, new_key| "  - #{old_key} -> #{new_key}" }.join("\n")
-      progress.puts("\n#{Shell.color("DEPRECATED: #{message}", :yellow)}\n#{deprecated}")
     end
 
     def report_success(item)
