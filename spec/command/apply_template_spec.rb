@@ -37,7 +37,7 @@ describe Command::ApplyTemplate do
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Failed to apply templates")
-      expect(result[:stderr]).to include("- invalid")
+      expect(result[:stderr]).to include("- [workload] invalid")
     end
 
     it "applies valid templates and fails to apply invalid templates" do
@@ -49,7 +49,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- [identity] #{app}-identity")
       expect(result[:stderr]).to include("- [workload] rails")
       expect(result[:stderr]).to include("Failed to apply templates")
-      expect(result[:stderr]).to include("- invalid")
+      expect(result[:stderr]).to include("- [workload] invalid")
     end
 
     it "replaces all variables correctly" do
@@ -108,7 +108,7 @@ describe Command::ApplyTemplate do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Skipped templates")
-      expect(result[:stderr]).to include("- app")
+      expect(result[:stderr]).to include("- [app] #{app}")
     end
 
     it "asks for confirmation and re-creates app" do
@@ -145,7 +145,7 @@ describe Command::ApplyTemplate do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Skipped templates")
-      expect(result[:stderr]).to include("- rails")
+      expect(result[:stderr]).to include("- [workload] rails")
     end
 
     it "asks for confirmation and re-creates workload" do
