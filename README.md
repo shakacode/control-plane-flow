@@ -6,8 +6,8 @@
 <meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
 
-[![RSpec](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rspec.yml)
-[![Rubocop](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/heroku-to-control-plane/actions/workflows/rubocop.yml)
+[![RSpec](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml)
+[![Rubocop](https://github.com/shakacode/control-plane-flow/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/control-plane-flow/actions/workflows/rubocop.yml)
 
 [![Gem](https://badge.fury.io/rb/cpl.svg)](https://badge.fury.io/rb/cpl)
 

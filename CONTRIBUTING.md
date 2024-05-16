@@ -6,10 +6,10 @@ Rather than installing `cpl` as a Ruby gem, install this repo locally and alias 
 access, e.g.:
 
 ```sh
-git clone https://github.com/shakacode/heroku-to-control-plane
+git clone https://github.com/shakacode/control-plane-flow
 
 # Create an alias in some local shell startup script, e.g., `.profile`, `.bashrc`, etc.
-alias cpl="~/projects/heroku-to-control-plane/bin/cpl"
+alias cpl="~/projects/control-plane-flow/bin/cpl"
 ```
 
 ## Linting

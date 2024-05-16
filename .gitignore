@@ -14,4 +14,4 @@
 # rspec failure tracking
 .rspec_status
 
-spec.log
+/spec.log
