@@ -14,6 +14,8 @@ class DoctorService
 
     validations.each do |validation|
       case validation
+      when "config"
+        validate_config
       when "templates"
         validate_templates
       else
@@ -30,6 +32,10 @@ class DoctorService
     exit(ExitCode::ERROR_DEFAULT) if @any_failed_validation
   end
 
+  def validate_config
+    check_for_app_names_contained_in_others
+  end
+
   def validate_templates
     @template_parser = TemplateParser.new(config)
     filenames = Dir.glob("#{@template_parser.template_dir}/*.yml")
@@ -40,6 +46,33 @@ class DoctorService
   end
 
   private
+
+  def check_for_app_names_contained_in_others
+    app_names_contained_in_others = find_app_names_contained_in_others
+    return if app_names_contained_in_others.empty?
+
+    message = "App names contained in others found below. Please ensure that app names are unique."
+    list = app_names_contained_in_others
+           .map { |app_prefix, app_name| "  - '#{app_prefix}' is a prefix of '#{app_name}'" }
+           .join("\n")
+    raise ValidationError, "#{Shell.color("ERROR: #{message}", :red)}\n#{list}"
+  end
+
+  def find_app_names_contained_in_others # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+    app_names = config.apps.keys.map(&:to_s).sort
+    app_prefixes = config.apps
+                         .select { |_, app_options| app_options[:match_if_app_name_starts_with] }
+                         .keys
+                         .map(&:to_s)
+                         .sort
+    app_prefixes.each_with_object([]) do |app_prefix, app_names_contained_in_others|
+      app_names.each do |app_name|
+        if app_prefix != app_name && app_name.start_with?(app_prefix)
+          app_names_contained_in_others.push([app_prefix, app_name])
+        end
+      end
+    end
+  end
 
   def check_for_duplicate_templates(templates)
     grouped_templates = templates.group_by { |template| [template["kind"], template["name"]] }
