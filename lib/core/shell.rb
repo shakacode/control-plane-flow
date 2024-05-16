@@ -90,4 +90,11 @@ class Shell
 
     message.gsub(pattern, "XXXXXXX")
   end
+
+  def self.trap_interrupt
+    trap("SIGINT") do
+      puts
+      exit(ExitCode::INTERRUPT)
+    end
+  end
 end
