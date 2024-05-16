@@ -15,6 +15,7 @@ module Command
       - Automatically binds the app to the secrets policy, as long as both the identity and the policy exist
       - Use `--skip-secret-access-binding` to prevent the automatic bind
     DESC
+    VALIDATIONS = %w[config templates].freeze
 
     def call # rubocop:disable Metrics/MethodLength
       templates = config[:setup_app_templates]

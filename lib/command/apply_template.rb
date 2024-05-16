@@ -39,6 +39,7 @@ module Command
       cpl apply-template app postgres redis rails -a $APP_NAME
       ```
     EX
+    VALIDATIONS = %w[config templates].freeze
 
     def call # rubocop:disable Metrics/MethodLength
       @template_parser = TemplateParser.new(config)

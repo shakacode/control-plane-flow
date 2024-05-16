@@ -23,6 +23,7 @@ module Command
       cpl doctor --validations templates -a $APP_NAME
       ```
     EX
+    VALIDATIONS = [].freeze
 
     def call
       validations = config.options[:validations].split(",")

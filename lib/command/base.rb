@@ -36,6 +36,8 @@ module Command
     HIDE = false
     # Whether or not to show key information like ORG and APP name in commands
     WITH_INFO_HEADER = true
+    # Which validations to run before the command
+    VALIDATIONS = %w[config].freeze
 
     def initialize(config)
       @config = config
