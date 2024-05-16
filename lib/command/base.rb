@@ -33,8 +33,6 @@ module Command
     # Whether or not to show key information like ORG and APP name in commands
     WITH_INFO_HEADER = true
 
-    NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
-
     def initialize(config)
       @config = config
     end
@@ -391,46 +389,6 @@ module Command
       end
     end
 
-    def latest_image_from(items, app_name: config.app, name_only: true)
-      matching_items = items.select { |item| item["name"].start_with?("#{app_name}:") }
-
-      # Or special string to indicate no image available
-      if matching_items.empty?
-        name_only ? "#{app_name}:#{NO_IMAGE_AVAILABLE}" : nil
-      else
-        latest_item = matching_items.max_by { |item| extract_image_number(item["name"]) }
-        name_only ? latest_item["name"] : latest_item
-      end
-    end
-
-    def latest_image(app = config.app, org = config.org, refresh: false)
-      @latest_image ||= {}
-      @latest_image[app] = nil if refresh
-      @latest_image[app] ||=
-        begin
-          items = cp.query_images(app, org)["items"]
-          latest_image_from(items, app_name: app)
-        end
-    end
-
-    def latest_image_next(app = config.app, org = config.org, commit: nil)
-      # debugger
-      commit ||= config.options[:commit]
-
-      @latest_image_next ||= {}
-      @latest_image_next[app] ||= begin
-        latest_image_name = latest_image(app, org)
-        image = latest_image_name.split(":").first
-        image += ":#{extract_image_number(latest_image_name) + 1}"
-        image += "_#{commit}" if commit
-        image
-      end
-    end
-
-    def extract_image_commit(image_name)
-      image_name.match(/_(\h+)$/)&.captures&.first
-    end
-
     # NOTE: use simplified variant atm, as shelljoin do different escaping
     # TODO: most probably need better logic for escaping various quotes
     def args_join(args)
@@ -491,15 +449,6 @@ module Command
       return if result[:success]
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."
-    end
-
-    private
-
-    # returns 0 if no prior image
-    def extract_image_number(image_name)
-      return 0 if image_name.end_with?(NO_IMAGE_AVAILABLE)
-
-      image_name.match(/:(\d+)/)&.captures&.first.to_i
     end
   end
 end

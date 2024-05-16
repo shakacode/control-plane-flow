@@ -27,7 +27,7 @@ module Command
 
       progress.puts("Building image from Dockerfile '#{dockerfile}'...\n\n")
 
-      image_name = latest_image_next
+      image_name = cp.latest_image_next
       image_url = "#{config.org}.registry.cpln.io/#{image_name}"
 
       commit = config.options[:commit]
@@ -41,7 +41,7 @@ module Command
       progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.\n\n")
 
       step("Waiting for image to be available", retry_on_failure: true) do
-        image_name == latest_image(refresh: true)
+        image_name == cp.latest_image(refresh: true)
       end
     end
   end

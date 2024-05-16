@@ -140,8 +140,8 @@ module Command
                  .gsub("{{APP_NAME}}", config.app)
                  .gsub("{{APP_LOCATION}}", config.location)
                  .gsub("{{APP_LOCATION_LINK}}", config.location_link)
-                 .gsub("{{APP_IMAGE}}", latest_image)
-                 .gsub("{{APP_IMAGE_LINK}}", config.image_link(latest_image))
+                 .gsub("{{APP_IMAGE}}", cp.latest_image)
+                 .gsub("{{APP_IMAGE_LINK}}", config.image_link(cp.latest_image))
                  .gsub("{{APP_IDENTITY}}", config.identity)
                  .gsub("{{APP_IDENTITY_LINK}}", config.identity_link)
                  .gsub("{{APP_SECRETS}}", config.secrets)
@@ -154,7 +154,7 @@ module Command
              .gsub("APP_ORG", config.org)
              .gsub("APP_GVC", config.app)
              .gsub("APP_LOCATION", config.location)
-             .gsub("APP_IMAGE", latest_image)
+             .gsub("APP_IMAGE", cp.latest_image)
 
       # Don't read in YAML.safe_load as that doesn't handle multiple documents
       cp.apply_template(data)
