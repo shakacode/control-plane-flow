@@ -12,7 +12,9 @@ Please follow the recommendations outlined at [keepachangelog.com](https://keepa
 
 Changes since the last non-beta release.
 
-_Please add entries here for your pull requests that are not yet released._
+_Please add entries here for your pull requests that have not yet been released._
+
+## [2.0.1] - 2024-05-15
 
 ### Fixed
 
@@ -190,7 +192,8 @@ _Please add entries here for your pull requests that are not yet released._
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/shakacode/heroku-to-control-plane/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/shakacode/heroku-to-control-plane/compare/v1.2.0...v1.3.0
