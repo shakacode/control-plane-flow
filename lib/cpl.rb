@@ -267,8 +267,4 @@ module Cpl
   end
 end
 
-# nice Ctrl+C
-trap "INT" do
-  puts
-  exit(ExitCode::INTERRUPT)
-end
+Shell.trap_interrupt unless ENV.fetch("DISABLE_INTERRUPT_TRAP", nil) == "true"
