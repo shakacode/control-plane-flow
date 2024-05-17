@@ -395,7 +395,7 @@ module Command
       script += interactive_runner_script if interactive
 
       script +=
-        if @log_method == 1
+        if @log_method == 1 || @interactive
           args_join(config.args)
         else
           <<~SCRIPT
