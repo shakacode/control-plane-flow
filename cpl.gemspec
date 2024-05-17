@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary     = "Heroku to Control Plane"
   spec.description = "CLI for providing Heroku-like platform-as-a-service on Control Plane"
-  spec.homepage    = "https://github.com/shakacode/heroku-to-control-plane"
+  spec.homepage    = "https://github.com/shakacode/control-plane-flow"
   spec.license     = "MIT"
 
   spec.required_ruby_version = ">= 2.7.0"
