@@ -9,7 +9,7 @@ describe Command::Config do
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("Config for app 'dummy-test-#{dummy_test_app_global_identifier}'")
-      expect(result[:stdout]).to include("Config for app 'dummy-test-with-nothing-#{dummy_test_app_global_identifier}'")
+      expect(result[:stdout]).to include("Config for app 'dummy-test-nothing-#{dummy_test_app_global_identifier}'")
       expect(result[:stdout]).to match(/^  match_if_app_name_starts_with: true$/)
       expect(result[:stdout]).to match(/^    - rails$/)
     end

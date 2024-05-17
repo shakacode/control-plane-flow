@@ -19,7 +19,7 @@ describe Command::BuildImage do
   end
 
   context "when Dockerfile does not exist" do
-    let!(:app) { dummy_test_app("with-nonexistent-dockerfile") }
+    let!(:app) { dummy_test_app("nonexistent-dockerfile") }
 
     it "raises error" do
       result = run_cpl_command("build-image", "-a", app)
@@ -30,7 +30,7 @@ describe Command::BuildImage do
   end
 
   context "when Dockerfile is invalid" do
-    let!(:app) { dummy_test_app("with-invalid-dockerfile") }
+    let!(:app) { dummy_test_app("invalid-dockerfile") }
 
     it "fails to build and push image" do
       result = run_cpl_command("build-image", "-a", app)

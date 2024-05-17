@@ -22,12 +22,12 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
       image_before_deploy_count: 2,
       image_after_deploy_count: 0
     },
-    "with-image-retention" => {
+    "image-retention" => {
       deploy: false,
       image_before_deploy_count: 3,
       image_after_deploy_count: 0
     },
-    "with-rails-with-non-app-image" => {
+    "rails-non-app-image" => {
       deploy: false,
       image_before_deploy_count: 1,
       image_after_deploy_count: 0

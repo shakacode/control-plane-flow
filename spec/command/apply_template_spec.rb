@@ -135,7 +135,7 @@ describe Command::ApplyTemplate do
   end
 
   context "when workload already exists" do
-    let!(:app) { dummy_test_app("with-rails", create_if_not_exists: true) }
+    let!(:app) { dummy_test_app("rails", create_if_not_exists: true) }
 
     it "asks for confirmation and does nothing" do
       allow(Shell).to receive(:confirm).with(include("Workload 'rails' already exists")).and_return(false)

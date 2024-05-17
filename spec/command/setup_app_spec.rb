@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::SetupApp do
   context "when 'setup_app_templates' is not defined" do
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
       result = run_cpl_command("setup-app", "-a", app)
@@ -46,7 +46,7 @@ describe Command::SetupApp do
   end
 
   context "when identity or policy does not exist" do
-    let!(:app) { dummy_test_app("without-identity") }
+    let!(:app) { dummy_test_app("nonexistent-identity") }
 
     after do
       run_cpl_command!("delete", "-a", app, "--yes")

@@ -6,7 +6,7 @@ describe Command::PromoteAppFromUpstream do
   context "when release script is not provided" do
     let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
     let!(:upstream_app) { dummy_test_app }
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     before do
       ENV["CPLN_UPSTREAM"] = upstream_app
@@ -37,7 +37,7 @@ describe Command::PromoteAppFromUpstream do
   context "when release script is invalid" do
     let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
     let!(:upstream_app) { dummy_test_app }
-    let!(:app) { dummy_test_app("with-invalid-release-script") }
+    let!(:app) { dummy_test_app("invalid-release-script") }
 
     before do
       ENV["CPLN_UPSTREAM"] = upstream_app
