@@ -7,6 +7,7 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
+      allow(Shell).to receive(:cmd).and_call_original
       allow(Shell).to receive(:cmd).with("docker", "version", anything).and_return({ success: false })
     end
 

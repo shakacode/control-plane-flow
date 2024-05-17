@@ -164,6 +164,15 @@ apps:
     setup_app_templates:
       - app
 
+  dummy-test-secrets-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    secrets_name: dummy-test-secrets
+    secrets_policy_name: dummy-test-secrets-policy
+    setup_app_templates:
+      - app
+
   dummy-test-info-{GLOBAL_IDENTIFIER}:
     <<: *common
 

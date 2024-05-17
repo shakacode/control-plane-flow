@@ -188,7 +188,7 @@ describe Command::Delete do
   end
 
   context "when identity and policy are not bound" do
-    let!(:app) { dummy_test_app }
+    let!(:app) { dummy_test_app("secrets") }
 
     before do
       run_cpl_command!("apply-template", "secrets", "-a", app)
@@ -208,7 +208,7 @@ describe Command::Delete do
   end
 
   context "when identity and policy are bound" do
-    let!(:app) { dummy_test_app }
+    let!(:app) { dummy_test_app("secrets") }
 
     before do
       run_cpl_command!("apply-template", "secrets", "-a", app)

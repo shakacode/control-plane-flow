@@ -61,29 +61,10 @@ describe Command::SetupApp do
   end
 
   context "when identity and policy exist" do
-    let!(:app) { dummy_test_app }
+    let!(:app) { dummy_test_app("secrets") }
 
     before do
       run_cpl_command!("apply-template", "secrets", "-a", app)
-    end
-
-    after do
-      run_cpl_command!("delete", "-a", app, "--yes")
-    end
-
-    it "binds identity to policy" do
-      result = run_cpl_command("setup-app", "-a", app)
-
-      expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Binding identity to policy[.]+? done!/)
-    end
-  end
-
-  context "when using custom names for secrets" do
-    let!(:app) { dummy_test_app }
-
-    before do
-      run_cpl_command!("apply-template", "secrets-with-custom-names", "-a", app)
     end
 
     after do
