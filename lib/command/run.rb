@@ -395,7 +395,7 @@ module Command
       script += interactive_runner_script if interactive
 
       script +=
-        if @log_method == 1
+        if @log_method == 1 || @interactive
           args_join(config.args)
         else
           <<~SCRIPT
@@ -442,16 +442,22 @@ module Command
       )
     end
 
-    def resolve_job_status
-      result = cp.fetch_cron_workload(runner_workload, location: location)
-      job_details = result&.dig("items")&.find { |item| item["id"] == job }
-      status = job_details&.dig("status")
+    def resolve_job_status # rubocop:disable Metrics/MethodLength
+      loop do
+        result = cp.fetch_cron_workload(runner_workload, location: location)
+        job_details = result&.dig("items")&.find { |item| item["id"] == job }
+        status = job_details&.dig("status")
 
-      case status
-      when "failed"
-        ExitCode::ERROR_DEFAULT
-      when "successful"
-        ExitCode::SUCCESS
+        Shell.debug("JOB STATUS", status)
+
+        case status
+        when "active"
+          sleep 1
+        when "successful"
+          break ExitCode::SUCCESS
+        else
+          break ExitCode::ERROR_DEFAULT
+        end
       end
     end
 

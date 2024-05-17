@@ -91,21 +91,35 @@ describe Command::Run do
       it "clones workload and runs provided command with success", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls") do |it|
           result = it.read_full_output
         end
 
         expect(result).to include("Gemfile")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
       end
 
       it "clones workload and runs provided command with failure", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "nonexistent") do |it|
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "nonexistent") do |it|
           result = it.read_full_output
         end
 
         expect(result).not_to include("Gemfile")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] failed")
+      end
+
+      it "waits for job to finish", :slow do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "sleep 10; ls") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("Gemfile")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] active")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
       end
     end
 
