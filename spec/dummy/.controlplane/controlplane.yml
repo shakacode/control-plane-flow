@@ -11,7 +11,7 @@ aliases:
       - postgres
 
 apps:
-  dummy-test:
+  dummy-test-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -27,12 +27,12 @@ apps:
       - rails
       - postgres
 
-  dummy-test-with-nothing:
+  dummy-test-with-nothing-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
 
-  dummy-test-default:
+  dummy-test-default-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -40,7 +40,7 @@ apps:
     setup_app_templates:
       - app
 
-  dummy-test-with-rails:
+  dummy-test-with-rails-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -48,7 +48,7 @@ apps:
       - app
       - rails
 
-  dummy-test-full:
+  dummy-test-full-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -59,19 +59,19 @@ apps:
       - postgres
       - maintenance
 
-  dummy-test-with-nonexistent-dockerfile:
+  dummy-test-with-nonexistent-dockerfile-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     dockerfile: Dockerfile.nonexistent
 
-  dummy-test-with-invalid-dockerfile:
+  dummy-test-with-invalid-dockerfile-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     dockerfile: Dockerfile.invalid
 
-  dummy-test-with-image-retention:
+  dummy-test-with-image-retention-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -80,37 +80,37 @@ apps:
     setup_app_templates:
       - app
 
-  dummy-test-with-image-retention-max-qty:
+  dummy-test-with-image-retention-max-qty-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     image_retention_max_qty: 3
 
-  dummy-test-with-image-retention-days:
+  dummy-test-with-image-retention-days-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     image_retention_days: 30
 
-  dummy-test-with-stale-app-image-deployed-days:
+  dummy-test-with-stale-app-image-deployed-days-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     stale_app_image_deployed_days: 30
 
-  dummy-test-with-undefined-upstream:
+  dummy-test-with-undefined-upstream-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     upstream: undefined
   
-  dummy-test-without-org:
+  dummy-test-without-org-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     cpln_org:
 
-  dummy-test-with-rails-with-non-app-image:
+  dummy-test-with-rails-with-non-app-image-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -124,39 +124,39 @@ apps:
       - postgres
       - rails-with-non-app-image
 
-  dummy-test-with-nonexistent-release-script:
+  dummy-test-with-nonexistent-release-script-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     release_script: release-nonexistent.sh
 
-  dummy-test-with-invalid-release-script:
+  dummy-test-with-invalid-release-script-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     upstream: dummy-test-upstream
     release_script: release-invalid.sh
 
-  dummy-test-with-external-maintenance-image:
+  dummy-test-with-external-maintenance-image-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     maintenance_workload: maintenance-with-external-image
 
-  dummy-test-with-fix-terminal-size:
+  dummy-test-with-fix-terminal-size-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     fix_terminal_size: true
 
-  dummy-test-without-identity:
+  dummy-test-without-identity-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
     setup_app_templates:
       - app-without-identity
 
-  dummy-test-without-policy:
+  dummy-test-without-policy-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -164,12 +164,12 @@ apps:
     setup_app_templates:
       - app
 
-  dummy-test-info:
+  dummy-test-info-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
 
-  dummy-test-info-with-nothing-missing:
+  dummy-test-info-with-nothing-missing-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -178,12 +178,12 @@ apps:
       - rails
       - postgres
 
-  dummy-test-info-with-missing-apps:
+  dummy-test-info-with-missing-apps-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
 
-  dummy-test-info-with-missing-workloads:
+  dummy-test-info-with-missing-workloads-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true
@@ -191,7 +191,7 @@ apps:
       - app
       - rails
 
-  dummy-test-info-with-extra-workloads:
+  dummy-test-info-with-extra-workloads-{GLOBAL_IDENTIFIER}:
     <<: *common
 
     match_if_app_name_starts_with: true

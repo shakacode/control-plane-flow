@@ -38,6 +38,10 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     DUMMY_TEST_ORG
   end
 
+  def dummy_test_app_global_identifier
+    @@global_identifier ||= SecureRandom.hex(2) # rubocop:disable Style/ClassVars
+  end
+
   # `extra_prefix` is used to differentiate between different dummy apps,
   # e.g., "dummy-test-default", "dummy-test-with-nothing", etc.
   #
@@ -45,6 +49,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   def dummy_test_app_prefix(extra_prefix = "")
     prefix = DUMMY_TEST_APP_PREFIX
     prefix += "-#{extra_prefix}" unless extra_prefix.nil? || extra_prefix.empty?
+    prefix += "-#{dummy_test_app_global_identifier}"
 
     prefix
   end
