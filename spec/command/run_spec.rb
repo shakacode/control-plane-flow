@@ -97,7 +97,7 @@ describe Command::Run do
         end
 
         expect(result).to include("Gemfile")
-        expect(Shell).to have_received(:debug).with("Job status: successful")
+        expect(Shell).to have_received(:debug).with("JOB STATUS", "successful")
       end
 
       it "clones workload and runs provided command with failure", :slow do
@@ -109,7 +109,7 @@ describe Command::Run do
         end
 
         expect(result).not_to include("Gemfile")
-        expect(Shell).to have_received(:debug).with("Job status: failed")
+        expect(Shell).to have_received(:debug).with("JOB STATUS", "failed")
       end
 
       it "waits for job to finish", :slow do
@@ -121,8 +121,8 @@ describe Command::Run do
         end
 
         expect(result).to include("Gemfile")
-        expect(Shell).to have_received(:debug).with("Job status: active")
-        expect(Shell).to have_received(:debug).with("Job status: successful")
+        expect(Shell).to have_received(:debug).with("JOB STATUS", "active")
+        expect(Shell).to have_received(:debug).with("JOB STATUS", "successful")
       end
     end
 

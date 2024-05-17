@@ -448,7 +448,7 @@ module Command
         job_details = result&.dig("items")&.find { |item| item["id"] == job }
         status = job_details&.dig("status")
 
-        Shell.debug("Job status: #{status}")
+        Shell.debug("JOB STATUS", status)
 
         case status
         when "active"
