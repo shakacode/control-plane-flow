@@ -89,40 +89,37 @@ describe Command::Run do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
       it "clones workload and runs provided command with success", :slow do
-        allow(Shell).to receive(:debug)
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls") do |it|
           result = it.read_full_output
         end
 
         expect(result).to include("Gemfile")
-        expect(Shell).to have_received(:debug).with("JOB STATUS", "successful")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
       end
 
       it "clones workload and runs provided command with failure", :slow do
-        allow(Shell).to receive(:debug)
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "nonexistent") do |it|
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "nonexistent") do |it|
           result = it.read_full_output
         end
 
         expect(result).not_to include("Gemfile")
-        expect(Shell).to have_received(:debug).with("JOB STATUS", "failed")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] failed")
       end
 
       it "waits for job to finish", :slow do
-        allow(Shell).to receive(:debug)
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "sleep 10; ls") do |it|
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "sleep 10; ls") do |it|
           result = it.read_full_output
         end
 
         expect(result).to include("Gemfile")
-        expect(Shell).to have_received(:debug).with("JOB STATUS", "active")
-        expect(Shell).to have_received(:debug).with("JOB STATUS", "successful")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] active")
+        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
       end
     end
 
