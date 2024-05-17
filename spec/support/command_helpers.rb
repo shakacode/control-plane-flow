@@ -69,7 +69,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   # Returns the app name.
   def dummy_test_app(extra_prefix = "", suffix = "", create_if_not_exists: false) # rubocop:disable Metrics/CyclomaticComplexity
     prefix = dummy_test_app_prefix(extra_prefix)
-    suffix = SecureRandom.hex(4) if (suffix.nil? || suffix.empty?) && !create_if_not_exists
+    suffix = SecureRandom.hex(2) if (suffix.nil? || suffix.empty?) && !create_if_not_exists
 
     app = prefix
     app += "-#{suffix}" unless suffix.nil? || suffix.empty?
