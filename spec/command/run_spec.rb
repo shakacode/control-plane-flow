@@ -89,6 +89,7 @@ describe Command::Run do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
       it "clones workload and runs provided command with success", :slow do
+        allow(Shell).to receive(:debug)
         result = nil
 
         spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
@@ -96,10 +97,11 @@ describe Command::Run do
         end
 
         expect(result).to include("Gemfile")
-        expect(result).to include("Job status: successful")
+        expect(Shell).to have_received(:debug).with("Job status: successful")
       end
 
       it "clones workload and runs provided command with failure", :slow do
+        allow(Shell).to receive(:debug)
         result = nil
 
         spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "nonexistent") do |it|
@@ -107,10 +109,11 @@ describe Command::Run do
         end
 
         expect(result).not_to include("Gemfile")
-        expect(result).to include("Job status: failed")
+        expect(Shell).to have_received(:debug).with("Job status: failed")
       end
 
       it "waits for job to finish", :slow do
+        allow(Shell).to receive(:debug)
         result = nil
 
         spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "sleep 10; ls") do |it|
@@ -118,8 +121,8 @@ describe Command::Run do
         end
 
         expect(result).to include("Gemfile")
-        expect(result).to include("Job status: active")
-        expect(result).to include("Job status: successful")
+        expect(Shell).to have_received(:debug).with("Job status: active")
+        expect(Shell).to have_received(:debug).with("Job status: successful")
       end
     end
 

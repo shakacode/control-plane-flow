@@ -448,12 +448,11 @@ module Command
         job_details = result&.dig("items")&.find { |item| item["id"] == job }
         status = job_details&.dig("status")
 
-        progress.puts("Job status: #{status}")
+        Shell.debug("Job status: #{status}")
 
         case status
         when "active"
           sleep 1
-          redo
         when "successful"
           break ExitCode::SUCCESS
         else
