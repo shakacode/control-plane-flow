@@ -442,16 +442,23 @@ module Command
       )
     end
 
-    def resolve_job_status
-      result = cp.fetch_cron_workload(runner_workload, location: location)
-      job_details = result&.dig("items")&.find { |item| item["id"] == job }
-      status = job_details&.dig("status")
+    def resolve_job_status # rubocop:disable Metrics/MethodLength
+      loop do
+        result = cp.fetch_cron_workload(runner_workload, location: location)
+        job_details = result&.dig("items")&.find { |item| item["id"] == job }
+        status = job_details&.dig("status")
 
-      case status
-      when "failed"
-        ExitCode::ERROR_DEFAULT
-      when "successful"
-        ExitCode::SUCCESS
+        progress.puts("Job status: #{status}")
+
+        case status
+        when "active"
+          sleep 1
+          redo
+        when "successful"
+          break ExitCode::SUCCESS
+        else
+          break ExitCode::ERROR_DEFAULT
+        end
       end
     end
 

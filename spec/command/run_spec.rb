@@ -96,6 +96,7 @@ describe Command::Run do
         end
 
         expect(result).to include("Gemfile")
+        expect(result).to include("Job status: successful")
       end
 
       it "clones workload and runs provided command with failure", :slow do
@@ -106,6 +107,19 @@ describe Command::Run do
         end
 
         expect(result).not_to include("Gemfile")
+        expect(result).to include("Job status: failed")
+      end
+
+      it "waits for job to finish", :slow do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "sleep 10; ls") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("Gemfile")
+        expect(result).to include("Job status: active")
+        expect(result).to include("Job status: successful")
       end
     end
 
