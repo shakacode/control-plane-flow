@@ -14,6 +14,8 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+## [2.0.2] - 2024-05-17
+
 - Fixed issue with improper handling of job statuses. Fixed issue with interactive magic string showing and exit code. [PR 177](https://github.com/shakacode/control-plane-flow/pull/177) by [Sergey Tarasov](https://github.com/dzirtusss).
 
 ## [2.0.1] - 2024-05-15
@@ -194,7 +196,8 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/shakacode/control-plane-flow/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/shakacode/control-plane-flow/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/shakacode/control-plane-flow/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/shakacode/control-plane-flow/compare/v1.3.0...v1.4.0
