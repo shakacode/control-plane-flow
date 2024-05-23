@@ -98,7 +98,7 @@ class ControlplaneApiDirect
   end
 
   def refresh_api_token
-    @@api_token[:token] = `cpln profile token`.chomp
+    @@api_token[:token] = Shell.cmd("cpln", "profile", "token")[:output].chomp
   end
 
   def self.reset_api_token
