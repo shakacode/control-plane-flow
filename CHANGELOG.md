@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Changed
+
+- `cpl` now sets `CPLN_SKIP_UPDATE_CHECK` to `true` for all internal `cpln` calls, which disables the version check and prevents cluttering the logs. [PR 180](https://github.com/shakacode/control-plane-flow/pull/180) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [2.0.2] - 2024-05-17
 
 - Fixed issue with improper handling of job statuses. Fixed issue with interactive magic string showing and exit code. [PR 177](https://github.com/shakacode/control-plane-flow/pull/177) by [Sergey Tarasov](https://github.com/dzirtusss).
