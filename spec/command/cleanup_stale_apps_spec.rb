@@ -3,10 +3,10 @@
 require "spec_helper"
 
 describe Command::CleanupStaleApps do
-  let!(:app_prefix) { dummy_test_app_prefix("with-stale-app-image-deployed-days") }
+  let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
   context "when 'stale_app_image_deployed_days' is not defined" do
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
       result = run_cpl_command("cleanup-stale-apps", "-a", app)
@@ -28,8 +28,8 @@ describe Command::CleanupStaleApps do
   end
 
   context "when there are stale apps to delete" do
-    let!(:app1) { dummy_test_app("with-stale-app-image-deployed-days") }
-    let!(:app2) { dummy_test_app("with-stale-app-image-deployed-days") }
+    let!(:app1) { dummy_test_app("stale-app") }
+    let!(:app2) { dummy_test_app("stale-app") }
 
     before do
       run_cpl_command!("apply-template", "app", "postgres-with-volume", "-a", app1)
@@ -91,10 +91,10 @@ describe Command::CleanupStaleApps do
   end
 
   context "with multiple apps" do
-    let!(:app1) { dummy_test_app("with-stale-app-image-deployed-days") }
-    let!(:app2) { dummy_test_app("with-stale-app-image-deployed-days") }
-    let!(:app3) { dummy_test_app("with-stale-app-image-deployed-days") }
-    let!(:app4) { dummy_test_app("with-stale-app-image-deployed-days") }
+    let!(:app1) { dummy_test_app("stale-app") }
+    let!(:app2) { dummy_test_app("stale-app") }
+    let!(:app3) { dummy_test_app("stale-app") }
+    let!(:app4) { dummy_test_app("stale-app") }
 
     before do
       run_cpl_command!("apply-template", "app", "-a", app1)

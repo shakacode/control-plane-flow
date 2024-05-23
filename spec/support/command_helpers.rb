@@ -22,12 +22,12 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
       image_before_deploy_count: 2,
       image_after_deploy_count: 0
     },
-    "with-image-retention" => {
+    "image-retention" => {
       deploy: false,
       image_before_deploy_count: 3,
       image_after_deploy_count: 0
     },
-    "with-rails-with-non-app-image" => {
+    "rails-non-app-image" => {
       deploy: false,
       image_before_deploy_count: 1,
       image_after_deploy_count: 0
@@ -38,6 +38,10 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     DUMMY_TEST_ORG
   end
 
+  def dummy_test_app_global_identifier
+    @@global_identifier ||= SecureRandom.hex(2) # rubocop:disable Style/ClassVars
+  end
+
   # `extra_prefix` is used to differentiate between different dummy apps,
   # e.g., "dummy-test-default", "dummy-test-with-nothing", etc.
   #
@@ -45,6 +49,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   def dummy_test_app_prefix(extra_prefix = "")
     prefix = DUMMY_TEST_APP_PREFIX
     prefix += "-#{extra_prefix}" unless extra_prefix.nil? || extra_prefix.empty?
+    prefix += "-#{dummy_test_app_global_identifier}"
 
     prefix
   end
@@ -64,7 +69,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   # Returns the app name.
   def dummy_test_app(extra_prefix = "", suffix = "", create_if_not_exists: false) # rubocop:disable Metrics/CyclomaticComplexity
     prefix = dummy_test_app_prefix(extra_prefix)
-    suffix = SecureRandom.hex(4) if (suffix.nil? || suffix.empty?) && !create_if_not_exists
+    suffix = SecureRandom.hex(2) if (suffix.nil? || suffix.empty?) && !create_if_not_exists
 
     app = prefix
     app += "-#{suffix}" unless suffix.nil? || suffix.empty?

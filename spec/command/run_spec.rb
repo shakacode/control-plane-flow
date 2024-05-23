@@ -38,7 +38,7 @@ describe Command::Run do
     end
 
     context "when 'fix_terminal_size' is provided" do
-      let!(:app) { dummy_test_app("with-fix-terminal-size") }
+      let!(:app) { dummy_test_app("fix-terminal-size") }
 
       before do
         run_cpl_command!("apply-template", "app", "rails", "-a", app)

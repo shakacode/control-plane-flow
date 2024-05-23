@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::MaintenanceOff do
   context "when app has no domain" do
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
       result = run_cpl_command("maintenance:off", "-a", app)

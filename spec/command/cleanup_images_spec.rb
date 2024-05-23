@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::CleanupImages do
   context "when 'image_retention_max_qty' or 'image_retention_days' are not defined" do
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
       result = run_cpl_command("cleanup-images", "-a", app)
@@ -96,7 +96,7 @@ describe Command::CleanupImages do
   end
 
   context "with single app based on max quantity" do
-    let!(:app) { dummy_test_app("with-image-retention-max-qty") }
+    let!(:app) { dummy_test_app("image-retention-max-qty") }
 
     before do
       run_cpl_command!("apply-template", "app", "-a", app)
@@ -128,7 +128,7 @@ describe Command::CleanupImages do
   end
 
   context "with single app based on days" do
-    let!(:app) { dummy_test_app("with-image-retention-days") }
+    let!(:app) { dummy_test_app("image-retention-days") }
 
     before do
       run_cpl_command!("apply-template", "app", "-a", app)
@@ -159,8 +159,8 @@ describe Command::CleanupImages do
 
   context "with multiple apps" do
     let!(:app_prefix) { dummy_test_app_prefix("with-image-retention") }
-    let!(:app1) { dummy_test_app("with-image-retention", "1", create_if_not_exists: true) }
-    let!(:app2) { dummy_test_app("with-image-retention", "2", create_if_not_exists: true) }
+    let!(:app1) { dummy_test_app("image-retention", "1", create_if_not_exists: true) }
+    let!(:app2) { dummy_test_app("image-retention", "2", create_if_not_exists: true) }
 
     it "lists correct images from exact app", :slow do
       allow(Shell).to receive(:confirm).with(include("2 images")).and_return(false)

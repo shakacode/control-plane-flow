@@ -150,7 +150,7 @@ describe Command::Delete do
   end
 
   context "when identity does not exist" do
-    let!(:app) { dummy_test_app("without-identity") }
+    let!(:app) { dummy_test_app("nonexistent-identity") }
 
     before do
       run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
@@ -169,7 +169,7 @@ describe Command::Delete do
   end
 
   context "when policy does not exist" do
-    let!(:app) { dummy_test_app("without-policy") }
+    let!(:app) { dummy_test_app("nonexistent-policy") }
 
     before do
       run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
@@ -188,7 +188,7 @@ describe Command::Delete do
   end
 
   context "when identity and policy are not bound" do
-    let!(:app) { dummy_test_app }
+    let!(:app) { dummy_test_app("secrets") }
 
     before do
       run_cpl_command!("apply-template", "secrets", "-a", app)
@@ -208,7 +208,7 @@ describe Command::Delete do
   end
 
   context "when identity and policy are bound" do
-    let!(:app) { dummy_test_app }
+    let!(:app) { dummy_test_app("secrets") }
 
     before do
       run_cpl_command!("apply-template", "secrets", "-a", app)

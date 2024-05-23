@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::DeployImage do
   context "when image does not exist" do
-    let!(:app) { dummy_test_app("with-rails", create_if_not_exists: true) }
+    let!(:app) { dummy_test_app("rails", create_if_not_exists: true) }
 
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app)
@@ -35,7 +35,7 @@ describe Command::DeployImage do
   end
 
   context "when not running release phase" do
-    let!(:app) { dummy_test_app("with-rails-with-non-app-image", create_if_not_exists: true) }
+    let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
 
     it "deploys latest image to app workloads", :slow do
       result = run_cpl_command("deploy-image", "-a", app)
@@ -48,7 +48,7 @@ describe Command::DeployImage do
   end
 
   context "when 'release_script' is not defined" do
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
@@ -59,7 +59,7 @@ describe Command::DeployImage do
   end
 
   context "when release script does not exist" do
-    let!(:app) { dummy_test_app("with-nonexistent-release-script") }
+    let!(:app) { dummy_test_app("nonexistent-release-script") }
 
     it "raises error" do
       result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
@@ -70,7 +70,7 @@ describe Command::DeployImage do
   end
 
   context "when release script is invalid" do
-    let!(:app) { dummy_test_app("with-invalid-release-script") }
+    let!(:app) { dummy_test_app("invalid-release-script") }
 
     before do
       ENV["APP_NAME"] = app
@@ -100,7 +100,7 @@ describe Command::DeployImage do
   end
 
   context "when release script is valid" do
-    let!(:app) { dummy_test_app("with-rails-with-non-app-image", create_if_not_exists: true) }
+    let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
 
     before do
       ENV["APP_NAME"] = app

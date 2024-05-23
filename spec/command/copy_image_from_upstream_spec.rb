@@ -7,6 +7,7 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
+      allow(Shell).to receive(:cmd).and_call_original
       allow(Shell).to receive(:cmd).with("docker", "version", anything).and_return({ success: false })
     end
 
@@ -19,7 +20,7 @@ describe Command::CopyImageFromUpstream do
   end
 
   context "when 'upstream' is not defined" do
-    let!(:app) { dummy_test_app("with-nothing") }
+    let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
@@ -30,7 +31,7 @@ describe Command::CopyImageFromUpstream do
   end
 
   context "when upstream app is not defined" do
-    let!(:app) { dummy_test_app("with-undefined-upstream") }
+    let!(:app) { dummy_test_app("undefined-upstream") }
 
     it "raises error" do
       result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
@@ -41,7 +42,7 @@ describe Command::CopyImageFromUpstream do
   end
 
   context "when 'cpln_org' is not defined for upstream app" do
-    let!(:upstream_app) { dummy_test_app("without-org") }
+    let!(:upstream_app) { dummy_test_app("undefined-org") }
     let!(:app) { dummy_test_app }
 
     before do

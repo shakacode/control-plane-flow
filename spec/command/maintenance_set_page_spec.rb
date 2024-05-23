@@ -17,7 +17,7 @@ describe Command::MaintenanceSetPage do
   end
 
   context "when maintenance workload uses external (non-shakacode) image" do
-    let!(:app) { dummy_test_app("with-external-maintenance-image") }
+    let!(:app) { dummy_test_app("external-maintenance-image") }
 
     before do
       run_cpl_command!("apply-template", "app", "maintenance-with-external-image", "-a", app)

@@ -27,9 +27,9 @@ describe Command::Info do
   end
 
   context "when nothing is missing" do
-    let!(:app_prefix) { dummy_test_app_prefix("info-with-nothing-missing") }
-    let!(:app1) { dummy_test_app("info-with-nothing-missing", "1", create_if_not_exists: true) }
-    let!(:app2) { dummy_test_app("info-with-nothing-missing", "2", create_if_not_exists: true) }
+    let!(:app_prefix) { dummy_test_app_prefix("info-nothing-missing") }
+    let!(:app1) { dummy_test_app("info-nothing-missing", "1", create_if_not_exists: true) }
+    let!(:app2) { dummy_test_app("info-nothing-missing", "2", create_if_not_exists: true) }
 
     it "does not highlight anything for single app" do
       allow(Shell).to receive(:color).and_call_original
@@ -64,9 +64,9 @@ describe Command::Info do
   end
 
   context "when there are apps missing" do
-    let!(:app_prefix) { dummy_test_app_prefix("info-with-missing-apps") }
-    let!(:app1) { dummy_test_app("info-with-missing-apps") }
-    let!(:app2) { dummy_test_app("info-with-missing-apps") }
+    let!(:app_prefix) { dummy_test_app_prefix("info-missing-apps") }
+    let!(:app1) { dummy_test_app("info-missing-apps") }
+    let!(:app2) { dummy_test_app("info-missing-apps") }
 
     it "highlights single app with red" do
       allow(Shell).to receive(:color).and_call_original
@@ -129,9 +129,9 @@ describe Command::Info do
   end
 
   context "when there are workloads missing" do
-    let!(:app_prefix) { dummy_test_app_prefix("info-with-missing-workloads") }
-    let!(:app1) { dummy_test_app("info-with-missing-workloads", "1", create_if_not_exists: true) }
-    let!(:app2) { dummy_test_app("info-with-missing-workloads", "2", create_if_not_exists: true) }
+    let!(:app_prefix) { dummy_test_app_prefix("info-missing-workloads") }
+    let!(:app1) { dummy_test_app("info-missing-workloads", "1", create_if_not_exists: true) }
+    let!(:app2) { dummy_test_app("info-missing-workloads", "2", create_if_not_exists: true) }
 
     it "highlights workloads for single app with red" do
       allow(Shell).to receive(:color).and_call_original
@@ -194,9 +194,9 @@ describe Command::Info do
   end
 
   context "when there are extra workloads" do
-    let!(:app_prefix) { dummy_test_app_prefix("info-with-extra-workloads") }
-    let!(:app1) { dummy_test_app("info-with-extra-workloads", "1", create_if_not_exists: true) }
-    let!(:app2) { dummy_test_app("info-with-extra-workloads", "2", create_if_not_exists: true) }
+    let!(:app_prefix) { dummy_test_app_prefix("info-extra-workloads") }
+    let!(:app1) { dummy_test_app("info-extra-workloads", "1", create_if_not_exists: true) }
+    let!(:app2) { dummy_test_app("info-extra-workloads", "2", create_if_not_exists: true) }
 
     it "highlights workloads for single app with green" do
       allow(Shell).to receive(:color).and_call_original
