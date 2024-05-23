@@ -371,6 +371,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.log_get(org: org, gvc: gvc, workload: workload, replica: replica, from: from, to: to)
   end
 
+  # secrets
+
+  def fetch_secret(secret)
+    api.fetch_secret(org: org, secret: secret)
+  end
+
   # identities
 
   def fetch_identity(identity, a_gvc = gvc)

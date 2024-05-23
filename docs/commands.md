@@ -422,9 +422,10 @@ cpl run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:mig
 
 - Creates an app and all its workloads
 - Specify the templates for the app and workloads through `setup_app_templates` in the `.controlplane/controlplane.yml` file
-- This should only be used for temporary apps like review apps, never for persistent apps like production (to update workloads for those, use 'cpl apply-template' instead)
-- Automatically binds the app to the secrets policy, as long as both the identity and the policy exist
-- Use `--skip-secret-access-binding` to prevent the automatic bind
+- This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpl apply-template' instead)
+- Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
+  using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
+- Use `--skip-secret-access-binding` to prevent the automatic setup of secrets
 
 ```sh
 cpl setup-app -a $APP_NAME
