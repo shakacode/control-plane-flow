@@ -58,17 +58,6 @@ describe Command::DeployImage do
     end
   end
 
-  context "when release script does not exist" do
-    let!(:app) { dummy_test_app("nonexistent-release-script") }
-
-    it "raises error" do
-      result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
-
-      expect(result[:status]).not_to eq(0)
-      expect(result[:stderr]).to include("Can't find release script")
-    end
-  end
-
   context "when release script is invalid" do
     let!(:app) { dummy_test_app("invalid-release-script") }
 

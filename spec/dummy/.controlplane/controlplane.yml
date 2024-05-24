@@ -124,12 +124,6 @@ apps:
       - postgres
       - rails-with-non-app-image
 
-  dummy-test-nonexistent-release-script-{GLOBAL_IDENTIFIER}:
-    <<: *common
-
-    match_if_app_name_starts_with: true
-    release_script: release-nonexistent.sh
-
   dummy-test-invalid-release-script-{GLOBAL_IDENTIFIER}:
     <<: *common
 
