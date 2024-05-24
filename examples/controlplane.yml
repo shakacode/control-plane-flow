@@ -111,6 +111,9 @@ apps:
       # Used by the command `cpl setup-app` to run a hook after creating the app.
       post_creation: bundle exec rake db:prepare
 
+      # Used by the command `cpl delete` to run a hook before deleting the app.
+      pre_deletion: bundle exec rake db:drop
+
   my-app-production:
     <<: *common
 

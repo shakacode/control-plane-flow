@@ -201,6 +201,32 @@ apps:
       - rails
       - postgres
 
+  dummy-test-invalid-pre-deletion-hook-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    secrets_name: dummy-test-secrets
+    secrets_policy_name: dummy-test-secrets-policy
+    hooks:
+      pre_deletion: bundle exec rake db:unexistent
+    setup_app_templates:
+      - app
+      - rails
+      - postgres
+
+  dummy-test-valid-pre-deletion-hook-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    secrets_name: dummy-test-secrets
+    secrets_policy_name: dummy-test-secrets-policy
+    hooks:
+      pre_deletion: bundle exec rake db:drop
+    setup_app_templates:
+      - app
+      - rails
+      - postgres
+
   dummy-test-info-{GLOBAL_IDENTIFIER}:
     <<: *common
 

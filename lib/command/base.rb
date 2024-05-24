@@ -408,6 +408,17 @@ module Command
         }
       }
     end
+
+    def self.skip_pre_deletion_hook_option(required: false)
+      {
+        name: :skip_pre_deletion_hook,
+        params: {
+          desc: "Skips pre-deletion hook",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options

@@ -109,6 +109,9 @@ cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --ima
 - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
 - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
 - Will ask for explicit user confirmation
+- Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
+- If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
+- Use `--skip-pre-deletion-hook` to skip the hook if specified in `controlplane.yml`
 
 ```sh
 # Deletes the whole app (GVC with all workloads, all volumesets and all images).
