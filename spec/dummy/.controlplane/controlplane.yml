@@ -175,6 +175,32 @@ apps:
     setup_app_templates:
       - app
 
+  dummy-test-invalid-post-creation-hook-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    secrets_name: dummy-test-secrets
+    secrets_policy_name: dummy-test-secrets-policy
+    hooks:
+      post_creation: bundle exec rake db:unexistent
+    setup_app_templates:
+      - app
+      - rails
+      - postgres
+
+  dummy-test-valid-post-creation-hook-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    secrets_name: dummy-test-secrets
+    secrets_policy_name: dummy-test-secrets-policy
+    hooks:
+      post_creation: bundle exec rake db:prepare
+    setup_app_templates:
+      - app
+      - rails
+      - postgres
+
   dummy-test-info-{GLOBAL_IDENTIFIER}:
     <<: *common
 

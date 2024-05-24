@@ -5,7 +5,8 @@ module Command
     NAME = "setup-app"
     OPTIONS = [
       app_option(required: true),
-      skip_secret_access_binding_option
+      skip_secret_access_binding_option,
+      skip_post_creation_hook_option
     ].freeze
     DESCRIPTION = "Creates an app and all its workloads"
     LONG_DESCRIPTION = <<~DESC
@@ -15,10 +16,13 @@ module Command
       - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
         using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
       - Use `--skip-secret-access-binding` to prevent the automatic setup of secrets
+      - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
+      - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
+      - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
     DESC
     VALIDATIONS = %w[config templates].freeze
 
-    def call
+    def call # rubocop:disable Metrics/MethodLength
       templates = config[:setup_app_templates]
 
       app = cp.fetch_gvc
@@ -33,6 +37,7 @@ module Command
       Cpl::Cli.start(["apply-template", *templates, "-a", config.app])
 
       bind_identity_to_policy unless config.options[:skip_secret_access_binding]
+      run_post_creation_hook unless config.options[:skip_post_creation_hook]
     end
 
     private
@@ -93,6 +98,13 @@ module Command
       step("Binding identity '#{config.identity}' to policy '#{config.secrets_policy}'") do
         cp.bind_identity_to_policy(config.identity_link, config.secrets_policy)
       end
+    end
+
+    def run_post_creation_hook
+      post_creation_hook = config.current.dig(:hooks, :post_creation)
+      return unless post_creation_hook
+
+      run_command_in_latest_image(post_creation_hook, title: "post-creation hook")
     end
   end
 end

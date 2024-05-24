@@ -103,4 +103,65 @@ describe Command::SetupApp do
         .to match(/Binding identity '#{app}-identity' to policy 'dummy-test-secrets-policy'[.]+? done!/)
     end
   end
+
+  context "when invalid post-creation hook is specified" do
+    let!(:app) { dummy_test_app("invalid-post-creation-hook") }
+
+    before do
+      run_cpl_command!("build-image", "-a", app)
+    end
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+    end
+
+    it "fails to run hook", :slow do
+      result = nil
+
+      spawn_cpl_command("setup-app", "-a", app) do |it|
+        result = it.read_full_output
+      end
+
+      expect(result).to include("Running post-creation hook")
+      expect(result).to include("Failed to run post-creation hook")
+    end
+  end
+
+  context "when valid post-creation hook is specified" do
+    let!(:app) { dummy_test_app("valid-post-creation-hook") }
+
+    before do
+      run_cpl_command!("build-image", "-a", app)
+    end
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+    end
+
+    it "successfully runs hook", :slow do
+      result = nil
+
+      spawn_cpl_command("setup-app", "-a", app) do |it|
+        result = it.read_full_output
+      end
+
+      expect(result).to include("Running post-creation hook")
+      expect(result).to include("Finished running post-creation hook")
+    end
+  end
+
+  context "when skipping post-creation hook" do
+    let!(:app) { dummy_test_app("valid-post-creation-hook") }
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+    end
+
+    it "does not run hook" do
+      result = run_cpl_command("setup-app", "-a", app, "--skip-post-creation-hook")
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Running post-creation hook")
+    end
+  end
 end

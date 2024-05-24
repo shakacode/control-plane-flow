@@ -270,6 +270,12 @@ apps:
     # e.g., "my-app-review-pr123", "my-app-review-anything-goes", etc.
     match_if_app_name_starts_with: true
 
+    # Hooks can be either a script path that exists in the app image or a command.
+    # They're run in the context of `cpl run` with the latest image.
+    hooks:
+      # Used by the command `cpl setup-app` to run a hook after creating the app.
+      post_creation: bundle exec rake db:prepare
+
   my-app-production:
     <<: *common
 

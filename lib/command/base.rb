@@ -397,6 +397,17 @@ module Command
         }
       }
     end
+
+    def self.skip_post_creation_hook_option(required: false)
+      {
+        name: :skip_post_creation_hook,
+        params: {
+          desc: "Skips post-creation hook",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options
