@@ -18,6 +18,8 @@ class Config # rubocop:disable Metrics/ClassLength
 
     ensure_required_options!
 
+    warn_deprecated_options
+
     Shell.verbose_mode(options[:verbose])
     trace_mode = options[:trace]
     return unless trace_mode
@@ -108,6 +110,8 @@ class Config # rubocop:disable Metrics/ClassLength
     @apps ||= config[:apps].to_h do |app_name, app_options|
       ensure_config_app!(app_name, app_options)
 
+      check_deprecated_options(app_options)
+
       app_options_with_new_keys = app_options.to_h do |key, value|
         new_key = new_option_keys[key]
         new_key ? [new_key, value] : [key, value]
@@ -120,14 +124,7 @@ class Config # rubocop:disable Metrics/ClassLength
   def current
     return unless app
 
-    @current ||= begin
-      app_config = find_app_config(app)
-      ensure_config_app!(app, app_config)
-
-      warn_deprecated_options(app_config)
-
-      app_config
-    end
+    @current ||= find_app_config(app)
   end
 
   def app_matches?(app_name1, app_name2, app_options)
@@ -299,11 +296,18 @@ class Config # rubocop:disable Metrics/ClassLength
     strip_str_and_validate(current.fetch(:default_domain))
   end
 
-  def warn_deprecated_options(app_options)
-    deprecated_option_keys = new_option_keys.select { |old_key| app_options.key?(old_key) }
-    return if deprecated_option_keys.empty?
+  def check_deprecated_options(app_options)
+    @deprecated_option_keys ||= {}
 
-    deprecated_option_keys.each do |old_key, new_key|
+    new_option_keys.each do |old_key, new_key|
+      @deprecated_option_keys[old_key] = new_key if app_options.key?(old_key)
+    end
+  end
+
+  def warn_deprecated_options
+    return if !@deprecated_option_keys || @deprecated_option_keys.empty?
+
+    @deprecated_option_keys.each do |old_key, new_key|
       Shell.warn_deprecated("Option '#{old_key}' is deprecated, " \
                             "please use '#{new_key}' instead (in 'controlplane.yml').")
     end
