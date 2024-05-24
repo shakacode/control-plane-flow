@@ -52,7 +52,7 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     # params << "direction=forward"
     params = params.map { |k, v| %(#{k}=#{CGI.escape(v)}) }.join("&")
 
-    api_json_direct("/logs/org/#{org}/loki/api/v1/query_range?#{params}", method: :get, host: :logs)
+    api_json("/logs/org/#{org}/loki/api/v1/query_range?#{params}", method: :get, host: :logs)
   end
 
   def query_workloads(org:, gvc:, workload:, gvc_op_type:, workload_op_type:) # rubocop:disable Metrics/MethodLength
@@ -152,13 +152,7 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     result
   end
 
-  # switch between cpln rest and api
   def api_json(...)
-    ControlplaneApiDirect.new.call(...)
-  end
-
-  # only for api (where not impelemented in cpln rest)
-  def api_json_direct(...)
     ControlplaneApiDirect.new.call(...)
   end
 end

@@ -58,6 +58,8 @@ module Cpl
     default_task :no_command
 
     def self.start(*args)
+      ENV["CPLN_SKIP_UPDATE_CHECK"] = "true"
+
       check_cpln_version
       check_cpl_version
       fix_help_option
