@@ -249,6 +249,14 @@ aliases:
     # when running `cpl run`.
     fix_terminal_size: true
 
+    # Sets a default CPU size for `cpl run` jobs (can be overridden per job through `--cpu`).
+    # If not specified, defaults to "1" (1 core).
+    runner_job_default_cpu: "2"
+
+    # Sets a default memory size for `cpl run` jobs (can be overridden per job through `--memory`).
+    # If not specified, defaults to "2Gi" (2 gibibytes).
+    runner_job_default_memory: "4Gi"
+
     # Apps with a deployed image created before this amount of days will be listed for deletion
     # when running the command `cpl cleanup-stale-apps`.
     stale_app_image_deployed_days: 5

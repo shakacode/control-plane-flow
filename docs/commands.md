@@ -371,12 +371,15 @@ cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
 - - log async fetching for non-interactive mode
 - The Dockerfile entrypoint is used as the command by default, which assumes `exec "${@}"` to be present,
   and the args ["bash", "-c", cmd_to_run] are passed
-- The entrypoint can be overriden through `--entrypoint`, which must be a single command or a script path that exists in the container,
+- The entrypoint can be overridden through `--entrypoint`, which must be a single command or a script path that exists in the container,
   and the args ["bash", "-c", cmd_to_run] are passed,
   unless the entrypoint is `bash`, in which case the args ["-c", cmd_to_run] are passed
 - Providing `--entrypoint none` sets the entrypoint to `bash` by default
 - If `fix_terminal_size` is `true` in the `.controlplane/controlplane.yml` file,
-  the remote terminal size will be fixed to match the local terminal size (may also be overriden through `--terminal-size`)
+  the remote terminal size will be fixed to match the local terminal size (may also be overridden through `--terminal-size`)
+- By default, all jobs use a CPU size of 1 (1 core) and a memory size of 2Gi (2 gibibytes)
+  (can be configured through `runner_job_default_cpu` and `runner_job_default_memory` in `controlplane.yml`,
+  and also overridden per job through `--cpu` and `--memory`)
 
 ```sh
 # Opens shell (bash by default).
