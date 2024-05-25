@@ -397,6 +397,28 @@ module Command
         }
       }
     end
+
+    def self.skip_post_creation_hook_option(required: false)
+      {
+        name: :skip_post_creation_hook,
+        params: {
+          desc: "Skips post-creation hook",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.skip_pre_deletion_hook_option(required: false)
+      {
+        name: :skip_pre_deletion_hook,
+        params: {
+          desc: "Skips pre-deletion hook",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options
@@ -470,6 +492,26 @@ module Command
       return if result[:success]
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."
+    end
+
+    def run_command_in_latest_image(command, title:)
+      # Need to prefix the command with '.controlplane/'
+      # if it's a file in the '.controlplane' directory,
+      # for backwards compatibility
+      path = Pathname.new("#{config.app_cpln_dir}/#{command}").expand_path
+      command = ".controlplane/#{command}" if File.exist?(path)
+
+      progress.puts("Running #{title}...\n\n")
+
+      begin
+        Cpl::Cli.start(["run", "-a", config.app, "--image", "latest", "--", command])
+      rescue SystemExit => e
+        progress.puts
+
+        raise "Failed to run #{title}." if e.status.nonzero?
+
+        progress.puts("Finished running #{title}.\n\n")
+      end
     end
   end
 end

@@ -224,4 +224,66 @@ describe Command::Delete do
       expect(result[:stderr]).to match(/Unbinding identity from policy for app '#{app}'[.]+? done!/)
     end
   end
+
+  context "when invalid pre-deletion hook is specified" do
+    let!(:app) { dummy_test_app("invalid-pre-deletion-hook") }
+
+    before do
+      run_cpl_command!("build-image", "-a", app)
+      run_cpl_command!("setup-app", "-a", app)
+    end
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes", "--skip-pre-deletion-hook")
+    end
+
+    it "fails to run hook", :slow do
+      result = nil
+
+      spawn_cpl_command("delete", "-a", app, "--yes") do |it|
+        result = it.read_full_output
+      end
+
+      expect(result).to include("Running pre-deletion hook")
+      expect(result).to include("Failed to run pre-deletion hook")
+    end
+  end
+
+  context "when valid pre-deletion hook is specified" do
+    let!(:app) { dummy_test_app("valid-pre-deletion-hook") }
+
+    before do
+      run_cpl_command!("build-image", "-a", app)
+      run_cpl_command!("setup-app", "-a", app)
+    end
+
+    it "successfully runs hook", :slow do
+      result = nil
+
+      spawn_cpl_command("delete", "-a", app, "--yes") do |it|
+        result = it.read_full_output
+      end
+
+      expect(result).to include("Running pre-deletion hook")
+      expect(result).to include("Finished running pre-deletion hook")
+    end
+  end
+
+  context "when skipping pre-deletion hook" do
+    let!(:app) { dummy_test_app("valid-pre-deletion-hook") }
+
+    before do
+      run_cpl_command!("setup-app", "-a", app)
+    end
+
+    it "does not run hook" do
+      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+
+      result = run_cpl_command("delete", "-a", app, "--skip-pre-deletion-hook")
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Running pre-deletion hook")
+    end
+  end
 end

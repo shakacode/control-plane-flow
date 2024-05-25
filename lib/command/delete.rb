@@ -6,13 +6,17 @@ module Command
     OPTIONS = [
       app_option(required: true),
       workload_option,
-      skip_confirm_option
+      skip_confirm_option,
+      skip_pre_deletion_hook_option
     ].freeze
     DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload"
     LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
       - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
       - Will ask for explicit user confirmation
+      - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
+      - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
+      - Use `--skip-pre-deletion-hook` to skip the hook if specified in `controlplane.yml`
     DESC
     EXAMPLES = <<~EX
       ```sh
@@ -51,6 +55,7 @@ module Command
       check_images
       return unless confirm_delete(config.app)
 
+      run_pre_deletion_hook unless config.options[:skip_pre_deletion_hook]
       unbind_identity_from_policy
       delete_volumesets
       delete_gvc
@@ -132,6 +137,13 @@ module Command
       step("Unbinding identity from policy for app '#{config.app}'") do
         cp.unbind_identity_from_policy(config.identity_link, config.secrets_policy)
       end
+    end
+
+    def run_pre_deletion_hook
+      pre_deletion_hook = config.current.dig(:hooks, :pre_deletion)
+      return unless pre_deletion_hook
+
+      run_command_in_latest_image(pre_deletion_hook, title: "pre-deletion hook")
     end
   end
 end

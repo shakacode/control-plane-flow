@@ -10,9 +10,9 @@ module Command
     DESCRIPTION = "Deploys the latest image to app workloads, and runs a release script (optional)"
     LONG_DESCRIPTION = <<~DESC
       - Deploys the latest image to app workloads
-      - Optionally runs a release script before deploying if specified through `release_script` in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
+      - Runs a release script before deploying if `release_script` is specified in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
       - The release script is run in the context of `cpl run` with the latest image
-      - The deploy will fail if the release script exits with a non-zero code or doesn't exist
+      - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
     DESC
 
     def call # rubocop:disable Metrics/MethodLength
@@ -48,24 +48,9 @@ module Command
 
     private
 
-    def run_release_script # rubocop:disable Metrics/MethodLength
-      release_script_name = config[:release_script]
-      release_script_path = Pathname.new("#{config.app_cpln_dir}/#{release_script_name}").expand_path
-
-      raise "Can't find release script in '#{release_script_path}'." unless File.exist?(release_script_path)
-
-      progress.puts("Running release script...\n\n")
-
-      release_script = File.read(release_script_path)
-      begin
-        Cpl::Cli.start(["run", "-a", config.app, "--image", "latest", "--", release_script])
-      rescue SystemExit => e
-        progress.puts
-
-        raise "Failed to run release script." if e.status.nonzero?
-
-        progress.puts("Finished running release script.\n\n")
-      end
+    def run_release_script
+      release_script = config[:release_script]
+      run_command_in_latest_image(release_script, title: "release script")
     end
   end
 end

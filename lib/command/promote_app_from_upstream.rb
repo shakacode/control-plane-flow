@@ -14,7 +14,7 @@ module Command
         - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
         - Runs `cpl deploy-image` to deploy the image
         - If `.controlplane/controlplane.yml` includes the `release_script`, `cpl deploy-image` will use the `--run-release-phase` option
-        - The deploy will fail if the release script exits with a non-zero code
+        - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
     DESC
 
     def call

@@ -14,8 +14,15 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Fixed
+
+- Fixed issue where release script was not running from the app image. [PR 183](https://github.com/shakacode/control-plane-flow/pull/183) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed issue where deprecated options were not being warned. [PR 183](https://github.com/shakacode/control-plane-flow/pull/183) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Added
 
+- Added post-creation hook to `setup-app` command (configurable through `hooks.post_creation` in `controlplane.yml`). [PR 183](https://github.com/shakacode/control-plane-flow/pull/183) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Added pre-deletion hook to `delete` command (configurable through `hooks.pre_deletion` in `controlplane.yml`). [PR 183](https://github.com/shakacode/control-plane-flow/pull/183) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `doctor` command to run validations. [PR 185](https://github.com/shakacode/control-plane-flow/pull/185) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Changed
