@@ -11,6 +11,7 @@ module Command
       - For debugging purposes
     DESC
     HIDE = true
+    VALIDATIONS = [].freeze
 
     def call
       # Modify this method to trigger the code you want to test.

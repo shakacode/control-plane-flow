@@ -39,44 +39,25 @@ module Command
       cpl apply-template app postgres redis rails -a $APP_NAME
       ```
     EX
+    VALIDATIONS = %w[config templates].freeze
 
-    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def call # rubocop:disable Metrics/MethodLength
+      @template_parser = TemplateParser.new(config)
+      @names_to_filenames = config.args.to_h do |name|
+        [name, @template_parser.template_filename(name)]
+      end
+
       ensure_templates!
 
       @created_items = []
       @failed_templates = []
       @skipped_templates = []
 
-      @asked_for_confirmation = false
-
-      pending_templates = templates.select do |template|
-        if template == "app"
-          confirm_app(template)
-        else
-          confirm_workload(template)
-        end
+      templates = @template_parser.parse(@names_to_filenames.values)
+      pending_templates = confirm_templates(templates)
+      pending_templates.each do |template|
+        apply_template(template)
       end
-
-      progress.puts if @asked_for_confirmation
-
-      @deprecated_variables = []
-
-      pending_templates.each do |template, filename|
-        step("Applying template '#{template}'", abort_on_error: false) do
-          items = apply_template(filename)
-          unless items
-            report_failure(template)
-            next false
-          end
-
-          items.each do |item|
-            report_success(item)
-          end
-          true
-        end
-      end
-
-      warn_deprecated_variables
 
       print_created_items
       print_failed_templates
@@ -87,18 +68,21 @@ module Command
 
     private
 
-    def templates
-      @templates ||= config.args.to_h do |template|
-        [template, "#{config.app_cpln_dir}/templates/#{template}.yml"]
+    def template_kind(template)
+      case template["kind"]
+      when "gvc"
+        "app"
+      else
+        template["kind"]
       end
     end
 
     def ensure_templates!
-      missing_templates = templates.reject { |_template, filename| File.exist?(filename) }.to_h
+      missing_templates = @names_to_filenames.reject { |_, filename| File.exist?(filename) }
       return if missing_templates.empty?
 
-      missing_templates_str = missing_templates.map do |template, filename|
-        "  - #{template} (#{filename})"
+      missing_templates_str = missing_templates.map do |name, filename|
+        "  - #{name} (#{filename})"
       end.join("\n")
       progress.puts("#{Shell.color('Missing templates:', :red)}\n#{missing_templates_str}\n\n")
 
@@ -113,10 +97,10 @@ module Command
     end
 
     def confirm_app(template)
-      app = cp.fetch_gvc
+      app = cp.fetch_gvc(template["name"])
       return true unless app
 
-      confirmed = confirm_apply("App '#{config.app}' already exists, do you want to re-create it?")
+      confirmed = confirm_apply("App '#{template['name']}' already exists, do you want to re-create it?")
       return true if confirmed
 
       report_skipped(template)
@@ -124,63 +108,48 @@ module Command
     end
 
     def confirm_workload(template)
-      workload = cp.fetch_workload(template)
+      workload = cp.fetch_workload(template["name"])
       return true unless workload
 
-      confirmed = confirm_apply("Workload '#{template}' already exists, do you want to re-create it?")
+      confirmed = confirm_apply("Workload '#{template['name']}' already exists, do you want to re-create it?")
       return true if confirmed
 
       report_skipped(template)
       false
     end
 
-    def apply_template(filename) # rubocop:disable Metrics/MethodLength
-      data = File.read(filename)
-                 .gsub("{{APP_ORG}}", config.org)
-                 .gsub("{{APP_NAME}}", config.app)
-                 .gsub("{{APP_LOCATION}}", config.location)
-                 .gsub("{{APP_LOCATION_LINK}}", app_location_link)
-                 .gsub("{{APP_IMAGE}}", latest_image)
-                 .gsub("{{APP_IMAGE_LINK}}", app_image_link)
-                 .gsub("{{APP_IDENTITY}}", app_identity)
-                 .gsub("{{APP_IDENTITY_LINK}}", app_identity_link)
-                 .gsub("{{APP_SECRETS}}", app_secrets)
-                 .gsub("{{APP_SECRETS_POLICY}}", app_secrets_policy)
+    def confirm_templates(templates) # rubocop:disable Metrics/MethodLength
+      @asked_for_confirmation = false
 
-      find_deprecated_variables(data)
+      pending_templates = templates.select do |template|
+        case template["kind"]
+        when "gvc"
+          confirm_app(template)
+        when "workload"
+          confirm_workload(template)
+        else
+          true
+        end
+      end
 
-      # Kept for backwards compatibility
-      data = data
-             .gsub("APP_ORG", config.org)
-             .gsub("APP_GVC", config.app)
-             .gsub("APP_LOCATION", config.location)
-             .gsub("APP_IMAGE", latest_image)
+      progress.puts if @asked_for_confirmation
 
-      # Don't read in YAML.safe_load as that doesn't handle multiple documents
-      cp.apply_template(data)
+      pending_templates
     end
 
-    def new_variables
-      {
-        "APP_ORG" => "{{APP_ORG}}",
-        "APP_GVC" => "{{APP_NAME}}",
-        "APP_LOCATION" => "{{APP_LOCATION}}",
-        "APP_IMAGE" => "{{APP_IMAGE}}"
-      }
-    end
+    def apply_template(template) # rubocop:disable Metrics/MethodLength
+      step("Applying template for #{template_kind(template)} '#{template['name']}'", abort_on_error: false) do
+        items = cp.apply_hash(template)
+        unless items
+          report_failure(template)
+          next false
+        end
 
-    def find_deprecated_variables(data)
-      @deprecated_variables.push(*new_variables.keys.select { |old_key| data.include?(old_key) })
-      @deprecated_variables = @deprecated_variables.uniq.sort
-    end
-
-    def warn_deprecated_variables
-      return unless @deprecated_variables.any?
-
-      message = "Please replace these variables in the templates, " \
-                "as support for them will be removed in a future major version bump:"
-      deprecated = @deprecated_variables.map { |old_key| "  - #{old_key} -> #{new_variables[old_key]}" }.join("\n")
-      progress.puts("\n#{Shell.color("DEPRECATED: #{message}", :yellow)}\n#{deprecated}")
+        items.each do |item|
+          report_success(item)
+        end
+        true
+      end
     end
 
     def report_success(item)
@@ -205,14 +174,14 @@ module Command
     def print_failed_templates
       return unless @failed_templates.any?
 
-      failed = @failed_templates.map { |template| "  - #{template}" }.join("\n")
+      failed = @failed_templates.map { |template| "  - [#{template_kind(template)}] #{template['name']}" }.join("\n")
       progress.puts("\n#{Shell.color('Failed to apply templates:', :red)}\n#{failed}")
     end
 
     def print_skipped_templates
       return unless @skipped_templates.any?
 
-      skipped = @skipped_templates.map { |template| "  - #{template}" }.join("\n")
+      skipped = @skipped_templates.map { |template| "  - [#{template_kind(template)}] #{template['name']}" }.join("\n")
       progress.puts("\n#{Shell.color('Skipped templates (already exist):', :blue)}\n#{skipped}")
     end
   end

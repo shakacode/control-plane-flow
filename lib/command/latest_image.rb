@@ -13,7 +13,7 @@ module Command
     WITH_INFO_HEADER = false
 
     def call
-      puts latest_image
+      puts cp.latest_image
     end
   end
 end

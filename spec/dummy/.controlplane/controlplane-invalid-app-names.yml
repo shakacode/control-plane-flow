@@ -1,0 +1,25 @@
+aliases:
+  common: &common
+    allow_org_override_by_env: true
+
+apps:
+  dummy-normal-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+  dummy-test-{GLOBAL_IDENTIFIER}-full:
+    <<: *common
+
+  dummy-test-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+
+  dummy-test-{GLOBAL_IDENTIFIER}-1:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+
+  dummy-test-{GLOBAL_IDENTIFIER}-2:
+    <<: *common
+
+    match_if_app_name_starts_with: true

@@ -183,7 +183,7 @@ module Command
         # Override image if specified
         image = config.options[:image]
         image_link = if image
-                       image = latest_image if image == "latest"
+                       image = cp.latest_image if image == "latest"
                        "/org/#{config.org}/image/#{image}"
                      else
                        original_container_spec["image"]

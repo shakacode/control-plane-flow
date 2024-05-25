@@ -15,4 +15,4 @@
 .rspec_status
 
 /spec.log
-/spec/dummy/.controlplane/controlplane-tmp-*.yml
+/spec/dummy/.controlplane/controlplane*-tmp-*.yml

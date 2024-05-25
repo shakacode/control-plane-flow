@@ -38,8 +38,32 @@ class Config # rubocop:disable Metrics/ClassLength
     current&.fetch(:name)
   end
 
+  def identity
+    "#{app}-identity"
+  end
+
+  def identity_link
+    "/org/#{org}/gvc/#{app}/identity/#{identity}"
+  end
+
+  def secrets
+    current&.dig(:secrets_name) || "#{app_prefix}-secrets"
+  end
+
+  def secrets_policy
+    current&.dig(:secrets_policy_name) || "#{secrets}-policy"
+  end
+
   def location
     @location ||= load_location_from_options || load_location_from_env || load_location_from_file
+  end
+
+  def location_link
+    "/org/#{org}/location/#{location}"
+  end
+
+  def image_link(image)
+    "/org/#{org}/image/#{image}"
   end
 
   def domain

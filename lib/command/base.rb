@@ -8,6 +8,10 @@ module Command
 
     include Helpers
 
+    VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS = %w[config].freeze
+    VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
+    ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
+
     # Used to call the command (`cpl NAME`)
     # NAME = ""
     # Displayed when running `cpl help` or `cpl help NAME` (defaults to `NAME`)
@@ -32,8 +36,8 @@ module Command
     HIDE = false
     # Whether or not to show key information like ORG and APP name in commands
     WITH_INFO_HEADER = true
-
-    NO_IMAGE_AVAILABLE = "NO_IMAGE_AVAILABLE"
+    # Which validations to run before the command
+    VALIDATIONS = %w[config].freeze
 
     def initialize(config)
       @config = config
@@ -378,6 +382,21 @@ module Command
         }
       }
     end
+
+    def self.validations_option(required: false)
+      {
+        name: :validations,
+        params: {
+          banner: "VALIDATION_1,VALIDATION_2,...",
+          desc: "Which validations to run " \
+                "(must be separated by a comma)",
+          type: :string,
+          required: required,
+          default: VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS.join(","),
+          valid_regex: /^(#{ALL_VALIDATIONS.join("|")})(,(#{ALL_VALIDATIONS.join("|")}))*$/
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options
@@ -389,46 +408,6 @@ module Command
         option[:params][:aliases]&.each { |current_alias| result[current_alias.to_s] = option }
         result["--#{option[:name]}"] = option
       end
-    end
-
-    def latest_image_from(items, app_name: config.app, name_only: true)
-      matching_items = items.select { |item| item["name"].start_with?("#{app_name}:") }
-
-      # Or special string to indicate no image available
-      if matching_items.empty?
-        name_only ? "#{app_name}:#{NO_IMAGE_AVAILABLE}" : nil
-      else
-        latest_item = matching_items.max_by { |item| extract_image_number(item["name"]) }
-        name_only ? latest_item["name"] : latest_item
-      end
-    end
-
-    def latest_image(app = config.app, org = config.org, refresh: false)
-      @latest_image ||= {}
-      @latest_image[app] = nil if refresh
-      @latest_image[app] ||=
-        begin
-          items = cp.query_images(app, org)["items"]
-          latest_image_from(items, app_name: app)
-        end
-    end
-
-    def latest_image_next(app = config.app, org = config.org, commit: nil)
-      # debugger
-      commit ||= config.options[:commit]
-
-      @latest_image_next ||= {}
-      @latest_image_next[app] ||= begin
-        latest_image_name = latest_image(app, org)
-        image = latest_image_name.split(":").first
-        image += ":#{extract_image_number(latest_image_name) + 1}"
-        image += "_#{commit}" if commit
-        image
-      end
-    end
-
-    def extract_image_commit(image_name)
-      image_name.match(/_(\h+)$/)&.captures&.first
     end
 
     # NOTE: use simplified variant atm, as shelljoin do different escaping
@@ -486,44 +465,11 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def app_location_link
-      "/org/#{config.org}/location/#{config.location}"
-    end
-
-    def app_image_link
-      "/org/#{config.org}/image/#{latest_image}"
-    end
-
-    def app_identity
-      "#{config.app}-identity"
-    end
-
-    def app_identity_link
-      "/org/#{config.org}/gvc/#{config.app}/identity/#{app_identity}"
-    end
-
-    def app_secrets
-      config.current[:secrets_name] || "#{config.app_prefix}-secrets"
-    end
-
-    def app_secrets_policy
-      config.current[:secrets_policy_name] || "#{app_secrets}-policy"
-    end
-
     def ensure_docker_running!
       result = Shell.cmd("docker", "version", capture_stderr: true)
       return if result[:success]
 
       raise "Can't run Docker. Please make sure that it's installed and started, then try again."
-    end
-
-    private
-
-    # returns 0 if no prior image
-    def extract_image_number(image_name)
-      return 0 if image_name.end_with?(NO_IMAGE_AVAILABLE)
-
-      image_name.match(/:(\d+)/)&.captures&.first.to_i
     end
   end
 end

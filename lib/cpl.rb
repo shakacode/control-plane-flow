@@ -179,6 +179,7 @@ module Cpl
       examples = command_class::EXAMPLES
       hide = command_class::HIDE || deprecated
       with_info_header = command_class::WITH_INFO_HEADER
+      validations = command_class::VALIDATIONS
 
       long_description += "\n#{examples}" if examples.length.positive?
 
@@ -223,6 +224,11 @@ module Cpl
           config = Config.new(args, options, required_options)
 
           Cpl::Cli.show_info_header(config) if with_info_header
+
+          if validations.any? && ENV.fetch("DISABLE_VALIDATIONS", nil) != "true"
+            doctor = DoctorService.new(config)
+            doctor.run_validations(validations, silent_if_passing: true)
+          end
 
           command_class.new(config).call
         rescue RuntimeError => e

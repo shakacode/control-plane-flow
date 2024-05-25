@@ -119,18 +119,18 @@ module Command
     end
 
     def unbind_identity_from_policy
-      return if cp.fetch_identity(app_identity).nil?
+      return if cp.fetch_identity(config.identity).nil?
 
-      policy = cp.fetch_policy(app_secrets_policy)
+      policy = cp.fetch_policy(config.secrets_policy)
       return if policy.nil?
 
       is_bound = policy["bindings"].any? do |binding|
-        binding["principalLinks"].any? { |link| link == app_identity_link }
+        binding["principalLinks"].any? { |link| link == config.identity_link }
       end
       return unless is_bound
 
       step("Unbinding identity from policy for app '#{config.app}'") do
-        cp.unbind_identity_from_policy(app_identity_link, app_secrets_policy)
+        cp.unbind_identity_from_policy(config.identity_link, config.secrets_policy)
       end
     end
   end

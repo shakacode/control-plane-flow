@@ -66,8 +66,8 @@ module Command
       step("Fetching upstream image URL") do
         cp.profile_switch(@upstream_profile)
         upstream_image = config.options[:image]
-        upstream_image = latest_image(@upstream, @upstream_org) if !upstream_image || upstream_image == "latest"
-        @commit = extract_image_commit(upstream_image)
+        upstream_image = cp.latest_image(@upstream, @upstream_org) if !upstream_image || upstream_image == "latest"
+        @commit = cp.extract_image_commit(upstream_image)
         @upstream_image_url = "#{@upstream_org}.registry.cpln.io/#{upstream_image}"
       end
     end
@@ -75,7 +75,7 @@ module Command
     def fetch_app_image_url
       step("Fetching app image URL") do
         cp.profile_switch("default")
-        app_image = latest_image_next(config.app, config.org, commit: @commit)
+        app_image = cp.latest_image_next(config.app, config.org, commit: @commit)
         @app_image_url = "#{config.org}.registry.cpln.io/#{app_image}"
       end
     end

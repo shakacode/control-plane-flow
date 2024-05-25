@@ -56,7 +56,7 @@ module Command
       return images unless cp.fetch_gvc(app)
 
       # If app exists, remove latest image, because we don't want to delete the image that is currently deployed
-      latest_image_name = latest_image_from(images, app_name: app)
+      latest_image_name = cp.latest_image_from(images, app_name: app)
       images.reject { |image| image["name"] == latest_image_name }
     end
 

@@ -3,6 +3,7 @@
 ENV["RAILS_ENV"] ||= "test"
 ENV["HIDE_COMMAND_OUTPUT"] = "true"
 ENV["DISABLE_INTERRUPT_TRAP"] = "true"
+ENV["DISABLE_VALIDATIONS"] = "true"
 
 require "rspec/retry"
 require "simplecov"

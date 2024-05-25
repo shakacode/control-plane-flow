@@ -37,7 +37,7 @@ describe Command::ApplyTemplate do
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Failed to apply templates")
-      expect(result[:stderr]).to include("- invalid")
+      expect(result[:stderr]).to include("- [workload] invalid")
     end
 
     it "applies valid templates and fails to apply invalid templates" do
@@ -49,7 +49,7 @@ describe Command::ApplyTemplate do
       expect(result[:stderr]).to include("- [identity] #{app}-identity")
       expect(result[:stderr]).to include("- [workload] rails")
       expect(result[:stderr]).to include("Failed to apply templates")
-      expect(result[:stderr]).to include("- invalid")
+      expect(result[:stderr]).to include("- [workload] invalid")
     end
 
     it "replaces all variables correctly" do
@@ -63,7 +63,6 @@ describe Command::ApplyTemplate do
       prefix = dummy_test_app_prefix
       expect(apply_result[:status]).to eq(0)
       expect(env_result[:status]).to eq(0)
-      expect(apply_result[:stderr]).not_to include("DEPRECATED")
       expect(env_result[:stdout]).to include("ORG=#{org}")
       expect(env_result[:stdout]).to include("NAME=#{app}")
       expect(env_result[:stdout]).to include("LOCATION=#{location}")
@@ -76,7 +75,7 @@ describe Command::ApplyTemplate do
       expect(env_result[:stdout]).to include("SECRETS_POLICY=#{prefix}-secrets-policy")
     end
 
-    it "replaces deprecated variables correctly and warns about them" do
+    it "replaces deprecated variables correctly" do
       apply_result = run_cpl_command("apply-template", "app-with-deprecated-variables", "-a", app)
       env_result = run_cpl_command("env", "-a", app)
 
@@ -85,11 +84,6 @@ describe Command::ApplyTemplate do
       image = "#{app}:NO_IMAGE_AVAILABLE"
       expect(apply_result[:status]).to eq(0)
       expect(env_result[:status]).to eq(0)
-      expect(apply_result[:stderr]).to include("DEPRECATED")
-      expect(apply_result[:stderr]).to include("APP_ORG -> {{APP_ORG}}")
-      expect(apply_result[:stderr]).to include("APP_GVC -> {{APP_NAME}}")
-      expect(apply_result[:stderr]).to include("APP_LOCATION -> {{APP_LOCATION}}")
-      expect(apply_result[:stderr]).to include("APP_IMAGE -> {{APP_IMAGE}}")
       expect(env_result[:stdout]).to include("ORG=#{org}")
       expect(env_result[:stdout]).to include("NAME=#{app}")
       expect(env_result[:stdout]).to include("LOCATION=#{location}")
@@ -108,7 +102,7 @@ describe Command::ApplyTemplate do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Skipped templates")
-      expect(result[:stderr]).to include("- app")
+      expect(result[:stderr]).to include("- [app] #{app}")
     end
 
     it "asks for confirmation and re-creates app" do
@@ -145,7 +139,7 @@ describe Command::ApplyTemplate do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Skipped templates")
-      expect(result[:stderr]).to include("- rails")
+      expect(result[:stderr]).to include("- [workload] rails")
     end
 
     it "asks for confirmation and re-creates workload" do

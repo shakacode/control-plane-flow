@@ -14,9 +14,14 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Added
+
+- Added `doctor` command to run validations. [PR 185](https://github.com/shakacode/control-plane-flow/pull/185) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Changed
 
 - `cpl` now sets `CPLN_SKIP_UPDATE_CHECK` to `true` for all internal `cpln` calls, which disables the version check and prevents cluttering the logs. [PR 180](https://github.com/shakacode/control-plane-flow/pull/180) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Specific validations are now run before commands, and the command will exit with a non-zero code if any validation fails. Can be disabled by setting `DISABLE_VALIDATIONS` env var to `true`. [PR 185](https://github.com/shakacode/control-plane-flow/pull/185) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [2.0.2] - 2024-05-17
 
