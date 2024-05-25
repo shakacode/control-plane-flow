@@ -45,7 +45,31 @@ describe Command::SetupApp do
     end
   end
 
-  context "when identity or policy does not exist" do
+  context "when secret and policy do not exist" do
+    let!(:app) { dummy_test_app }
+    let!(:app_secrets) { "#{dummy_test_app_prefix}-secrets" }
+    let!(:app_secrets_policy) { "#{app_secrets}-policy" }
+
+    after do
+      run_cpl_command!("delete", "-a", app, "--yes")
+
+      api = ControlplaneApi.new
+      api.delete_secret(org: dummy_test_org, secret: app_secrets)
+      api.delete_policy(org: dummy_test_org, policy: app_secrets_policy)
+    end
+
+    it "creates secret and policy, and binds identity to policy" do
+      result = run_cpl_command("setup-app", "-a", app)
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Creating secret '#{app_secrets}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Creating policy '#{app_secrets_policy}'[.]+? done!/)
+      expect(result[:stderr])
+        .to match(/Binding identity '#{app}-identity' to policy '#{app_secrets_policy}'[.]+? done!/)
+    end
+  end
+
+  context "when identity does not exist" do
     let!(:app) { dummy_test_app("nonexistent-identity") }
 
     after do
@@ -56,16 +80,14 @@ describe Command::SetupApp do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Secret 'dummy-test-secrets' already exists")
+      expect(result[:stderr]).to include("Policy 'dummy-test-secrets-policy' already exists")
       expect(result[:stderr]).to include("Can't bind identity to policy")
     end
   end
 
-  context "when identity and policy exist" do
+  context "when identity exists" do
     let!(:app) { dummy_test_app("secrets") }
-
-    before do
-      run_cpl_command!("apply-template", "secrets", "-a", app)
-    end
 
     after do
       run_cpl_command!("delete", "-a", app, "--yes")
@@ -75,7 +97,10 @@ describe Command::SetupApp do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Binding identity to policy[.]+? done!/)
+      expect(result[:stderr]).to include("Secret 'dummy-test-secrets' already exists")
+      expect(result[:stderr]).to include("Policy 'dummy-test-secrets-policy' already exists")
+      expect(result[:stderr])
+        .to match(/Binding identity '#{app}-identity' to policy 'dummy-test-secrets-policy'[.]+? done!/)
     end
   end
 end

@@ -87,15 +87,14 @@ level, which applies to your GVCs mapped to that org.
 
 You can do this during the initial app setup, like this:
 
-1. Add the templates for `app` and `secrets` to `.controlplane/templates`
+1. Add the template for `app` to `.controlplane/templates`
 2. Ensure that the `app` template includes the `identity`
 3. Ensure that the `app` template is listed in `setup_app_templates` for the app in `.controlplane/controlplane.yml`
-4. Run `cpl apply-template secrets -a $APP_NAME` (one-time setup)
-5. Run `cpl setup-app -a $APP_NAME`
-6. The secrets, secrets policy and identity will be automatically created, along with the proper binding
-7. In the Control Plane console, upper left "Manage Org" menu, click on "Secrets"
-8. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there
-9. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/$APP_PREFIX-secrets.SOME_VAR`)
+4. Run `cpl setup-app -a $APP_NAME`
+5. The secrets, secrets policy and identity will be automatically created, along with the proper binding
+6. In the Control Plane console, upper left "Manage Org" menu, click on "Secrets"
+7. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there
+8. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/$APP_PREFIX-secrets.SOME_VAR`)
 
 Here are the manual steps for reference. We recommend that you follow the steps above:
 

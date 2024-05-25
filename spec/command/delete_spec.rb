@@ -191,7 +191,6 @@ describe Command::Delete do
     let!(:app) { dummy_test_app("secrets") }
 
     before do
-      run_cpl_command!("apply-template", "secrets", "-a", app)
       run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
     end
 
@@ -211,7 +210,6 @@ describe Command::Delete do
     let!(:app) { dummy_test_app("secrets") }
 
     before do
-      run_cpl_command!("apply-template", "secrets", "-a", app)
       run_cpl_command!("setup-app", "-a", app)
     end
 
