@@ -15,6 +15,7 @@ module Command
       - This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpl apply-template' instead)
       - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
         using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
+      - Creates identity for secrets if it does not exist
       - Use `--skip-secret-access-binding` to prevent the automatic setup of secrets
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -34,7 +35,9 @@ module Command
 
       create_secret_and_policy_if_not_exist unless config.options[:skip_secret_access_binding]
 
-      Cpl::Cli.start(["apply-template", *templates, "-a", config.app])
+      args = []
+      args.push("--add-app-identity") unless config.options[:skip_secret_access_binding]
+      Cpl::Cli.start(["apply-template", *templates, "-a", config.app, *args])
 
       bind_identity_to_policy unless config.options[:skip_secret_access_binding]
       run_post_creation_hook unless config.options[:skip_post_creation_hook]
@@ -89,11 +92,6 @@ module Command
 
     def bind_identity_to_policy
       progress.puts
-
-      if cp.fetch_identity(config.identity).nil?
-        raise "Can't bind identity to policy: identity '#{config.identity}' doesn't exist. " \
-              "Please create it or use `--skip-secret-access-binding` to ignore this message."
-      end
 
       step("Binding identity '#{config.identity}' to policy '#{config.secrets_policy}'") do
         cp.bind_identity_to_policy(config.identity_link, config.secrets_policy)

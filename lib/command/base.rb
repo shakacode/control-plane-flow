@@ -419,6 +419,17 @@ module Command
         }
       }
     end
+
+    def self.add_app_identity_option(required: false)
+      {
+        name: :add_app_identity,
+        params: {
+          desc: "Adds app identity template if it does not exist",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options

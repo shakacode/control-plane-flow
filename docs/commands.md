@@ -428,6 +428,7 @@ cpl run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:mig
 - This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpl apply-template' instead)
 - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
   using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
+- Creates identity for secrets if it does not exist
 - Use `--skip-secret-access-binding` to prevent the automatic setup of secrets
 - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code

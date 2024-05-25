@@ -76,27 +76,11 @@ describe Command::SetupApp do
       run_cpl_command!("delete", "-a", app, "--yes")
     end
 
-    it "raises error" do
-      result = run_cpl_command("setup-app", "-a", app)
-
-      expect(result[:status]).not_to eq(0)
-      expect(result[:stderr]).to include("Secret 'dummy-test-secrets' already exists")
-      expect(result[:stderr]).to include("Policy 'dummy-test-secrets-policy' already exists")
-      expect(result[:stderr]).to include("Can't bind identity to policy")
-    end
-  end
-
-  context "when identity exists" do
-    let!(:app) { dummy_test_app("secrets") }
-
-    after do
-      run_cpl_command!("delete", "-a", app, "--yes")
-    end
-
-    it "binds identity to policy" do
+    it "creates identity, and binds identity to policy" do
       result = run_cpl_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("[identity] #{app}-identity")
       expect(result[:stderr]).to include("Secret 'dummy-test-secrets' already exists")
       expect(result[:stderr]).to include("Policy 'dummy-test-secrets-policy' already exists")
       expect(result[:stderr])
