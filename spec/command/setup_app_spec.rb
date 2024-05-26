@@ -25,7 +25,7 @@ describe Command::SetupApp do
     end
   end
 
-  context "when skipping secret access binding" do
+  context "when skipping secrets setup" do
     let!(:app) { dummy_test_app }
 
     after do
@@ -33,7 +33,7 @@ describe Command::SetupApp do
     end
 
     it "applies templates from 'setup_app_templates'" do
-      result = run_cpl_command("setup-app", "-a", app, "--skip-secret-access-binding")
+      result = run_cpl_command("setup-app", "-a", app, "--skip-secrets-setup")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Created items")
@@ -42,6 +42,15 @@ describe Command::SetupApp do
       expect(result[:stderr]).to include("[workload] rails")
       expect(result[:stderr]).to include("[workload] postgres")
       expect(result[:stderr]).not_to include("Failed to apply templates")
+      expect(result[:stderr]).not_to include("Binding identity")
+    end
+
+    it "works with deprecated --skip-secret-access-binding name" do
+      result = run_cpl_command("setup-app", "-a", app, "--skip-secret-access-binding")
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("DEPRECATED: Option --skip-secret-access-binding is deprecated")
+      expect(result[:stderr]).not_to include("Binding identity")
     end
   end
 

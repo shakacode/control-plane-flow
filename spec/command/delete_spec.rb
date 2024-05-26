@@ -153,7 +153,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app("nonexistent-identity") }
 
     before do
-      run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+      run_cpl_command!("setup-app", "-a", app, "--skip-secrets-setup")
     end
 
     it "does not unbind identity from policy" do
@@ -172,7 +172,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app("nonexistent-policy") }
 
     before do
-      run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+      run_cpl_command!("setup-app", "-a", app, "--skip-secrets-setup")
     end
 
     it "does not unbind identity from policy" do
@@ -191,7 +191,7 @@ describe Command::Delete do
     let!(:app) { dummy_test_app("secrets") }
 
     before do
-      run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+      run_cpl_command!("setup-app", "-a", app, "--skip-secrets-setup")
     end
 
     it "does not unbind identity from policy" do

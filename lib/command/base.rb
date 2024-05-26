@@ -273,8 +273,20 @@ module Command
     def self.skip_secret_access_binding_option(required: false)
       {
         name: :skip_secret_access_binding,
+        new_name: :skip_secrets_setup,
         params: {
           desc: "Skips secret access binding",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.skip_secrets_setup_option(required: false)
+      {
+        name: :skip_secrets_setup,
+        params: {
+          desc: "Skips secrets setup",
           type: :boolean,
           required: required
         }

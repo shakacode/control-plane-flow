@@ -6,6 +6,7 @@ module Command
     OPTIONS = [
       app_option(required: true),
       skip_secret_access_binding_option,
+      skip_secrets_setup_option,
       skip_post_creation_hook_option
     ].freeze
     DESCRIPTION = "Creates an app and all its workloads"
@@ -16,7 +17,7 @@ module Command
       - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
         using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
-      - Use `--skip-secret-access-binding` to prevent the automatic setup of secrets
+      - Use `--skip-secrets-setup` to prevent the automatic setup of secrets
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
@@ -33,13 +34,16 @@ module Command
               "or run 'cpl apply-template #{templates.join(' ')} -a #{config.app}'."
       end
 
-      create_secret_and_policy_if_not_exist unless config.options[:skip_secret_access_binding]
+      skip_secrets_setup = config.options[:skip_secret_access_binding] ||
+                           config.options[:skip_secrets_setup]
+
+      create_secret_and_policy_if_not_exist unless skip_secrets_setup
 
       args = []
-      args.push("--add-app-identity") unless config.options[:skip_secret_access_binding]
+      args.push("--add-app-identity") unless skip_secrets_setup
       Cpl::Cli.start(["apply-template", *templates, "-a", config.app, *args])
 
-      bind_identity_to_policy unless config.options[:skip_secret_access_binding]
+      bind_identity_to_policy unless skip_secrets_setup
       run_post_creation_hook unless config.options[:skip_post_creation_hook]
     end
 

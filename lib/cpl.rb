@@ -201,9 +201,10 @@ module Cpl
 
       @commands_with_extra_options.push(name_for_method.to_sym) if accepts_extra_options
 
-      define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/MethodLength
+      define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/BlockLength, Metrics/MethodLength
         if deprecated
-          ::Shell.warn_deprecated("Command '#{command_key}' is deprecated, " \
+          normalized_old_name = ::Helpers.normalize_command_name(command_key)
+          ::Shell.warn_deprecated("Command '#{normalized_old_name}' is deprecated, " \
                                   "please use '#{name}' instead.")
           $stderr.puts
         end
@@ -243,14 +244,23 @@ module Cpl
     check_unknown_options!(except: @commands_with_extra_options)
     stop_on_unknown_option!
 
-    def self.validate_options!(options)
+    def self.validate_options!(options) # rubocop:disable Metrics/MethodLength
       options.each do |name, value|
-        raise "No value provided for option '#{name}'." if value.to_s.strip.empty?
+        normalized_name = ::Helpers.normalize_option_name(name)
+        raise "No value provided for option #{normalized_name}." if value.to_s.strip.empty?
 
-        params = ::Command::Base.all_options.find { |option| option[:name].to_s == name }[:params]
+        option = ::Command::Base.all_options.find { |current_option| current_option[:name].to_s == name }
+        if option[:new_name]
+          normalized_new_name = ::Helpers.normalize_option_name(option[:new_name])
+          ::Shell.warn_deprecated("Option #{normalized_name} is deprecated, " \
+                                  "please use #{normalized_new_name} instead.")
+          $stderr.puts
+        end
+
+        params = option[:params]
         next unless params[:valid_regex]
 
-        raise "Invalid value provided for option '#{name}'." unless value.match?(params[:valid_regex])
+        raise "Invalid value provided for option #{normalized_name}." unless value.match?(params[:valid_regex])
       end
     end
 
