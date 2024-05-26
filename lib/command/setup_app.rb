@@ -17,14 +17,15 @@ module Command
       - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
         using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
-      - Use `--skip-secrets-setup` to prevent the automatic setup of secrets
+      - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
+        or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
     DESC
     VALIDATIONS = %w[config templates].freeze
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
       templates = config[:setup_app_templates]
 
       app = cp.fetch_gvc
@@ -35,7 +36,7 @@ module Command
       end
 
       skip_secrets_setup = config.options[:skip_secret_access_binding] ||
-                           config.options[:skip_secrets_setup]
+                           config.options[:skip_secrets_setup] || config.current[:skip_secrets_setup]
 
       create_secret_and_policy_if_not_exist unless skip_secrets_setup
 
