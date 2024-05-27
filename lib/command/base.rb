@@ -273,8 +273,20 @@ module Command
     def self.skip_secret_access_binding_option(required: false)
       {
         name: :skip_secret_access_binding,
+        new_name: :skip_secrets_setup,
         params: {
           desc: "Skips secret access binding",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.skip_secrets_setup_option(required: false)
+      {
+        name: :skip_secrets_setup,
+        params: {
+          desc: "Skips secrets setup",
           type: :boolean,
           required: required
         }
@@ -414,6 +426,17 @@ module Command
         name: :skip_pre_deletion_hook,
         params: {
           desc: "Skips pre-deletion hook",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.add_app_identity_option(required: false)
+      {
+        name: :add_app_identity,
+        params: {
+          desc: "Adds app identity template if it does not exist",
           type: :boolean,
           required: required
         }

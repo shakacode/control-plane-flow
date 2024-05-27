@@ -28,8 +28,9 @@ _Please add entries here for your pull requests that have not yet been released.
 ### Changed
 
 - `cpl` now sets `CPLN_SKIP_UPDATE_CHECK` to `true` for all internal `cpln` calls, which disables the version check and prevents cluttering the logs. [PR 180](https://github.com/shakacode/control-plane-flow/pull/180) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
-- `setup-app` command now automatically creates a secret and policy for the app if they do not exist. The `--skip-secret-access-binding` option prevents this behavior. [PR 181](https://github.com/shakacode/control-plane-flow/pull/181) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `setup-app` command now automatically creates a secret, policy, and identity for the app if they do not exist. The `--skip-secrets-setup` option prevents this behavior. [PR 181](https://github.com/shakacode/control-plane-flow/pull/181) by [Rafael Gomes](https://github.com/rafaelgomesxyz). [PR 190](https://github.com/shakacode/control-plane-flow/pull/190) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Specific validations are now run before commands, and the command will exit with a non-zero code if any validation fails. Can be disabled by setting `DISABLE_VALIDATIONS` env var to `true`. [PR 185](https://github.com/shakacode/control-plane-flow/pull/185) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Deprecated the `--skip-secret-access-binding` option in favor of `--skip-secrets-setup`. This can also now be configured through `skip_secrets_setup` in `controlplane.yml` [PR 190](https://github.com/shakacode/control-plane-flow/pull/190) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [2.0.2] - 2024-05-17
 

@@ -138,7 +138,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
     puts "\nCreating app '#{app}' for tests\n\n" if ENV.fetch("VERBOSE_TESTS", nil) == "true"
 
-    run_cpl_command!("setup-app", "-a", app, "--skip-secret-access-binding")
+    run_cpl_command!("setup-app", "-a", app, "--skip-secrets-setup")
 
     image_before_deploy_count.times do
       run_cpl_command!("build-image", "-a", app)

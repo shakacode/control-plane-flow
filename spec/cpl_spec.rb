@@ -16,7 +16,7 @@ describe Cpl do
       result = run_cpl_command("test", option_key_name)
 
       expect(result[:status]).not_to eq(0)
-      expect(result[:stderr]).to include("No value provided for option '#{option[:name]}'")
+      expect(result[:stderr]).to include("No value provided for option --#{option[:name].to_s.tr('_', '-')}")
     end
   end
 end

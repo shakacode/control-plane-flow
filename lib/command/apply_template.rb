@@ -8,7 +8,8 @@ module Command
     OPTIONS = [
       app_option(required: true),
       location_option,
-      skip_confirm_option
+      skip_confirm_option,
+      add_app_identity_option
     ].freeze
     DESCRIPTION = "Applies application-specific configs from templates"
     LONG_DESCRIPTION = <<~DESC
@@ -55,6 +56,7 @@ module Command
 
       templates = @template_parser.parse(@names_to_filenames.values)
       pending_templates = confirm_templates(templates)
+      add_app_identity_template(pending_templates) if config.options[:add_app_identity]
       pending_templates.each do |template|
         apply_template(template)
       end
@@ -135,6 +137,25 @@ module Command
       progress.puts if @asked_for_confirmation
 
       pending_templates
+    end
+
+    def add_app_identity_template(templates)
+      app_template_index = templates.index { |template| template["name"] == config.app }
+      app_identity_template_index = templates.index { |template| template["name"] == config.identity }
+
+      return unless app_template_index && app_identity_template_index.nil?
+
+      # Adding the identity template right after the app template is important since:
+      # a) we can't create the identity at the beginning because the app doesn't exist yet
+      # b) we also can't create it at the end because any workload templates associated with it will fail to apply
+      templates.insert(app_template_index + 1, build_app_identity_hash)
+    end
+
+    def build_app_identity_hash
+      {
+        "kind" => "identity",
+        "name" => config.identity
+      }
     end
 
     def apply_template(template) # rubocop:disable Metrics/MethodLength

@@ -82,7 +82,7 @@ describe Command::Doctor do
       result = run_cpl_command("doctor", "--validations", "unknown")
 
       expect(result[:status]).not_to eq(0)
-      expect(result[:stderr]).to include("Invalid value provided for option 'validations'")
+      expect(result[:stderr]).to include("Invalid value provided for option --validations")
     end
   end
 
