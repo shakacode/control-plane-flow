@@ -39,8 +39,8 @@ aliases:
       - rails
       - sidekiq
 
-    # Skips secrets setup when running `cpl setup-app`.
-    skip_secrets_setup: true
+    # Uncomment next line to skips secrets setup when running `cpl setup-app`.
+    # skip_secrets_setup: true
 
     # Only needed if using a custom secrets name.
     # The default is '{APP_PREFIX}-secrets'. For example:
