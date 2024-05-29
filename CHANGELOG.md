@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Added
+
+- Added a timeout for `run` jobs (6 hours by default, but configurable through `runner_job_timeout` in `controlplane.yml`). [PR 194](https://github.com/shakacode/control-plane-flow/pull/194) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Changed
 
 - `run` command now overrides the `--image`, `--cpu`, and `--memory` for each job separately, which completely removes any race conditions when running simultaneous jobs with different overrides. [PR 182](https://github.com/shakacode/control-plane-flow/pull/182) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
