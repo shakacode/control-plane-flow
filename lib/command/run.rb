@@ -451,7 +451,7 @@ module Command
         Shell.debug("JOB STATUS", status)
 
         case status
-        when "active"
+        when "active", "pending"
           sleep 1
         when "successful"
           break ExitCode::SUCCESS
