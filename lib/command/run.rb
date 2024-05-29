@@ -434,6 +434,8 @@ module Command
     end
 
     def print_detached_commands
+      return unless replica
+
       app_workload_replica_config = app_workload_replica_args.join(" ")
       progress.puts(
         "\n\n" \
