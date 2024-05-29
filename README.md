@@ -257,6 +257,10 @@ aliases:
     # If not specified, defaults to "2Gi" (2 gibibytes).
     runner_job_default_memory: "4Gi"
 
+    # Sets the maximum number of seconds that `cpl run` jobs can execute before being stopped.
+    # If not specified, defaults to 21600 (6 hours).
+    runner_job_timeout: 1000
+
     # Apps with a deployed image created before this amount of days will be listed for deletion
     # when running the command `cpl cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
