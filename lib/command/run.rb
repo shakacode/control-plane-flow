@@ -125,12 +125,10 @@ module Command
         end
       end
 
-      if cp.fetch_workload(runner_workload).nil?
-        create_runner_workload
-        wait_for_runner_workload_create
-      end
+      create_runner_workload if cp.fetch_workload(runner_workload).nil?
+      wait_for_runner_workload_deploy
       update_runner_workload
-      wait_for_runner_workload_update
+      wait_for_runner_workload_update if expected_deployed_version
 
       start_job
       wait_for_replica_for_job
@@ -197,12 +195,21 @@ module Command
       end
     end
 
-    def update_runner_workload # rubocop:disable Metrics/MethodLength
-      step("Updating runner workload '#{runner_workload}'") do # rubocop:disable Metrics/BlockLength
-        @expected_deployed_version = cp.cron_workload_deployed_version(runner_workload)
-        should_update = false
+    def update_runner_workload # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+      should_update = false
+      spec = nil
 
+      step("Checking if runner workload '#{runner_workload}' needs to be updated") do # rubocop:disable Metrics/BlockLength
+        _, original_container_spec = base_workload_specs(original_workload)
         spec, container_spec = base_workload_specs(runner_workload)
+
+        # Keep ENV synced between original and runner workloads
+        original_env_str = original_container_spec["env"]&.sort_by { |env| env["name"] }.to_s
+        env_str = container_spec["env"]&.sort_by { |env| env["name"] }.to_s
+        if original_env_str != env_str
+          container_spec["env"] = original_container_spec["env"]
+          should_update = true
+        end
 
         if container_spec["image"] != default_image
           container_spec["image"] = default_image
@@ -229,16 +236,20 @@ module Command
           should_update = true
         end
 
-        next true unless should_update
+        true
+      end
 
+      return unless should_update
+
+      step("Updating runner workload '#{runner_workload}'") do
         # Update runner workload
-        @expected_deployed_version += 1
+        @expected_deployed_version = cp.cron_workload_deployed_version(runner_workload) + 1
         cp.apply_hash("kind" => "workload", "name" => runner_workload, "spec" => spec)
       end
     end
 
-    def wait_for_runner_workload_create
-      step("Waiting for runner workload '#{runner_workload}' to be created", retry_on_failure: true) do
+    def wait_for_runner_workload_deploy
+      step("Waiting for runner workload '#{runner_workload}' to be deployed", retry_on_failure: true) do
         !cp.cron_workload_deployed_version(runner_workload).nil?
       end
     end

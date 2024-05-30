@@ -31,6 +31,11 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
       deploy: false,
       image_before_deploy_count: 1,
       image_after_deploy_count: 0
+    },
+    "rails-env" => {
+      deploy: true,
+      image_before_deploy_count: 1,
+      image_after_deploy_count: 0
     }
   }.freeze
 

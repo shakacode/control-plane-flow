@@ -143,6 +143,14 @@ apps:
     match_if_app_name_starts_with: true
     fix_terminal_size: true
 
+  dummy-test-rails-env-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - app
+      - rails-with-env
+
   dummy-test-runner-job-timeout-{GLOBAL_IDENTIFIER}:
     <<: *common
 
