@@ -103,7 +103,7 @@ module Command
       @location = config.location
       @original_workload = config.options[:workload] || config[:one_off_workload]
       @runner_workload = "#{original_workload}-runner"
-      @default_image = cp.latest_image_from([], app_name: config.app)
+      @default_image = "#{config.app}:#{Controlplane::NO_IMAGE_AVAILABLE}"
       @default_cpu = config.current[:runner_job_default_cpu] || DEFAULT_JOB_CPU
       @default_memory = config.current[:runner_job_default_memory] || DEFAULT_JOB_MEMORY
 
