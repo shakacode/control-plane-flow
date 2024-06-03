@@ -1,0 +1,34 @@
+kind: workload
+name: rails-runner
+spec:
+  type: cron
+  job:
+    schedule: 0 0 1 1 1
+    restartPolicy: Never
+    activeDeadlineSeconds: 1000
+    historyLimit: 5
+  containers:
+    - name: rails
+      cpu: 512m
+      memory: 1Gi
+      env:
+        - name: TEST_1
+          value: "123"
+        - name: TEST_2
+          value: "456"
+        - name: TEST_3
+          value: "789"
+      inheritEnv: true
+      image: /org/{{APP_ORG}}/image/{{APP_NAME}}:1
+  defaultOptions:
+    suspend: true
+    autoscaling: {}
+    capacityAI: false
+    timeoutSeconds: 60
+  firewallConfig:
+    external:
+      inboundAllowCIDR:
+        - 0.0.0.0/0
+      outboundAllowCIDR:
+        - 0.0.0.0/0
+  identityLink: {{APP_IDENTITY_LINK}}

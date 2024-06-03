@@ -22,6 +22,7 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - `run` command now overrides the `--image`, `--cpu`, and `--memory` for each job separately, which completely removes any race conditions when running simultaneous jobs with different overrides. [PR 182](https://github.com/shakacode/control-plane-flow/pull/182) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `run` jobs now use a CPU size of 1 (1 core) and a memory size of 2Gi (2 gibibytes) by default (configurable through `runner_job_default_cpu` and `runner_job_default_memory` in `controlplane.yml`). [PR 182](https://github.com/shakacode/control-plane-flow/pull/182) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `run` command now keeps ENV values synced between original and runner workloads. [PR 196](https://github.com/shakacode/control-plane-flow/pull/196) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [2.1.0] - 2024-05-27
 

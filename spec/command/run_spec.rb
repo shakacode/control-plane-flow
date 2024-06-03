@@ -95,6 +95,7 @@ describe Command::Run do
           result = it.read_full_output
         end
 
+        expect(result).not_to include("Updating runner workload")
         expect(result).to include("Gemfile")
         expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
       end
@@ -241,6 +242,52 @@ describe Command::Run do
 
         expect(result).to include("cpl logs")
         expect(result).to include("cpl ps:stop")
+      end
+    end
+
+    context "when runner workload has non-default values" do
+      let!(:app) { dummy_test_app("rails-env", create_if_not_exists: true) }
+
+      before do
+        run_cpl_command!("apply-template", "rails-runner-with-non-default-values", "-a", app)
+      end
+
+      after do
+        run_cpl_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
+      end
+
+      it "updates runner workload" do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("Updating runner workload")
+        expect(result).to include("Gemfile")
+      end
+    end
+
+    context "when runner workload has different ENV" do
+      let!(:app) { dummy_test_app("rails-env", create_if_not_exists: true) }
+
+      before do
+        run_cpl_command!("apply-template", "rails-runner-with-different-env", "-a", app)
+      end
+
+      after do
+        run_cpl_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
+      end
+
+      it "updates runner workload" do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).to include("Updating runner workload")
+        expect(result).to include("Gemfile")
       end
     end
   end
