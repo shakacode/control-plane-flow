@@ -380,6 +380,8 @@ cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
 - By default, all jobs use a CPU size of 1 (1 core) and a memory size of 2Gi (2 gibibytes)
   (can be configured through `runner_job_default_cpu` and `runner_job_default_memory` in `controlplane.yml`,
   and also overridden per job through `--cpu` and `--memory`)
+- By default, the job is stopped if it takes longer than 6 hours to finish
+  (can be configured though `runner_job_timeout` in `controlplane.yml`)
 
 ```sh
 # Opens shell (bash by default).

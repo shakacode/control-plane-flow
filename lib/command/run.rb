@@ -45,6 +45,8 @@ module Command
       - By default, all jobs use a CPU size of 1 (1 core) and a memory size of 2Gi (2 gibibytes)
         (can be configured through `runner_job_default_cpu` and `runner_job_default_memory` in `controlplane.yml`,
         and also overridden per job through `--cpu` and `--memory`)
+      - By default, the job is stopped if it takes longer than 6 hours to finish
+        (can be configured though `runner_job_timeout` in `controlplane.yml`)
     DESC
     EXAMPLES = <<~EX
       ```sh
@@ -89,10 +91,12 @@ module Command
 
     DEFAULT_JOB_CPU = "1"
     DEFAULT_JOB_MEMORY = "2Gi"
+    DEFAULT_JOB_TIMEOUT = 21_600 # 6 hours
+    DEFAULT_JOB_HISTORY_LIMIT = 10
     MAGIC_END = "---cpl run command finished---"
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
-                :default_image, :default_cpu, :default_memory,
+                :default_image, :default_cpu, :default_memory, :job_timeout, :job_history_limit,
                 :container, :expected_deployed_version, :job, :replica, :command
 
     def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
@@ -106,6 +110,8 @@ module Command
       @default_image = "#{config.app}:#{Controlplane::NO_IMAGE_AVAILABLE}"
       @default_cpu = config.current[:runner_job_default_cpu] || DEFAULT_JOB_CPU
       @default_memory = config.current[:runner_job_default_memory] || DEFAULT_JOB_MEMORY
+      @job_timeout = config.current[:runner_job_timeout] || DEFAULT_JOB_TIMEOUT
+      @job_history_limit = DEFAULT_JOB_HISTORY_LIMIT
 
       unless interactive
         @internal_sigint = false
@@ -177,9 +183,14 @@ module Command
 
         # Set cron job props
         spec["type"] = "cron"
+        spec["job"] = {
+          # Next job set to run on January 1st, 2029
+          "schedule" => "0 0 1 1 1",
 
-        # Next job set to run on January 1st, 2029
-        spec["job"] = { "schedule" => "0 0 1 1 1", "restartPolicy" => "Never" }
+          "restartPolicy" => "Never",
+          "activeDeadlineSeconds" => job_timeout,
+          "historyLimit" => job_history_limit
+        }
 
         # Create runner workload
         cp.apply_hash("kind" => "workload", "name" => runner_workload, "spec" => spec)
@@ -187,7 +198,7 @@ module Command
     end
 
     def update_runner_workload # rubocop:disable Metrics/MethodLength
-      step("Updating runner workload '#{runner_workload}'") do
+      step("Updating runner workload '#{runner_workload}'") do # rubocop:disable Metrics/BlockLength
         @expected_deployed_version = cp.cron_workload_deployed_version(runner_workload)
         should_update = false
 
@@ -205,6 +216,16 @@ module Command
 
         if container_spec["memory"] != default_memory
           container_spec["memory"] = default_memory
+          should_update = true
+        end
+
+        if spec["job"]["activeDeadlineSeconds"] != job_timeout
+          spec["job"]["activeDeadlineSeconds"] = job_timeout
+          should_update = true
+        end
+
+        if spec["job"]["historyLimit"] != job_history_limit
+          spec["job"]["historyLimit"] = job_history_limit
           should_update = true
         end
 

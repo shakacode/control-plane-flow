@@ -113,7 +113,7 @@ describe Command::Run do
       it "waits for job to finish", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "sleep 10; ls") do |it|
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "'sleep 10; ls'") do |it|
           result = it.read_full_output
         end
 
@@ -202,6 +202,30 @@ describe Command::Run do
         end
 
         expect(result).to include("LOCAL")
+      end
+    end
+
+    context "when 'runner_job_timeout' is provided" do
+      let!(:app) { dummy_test_app("runner-job-timeout") }
+
+      before do
+        run_cpl_command!("apply-template", "app", "rails", "-a", app)
+        run_cpl_command!("build-image", "-a", app)
+        run_cpl_command!("deploy-image", "-a", app)
+      end
+
+      after do
+        run_cpl_command!("delete", "-a", app, "--yes")
+      end
+
+      it "clones workload and times out before finishing", :slow do
+        result = nil
+
+        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "'sleep 100; ls'") do |it|
+          result = it.read_full_output
+        end
+
+        expect(result).not_to include("Gemfile")
       end
     end
 

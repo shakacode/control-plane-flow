@@ -143,6 +143,12 @@ apps:
     match_if_app_name_starts_with: true
     fix_terminal_size: true
 
+  dummy-test-runner-job-timeout-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    runner_job_timeout: 10
+
   dummy-test-nonexistent-identity-{GLOBAL_IDENTIFIER}:
     <<: *common
 
