@@ -36,12 +36,15 @@ module Command
       - - log async fetching for non-interactive mode
       - The Dockerfile entrypoint is used as the command by default, which assumes `exec "${@}"` to be present,
         and the args ["bash", "-c", cmd_to_run] are passed
-      - The entrypoint can be overriden through `--entrypoint`, which must be a single command or a script path that exists in the container,
+      - The entrypoint can be overridden through `--entrypoint`, which must be a single command or a script path that exists in the container,
         and the args ["bash", "-c", cmd_to_run] are passed,
         unless the entrypoint is `bash`, in which case the args ["-c", cmd_to_run] are passed
       - Providing `--entrypoint none` sets the entrypoint to `bash` by default
       - If `fix_terminal_size` is `true` in the `.controlplane/controlplane.yml` file,
-        the remote terminal size will be fixed to match the local terminal size (may also be overriden through `--terminal-size`)
+        the remote terminal size will be fixed to match the local terminal size (may also be overridden through `--terminal-size`)
+      - By default, all jobs use a CPU size of 1 (1 core) and a memory size of 2Gi (2 gibibytes)
+        (can be configured through `runner_job_default_cpu` and `runner_job_default_memory` in `controlplane.yml`,
+        and also overridden per job through `--cpu` and `--memory`)
     DESC
     EXAMPLES = <<~EX
       ```sh
@@ -84,12 +87,15 @@ module Command
       ```
     EX
 
+    DEFAULT_JOB_CPU = "1"
+    DEFAULT_JOB_MEMORY = "2Gi"
     MAGIC_END = "---cpl run command finished---"
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
+                :default_image, :default_cpu, :default_memory,
                 :container, :expected_deployed_version, :job, :replica, :command
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       @interactive = config.options[:interactive] || interactive_command?
       @detached = config.options[:detached]
       @log_method = config.options[:log_method]
@@ -97,6 +103,9 @@ module Command
       @location = config.location
       @original_workload = config.options[:workload] || config[:one_off_workload]
       @runner_workload = "#{original_workload}-runner"
+      @default_image = "#{config.app}:#{Controlplane::NO_IMAGE_AVAILABLE}"
+      @default_cpu = config.current[:runner_job_default_cpu] || DEFAULT_JOB_CPU
+      @default_memory = config.current[:runner_job_default_memory] || DEFAULT_JOB_MEMORY
 
       unless interactive
         @internal_sigint = false
@@ -154,6 +163,11 @@ module Command
         container_spec.delete("livenessProbe")
         container_spec.delete("readinessProbe")
 
+        # Set image, CPU, and memory to default values
+        container_spec["image"] = default_image
+        container_spec["cpu"] = default_cpu
+        container_spec["memory"] = default_memory
+
         # Ensure cron workload won't run per schedule
         spec["defaultOptions"]["suspend"] = true
 
@@ -172,34 +186,25 @@ module Command
       end
     end
 
-    def update_runner_workload # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
-      step("Updating runner workload '#{runner_workload}' based on '#{original_workload}'") do # rubocop:disable Metrics/BlockLength
+    def update_runner_workload # rubocop:disable Metrics/MethodLength
+      step("Updating runner workload '#{runner_workload}'") do
         @expected_deployed_version = cp.cron_workload_deployed_version(runner_workload)
         should_update = false
 
-        _, original_container_spec = base_workload_specs(original_workload)
         spec, container_spec = base_workload_specs(runner_workload)
 
-        # Override image if specified
-        image = config.options[:image]
-        image_link = if image
-                       image = cp.latest_image if image == "latest"
-                       "/org/#{config.org}/image/#{image}"
-                     else
-                       original_container_spec["image"]
-                     end
-        if container_spec["image"] != image_link
-          container_spec["image"] = image_link
+        if container_spec["image"] != default_image
+          container_spec["image"] = default_image
           should_update = true
         end
 
-        # Container overrides
-        if config.options[:cpu] && container_spec["cpu"] != config.options[:cpu]
-          container_spec["cpu"] = config.options[:cpu]
+        if container_spec["cpu"] != default_cpu
+          container_spec["cpu"] = default_cpu
           should_update = true
         end
-        if config.options[:memory] && container_spec["memory"] != config.options[:memory]
-          container_spec["memory"] = config.options[:memory]
+
+        if container_spec["memory"] != default_memory
+          container_spec["memory"] = default_memory
           should_update = true
         end
 
@@ -302,12 +307,14 @@ module Command
     def base_workload_specs(workload)
       spec = cp.fetch_workload!(workload).fetch("spec")
       container_spec = spec["containers"].detect { _1["name"] == original_workload } || spec["containers"].first
-      @container = container_spec["name"]
 
       [spec, container_spec]
     end
 
     def build_job_start_yaml # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+      _, original_container_spec = base_workload_specs(original_workload)
+      @container = original_container_spec["name"]
+
       job_start_hash = { "name" => container }
 
       if config.options[:use_local_token]
@@ -334,6 +341,18 @@ module Command
       else
         job_start_hash["args"].push('eval "$CPL_RUNNER_SCRIPT"')
       end
+
+      image = config.options[:image]
+      image_link = if image
+                     image = cp.latest_image if image == "latest"
+                     "/org/#{config.org}/image/#{image}"
+                   else
+                     original_container_spec["image"]
+                   end
+
+      job_start_hash["image"] = image_link
+      job_start_hash["cpu"] = config.options[:cpu] if config.options[:cpu]
+      job_start_hash["memory"] = config.options[:memory] if config.options[:memory]
 
       job_start_hash.to_yaml
     end
@@ -434,6 +453,8 @@ module Command
     end
 
     def print_detached_commands
+      return unless replica
+
       app_workload_replica_config = app_workload_replica_args.join(" ")
       progress.puts(
         "\n\n" \
@@ -451,7 +472,7 @@ module Command
         Shell.debug("JOB STATUS", status)
 
         case status
-        when "active"
+        when "active", "pending"
           sleep 1
         when "successful"
           break ExitCode::SUCCESS
