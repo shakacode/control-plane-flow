@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpl (2.1.0)
+    cpl (2.2.0)
       debug (~> 1.7.1)
       dotenv (~> 2.8.1)
       jwt (~> 2.8.1)
@@ -52,7 +52,7 @@ GEM
     rdoc (6.7.0)
       psych (>= 4.0.0)
     regexp_parser (2.9.0)
-    reline (0.5.7)
+    reline (0.5.8)
       io-console (~> 0.5)
     rexml (3.2.6)
     rspec (3.12.0)
