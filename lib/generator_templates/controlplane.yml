@@ -53,7 +53,7 @@ apps:
 
     # Use a different organization for production.
     cpln_org: my-org-production
-    # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
+    # Allows running the command `cpflow promote-app-from-upstream -a my-app-production`
     # to promote the staging app to production.
     upstream: my-app-staging
   my-app-other:

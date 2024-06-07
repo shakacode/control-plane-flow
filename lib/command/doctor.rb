@@ -14,13 +14,13 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Runs all validations that don't require additional options by default.
-      cpl doctor
+      cpflow doctor
 
       # Runs config validation.
-      cpl doctor --validations config
+      cpflow doctor --validations config
 
       # Runs templates validation (requires app).
-      cpl doctor --validations templates -a $APP_NAME
+      cpflow doctor --validations templates -a $APP_NAME
       ```
     EX
     VALIDATIONS = [].freeze

@@ -138,25 +138,25 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   def create_app_if_not_exists(app, deploy: false, image_before_deploy_count: 0, image_after_deploy_count: 0) # rubocop:disable Metrics/MethodLength
     apps_to_delete.push(app) unless apps_to_delete.include?(app)
 
-    result = run_cpl_command("exists", "-a", app)
+    result = run_cpflow_command("exists", "-a", app)
     return app if result[:status].zero?
 
     puts "\nCreating app '#{app}' for tests\n\n" if ENV.fetch("VERBOSE_TESTS", nil) == "true"
 
-    run_cpl_command!("setup-app", "-a", app, "--skip-secrets-setup")
+    run_cpflow_command!("setup-app", "-a", app, "--skip-secrets-setup")
 
     image_before_deploy_count.times do
-      run_cpl_command!("build-image", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
     end
-    run_cpl_command!("deploy-image", "-a", app) if deploy
+    run_cpflow_command!("deploy-image", "-a", app) if deploy
     image_after_deploy_count.times do
-      run_cpl_command!("build-image", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
     end
 
     app
   end
 
-  def run_cpl_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
+  def run_cpflow_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
     LogHelpers.write_command_to_log(args.join(" "))
 
     result = {
@@ -169,7 +169,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     original_stdout = replace_stdout
 
     begin
-      Cpl::Cli.start(args)
+      Cpflow::Cli.start(args)
     rescue SystemExit => e
       result[:status] = e.status
     end
@@ -184,15 +184,15 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     result
   end
 
-  def run_cpl_command!(*args)
-    run_cpl_command(*args, raise_errors: true)
+  def run_cpflow_command!(*args)
+    run_cpflow_command(*args, raise_errors: true)
   end
 
-  def spawn_cpl_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true)
+  def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true)
     cmd = ""
     cmd += "stty rows #{stty_rows} && " if stty_rows
     cmd += "stty cols #{stty_cols} && " if stty_cols
-    cmd += "#{cpl_executable_with_simplecov} #{args.join(' ')}"
+    cmd += "#{cpflow_executable_with_simplecov} #{args.join(' ')}"
 
     LogHelpers.write_command_to_log(cmd)
 
@@ -235,12 +235,12 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     contents
   end
 
-  def cpl_executable
-    File.join(root_directory, "cpl")
+  def cpflow_executable
+    File.join(root_directory, "cpflow")
   end
 
-  def cpl_executable_with_simplecov
-    "ruby -r #{simplecov_spawn_file} #{cpl_executable}"
+  def cpflow_executable_with_simplecov
+    "ruby -r #{simplecov_spawn_file} #{cpflow_executable}"
   end
 
   def simplecov_spawn_file

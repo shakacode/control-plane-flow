@@ -18,19 +18,19 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Displays logs for the default workload (`one_off_workload`).
-      cpl logs -a $APP_NAME
+      cpflow logs -a $APP_NAME
 
       # Displays logs for a specific workload.
-      cpl logs -a $APP_NAME -w $WORKLOAD_NAME
+      cpflow logs -a $APP_NAME -w $WORKLOAD_NAME
 
       # Displays logs for a specific replica of a workload.
-      cpl logs -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
+      cpflow logs -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
 
       # Uses a different limit on number of entries.
-      cpl logs -a $APP_NAME --limit 100
+      cpflow logs -a $APP_NAME --limit 100
 
       # Uses a different loopback window.
-      cpl logs -a $APP_NAME --since 30min
+      cpflow logs -a $APP_NAME --since 30min
       ```
     EX
 

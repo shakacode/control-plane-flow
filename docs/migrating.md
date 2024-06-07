@@ -21,7 +21,7 @@ add-ons to Control Plane later once the app works as expected.
 
 First, create a new Heroku app with all the add-ons, copying the data from the current staging app.
 
-Then, copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpl` will pick those up
+Then, copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpflow` will pick those up
 depending on which project folder tree it runs. Thus, this automates running several projects with different configs
 without explicitly switching configs.
 
@@ -44,7 +44,7 @@ my-app-staging:
 ```
 
 Note how the templates correspond to files in the `.controlplane/templates/` directory. These files will be used by the
-`cpl setup-app` and `cpl apply-template` commands.
+`cpflow setup-app` and `cpflow apply-template` commands.
 
 Ensure that env vars point to the Heroku add-ons in the template for the app (`.controlplane/templates/app.yml`). See
 [this example](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/templates/gvc.yml).
@@ -87,36 +87,36 @@ Use these commands for the initial setup and deployment:
 
 ```sh
 # Provision infrastructure (one-time-only for new apps) using templates.
-cpl setup-app -a my-app-staging
+cpflow setup-app -a my-app-staging
 
 # Build and push image with auto-tagging, e.g., "my-app-staging:1_456".
-cpl build-image -a my-app-staging --commit 456
+cpflow build-image -a my-app-staging --commit 456
 
 # Prepare database.
-cpl run -a my-app-staging --image latest -- rails db:prepare
+cpflow run -a my-app-staging --image latest -- rails db:prepare
 
 # Deploy latest image.
-cpl deploy-image -a my-app-staging
+cpflow deploy-image -a my-app-staging
 
 # Open app in browser.
-cpl open -a my-app-staging
+cpflow open -a my-app-staging
 ```
 
 Then for promoting code upgrades:
 
 ```sh
 # Build and push new image with sequential tagging, e.g., "my-app-staging:2".
-cpl build-image -a my-app-staging
+cpflow build-image -a my-app-staging
 
 # Or build and push new image with sequential tagging and commit SHA, e.g., "my-app-staging:2_ABC".
-cpl build-image -a my-app-staging --commit ABC
+cpflow build-image -a my-app-staging --commit ABC
 
 # Run database migrations (or other release tasks) with latest image, while app is still running on previous image.
 # This is analogous to the release phase.
-cpl run -a my-app-staging --image latest -- rails db:migrate
+cpflow run -a my-app-staging --image latest -- rails db:migrate
 
 # Deploy latest image.
-cpl deploy-image -a my-app-staging
+cpflow deploy-image -a my-app-staging
 ```
 
 ### Review Special Gems
@@ -208,16 +208,16 @@ echo "export APP_NAME=my-app-review-$PR_NUM" >> $BASH_ENV
 
 # Only create the app if it doesn't exist yet, as we may have multiple triggers for the review app
 # (such as when a PR gets updated).
-if ! cpl exists -a ${APP_NAME}; then
-  cpl setup-app -a ${APP_NAME}
+if ! cpflow exists -a ${APP_NAME}; then
+  cpflow setup-app -a ${APP_NAME}
   echo "export NEW_APP=true" >> $BASH_ENV
 fi
 
 # The `NEW_APP` env var that we exported above can be used to either reset or migrate the database before deploying.
 if [ -n "${NEW_APP}" ]; then
-  cpl run -a ${APP_NAME} --image latest -- rails db:reset
+  cpflow run -a ${APP_NAME} --image latest -- rails db:reset
 else
-  cpl run -a ${APP_NAME} --image latest -- rails db:migrate
+  cpflow run -a ${APP_NAME} --image latest -- rails db:migrate
 fi
 ```
 
@@ -259,4 +259,4 @@ bit simpler to isolate any differences in cost and performance by first moving o
 Ensure that your Control Plane compute is in the AWS region `US-EAST-1`; otherwise, you'll have noticeable extra latency
 with your calls to resources. You might also have egress charges from Control Plane.
 
-Use the `cpl promote-app-from-upstream` command to promote the staging app to production.
+Use the `cpflow promote-app-from-upstream` command to promote the staging app to production.

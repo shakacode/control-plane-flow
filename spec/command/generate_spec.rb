@@ -7,7 +7,7 @@ GEM_ROOT_PATH = Pathname.new(Dir.pwd)
 GEM_TEMP_PATH = GEM_ROOT_PATH.join("tmp")
 GENERATOR_PLAYGROUND_PATH = GEM_TEMP_PATH.join("sample-project")
 CONTROLPLANE_CONFIG_DIR_PATH = GENERATOR_PLAYGROUND_PATH.join(".controlplane")
-CPL_EXECUTABLE_PATH = GEM_ROOT_PATH.join("bin", "cpl")
+CPFLOW_EXECUTABLE_PATH = GEM_ROOT_PATH.join("bin", "cpflow")
 
 def inside_dir(path)
   original_working_dir = Dir.pwd
@@ -30,7 +30,7 @@ describe Command::Generate do
   context "when no configuration exist in the project" do
     it "generates base config files" do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
-        Cpl::Cli.start([described_class::NAME])
+        Cpflow::Cli.start([described_class::NAME])
         controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
         expect(controlplane_config_file_path).to exist
       end
@@ -43,7 +43,7 @@ describe Command::Generate do
         Dir.mkdir(CONTROLPLANE_CONFIG_DIR_PATH)
 
         expect do
-          Cpl::Cli.start([described_class::NAME])
+          Cpflow::Cli.start([described_class::NAME])
         end.to output(/already exist/).to_stderr
 
         controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")

@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "lib/cpl/version"
+require_relative "lib/cpflow/version"
 
 Gem::Specification.new do |spec|
-  spec.name    = "cpl"
-  spec.version = Cpl::VERSION
+  spec.name    = "cpflow"
+  spec.version = Cpflow::VERSION
   spec.authors = ["Justin Gordon", "Sergey Tarasov"]
   spec.email   = ["justin@shakacode.com", "sergey@shakacode.com"]
 
@@ -35,7 +35,7 @@ Gem::Specification.new do |spec|
     file.match(%r{^(coverage|pkg|spec|tmp)/})
   end
 
-  spec.executables = ["cpl"]
+  spec.executables = ["cpflow"]
 
   spec.metadata["rubygems_mfa_required"] = "true"
 end

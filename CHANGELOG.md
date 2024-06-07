@@ -52,7 +52,7 @@ _Please add entries here for your pull requests that have not yet been released.
 
 ### Changed
 
-- `cpl` now sets `CPLN_SKIP_UPDATE_CHECK` to `true` for all internal `cpln` calls, which disables the version check and prevents cluttering the logs. [PR 180](https://github.com/shakacode/control-plane-flow/pull/180) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- `cpflow` now sets `CPLN_SKIP_UPDATE_CHECK` to `true` for all internal `cpln` calls, which disables the version check and prevents cluttering the logs. [PR 180](https://github.com/shakacode/control-plane-flow/pull/180) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `setup-app` command now automatically creates a secret, policy, and identity for the app if they do not exist. The `--skip-secrets-setup` option prevents this behavior. [PR 181](https://github.com/shakacode/control-plane-flow/pull/181) by [Rafael Gomes](https://github.com/rafaelgomesxyz). [PR 190](https://github.com/shakacode/control-plane-flow/pull/190) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Specific validations are now run before commands, and the command will exit with a non-zero code if any validation fails. Can be disabled by setting `DISABLE_VALIDATIONS` env var to `true`. [PR 185](https://github.com/shakacode/control-plane-flow/pull/185) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Deprecated the `--skip-secret-access-binding` option in favor of `--skip-secrets-setup`. This can also now be configured through `skip_secrets_setup` in `controlplane.yml` [PR 190](https://github.com/shakacode/control-plane-flow/pull/190) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -139,7 +139,7 @@ _Please add entries here for your pull requests that have not yet been released.
 ### Fixed
 
 - Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/control-plane-flow/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
-- Fixed issues with running `cpl --version` and `cpl --help` where no configuration file exists. [PR 100](https://github.com/shakacode/control-plane-flow/pull/100) by [Mostafa Ahangarha](https://github.com/ahangarha).
+- Fixed issues with running `cpflow --version` and `cpflow --help` where no configuration file exists. [PR 100](https://github.com/shakacode/control-plane-flow/pull/100) by [Mostafa Ahangarha](https://github.com/ahangarha).
 - Fixed issue where `delete` command fails to delete apps with volumesets. [PR 123](https://github.com/shakacode/control-plane-flow/pull/123) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Added
@@ -172,7 +172,7 @@ _Please add entries here for your pull requests that have not yet been released.
 
 ### Changed
 
-- Calling `cpl` with no command now shows the help menu. [PR 83](https://github.com/shakacode/control-plane-flow/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Calling `cpflow` with no command now shows the help menu. [PR 83](https://github.com/shakacode/control-plane-flow/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [1.1.1] - 2023-09-23
 

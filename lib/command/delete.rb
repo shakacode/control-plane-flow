@@ -21,10 +21,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Deletes the whole app (GVC with all workloads, all volumesets and all images).
-      cpl delete -a $APP_NAME
+      cpflow delete -a $APP_NAME
 
       # Deletes a specific workload.
-      cpl delete -a $APP_NAME -w $WORKLOAD_NAME
+      cpflow delete -a $APP_NAME -w $WORKLOAD_NAME
       ```
     EX
 

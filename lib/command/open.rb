@@ -14,10 +14,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Opens the endpoint of the default workload (`one_off_workload`).
-      cpl open -a $APP_NAME
+      cpflow open -a $APP_NAME
 
       # Opens the endpoint of a specific workload.
-      cpl open -a $APP_NAME -w $WORKLOAD_NAME
+      cpflow open -a $APP_NAME -w $WORKLOAD_NAME
       ```
     EX
 

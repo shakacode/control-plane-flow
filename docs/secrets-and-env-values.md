@@ -23,7 +23,7 @@ You can do this during the initial app setup, like this:
 
 1. Add the template for `app` to `.controlplane/templates`
 2. Ensure that the `app` template is listed in `setup_app_templates` for the app in `.controlplane/controlplane.yml`
-3. Run `cpl setup-app -a $APP_NAME`
+3. Run `cpflow setup-app -a $APP_NAME`
 4. The secrets, secrets policy and identity will be automatically created, along with the proper binding
 5. In the Control Plane console, upper left "Manage Org" menu, click on "Secrets"
 6. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there

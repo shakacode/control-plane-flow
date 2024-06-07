@@ -12,7 +12,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      if [ cpl exists -a $APP_NAME ]; ...
+      if [ cpflow exists -a $APP_NAME ]; ...
       ```
     EX
 

@@ -33,10 +33,10 @@ This `-a` option is used in most of the commands and will pick all other app con
 
 ```sh
 # Applies single template.
-cpl apply-template redis -a $APP_NAME
+cpflow apply-template redis -a $APP_NAME
 
 # Applies several templates (practically creating full app).
-cpl apply-template app postgres redis rails -a $APP_NAME
+cpflow apply-template app postgres redis rails -a $APP_NAME
 ```
 
 ### `build-image`
@@ -48,7 +48,7 @@ cpl apply-template app postgres redis rails -a $APP_NAME
 - Accepts extra options that are passed to `docker build`
 
 ```sh
-cpl build-image -a $APP_NAME
+cpflow build-image -a $APP_NAME
 ```
 
 ### `cleanup-images`
@@ -61,7 +61,7 @@ cpl build-image -a $APP_NAME
 - Never deletes the latest image
 
 ```sh
-cpl cleanup-images -a $APP_NAME
+cpflow cleanup-images -a $APP_NAME
 ```
 
 ### `cleanup-stale-apps`
@@ -74,7 +74,7 @@ cpl cleanup-images -a $APP_NAME
 - Will ask for explicit user confirmation
 
 ```sh
-cpl cleanup-stale-apps -a $APP_NAME
+cpflow cleanup-stale-apps -a $APP_NAME
 ```
 
 ### `config`
@@ -83,10 +83,10 @@ cpl cleanup-stale-apps -a $APP_NAME
 
 ```sh
 # Shows the config for each app.
-cpl config
+cpflow config
 
 # Shows the config for a specific app.
-cpl config -a $APP_NAME
+cpflow config -a $APP_NAME
 ```
 
 ### `copy-image-from-upstream`
@@ -98,10 +98,10 @@ cpl config -a $APP_NAME
 
 ```sh
 # Copies the latest image from the source org to the current org.
-cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
+cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
 
 # Copies a specific image from the source org to the current org.
-cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
+cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
 ```
 
 ### `delete`
@@ -115,21 +115,21 @@ cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --ima
 
 ```sh
 # Deletes the whole app (GVC with all workloads, all volumesets and all images).
-cpl delete -a $APP_NAME
+cpflow delete -a $APP_NAME
 
 # Deletes a specific workload.
-cpl delete -a $APP_NAME -w $WORKLOAD_NAME
+cpflow delete -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `deploy-image`
 
 - Deploys the latest image to app workloads
 - Runs a release script before deploying if `release_script` is specified in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
-- The release script is run in the context of `cpl run` with the latest image
+- The release script is run in the context of `cpflow run` with the latest image
 - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 
 ```sh
-cpl deploy-image -a $APP_NAME
+cpflow deploy-image -a $APP_NAME
 ```
 
 ### `doctor`
@@ -138,13 +138,13 @@ cpl deploy-image -a $APP_NAME
 
 ```sh
 # Runs all validations that don't require additional options by default.
-cpl doctor
+cpflow doctor
 
 # Runs config validation.
-cpl doctor --validations config
+cpflow doctor --validations config
 
 # Runs templates validation (requires app).
-cpl doctor --validations templates -a $APP_NAME
+cpflow doctor --validations templates -a $APP_NAME
 ```
 
 ### `env`
@@ -152,7 +152,7 @@ cpl doctor --validations templates -a $APP_NAME
 - Displays app-specific environment variables
 
 ```sh
-cpl env -a $APP_NAME
+cpflow env -a $APP_NAME
 ```
 
 ### `exists`
@@ -160,7 +160,7 @@ cpl env -a $APP_NAME
 - Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
 
 ```sh
-if [ cpl exists -a $APP_NAME ]; ...
+if [ cpflow exists -a $APP_NAME ]; ...
 ```
 
 ### `generate`
@@ -169,7 +169,7 @@ Creates base Control Plane config and template files
 
 ```sh
 # Creates .controlplane directory with Control Plane config and other templates
-cpl generate
+cpflow generate
 ```
 
 ### `info`
@@ -182,13 +182,13 @@ cpl generate
 
 ```sh
 # Shows diff for all apps in all orgs (based on `.controlplane/controlplane.yml`).
-cpl info
+cpflow info
 
 # Shows diff for all apps in a specific org.
-cpl info -o $ORG_NAME
+cpflow info -o $ORG_NAME
 
 # Shows diff for a specific app.
-cpl info -a $APP_NAME
+cpflow info -a $APP_NAME
 ```
 
 ### `latest-image`
@@ -196,7 +196,7 @@ cpl info -a $APP_NAME
 - Displays the latest image name
 
 ```sh
-cpl latest-image -a $APP_NAME
+cpflow latest-image -a $APP_NAME
 ```
 
 ### `logs`
@@ -206,19 +206,19 @@ cpl latest-image -a $APP_NAME
 
 ```sh
 # Displays logs for the default workload (`one_off_workload`).
-cpl logs -a $APP_NAME
+cpflow logs -a $APP_NAME
 
 # Displays logs for a specific workload.
-cpl logs -a $APP_NAME -w $WORKLOAD_NAME
+cpflow logs -a $APP_NAME -w $WORKLOAD_NAME
 
 # Displays logs for a specific replica of a workload.
-cpl logs -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
+cpflow logs -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
 
 # Uses a different limit on number of entries.
-cpl logs -a $APP_NAME --limit 100
+cpflow logs -a $APP_NAME --limit 100
 
 # Uses a different loopback window.
-cpl logs -a $APP_NAME --since 30min
+cpflow logs -a $APP_NAME --since 30min
 ```
 
 ### `maintenance`
@@ -230,7 +230,7 @@ cpl logs -a $APP_NAME --since 30min
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
 
 ```sh
-cpl maintenance -a $APP_NAME
+cpflow maintenance -a $APP_NAME
 ```
 
 ### `maintenance:off`
@@ -241,7 +241,7 @@ cpl maintenance -a $APP_NAME
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
 
 ```sh
-cpl maintenance:off -a $APP_NAME
+cpflow maintenance:off -a $APP_NAME
 ```
 
 ### `maintenance:on`
@@ -252,7 +252,7 @@ cpl maintenance:off -a $APP_NAME
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
 
 ```sh
-cpl maintenance:on -a $APP_NAME
+cpflow maintenance:on -a $APP_NAME
 ```
 
 ### `maintenance:set-page`
@@ -263,7 +263,7 @@ cpl maintenance:on -a $APP_NAME
 - Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
 
 ```sh
-cpl maintenance:set-page PAGE_URL -a $APP_NAME
+cpflow maintenance:set-page PAGE_URL -a $APP_NAME
 ```
 
 ### `open`
@@ -272,10 +272,10 @@ cpl maintenance:set-page PAGE_URL -a $APP_NAME
 
 ```sh
 # Opens the endpoint of the default workload (`one_off_workload`).
-cpl open -a $APP_NAME
+cpflow open -a $APP_NAME
 
 # Opens the endpoint of a specific workload.
-cpl open -a $APP_NAME -w $WORKLOAD_NAME
+cpflow open -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `open-console`
@@ -284,20 +284,20 @@ cpl open -a $APP_NAME -w $WORKLOAD_NAME
 - Can also go directly to a workload page if `--workload` is provided
 
 ```sh
-cpl open-console -a $APP_NAME
+cpflow open-console -a $APP_NAME
 ```
 
 ### `promote-app-from-upstream`
 
 - Copies the latest image from upstream, runs a release script (optional), and deploys the image
 - It performs the following steps:
-  - Runs `cpl copy-image-from-upstream` to copy the latest image from upstream
-  - Runs `cpl deploy-image` to deploy the image
-  - If `.controlplane/controlplane.yml` includes the `release_script`, `cpl deploy-image` will use the `--run-release-phase` option
+  - Runs `cpflow copy-image-from-upstream` to copy the latest image from upstream
+  - Runs `cpflow deploy-image` to deploy the image
+  - If `.controlplane/controlplane.yml` includes the `release_script`, `cpflow deploy-image` will use the `--run-release-phase` option
   - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 
 ```sh
-cpl promote-app-from-upstream -a $APP_NAME -t $UPSTREAM_TOKEN
+cpflow promote-app-from-upstream -a $APP_NAME -t $UPSTREAM_TOKEN
 ```
 
 ### `ps`
@@ -306,10 +306,10 @@ cpl promote-app-from-upstream -a $APP_NAME -t $UPSTREAM_TOKEN
 
 ```sh
 # Shows running replicas in app, for all workloads.
-cpl ps -a $APP_NAME
+cpflow ps -a $APP_NAME
 
 # Shows running replicas in app, for a specific workload.
-cpl ps -a $APP_NAME -w $WORKLOAD_NAME
+cpflow ps -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `ps:restart`
@@ -318,10 +318,10 @@ cpl ps -a $APP_NAME -w $WORKLOAD_NAME
 
 ```sh
 # Forces redeploy of all workloads in app.
-cpl ps:restart -a $APP_NAME
+cpflow ps:restart -a $APP_NAME
 
 # Forces redeploy of a specific workload in app.
-cpl ps:restart -a $APP_NAME -w $WORKLOAD_NAME
+cpflow ps:restart -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `ps:start`
@@ -330,10 +330,10 @@ cpl ps:restart -a $APP_NAME -w $WORKLOAD_NAME
 
 ```sh
 # Starts all workloads in app.
-cpl ps:start -a $APP_NAME
+cpflow ps:start -a $APP_NAME
 
 # Starts a specific workload in app.
-cpl ps:start -a $APP_NAME -w $WORKLOAD_NAME
+cpflow ps:start -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `ps:stop`
@@ -342,13 +342,13 @@ cpl ps:start -a $APP_NAME -w $WORKLOAD_NAME
 
 ```sh
 # Stops all workloads in app.
-cpl ps:stop -a $APP_NAME
+cpflow ps:stop -a $APP_NAME
 
 # Stops a specific workload in app.
-cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME
+cpflow ps:stop -a $APP_NAME -w $WORKLOAD_NAME
 
 # Stops a specific replica of a workload.
-cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
+cpflow ps:stop -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
 ```
 
 ### `ps:wait`
@@ -357,10 +357,10 @@ cpl ps:stop -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
 
 ```sh
 # Waits for all workloads in app.
-cpl ps:wait -a $APP_NAME
+cpflow ps:wait -a $APP_NAME
 
 # Waits for a specific workload in app.
-cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
+cpflow ps:swait -a $APP_NAME -w $WORKLOAD_NAME
 ```
 
 ### `run`
@@ -385,52 +385,52 @@ cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
 
 ```sh
 # Opens shell (bash by default).
-cpl run -a $APP_NAME
+cpflow run -a $APP_NAME
 
 # Runs interactive command, keeps shell open, and stops job when exiting.
-cpl run -a $APP_NAME --interactive -- rails c
+cpflow run -a $APP_NAME --interactive -- rails c
 
 # Some commands are automatically detected as interactive, so no need to pass `--interactive`.
-cpl run -a $APP_NAME -- bash
-      cpl run -a $APP_NAME -- rails console
-      cpl run -a $APP_NAME -- rails c
-      cpl run -a $APP_NAME -- rails dbconsole
-      cpl run -a $APP_NAME -- rails db
+cpflow run -a $APP_NAME -- bash
+      cpflow run -a $APP_NAME -- rails console
+      cpflow run -a $APP_NAME -- rails c
+      cpflow run -a $APP_NAME -- rails dbconsole
+      cpflow run -a $APP_NAME -- rails db
 
 # Runs non-interactive command, outputs logs, exits with the exit code of the command and stops job.
-cpl run -a $APP_NAME -- rails db:migrate
+cpflow run -a $APP_NAME -- rails db:migrate
 
 # Runs non-iteractive command, detaches, exits with 0, and prints commands to:
 # - see logs from the job
 # - stop the job
-cpl run -a $APP_NAME --detached -- rails db:migrate
+cpflow run -a $APP_NAME --detached -- rails db:migrate
 
 # The command needs to be quoted if setting an env variable or passing args.
-cpl run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
+cpflow run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
 
 # Uses a different image (which may not be promoted yet).
-cpl run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
-cpl run -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
+cpflow run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+cpflow run -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
 # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-cpl run -a $APP_NAME -w other-workload -- bash
+cpflow run -a $APP_NAME -w other-workload -- bash
 
 # Overrides remote CPLN_TOKEN env variable with local token.
 # Useful when superuser rights are needed in remote container.
-cpl run -a $APP_NAME --use-local-token -- bash
+cpflow run -a $APP_NAME --use-local-token -- bash
 
 # Replaces the existing Dockerfile entrypoint with `bash`.
-cpl run -a $APP_NAME --entrypoint none -- rails db:migrate
+cpflow run -a $APP_NAME --entrypoint none -- rails db:migrate
 
 # Replaces the existing Dockerfile entrypoint.
-cpl run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:migrate
+cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:migrate
 ```
 
 ### `setup-app`
 
 - Creates an app and all its workloads
 - Specify the templates for the app and workloads through `setup_app_templates` in the `.controlplane/controlplane.yml` file
-- This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpl apply-template' instead)
+- This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpflow apply-template' instead)
 - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
   using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
 - Creates identity for secrets if it does not exist
@@ -441,14 +441,14 @@ cpl run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:mig
 - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
 
 ```sh
-cpl setup-app -a $APP_NAME
+cpflow setup-app -a $APP_NAME
 ```
 
 ### `version`
 
 - Displays the current version of the CLI
-- Can also be done with `cpl --version` or `cpl -v`
+- Can also be done with `cpflow --version` or `cpflow -v`
 
 ```sh
-cpl version
+cpflow version
 ```

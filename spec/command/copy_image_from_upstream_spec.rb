@@ -12,7 +12,7 @@ describe Command::CopyImageFromUpstream do
     end
 
     it "raises error" do
-      result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
+      result = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't run Docker")
@@ -23,7 +23,7 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
+      result = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'upstream'")
@@ -34,7 +34,7 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app("undefined-upstream") }
 
     it "raises error" do
-      result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
+      result = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'cpln_org' for app 'undefined'")
@@ -50,7 +50,7 @@ describe Command::CopyImageFromUpstream do
     end
 
     it "raises error" do
-      result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
+      result = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'cpln_org' for app '#{upstream_app}'")
@@ -66,18 +66,18 @@ describe Command::CopyImageFromUpstream do
       # Ideally, we should have a different org, but for testing purposes, this works
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
 
-      run_cpl_command!("apply-template", "app", "-a", upstream_app)
-      run_cpl_command!("apply-template", "app", "-a", app)
+      run_cpflow_command!("apply-template", "app", "-a", upstream_app)
+      run_cpflow_command!("apply-template", "app", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", upstream_app, "--yes")
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", upstream_app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "fails to fetch upstream image URL", :slow do
-      run_cpl_command!("build-image", "-a", upstream_app)
-      result = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
+      run_cpflow_command!("build-image", "-a", upstream_app)
+      result = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", "token")
 
       expect(ENV.fetch("CPLN_PROFILE", nil)).to eq("default")
       expect(result[:status]).not_to eq(0)
@@ -97,26 +97,26 @@ describe Command::CopyImageFromUpstream do
       # Ideally, we should have a different org, but for testing purposes, this works
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
 
-      run_cpl_command!("apply-template", "app", "-a", upstream_app)
-      run_cpl_command!("apply-template", "app", "-a", app)
+      run_cpflow_command!("apply-template", "app", "-a", upstream_app)
+      run_cpflow_command!("apply-template", "app", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", upstream_app, "--yes")
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", upstream_app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "copies images from upstream", :slow do
       # Simulates looping through generated profile names to avoid conflicts
       allow_any_instance_of(Controlplane).to receive(:profile_exists?).and_return(true, false) # rubocop:disable RSpec/AnyInstance
 
-      run_cpl_command!("build-image", "-a", upstream_app, "--commit", "abc123")
-      run_cpl_command!("build-image", "-a", upstream_app)
+      run_cpflow_command!("build-image", "-a", upstream_app, "--commit", "abc123")
+      run_cpflow_command!("build-image", "-a", upstream_app)
       # Copies latest image
-      result1 = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", token)
+      result1 = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", token)
       # Copies specific image with commit hash
-      result2 = run_cpl_command("copy-image-from-upstream", "-a", app, "--upstream-token", token,
-                                "--image", "#{upstream_app}:1_abc123")
+      result2 = run_cpflow_command("copy-image-from-upstream", "-a", app, "--upstream-token", token,
+                                   "--image", "#{upstream_app}:1_abc123")
 
       expect(ENV.fetch("CPLN_PROFILE", nil)).to eq("default")
       expect(result1[:status]).to eq(0)

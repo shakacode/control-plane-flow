@@ -7,7 +7,7 @@ describe Command::Env do
     let!(:app) { dummy_test_app }
 
     it "raises error" do
-      result = run_cpl_command("env", "-a", app)
+      result = run_cpflow_command("env", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find app '#{app}'")
@@ -18,7 +18,7 @@ describe Command::Env do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
     it "displays app-specific environment variables" do
-      result = run_cpl_command("env", "-a", app)
+      result = run_cpflow_command("env", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout])

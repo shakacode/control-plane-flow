@@ -13,7 +13,7 @@ describe Command::Doctor do
     it "fails if there are app names contained in others" do
       temporarily_switch_config_file("invalid-app-names")
 
-      result = run_cpl_command("doctor", "--validations", "config")
+      result = run_cpflow_command("doctor", "--validations", "config")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("[FAIL] config")
@@ -25,7 +25,7 @@ describe Command::Doctor do
     it "passes if there are no issues" do
       temporarily_switch_config_file("valid-app-names")
 
-      result = run_cpl_command("doctor", "--validations", "config")
+      result = run_cpflow_command("doctor", "--validations", "config")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("[PASS] config")
@@ -36,7 +36,7 @@ describe Command::Doctor do
     let!(:app) { dummy_test_app }
 
     it "raises error if app is not provided" do
-      result = run_cpl_command("doctor", "--validations", "templates")
+      result = run_cpflow_command("doctor", "--validations", "templates")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("App is required for templates validation")
@@ -45,7 +45,7 @@ describe Command::Doctor do
     it "fails if there are duplicate templates" do
       stub_template_filenames("app", "app-without-identity", "rails")
 
-      result = run_cpl_command("doctor", "--validations", "templates", "-a", app)
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("[FAIL] templates")
@@ -55,7 +55,7 @@ describe Command::Doctor do
     it "passes if there are no issues" do
       stub_template_filenames("app", "rails")
 
-      result = run_cpl_command("doctor", "--validations", "templates", "-a", app)
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("[PASS] templates")
@@ -65,7 +65,7 @@ describe Command::Doctor do
     it "warns about deprecated variables" do
       stub_template_filenames("app-with-deprecated-variables")
 
-      result = run_cpl_command("doctor", "--validations", "templates", "-a", app)
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("[PASS] templates")
@@ -79,7 +79,7 @@ describe Command::Doctor do
 
   context "when validation is not recognized" do
     it "raises error" do
-      result = run_cpl_command("doctor", "--validations", "unknown")
+      result = run_cpflow_command("doctor", "--validations", "unknown")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Invalid value provided for option --validations")

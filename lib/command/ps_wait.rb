@@ -15,10 +15,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Waits for all workloads in app.
-      cpl ps:wait -a $APP_NAME
+      cpflow ps:wait -a $APP_NAME
 
       # Waits for a specific workload in app.
-      cpl ps:swait -a $APP_NAME -w $WORKLOAD_NAME
+      cpflow ps:swait -a $APP_NAME -w $WORKLOAD_NAME
       ```
     EX
 

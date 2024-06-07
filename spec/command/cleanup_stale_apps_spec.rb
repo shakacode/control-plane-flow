@@ -9,7 +9,7 @@ describe Command::CleanupStaleApps do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("cleanup-stale-apps", "-a", app)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'stale_app_image_deployed_days'")
@@ -20,7 +20,7 @@ describe Command::CleanupStaleApps do
     let!(:app) { dummy_test_app }
 
     it "displays message" do
-      result = run_cpl_command("cleanup-stale-apps", "-a", app)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("No stale apps found")
@@ -32,22 +32,22 @@ describe Command::CleanupStaleApps do
     let!(:app2) { dummy_test_app("stale-app") }
 
     before do
-      run_cpl_command!("apply-template", "app", "postgres-with-volume", "-a", app1)
-      run_cpl_command!("apply-template", "app", "postgres-with-volume", "-a", app2)
-      run_cpl_command!("build-image", "-a", app1)
-      run_cpl_command!("build-image", "-a", app2)
+      run_cpflow_command!("apply-template", "app", "postgres-with-volume", "-a", app1)
+      run_cpflow_command!("apply-template", "app", "postgres-with-volume", "-a", app2)
+      run_cpflow_command!("build-image", "-a", app1)
+      run_cpflow_command!("build-image", "-a", app2)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app1, "--yes")
-      run_cpl_command!("delete", "-a", app2, "--yes")
+      run_cpflow_command!("delete", "-a", app1, "--yes")
+      run_cpflow_command!("delete", "-a", app2, "--yes")
     end
 
     it "asks for confirmation and does nothing", :slow do
       allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(false)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-stale-apps", "-a", app_prefix)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -59,7 +59,7 @@ describe Command::CleanupStaleApps do
       allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(true)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-stale-apps", "-a", app_prefix)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -76,7 +76,7 @@ describe Command::CleanupStaleApps do
       allow(Shell).to receive(:confirm).and_return(false)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-stale-apps", "-a", app_prefix, "--yes")
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--yes")
       travel_back
 
       expect(Shell).not_to have_received(:confirm)
@@ -97,17 +97,17 @@ describe Command::CleanupStaleApps do
     let!(:app4) { dummy_test_app("stale-app") }
 
     before do
-      run_cpl_command!("apply-template", "app", "-a", app1)
-      run_cpl_command!("apply-template", "app", "-a", app2)
-      run_cpl_command!("apply-template", "app", "-a", app3)
-      run_cpl_command!("apply-template", "app", "-a", app4)
+      run_cpflow_command!("apply-template", "app", "-a", app1)
+      run_cpflow_command!("apply-template", "app", "-a", app2)
+      run_cpflow_command!("apply-template", "app", "-a", app3)
+      run_cpflow_command!("apply-template", "app", "-a", app4)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app1, "--yes")
-      run_cpl_command!("delete", "-a", app2, "--yes")
-      run_cpl_command!("delete", "-a", app3, "--yes")
-      run_cpl_command!("delete", "-a", app4, "--yes")
+      run_cpflow_command!("delete", "-a", app1, "--yes")
+      run_cpflow_command!("delete", "-a", app2, "--yes")
+      run_cpflow_command!("delete", "-a", app3, "--yes")
+      run_cpflow_command!("delete", "-a", app4, "--yes")
     end
 
     it "lists correct stale apps", :slow do
@@ -124,12 +124,12 @@ describe Command::CleanupStaleApps do
       end
 
       # Apps with old image, will be listed
-      run_cpl_command!("build-image", "-a", app1)
-      run_cpl_command!("build-image", "-a", app2)
+      run_cpflow_command!("build-image", "-a", app1)
+      run_cpflow_command!("build-image", "-a", app2)
       travel_to_days_later(30)
       # App with new image, wont't be listed
-      run_cpl_command!("build-image", "-a", app3)
-      result = run_cpl_command("cleanup-stale-apps", "-a", app_prefix)
+      run_cpflow_command!("build-image", "-a", app3)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
       travel_back
 
       expect(Shell).to have_received(:confirm).once

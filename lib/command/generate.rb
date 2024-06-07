@@ -22,7 +22,7 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Creates .controlplane directory with Control Plane config and other templates
-      cpl generate
+      cpflow generate
       ```
     EX
     WITH_INFO_HEADER = false

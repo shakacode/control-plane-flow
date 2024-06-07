@@ -7,7 +7,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app("rails", create_if_not_exists: true) }
 
     it "raises error" do
-      result = run_cpl_command("deploy-image", "-a", app)
+      result = run_cpflow_command("deploy-image", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to match(/Image '#{app}:NO_IMAGE_AVAILABLE' does not exist/)
@@ -18,16 +18,16 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "app", "-a", app)
-      run_cpl_command!("build-image", "-a", app)
+      run_cpflow_command!("apply-template", "app", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "raises error", :slow do
-      result = run_cpl_command("deploy-image", "-a", app)
+      result = run_cpflow_command("deploy-image", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'rails'")
@@ -38,7 +38,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
 
     it "deploys latest image to app workloads", :slow do
-      result = run_cpl_command("deploy-image", "-a", app)
+      result = run_cpflow_command("deploy-image", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Running release script")
@@ -51,7 +51,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("deploy-image", "-a", app, "--run-release-phase")
+      result = run_cpflow_command("deploy-image", "-a", app, "--run-release-phase")
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'release_script'")
@@ -66,19 +66,19 @@ describe Command::DeployImage do
 
       allow(Kernel).to receive(:sleep)
 
-      run_cpl_command!("apply-template", "app", "rails", "postgres", "-a", app)
-      run_cpl_command!("build-image", "-a", app)
-      run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
+      run_cpflow_command!("apply-template", "app", "rails", "postgres", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
+      run_cpflow_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "fails to run release script and fails to deploy image", :slow do
       result = nil
 
-      spawn_cpl_command("deploy-image", "-a", app, "--run-release-phase") do |it|
+      spawn_cpflow_command("deploy-image", "-a", app, "--run-release-phase") do |it|
         result = it.read_full_output
       end
 
@@ -96,13 +96,13 @@ describe Command::DeployImage do
 
       allow(Kernel).to receive(:sleep)
 
-      run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
+      run_cpflow_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
 
     it "runs release script and deploys image", :slow do
       result = nil
 
-      spawn_cpl_command("deploy-image", "-a", app, "--run-release-phase") do |it|
+      spawn_cpflow_command("deploy-image", "-a", app, "--run-release-phase") do |it|
         result = it.read_full_output
       end
 

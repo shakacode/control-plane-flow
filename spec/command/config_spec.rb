@@ -5,7 +5,7 @@ require "spec_helper"
 describe Command::Config do
   context "when no app is provided" do
     it "displays config for each app" do
-      result = run_cpl_command("config")
+      result = run_cpflow_command("config")
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("Config for app 'dummy-test-#{dummy_test_app_global_identifier}'")
@@ -19,7 +19,7 @@ describe Command::Config do
     let!(:app) { dummy_test_app }
 
     it "displays config for specific app" do
-      result = run_cpl_command("config", "-a", app)
+      result = run_cpflow_command("config", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("Current config (app '#{app}')")

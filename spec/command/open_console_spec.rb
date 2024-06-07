@@ -9,7 +9,7 @@ describe Command::OpenConsole do
     it "opens app console on Control Plane" do
       allow(Kernel).to receive(:exec)
 
-      result = run_cpl_command("open-console", "-a", app)
+      result = run_cpflow_command("open-console", "-a", app)
 
       expected_url = %r{https://console.cpln.io/console/org/.+?/gvc/#{app}/-info}
       expect(Kernel).to have_received(:exec).with(anything, match(expected_url))
@@ -21,7 +21,7 @@ describe Command::OpenConsole do
     it "opens workload page on Control Plane" do
       allow(Kernel).to receive(:exec)
 
-      result = run_cpl_command("open-console", "-a", app, "--workload", "rails")
+      result = run_cpflow_command("open-console", "-a", app, "--workload", "rails")
 
       expected_url = %r{https://console.cpln.io/console/org/.+?/gvc/#{app}/workload/rails/-info}
       expect(Kernel).to have_received(:exec).with(anything, match(expected_url))

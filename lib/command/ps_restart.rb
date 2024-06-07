@@ -14,10 +14,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Forces redeploy of all workloads in app.
-      cpl ps:restart -a $APP_NAME
+      cpflow ps:restart -a $APP_NAME
 
       # Forces redeploy of a specific workload in app.
-      cpl ps:restart -a $APP_NAME -w $WORKLOAD_NAME
+      cpflow ps:restart -a $APP_NAME -w $WORKLOAD_NAME
       ```
     EX
 

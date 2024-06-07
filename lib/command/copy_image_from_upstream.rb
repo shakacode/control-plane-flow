@@ -18,10 +18,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Copies the latest image from the source org to the current org.
-      cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
+      cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
 
       # Copies a specific image from the source org to the current org.
-      cpl copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
+      cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
       ```
     EX
 

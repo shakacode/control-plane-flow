@@ -7,7 +7,7 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("setup-app", "-a", app)
+      result = run_cpflow_command("setup-app", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find option 'setup_app_templates'")
@@ -18,7 +18,7 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
     it "raises error" do
-      result = run_cpl_command("setup-app", "-a", app)
+      result = run_cpflow_command("setup-app", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("App '#{app}' already exists")
@@ -29,11 +29,11 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app }
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "applies templates from 'setup_app_templates'" do
-      result = run_cpl_command("setup-app", "-a", app, "--skip-secrets-setup")
+      result = run_cpflow_command("setup-app", "-a", app, "--skip-secrets-setup")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Created items")
@@ -46,7 +46,7 @@ describe Command::SetupApp do
     end
 
     it "works with deprecated --skip-secret-access-binding name" do
-      result = run_cpl_command("setup-app", "-a", app, "--skip-secret-access-binding")
+      result = run_cpflow_command("setup-app", "-a", app, "--skip-secret-access-binding")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("DEPRECATED: Option --skip-secret-access-binding is deprecated")
@@ -60,7 +60,7 @@ describe Command::SetupApp do
     let!(:app_secrets_policy) { "#{app_secrets}-policy" }
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
 
       api = ControlplaneApi.new
       api.delete_secret(org: dummy_test_org, secret: app_secrets)
@@ -68,7 +68,7 @@ describe Command::SetupApp do
     end
 
     it "creates secret and policy, and binds identity to policy" do
-      result = run_cpl_command("setup-app", "-a", app)
+      result = run_cpflow_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Creating secret '#{app_secrets}'[.]+? done!/)
@@ -82,11 +82,11 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("nonexistent-identity") }
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "creates identity, and binds identity to policy" do
-      result = run_cpl_command("setup-app", "-a", app)
+      result = run_cpflow_command("setup-app", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("[identity] #{app}-identity")
@@ -101,17 +101,17 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("invalid-post-creation-hook") }
 
     before do
-      run_cpl_command!("build-image", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "fails to run hook", :slow do
       result = nil
 
-      spawn_cpl_command("setup-app", "-a", app) do |it|
+      spawn_cpflow_command("setup-app", "-a", app) do |it|
         result = it.read_full_output
       end
 
@@ -124,17 +124,17 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("valid-post-creation-hook") }
 
     before do
-      run_cpl_command!("build-image", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "successfully runs hook", :slow do
       result = nil
 
-      spawn_cpl_command("setup-app", "-a", app) do |it|
+      spawn_cpflow_command("setup-app", "-a", app) do |it|
         result = it.read_full_output
       end
 
@@ -147,11 +147,11 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("valid-post-creation-hook") }
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "does not run hook" do
-      result = run_cpl_command("setup-app", "-a", app, "--skip-post-creation-hook")
+      result = run_cpflow_command("setup-app", "-a", app, "--skip-post-creation-hook")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Running post-creation hook")

@@ -73,7 +73,7 @@ module Command
     end
 
     def delete_app(app)
-      Cpl::Cli.start(["delete", "-a", app, "--yes"])
+      Cpflow::Cli.start(["delete", "-a", app, "--yes"])
     end
   end
 end

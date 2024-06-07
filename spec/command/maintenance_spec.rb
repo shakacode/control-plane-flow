@@ -7,7 +7,7 @@ describe Command::Maintenance do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("maintenance", "-a", app)
+      result = run_cpflow_command("maintenance", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find domain")
@@ -20,20 +20,20 @@ describe Command::Maintenance do
     before do
       allow(Kernel).to receive(:sleep)
 
-      run_cpl_command!("ps:start", "-a", app, "--wait")
+      run_cpflow_command!("ps:start", "-a", app, "--wait")
     end
 
     it "displays 'off' if maintenance mode is disabled", :slow do
-      run_cpl_command!("maintenance:off", "-a", app)
-      result = run_cpl_command("maintenance", "-a", app)
+      run_cpflow_command!("maintenance:off", "-a", app)
+      result = run_cpflow_command("maintenance", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("off")
     end
 
     it "displays 'on' if maintenance mode is enabled", :slow do
-      run_cpl_command!("maintenance:on", "-a", app)
-      result = run_cpl_command("maintenance", "-a", app)
+      run_cpflow_command!("maintenance:on", "-a", app)
+      result = run_cpflow_command("maintenance", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("on")

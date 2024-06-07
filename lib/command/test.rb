@@ -16,8 +16,8 @@ module Command
     def call
       # Modify this method to trigger the code you want to test.
       # You can use `debugger` to debug.
-      # You can use `Cpl::Cli.start` to simulate a command
-      # (e.g., `Cpl::Cli.start(["deploy-image", "-a", "my-app-name"])`).
+      # You can use `Cpflow::Cli.start` to simulate a command
+      # (e.g., `Cpflow::Cli.start(["deploy-image", "-a", "my-app-name"])`).
     end
   end
 end

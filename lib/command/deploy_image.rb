@@ -11,7 +11,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Deploys the latest image to app workloads
       - Runs a release script before deploying if `release_script` is specified in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
-      - The release script is run in the context of `cpl run` with the latest image
+      - The release script is run in the context of `cpflow run` with the latest image
       - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
     DESC
 
@@ -24,7 +24,7 @@ module Command
       if cp.fetch_image_details(image).nil?
         raise "Image '#{image}' does not exist in the Docker repository on Control Plane " \
               "(see https://console.cpln.io/console/org/#{config.org}/repository/#{config.app}). " \
-              "Use `cpl build-image` first."
+              "Use `cpflow build-image` first."
       end
 
       config[:app_workloads].each do |workload|
