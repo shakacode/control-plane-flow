@@ -14,6 +14,8 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+## [2.2.0] - 2024-06-07
+
 ### Fixed
 
 - Fixed issue where `ps:wait` command hangs forever if workloads are suspended. [PR 198](https://github.com/shakacode/control-plane-flow/pull/198) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -230,7 +232,8 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/shakacode/control-plane-flow/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/shakacode/control-plane-flow/compare/v2.0.2...v2.1.0
 [2.0.2]: https://github.com/shakacode/control-plane-flow/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/shakacode/control-plane-flow/compare/v2.0.0...v2.0.1
