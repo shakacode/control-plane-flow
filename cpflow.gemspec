@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["Justin Gordon", "Sergey Tarasov"]
   spec.email   = ["justin@shakacode.com", "sergey@shakacode.com"]
 
-  spec.summary     = "Heroku to Control Plane"
+  spec.summary     = "Control Plane Flow"
   spec.description = "CLI for providing Heroku-like platform-as-a-service on Control Plane"
   spec.homepage    = "https://github.com/shakacode/control-plane-flow"
   spec.license     = "MIT"

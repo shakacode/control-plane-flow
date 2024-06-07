@@ -125,11 +125,11 @@ npm update -g @controlplane/cli
 
 5. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
 
-6. Install Heroku to Control Plane `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
+6. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
 
 7. You can use [this Dockerfile](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile) as an example for your project. Ensure that you have Docker running.
 
-**Note:** Do not confuse the `cpflow` CLI with the `cpln` CLI. The `cpflow` CLI is the Heroku to Control Plane playbook CLI.
+**Note:** Do not confuse the `cpflow` CLI with the `cpln` CLI. The `cpflow` CLI is the Control Plane Flow playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
 
 ## Steps to Migrate
@@ -543,4 +543,4 @@ cpflow --help
 ## Resources
 * If you need a free demo account for Control Plane (no CC required), you can contact [Justin Gordon, CEO of ShakaCode](mailto:justin@shakacode.com).
 * [Control Plane Site](https://shakacode.controlplane.com)
-* [Join our Slack to Discuss Heroku to Control Plane](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE)
+* [Join our Slack to Discuss Control Plane Flow](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE)
