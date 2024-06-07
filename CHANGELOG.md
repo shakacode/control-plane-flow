@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Fixed
+
+- Fixed issue where `ps:wait` command hangs forever if workloads are suspended. [PR 198](https://github.com/shakacode/control-plane-flow/pull/198) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ### Added
 
 - Added a timeout for `run` jobs (6 hours by default, but configurable through `runner_job_timeout` in `controlplane.yml`). [PR 194](https://github.com/shakacode/control-plane-flow/pull/194) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
