@@ -41,5 +41,5 @@ Gem::Specification.new do |spec|
 
   spec.post_install_message = "DEPRECATED: The `cpl` gem has been renamed to `cpflow` " \
                               "and will no longer be supported. " \
-                              "Please switch to `shakaflow` as soon as possible."
+                              "Please switch to `cpflow` as soon as possible."
 end
