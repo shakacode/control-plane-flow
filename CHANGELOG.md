@@ -14,6 +14,11 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Fixed
+
+- Fixed issue where latest image may be incorrect. [PR 201](https://github.com/shakacode/control-plane-flow/pull/201) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed issue where `build-image` command hangs forever waiting for image to be available. [PR 201](https://github.com/shakacode/control-plane-flow/pull/201) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [2.2.0] - 2024-06-07
 
 ### Fixed
