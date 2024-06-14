@@ -38,4 +38,8 @@ Gem::Specification.new do |spec|
   spec.executables = ["cpl"]
 
   spec.metadata["rubygems_mfa_required"] = "true"
+
+  spec.post_install_message = "DEPRECATED: The `cpl` gem has been renamed to `shakaflow` " \
+                              "and will no longer be supported. " \
+                              "Please switch to `shakaflow` as soon as possible."
 end
