@@ -39,9 +39,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # image
 
-  def latest_image(a_gvc = gvc, a_org = org, refresh: false)
+  def latest_image(a_gvc = gvc, a_org = org)
     @latest_image ||= {}
-    @latest_image[a_gvc] = nil if refresh
     @latest_image[a_gvc] ||=
       begin
         items = query_images(a_gvc, a_org)["items"]

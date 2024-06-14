@@ -41,7 +41,8 @@ module Command
       progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.\n\n")
 
       step("Waiting for image to be available", retry_on_failure: true) do
-        image_name == cp.latest_image(refresh: true)
+        images = cp.query_images["items"]
+        images.find { |image| image["name"] == image_name }
       end
     end
   end
