@@ -69,7 +69,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     if matching_items.empty?
       name_only ? "#{app_name}:#{NO_IMAGE_AVAILABLE}" : nil
     else
-      latest_item = matching_items.max_by { |item| extract_image_number(item["name"]) }
+      latest_item = matching_items.max_by { |item| DateTime.parse(item["created"]) }
       name_only ? latest_item["name"] : latest_item
     end
   end
