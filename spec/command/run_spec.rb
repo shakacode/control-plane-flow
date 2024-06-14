@@ -256,7 +256,7 @@ describe Command::Run do
         run_cpl_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
       end
 
-      it "updates runner workload" do
+      it "updates runner workload", :slow do
         result = nil
 
         spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
@@ -279,7 +279,7 @@ describe Command::Run do
         run_cpl_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
       end
 
-      it "updates runner workload" do
+      it "updates runner workload", :slow do
         result = nil
 
         spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|

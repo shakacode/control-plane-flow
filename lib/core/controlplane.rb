@@ -39,9 +39,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   # image
 
-  def latest_image(a_gvc = gvc, a_org = org, refresh: false)
+  def latest_image(a_gvc = gvc, a_org = org)
     @latest_image ||= {}
-    @latest_image[a_gvc] = nil if refresh
     @latest_image[a_gvc] ||=
       begin
         items = query_images(a_gvc, a_org)["items"]
@@ -69,7 +68,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     if matching_items.empty?
       name_only ? "#{app_name}:#{NO_IMAGE_AVAILABLE}" : nil
     else
-      latest_item = matching_items.max_by { |item| extract_image_number(item["name"]) }
+      latest_item = matching_items.max_by { |item| DateTime.parse(item["created"]) }
       name_only ? latest_item["name"] : latest_item
     end
   end

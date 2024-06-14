@@ -158,7 +158,7 @@ describe Command::CleanupImages do
   end
 
   context "with multiple apps" do
-    let!(:app_prefix) { dummy_test_app_prefix("with-image-retention") }
+    let!(:app_prefix) { dummy_test_app_prefix("image-retention") }
     let!(:app1) { dummy_test_app("image-retention", "1", create_if_not_exists: true) }
     let!(:app2) { dummy_test_app("image-retention", "2", create_if_not_exists: true) }
 
