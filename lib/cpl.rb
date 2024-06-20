@@ -60,11 +60,22 @@ module Cpl
     def self.start(*args)
       ENV["CPLN_SKIP_UPDATE_CHECK"] = "true"
 
+      warn_deprecated_gem
       check_cpln_version
       check_cpl_version
       fix_help_option
 
       super(*args)
+    end
+
+    def self.warn_deprecated_gem
+      return if @warned_deprecated_gem
+
+      @warned_deprecated_gem = true
+
+      ::Shell.warn_deprecated("This gem has been renamed to `cpflow` " \
+                              "and will no longer be supported. " \
+                              "Please switch to `cpflow` as soon as possible.")
     end
 
     def self.check_cpln_version # rubocop:disable Metrics/MethodLength
