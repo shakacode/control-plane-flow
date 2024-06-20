@@ -73,9 +73,9 @@ module Cpl
 
       @warned_deprecated_gem = true
 
-      ::Shell.warn_deprecated("This gem has been renamed to `shakaflow` " \
+      ::Shell.warn_deprecated("This gem has been renamed to `cpflow` " \
                               "and will no longer be supported. " \
-                              "Please switch to `shakaflow` as soon as possible.")
+                              "Please switch to `cpflow` as soon as possible.")
     end
 
     def self.check_cpln_version # rubocop:disable Metrics/MethodLength
