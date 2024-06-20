@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpl (2.2.1)
+    cpl (2.2.2)
       debug (~> 1.7.1)
       dotenv (~> 2.8.1)
       jwt (~> 2.8.1)
@@ -29,11 +29,11 @@ GEM
     hashdiff (1.1.0)
     iniparse (1.5.0)
     io-console (0.7.2)
-    irb (1.13.1)
+    irb (1.13.2)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     json (2.7.2)
-    jwt (2.8.1)
+    jwt (2.8.2)
       base64
     overcommit (0.60.0)
       childprocess (>= 0.6.3, < 5)
