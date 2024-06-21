@@ -13,7 +13,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Creates an app and all its workloads
       - Specify the templates for the app and workloads through `setup_app_templates` in the `.controlplane/controlplane.yml` file
-      - This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpl apply-template' instead)
+      - This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpflow apply-template' instead)
       - Configures app to have org-level secrets with default name "{APP_PREFIX}-secrets"
         using org-level policy with default name "{APP_PREFIX}-secrets-policy" (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
@@ -31,8 +31,8 @@ module Command
       app = cp.fetch_gvc
       if app
         raise "App '#{config.app}' already exists. If you want to update this app, " \
-              "either run 'cpl delete -a #{config.app}' and then re-run this command, " \
-              "or run 'cpl apply-template #{templates.join(' ')} -a #{config.app}'."
+              "either run 'cpflow delete -a #{config.app}' and then re-run this command, " \
+              "or run 'cpflow apply-template #{templates.join(' ')} -a #{config.app}'."
       end
 
       skip_secrets_setup = config.options[:skip_secret_access_binding] ||
@@ -42,7 +42,7 @@ module Command
 
       args = []
       args.push("--add-app-identity") unless skip_secrets_setup
-      Cpl::Cli.start(["apply-template", *templates, "-a", config.app, *args])
+      Cpflow::Cli.start(["apply-template", *templates, "-a", config.app, *args])
 
       bind_identity_to_policy unless skip_secrets_setup
       run_post_creation_hook unless config.options[:skip_post_creation_hook]

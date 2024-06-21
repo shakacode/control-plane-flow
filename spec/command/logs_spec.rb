@@ -7,7 +7,7 @@ describe Command::Logs do
   let!(:message_regex) { /Fetching logs .+?\n/ }
 
   before do
-    run_cpl_command!("ps:start", "-a", app, "--wait")
+    run_cpflow_command!("ps:start", "-a", app, "--wait")
   end
 
   context "when no workload is provided" do
@@ -16,7 +16,7 @@ describe Command::Logs do
       logs_result = nil
       logs_regex = /Rails .+? application starting in production/
 
-      spawn_cpl_command("logs", "-a", app) do |it|
+      spawn_cpflow_command("logs", "-a", app) do |it|
         message_result = it.wait_for(message_regex)
         logs_result = it.wait_for(logs_regex)
         it.kill
@@ -33,7 +33,7 @@ describe Command::Logs do
       logs_result = nil
       logs_regex = /PostgreSQL init process complete/
 
-      spawn_cpl_command("logs", "-a", app, "--workload", "postgres") do |it|
+      spawn_cpflow_command("logs", "-a", app, "--workload", "postgres") do |it|
         message_result = it.wait_for(message_regex)
         logs_result = it.wait_for(logs_regex)
         it.kill
@@ -46,10 +46,10 @@ describe Command::Logs do
 
   context "when replica is provided" do
     let!(:replica) do
-      run_cpl_command!("ps:stop", "-a", app, "--wait")
-      run_cpl_command!("ps:start", "-a", app, "--wait")
+      run_cpflow_command!("ps:stop", "-a", app, "--wait")
+      run_cpflow_command!("ps:start", "-a", app, "--wait")
 
-      result = run_cpl_command!("ps", "-a", app, "--workload", "postgres")
+      result = run_cpflow_command!("ps", "-a", app, "--workload", "postgres")
       result[:stdout].strip
     end
 
@@ -58,7 +58,7 @@ describe Command::Logs do
       logs_result = nil
       logs_regex = /PostgreSQL init process complete/
 
-      spawn_cpl_command("logs", "-a", app, "--workload", "postgres", "--replica", replica) do |it|
+      spawn_cpflow_command("logs", "-a", app, "--workload", "postgres", "--replica", replica) do |it|
         message_result = it.wait_for(message_regex)
         logs_result = it.wait_for(logs_regex)
         it.kill
@@ -79,7 +79,7 @@ describe Command::Logs do
       result = nil
       expected_regex = /Line \d+/
 
-      spawn_cpl_command("logs", "-a", app, "--workload", workload, "--limit", "5") do |it|
+      spawn_cpflow_command("logs", "-a", app, "--workload", workload, "--limit", "5") do |it|
         result = it.wait_for(expected_regex)
         it.kill
       end
@@ -102,7 +102,7 @@ describe Command::Logs do
       result = nil
       expected_regex = /Line \d+/
 
-      spawn_cpl_command("logs", "-a", app, "--workload", workload, "--since", "30s") do |it|
+      spawn_cpflow_command("logs", "-a", app, "--workload", workload, "--since", "30s") do |it|
         result = it.wait_for(expected_regex)
         it.kill
       end
@@ -115,7 +115,7 @@ describe Command::Logs do
     runner_workload = nil
 
     runner_workload_regex = /runner workload '(.+?)'/
-    spawn_cpl_command("run", "-a", app, "--detached", "--", cmd) do |it|
+    spawn_cpflow_command("run", "-a", app, "--detached", "--", cmd) do |it|
       runner_workload_result = it.wait_for(runner_workload_regex)
       runner_workload = runner_workload_result.match(runner_workload_regex)[1]
     end

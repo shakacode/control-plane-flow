@@ -155,7 +155,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     gvc_data = fetch_gvc(a_gvc)
     return gvc_data if gvc_data
 
-    raise "Can't find app '#{gvc}', please create it with 'cpl setup-app -a #{config.app}'."
+    raise "Can't find app '#{gvc}', please create it with 'cpflow setup-app -a #{config.app}'."
   end
 
   def gvc_delete(a_gvc = gvc)
@@ -180,7 +180,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     workload_data = fetch_workload(workload)
     return workload_data if workload_data
 
-    raise "Can't find workload '#{workload}', please create it with 'cpl apply-template #{workload} -a #{config.app}'."
+    raise "Can't find workload '#{workload}', " \
+          "please create it with 'cpflow apply-template #{workload} -a #{config.app}'."
   end
 
   def query_workloads(workload, a_gvc = gvc, a_org = org, partial_workload_match: false, partial_gvc_match: nil)

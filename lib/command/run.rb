@@ -51,41 +51,41 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Opens shell (bash by default).
-      cpl run -a $APP_NAME
+      cpflow run -a $APP_NAME
 
       # Runs interactive command, keeps shell open, and stops job when exiting.
-      cpl run -a $APP_NAME --interactive -- rails c
+      cpflow run -a $APP_NAME --interactive -- rails c
 
       # Some commands are automatically detected as interactive, so no need to pass `--interactive`.
-      #{INTERACTIVE_COMMANDS.map { |cmd| "cpl run -a $APP_NAME -- #{cmd}" }.join("\n      ")}
+      #{INTERACTIVE_COMMANDS.map { |cmd| "cpflow run -a $APP_NAME -- #{cmd}" }.join("\n      ")}
 
       # Runs non-interactive command, outputs logs, exits with the exit code of the command and stops job.
-      cpl run -a $APP_NAME -- rails db:migrate
+      cpflow run -a $APP_NAME -- rails db:migrate
 
       # Runs non-iteractive command, detaches, exits with 0, and prints commands to:
       # - see logs from the job
       # - stop the job
-      cpl run -a $APP_NAME --detached -- rails db:migrate
+      cpflow run -a $APP_NAME --detached -- rails db:migrate
 
       # The command needs to be quoted if setting an env variable or passing args.
-      cpl run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
+      cpflow run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
 
       # Uses a different image (which may not be promoted yet).
-      cpl run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
-      cpl run -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
+      cpflow run -a $APP_NAME --image appimage:123 -- rails db:migrate # Exact image name
+      cpflow run -a $APP_NAME --image latest -- rails db:migrate       # Latest sequential image
 
       # Uses a different workload than `one_off_workload` from `.controlplane/controlplane.yml`.
-      cpl run -a $APP_NAME -w other-workload -- bash
+      cpflow run -a $APP_NAME -w other-workload -- bash
 
       # Overrides remote CPLN_TOKEN env variable with local token.
       # Useful when superuser rights are needed in remote container.
-      cpl run -a $APP_NAME --use-local-token -- bash
+      cpflow run -a $APP_NAME --use-local-token -- bash
 
       # Replaces the existing Dockerfile entrypoint with `bash`.
-      cpl run -a $APP_NAME --entrypoint none -- rails db:migrate
+      cpflow run -a $APP_NAME --entrypoint none -- rails db:migrate
 
       # Replaces the existing Dockerfile entrypoint.
-      cpl run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:migrate
+      cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:migrate
       ```
     EX
 
@@ -93,7 +93,7 @@ module Command
     DEFAULT_JOB_MEMORY = "2Gi"
     DEFAULT_JOB_TIMEOUT = 21_600 # 6 hours
     DEFAULT_JOB_HISTORY_LIMIT = 10
-    MAGIC_END = "---cpl run command finished---"
+    MAGIC_END = "---cpflow run command finished---"
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
                 :default_image, :default_cpu, :default_memory, :job_timeout, :job_history_limit,
@@ -306,7 +306,7 @@ module Command
           exit(ExitCode::SUCCESS)
         end
 
-        Cpl::Cli.start(["logs", *app_workload_replica_args])
+        Cpflow::Cli.start(["logs", *app_workload_replica_args])
       end
       Process.detach(logs_pid)
 
@@ -322,8 +322,8 @@ module Command
     end
 
     def run_non_interactive_v2
-      current_cpl = File.expand_path("cpl", "#{__dir__}/../..")
-      logs_pipe = IO.popen([current_cpl, "logs", *app_workload_replica_args])
+      current_cpflow = File.expand_path("cpflow", "#{__dir__}/../..")
+      logs_pipe = IO.popen([current_cpflow, "logs", *app_workload_replica_args])
 
       exit_status = wait_for_job_status_and_log(logs_pipe)
 
@@ -351,7 +351,7 @@ module Command
 
       if config.options[:use_local_token]
         job_start_hash["env"] ||= []
-        job_start_hash["env"].push({ "name" => "CPL_TOKEN", "value" => ControlplaneApiDirect.new.api_token[:token] })
+        job_start_hash["env"].push({ "name" => "CPFLOW_TOKEN", "value" => ControlplaneApiDirect.new.api_token[:token] })
       end
 
       entrypoint = nil
@@ -364,14 +364,14 @@ module Command
       job_start_hash["args"].push("bash") unless entrypoint == "bash"
       job_start_hash["args"].push("-c")
       job_start_hash["env"] ||= []
-      job_start_hash["env"].push({ "name" => "CPL_RUNNER_SCRIPT", "value" => runner_script })
+      job_start_hash["env"].push({ "name" => "CPFLOW_RUNNER_SCRIPT", "value" => runner_script })
       if interactive
-        job_start_hash["env"].push({ "name" => "CPL_MONITORING_SCRIPT", "value" => interactive_monitoring_script })
+        job_start_hash["env"].push({ "name" => "CPFLOW_MONITORING_SCRIPT", "value" => interactive_monitoring_script })
 
-        job_start_hash["args"].push('eval "$CPL_MONITORING_SCRIPT"')
-        @command = %(bash -c 'eval "$CPL_RUNNER_SCRIPT"')
+        job_start_hash["args"].push('eval "$CPFLOW_MONITORING_SCRIPT"')
+        @command = %(bash -c 'eval "$CPFLOW_RUNNER_SCRIPT"')
       else
-        job_start_hash["args"].push('eval "$CPL_RUNNER_SCRIPT"')
+        job_start_hash["args"].push('eval "$CPFLOW_RUNNER_SCRIPT"')
       end
 
       image = config.options[:image]
@@ -402,7 +402,7 @@ module Command
 
         while true; do
           if [[ -z "$primary_pid" ]]; then
-            primary_pid=$(ps -eo pid,etime,cmd --sort=etime | grep -v "$$" | grep -v 'ps -eo' | grep -v 'grep' | grep 'CPL_RUNNER_SCRIPT' | head -n 1 | awk '{print $1}')
+            primary_pid=$(ps -eo pid,etime,cmd --sort=etime | grep -v "$$" | grep -v 'ps -eo' | grep -v 'grep' | grep 'CPFLOW_RUNNER_SCRIPT' | head -n 1 | awk '{print $1}')
             if [[ ! -z "$primary_pid" ]]; then
               echo "Primary process set with PID: $primary_pid"
             fi
@@ -434,12 +434,12 @@ module Command
 
     def runner_script # rubocop:disable Metrics/MethodLength
       script = <<~SCRIPT
-        unset CPL_RUNNER_SCRIPT
-        unset CPL_MONITORING_SCRIPT
+        unset CPFLOW_RUNNER_SCRIPT
+        unset CPFLOW_MONITORING_SCRIPT
 
-        if [ -n "$CPL_TOKEN" ]; then
-          CPLN_TOKEN=$CPL_TOKEN
-          unset CPL_TOKEN
+        if [ -n "$CPFLOW_TOKEN" ]; then
+          CPLN_TOKEN=$CPFLOW_TOKEN
+          unset CPFLOW_TOKEN
         fi
       SCRIPT
 
@@ -451,9 +451,9 @@ module Command
         else
           <<~SCRIPT
             ( #{args_join(config.args)} )
-            CPL_EXIT_CODE=$?
+            CPFLOW_EXIT_CODE=$?
             echo '#{MAGIC_END}'
-            exit $CPL_EXIT_CODE
+            exit $CPFLOW_EXIT_CODE
           SCRIPT
         end
 
@@ -490,8 +490,8 @@ module Command
       app_workload_replica_config = app_workload_replica_args.join(" ")
       progress.puts(
         "\n\n" \
-        "- To view logs from the job, run:\n  `cpl logs #{app_workload_replica_config}`\n" \
-        "- To stop the job, run:\n  `cpl ps:stop #{app_workload_replica_config}`\n"
+        "- To view logs from the job, run:\n  `cpflow logs #{app_workload_replica_config}`\n" \
+        "- To stop the job, run:\n  `cpflow ps:stop #{app_workload_replica_config}`\n"
       )
     end
 

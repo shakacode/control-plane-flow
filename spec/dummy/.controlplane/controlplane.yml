@@ -20,7 +20,7 @@ apps:
     stale_app_image_deployed_days: 30
     upstream: dummy-test-upstream
     release_script: release.sh
-    default_domain: cpl.rafaelgomes.xyz
+    default_domain: cpflow.rafaelgomes.xyz
     maintenance_workload: maintenance
     setup_app_templates:
       - app
@@ -36,7 +36,7 @@ apps:
     <<: *common
 
     match_if_app_name_starts_with: true
-    default_domain: cpl.rafaelgomes.xyz
+    default_domain: cpflow.rafaelgomes.xyz
     setup_app_templates:
       - app
 
@@ -52,7 +52,7 @@ apps:
     <<: *common
 
     match_if_app_name_starts_with: true
-    default_domain: cpl.rafaelgomes.xyz
+    default_domain: cpflow.rafaelgomes.xyz
     setup_app_templates:
       - app
       - rails

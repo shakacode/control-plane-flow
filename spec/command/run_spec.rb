@@ -7,7 +7,7 @@ describe Command::Run do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
     it "raises error" do
-      result = run_cpl_command("run", "-a", app)
+      result = run_cpflow_command("run", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'rails'")
@@ -19,14 +19,14 @@ describe Command::Run do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
       before do
-        run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
+        run_cpflow_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
       end
 
       it "clones workload and runs provided command", :slow do
         result = nil
         expected_regex = /Gemfile/
 
-        spawn_cpl_command("run", "-a", app, "--interactive", "--", "bash") do |it|
+        spawn_cpflow_command("run", "-a", app, "--interactive", "--", "bash") do |it|
           it.wait_for_prompt
           it.type("ls")
           result = it.wait_for(expected_regex)
@@ -41,20 +41,20 @@ describe Command::Run do
       let!(:app) { dummy_test_app("fix-terminal-size") }
 
       before do
-        run_cpl_command!("apply-template", "app", "rails", "-a", app)
-        run_cpl_command!("build-image", "-a", app)
-        run_cpl_command!("deploy-image", "-a", app)
+        run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+        run_cpflow_command!("build-image", "-a", app)
+        run_cpflow_command!("deploy-image", "-a", app)
       end
 
       after do
-        run_cpl_command!("delete", "-a", app, "--yes")
+        run_cpflow_command!("delete", "-a", app, "--yes")
       end
 
       it "clones workload and runs with fixed terminal size", :slow do
         result = nil
         expected_regex = /10 150/
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "bash", stty_rows: 10, stty_cols: 150) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "bash", stty_rows: 10, stty_cols: 150) do |it|
           it.wait_for_prompt
           it.type("stty size")
           result = it.wait_for(expected_regex)
@@ -72,7 +72,7 @@ describe Command::Run do
         result = nil
         expected_regex = /20 300/
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "bash", "--terminal-size", "20,300") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "bash", "--terminal-size", "20,300") do |it|
           it.wait_for_prompt
           it.type("stty size")
           result = it.wait_for(expected_regex)
@@ -91,7 +91,7 @@ describe Command::Run do
       it "clones workload and runs provided command with success", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls") do |it|
           result = it.read_full_output
         end
 
@@ -103,7 +103,7 @@ describe Command::Run do
       it "clones workload and runs provided command with failure", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "nonexistent") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "nonexistent") do |it|
           result = it.read_full_output
         end
 
@@ -114,7 +114,7 @@ describe Command::Run do
       it "waits for job to finish", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "'sleep 10; ls'") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "'sleep 10; ls'") do |it|
           result = it.read_full_output
         end
 
@@ -129,24 +129,24 @@ describe Command::Run do
       let!(:cmd) { "'echo $CPLN_IMAGE'" }
 
       before do
-        run_cpl_command!("apply-template", "app", "rails", "-a", app)
-        run_cpl_command!("build-image", "-a", app)
-        run_cpl_command!("deploy-image", "-a", app)
-        run_cpl_command!("build-image", "-a", app)
+        run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+        run_cpflow_command!("build-image", "-a", app)
+        run_cpflow_command!("deploy-image", "-a", app)
+        run_cpflow_command!("build-image", "-a", app)
       end
 
       after do
-        run_cpl_command!("delete", "-a", app, "--yes")
+        run_cpflow_command!("delete", "-a", app, "--yes")
       end
 
       it "clones workload and runs with exact same image as original workload after running with latest image", :slow do
         result1 = nil
         result2 = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
           result1 = it.read_full_output
         end
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
           result2 = it.read_full_output
         end
 
@@ -162,7 +162,7 @@ describe Command::Run do
       it "clones workload and runs with latest image", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
           result = it.read_full_output
         end
 
@@ -172,7 +172,7 @@ describe Command::Run do
       it "clones workload and runs with specific image", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--image", "#{app}:1", "--", cmd) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "#{app}:1", "--", cmd) do |it|
           result = it.read_full_output
         end
 
@@ -188,7 +188,7 @@ describe Command::Run do
       it "clones workload and runs with remote token", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
           result = it.read_full_output
         end
 
@@ -198,7 +198,7 @@ describe Command::Run do
       it "clones workload and runs with local token", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd) do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd) do |it|
           result = it.read_full_output
         end
 
@@ -210,19 +210,19 @@ describe Command::Run do
       let!(:app) { dummy_test_app("runner-job-timeout") }
 
       before do
-        run_cpl_command!("apply-template", "app", "rails", "-a", app)
-        run_cpl_command!("build-image", "-a", app)
-        run_cpl_command!("deploy-image", "-a", app)
+        run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+        run_cpflow_command!("build-image", "-a", app)
+        run_cpflow_command!("deploy-image", "-a", app)
       end
 
       after do
-        run_cpl_command!("delete", "-a", app, "--yes")
+        run_cpflow_command!("delete", "-a", app, "--yes")
       end
 
       it "clones workload and times out before finishing", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "'sleep 100; ls'") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "'sleep 100; ls'") do |it|
           result = it.read_full_output
         end
 
@@ -236,12 +236,12 @@ describe Command::Run do
       it "prints commands to log and stop the job", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--detached", "--", "ls") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--detached", "--", "ls") do |it|
           result = it.read_full_output
         end
 
-        expect(result).to include("cpl logs")
-        expect(result).to include("cpl ps:stop")
+        expect(result).to include("cpflow logs")
+        expect(result).to include("cpflow ps:stop")
       end
     end
 
@@ -249,17 +249,17 @@ describe Command::Run do
       let!(:app) { dummy_test_app("rails-env", create_if_not_exists: true) }
 
       before do
-        run_cpl_command!("apply-template", "rails-runner-with-non-default-values", "-a", app)
+        run_cpflow_command!("apply-template", "rails-runner-with-non-default-values", "-a", app)
       end
 
       after do
-        run_cpl_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
+        run_cpflow_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
       end
 
       it "updates runner workload", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
           result = it.read_full_output
         end
 
@@ -272,17 +272,17 @@ describe Command::Run do
       let!(:app) { dummy_test_app("rails-env", create_if_not_exists: true) }
 
       before do
-        run_cpl_command!("apply-template", "rails-runner-with-different-env", "-a", app)
+        run_cpflow_command!("apply-template", "rails-runner-with-different-env", "-a", app)
       end
 
       after do
-        run_cpl_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
+        run_cpflow_command!("delete", "-a", app, "--workload", "rails-runner", "--yes")
       end
 
       it "updates runner workload", :slow do
         result = nil
 
-        spawn_cpl_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
           result = it.read_full_output
         end
 

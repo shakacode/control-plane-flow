@@ -12,9 +12,9 @@ module Command
     VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
     ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
 
-    # Used to call the command (`cpl NAME`)
+    # Used to call the command (`cpflow NAME`)
     # NAME = ""
-    # Displayed when running `cpl help` or `cpl help NAME` (defaults to `NAME`)
+    # Displayed when running `cpflow help` or `cpflow help NAME` (defaults to `NAME`)
     USAGE = ""
     # Throws error if `true` and no arguments are passed to the command
     # or if `false` and arguments are passed to the command
@@ -26,13 +26,13 @@ module Command
     # Does not throw error if `true` and extra options
     # that are not specified in `OPTIONS` are passed to the command
     ACCEPTS_EXTRA_OPTIONS = false
-    # Displayed when running `cpl help`
+    # Displayed when running `cpflow help`
     # DESCRIPTION = ""
-    # Displayed when running `cpl help NAME`
+    # Displayed when running `cpflow help NAME`
     # LONG_DESCRIPTION = ""
-    # Displayed along with `LONG_DESCRIPTION` when running `cpl help NAME`
+    # Displayed along with `LONG_DESCRIPTION` when running `cpflow help NAME`
     EXAMPLES = ""
-    # If `true`, hides the command from `cpl help`
+    # If `true`, hides the command from `cpflow help`
     HIDE = false
     # Whether or not to show key information like ORG and APP name in commands
     WITH_INFO_HEADER = true
@@ -527,7 +527,7 @@ module Command
       progress.puts("Running #{title}...\n\n")
 
       begin
-        Cpl::Cli.start(["run", "-a", config.app, "--image", "latest", "--", command])
+        Cpflow::Cli.start(["run", "-a", config.app, "--image", "latest", "--", command])
       rescue SystemExit => e
         progress.puts
 

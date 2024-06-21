@@ -75,7 +75,7 @@ So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
 **Note:** Docker builds much slower on Apple Silicon, so try configuring CI to build the images when using Apple
 hardware.
 
-Make sure to create a profile on CI before running any `cpln` or `cpl` commands.
+Make sure to create a profile on CI before running any `cpln` or `cpflow` commands.
 
 ```sh
 CPLN_TOKEN=...
@@ -111,7 +111,7 @@ allows all workers to finish jobs gracefully before deploying the new image.
 There's no need to unquiet the workers, as that will happen automatically after deploying the new image.
 
 ```sh
-cpl run 'rails runner "Sidekiq::ProcessSet.new.each { |w| w.quiet! unless w[%q(hostname)].start_with?(%q(criticalworker.)) }"' -a my-app
+cpflow run 'rails runner "Sidekiq::ProcessSet.new.each { |w| w.quiet! unless w[%q(hostname)].start_with?(%q(criticalworker.)) }"' -a my-app
 ```
 
 ### Setting Up a Pre Stop Hook

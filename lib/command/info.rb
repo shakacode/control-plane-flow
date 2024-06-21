@@ -17,13 +17,13 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Shows diff for all apps in all orgs (based on `.controlplane/controlplane.yml`).
-      cpl info
+      cpflow info
 
       # Shows diff for all apps in a specific org.
-      cpl info -o $ORG_NAME
+      cpflow info -o $ORG_NAME
 
       # Shows diff for a specific app.
-      cpl info -a $APP_NAME
+      cpflow info -a $APP_NAME
       ```
     EX
     WITH_INFO_HEADER = false
@@ -160,9 +160,9 @@ module Command
 
       @missing_apps_workloads.each do |app, workloads|
         if workloads.include?("gvc")
-          puts "  - `cpl setup-app -a #{app}`"
+          puts "  - `cpflow setup-app -a #{app}`"
         else
-          puts "  - `cpl apply-template #{workloads.join(' ')} -a #{app}`"
+          puts "  - `cpflow apply-template #{workloads.join(' ')} -a #{app}`"
         end
       end
     end
@@ -174,7 +174,7 @@ module Command
            "(replace 'whatever' with whatever suffix you want):"
 
       @missing_apps_starting_with.each do |app, _workloads|
-        puts "  - `cpl setup-app -a #{app}-whatever`"
+        puts "  - `cpflow setup-app -a #{app}-whatever`"
       end
     end
 

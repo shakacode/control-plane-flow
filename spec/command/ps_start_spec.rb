@@ -6,11 +6,11 @@ describe Command::PsStart do
   let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
   before do
-    run_cpl_command!("ps:stop", "-a", app, "--wait")
+    run_cpflow_command!("ps:stop", "-a", app, "--wait")
   end
 
   it "starts all workloads", :slow do
-    result = run_cpl_command("ps:start", "-a", app)
+    result = run_cpflow_command("ps:start", "-a", app)
 
     expect(result[:status]).to eq(0)
     expect(result[:stderr]).to match(/Starting workload 'rails'[.]+? done!/)
@@ -18,7 +18,7 @@ describe Command::PsStart do
   end
 
   it "starts specific workload", :slow do
-    result = run_cpl_command("ps:start", "-a", app, "--workload", "rails")
+    result = run_cpflow_command("ps:start", "-a", app, "--workload", "rails")
 
     expect(result[:status]).to eq(0)
     expect(result[:stderr]).to match(/Starting workload 'rails'[.]+? done!/)
@@ -26,7 +26,7 @@ describe Command::PsStart do
   end
 
   it "starts all workloads and waits for them to be ready", :slow do
-    result = run_cpl_command("ps:start", "-a", app, "--wait")
+    result = run_cpflow_command("ps:start", "-a", app, "--wait")
 
     expect(result[:status]).to eq(0)
     expect(result[:stderr]).to match(/Starting workload 'rails'[.]+? done!/)

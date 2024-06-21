@@ -50,32 +50,21 @@ class Thor
   end
 end
 
-module Cpl
+module Cpflow
   class Error < StandardError; end
 
   class Cli < Thor # rubocop:disable Metrics/ClassLength
-    package_name "cpl"
+    package_name "cpflow"
     default_task :no_command
 
     def self.start(*args)
       ENV["CPLN_SKIP_UPDATE_CHECK"] = "true"
 
-      warn_deprecated_gem
       check_cpln_version
-      check_cpl_version
+      check_cpflow_version
       fix_help_option
 
       super(*args)
-    end
-
-    def self.warn_deprecated_gem
-      return if @warned_deprecated_gem
-
-      @warned_deprecated_gem = true
-
-      ::Shell.warn_deprecated("This gem has been renamed to `cpflow` " \
-                              "and will no longer be supported. " \
-                              "Please switch to `cpflow` as soon as possible.")
     end
 
     def self.check_cpln_version # rubocop:disable Metrics/MethodLength
@@ -88,7 +77,7 @@ module Cpl
         data = JSON.parse(result[:output])
 
         version = data["npm"]
-        min_version = Cpl::MIN_CPLN_VERSION
+        min_version = Cpflow::MIN_CPLN_VERSION
         if Gem::Version.new(version) < Gem::Version.new(min_version)
           ::Shell.abort("Current 'cpln' version: #{version}. Minimum supported version: #{min_version}. " \
                         "Please update it with 'npm update -g @controlplane/cli'.")
@@ -98,27 +87,27 @@ module Cpl
       end
     end
 
-    def self.check_cpl_version # rubocop:disable Metrics/MethodLength
-      return if @checked_cpl_version
+    def self.check_cpflow_version # rubocop:disable Metrics/MethodLength
+      return if @checked_cpflow_version
 
-      @checked_cpl_version = true
+      @checked_cpflow_version = true
 
-      result = ::Shell.cmd("gem", "search", "^cpl$", "--remote", capture_stderr: true)
+      result = ::Shell.cmd("gem", "search", "^cpflow$", "--remote", capture_stderr: true)
       return unless result[:success]
 
-      matches = result[:output].match(/cpl \((.+)\)/)
+      matches = result[:output].match(/cpflow \((.+)\)/)
       return unless matches
 
-      version = Cpl::VERSION
+      version = Cpflow::VERSION
       latest_version = matches[1]
       return unless Gem::Version.new(version) < Gem::Version.new(latest_version)
 
-      ::Shell.warn("You are not using the latest 'cpl' version. Please update it with 'gem update cpl'.")
+      ::Shell.warn("You are not using the latest 'cpflow' version. Please update it with 'gem update cpflow'.")
       $stderr.puts
     end
 
-    # This is so that we're able to run `cpl COMMAND --help` to print the help
-    # (it basically changes it to `cpl --help COMMAND`, which Thor recognizes)
+    # This is so that we're able to run `cpflow COMMAND --help` to print the help
+    # (it basically changes it to `cpflow --help COMMAND`, which Thor recognizes)
     # Based on https://stackoverflow.com/questions/49042591/how-to-add-help-h-flag-to-thor-command
     def self.fix_help_option
       help_mappings = Thor::HELP_MAPPINGS + ["help"]
@@ -160,7 +149,7 @@ module Cpl
     end
 
     def self.process_option_params(params)
-      # Ensures that if no value is provided for a non-boolean option (e.g., `cpl command --option`),
+      # Ensures that if no value is provided for a non-boolean option (e.g., `cpflow command --option`),
       # it defaults to an empty string instead of the option name (which is the default Thor behavior)
       params[:lazy_default] ||= "" if params[:type] != :boolean
 
@@ -231,11 +220,11 @@ module Cpl
         end
 
         begin
-          Cpl::Cli.validate_options!(options)
+          Cpflow::Cli.validate_options!(options)
 
           config = Config.new(args, options, required_options)
 
-          Cpl::Cli.show_info_header(config) if with_info_header
+          Cpflow::Cli.show_info_header(config) if with_info_header
 
           if validations.any? && ENV.fetch("DISABLE_VALIDATIONS", nil) != "true"
             doctor = DoctorService.new(config)

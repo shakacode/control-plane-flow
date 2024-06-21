@@ -13,10 +13,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Shows the config for each app.
-      cpl config
+      cpflow config
 
       # Shows the config for a specific app.
-      cpl config -a $APP_NAME
+      cpflow config -a $APP_NAME
       ```
     EX
 

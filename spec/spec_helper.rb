@@ -27,7 +27,7 @@ SimpleCov.start do
   end
 end
 
-require_relative "../lib/cpl"
+require_relative "../lib/cpflow"
 require_relative "support/dummy_app_setup"
 require_relative "support/command_helpers"
 require_relative "support/date_time_helpers"
@@ -144,8 +144,8 @@ RSpec.configure do |config|
   end
 
   config.before do
-    allow(Cpl::Cli).to receive(:check_cpln_version)
-    allow(Cpl::Cli).to receive(:check_cpl_version)
+    allow(Cpflow::Cli).to receive(:check_cpln_version)
+    allow(Cpflow::Cli).to receive(:check_cpflow_version)
   end
 
   config.around do |example|

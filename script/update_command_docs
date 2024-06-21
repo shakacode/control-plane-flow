@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "../lib/cpl"
+require_relative "../lib/cpflow"
 
 commands_str_arr = []
 
@@ -29,7 +29,7 @@ commands.keys.sort.each do |command_key|
     end
     options_str = options_str_arr.join(" ")
 
-    command_str += "```sh\ncpl #{usage}"
+    command_str += "```sh\ncpflow #{usage}"
     command_str += " #{options_str}" unless options_str.empty?
     command_str += "\n```"
   else

@@ -7,7 +7,7 @@ describe Command::MaintenanceOn do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("maintenance:on", "-a", app)
+      result = run_cpflow_command("maintenance:on", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find domain")
@@ -18,7 +18,7 @@ describe Command::MaintenanceOn do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
     it "raises error" do
-      result = run_cpl_command("maintenance:on", "-a", app)
+      result = run_cpflow_command("maintenance:on", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'maintenance'")
@@ -31,20 +31,20 @@ describe Command::MaintenanceOn do
     before do
       allow(Kernel).to receive(:sleep)
 
-      run_cpl_command!("ps:start", "-a", app, "--wait")
+      run_cpflow_command!("ps:start", "-a", app, "--wait")
     end
 
     it "does nothing if maintenance mode is already enabled", :slow do
-      run_cpl_command!("maintenance:on", "-a", app)
-      result = run_cpl_command("maintenance:on", "-a", app)
+      run_cpflow_command!("maintenance:on", "-a", app)
+      result = run_cpflow_command("maintenance:on", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Maintenance mode is already enabled for app '#{app}'")
     end
 
     it "enables maintenance mode", :slow do
-      run_cpl_command!("maintenance:off", "-a", app)
-      result = run_cpl_command("maintenance:on", "-a", app)
+      run_cpflow_command!("maintenance:off", "-a", app)
+      result = run_cpflow_command("maintenance:on", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Maintenance mode enabled for app '#{app}'")

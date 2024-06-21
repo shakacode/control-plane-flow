@@ -21,16 +21,16 @@ build-staging:
           cpln profile create default --token ${CPLN_TOKEN} --org ${CPLN_ORG} --gvc ${APP_NAME}
           cpln image docker-login
 
-          gem install cpl
+          gem install cpflow
     - run:
         name: Containerize and push image
-        command: cpl build-image -a ${APP_NAME}
+        command: cpflow build-image -a ${APP_NAME}
     - run:
         name: Database tasks
-        command: cpl run -a ${APP_NAME} --image latest -- rails db:migrate
+        command: cpflow run -a ${APP_NAME} --image latest -- rails db:migrate
     - run:
         name: Deploy image
-        command: cpl deploy-image -a ${APP_NAME}
+        command: cpflow deploy-image -a ${APP_NAME}
 
 # Example config for review app:
 # - triggers manually if needed
@@ -59,29 +59,29 @@ build-review-app:
           cpln profile create default --token ${CPLN_TOKEN} --org ${CPLN_ORG} --gvc ${APP_NAME}
           cpln image docker-login
 
-          gem install cpl
+          gem install cpflow
     - run:
         name: Provision review app if needed
         command: |
-          if ! cpl exists -a ${APP_NAME}; then
-            cpl setup-app -a ${APP_NAME}
+          if ! cpflow exists -a ${APP_NAME}; then
+            cpflow setup-app -a ${APP_NAME}
             echo "export NEW_APP=true" >> $BASH_ENV
           fi
     - run:
         name: Containerize and push image
         command: |
-          cpl build-image -a ${APP_NAME} --commit ${CIRCLE_SHA1::7}
+          cpflow build-image -a ${APP_NAME} --commit ${CIRCLE_SHA1::7}
     - run:
         name: Database tasks
         command: |
           if [ -n "${NEW_APP}" ]; then
-            cpl run -a ${APP_NAME} --image latest -- rails db:reset
+            cpflow run -a ${APP_NAME} --image latest -- rails db:reset
           else
-            cpl run -a ${APP_NAME} --image latest -- rails db:migrate
+            cpflow run -a ${APP_NAME} --image latest -- rails db:migrate
           fi
     - run:
         name: Deploy image
-        command: cpl deploy-image -a ${APP_NAME}
+        command: cpflow deploy-image -a ${APP_NAME}
 
 review-app:
   jobs:

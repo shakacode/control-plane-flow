@@ -7,7 +7,7 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app("nothing") }
 
     it "raises error" do
-      result = run_cpl_command("cleanup-images", "-a", app)
+      result = run_cpflow_command("cleanup-images", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find either option 'image_retention_max_qty' or 'image_retention_days'")
@@ -18,7 +18,7 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app }
 
     it "displays message" do
-      result = run_cpl_command("cleanup-images", "-a", app)
+      result = run_cpflow_command("cleanup-images", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("No images to delete")
@@ -29,14 +29,14 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("build-image", "-a", app) # app:1
+      run_cpflow_command!("build-image", "-a", app) # app:1
     end
 
     it "deletes leftover images", :slow do
       allow(Shell).to receive(:confirm).with(include("1 images")).and_return(true)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app)
+      result = run_cpflow_command("cleanup-images", "-a", app)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -49,20 +49,20 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app }
 
     before do
-      run_cpl_command!("apply-template", "app", "-a", app)
-      run_cpl_command!("build-image", "-a", app) # app:1
-      run_cpl_command!("build-image", "-a", app) # app:2
+      run_cpflow_command!("apply-template", "app", "-a", app)
+      run_cpflow_command!("build-image", "-a", app) # app:1
+      run_cpflow_command!("build-image", "-a", app) # app:2
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "asks for confirmation and does nothing", :slow do
       allow(Shell).to receive(:confirm).with(include("1 images")).and_return(false)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app)
+      result = run_cpflow_command("cleanup-images", "-a", app)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -74,7 +74,7 @@ describe Command::CleanupImages do
       allow(Shell).to receive(:confirm).with(include("1 images")).and_return(true)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app)
+      result = run_cpflow_command("cleanup-images", "-a", app)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -86,7 +86,7 @@ describe Command::CleanupImages do
       allow(Shell).to receive(:confirm).and_return(false)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app, "--yes")
+      result = run_cpflow_command("cleanup-images", "-a", app, "--yes")
       travel_back
 
       expect(Shell).not_to have_received(:confirm)
@@ -99,26 +99,26 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app("image-retention-max-qty") }
 
     before do
-      run_cpl_command!("apply-template", "app", "-a", app)
+      run_cpflow_command!("apply-template", "app", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "lists correct images", :slow do
       allow(Shell).to receive(:confirm).with(include("2 images")).and_return(false)
 
       # Excess images, will be listed
-      run_cpl_command!("build-image", "-a", app) # app:1
-      run_cpl_command!("build-image", "-a", app) # app:2
+      run_cpflow_command!("build-image", "-a", app) # app:1
+      run_cpflow_command!("build-image", "-a", app) # app:2
       # Images that don't exceed max quantity of 3, won't be listed
-      run_cpl_command!("build-image", "-a", app) # app:3
-      run_cpl_command!("build-image", "-a", app) # app:4
-      run_cpl_command!("build-image", "-a", app) # app:5
+      run_cpflow_command!("build-image", "-a", app) # app:3
+      run_cpflow_command!("build-image", "-a", app) # app:4
+      run_cpflow_command!("build-image", "-a", app) # app:5
       # Latest image, excluded from max quantity calculation, won't be listed
-      run_cpl_command!("build-image", "-a", app) # app:6
-      result = run_cpl_command("cleanup-images", "-a", app)
+      run_cpflow_command!("build-image", "-a", app) # app:6
+      result = run_cpflow_command("cleanup-images", "-a", app)
 
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
@@ -131,23 +131,23 @@ describe Command::CleanupImages do
     let!(:app) { dummy_test_app("image-retention-days") }
 
     before do
-      run_cpl_command!("apply-template", "app", "-a", app)
+      run_cpflow_command!("apply-template", "app", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "lists correct images", :slow do
       allow(Shell).to receive(:confirm).with(include("2 images")).and_return(false)
 
       # Old images, will be listed
-      run_cpl_command!("build-image", "-a", app) # app:1
-      run_cpl_command!("build-image", "-a", app) # app:2
+      run_cpflow_command!("build-image", "-a", app) # app:1
+      run_cpflow_command!("build-image", "-a", app) # app:2
       # Latest image, excluded from days calculation, won't be listed
-      run_cpl_command!("build-image", "-a", app) # app:3
+      run_cpflow_command!("build-image", "-a", app) # app:3
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app)
+      result = run_cpflow_command("cleanup-images", "-a", app)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -166,7 +166,7 @@ describe Command::CleanupImages do
       allow(Shell).to receive(:confirm).with(include("2 images")).and_return(false)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app1)
+      result = run_cpflow_command("cleanup-images", "-a", app1)
       travel_back
 
       expect(Shell).to have_received(:confirm).once
@@ -179,7 +179,7 @@ describe Command::CleanupImages do
       allow(Shell).to receive(:confirm).with(include("4 images")).and_return(false)
 
       travel_to_days_later(30)
-      result = run_cpl_command("cleanup-images", "-a", app_prefix)
+      result = run_cpflow_command("cleanup-images", "-a", app_prefix)
       travel_back
 
       expect(Shell).to have_received(:confirm).once

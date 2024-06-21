@@ -1,7 +1,7 @@
 # The power of Kubernetes with the ease of Heroku!
 
 <meta name="author" content="Justin Gordon and Sergey Tarasov">
-<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpl to make it easier.">
+<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpflow to make it easier.">
 <meta name="copyright" content="ShakaCode, 2023">
 <meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
@@ -9,10 +9,10 @@
 [![RSpec](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml)
 [![Rubocop](https://github.com/shakacode/control-plane-flow/actions/workflows/rubocop.yml/badge.svg)](https://github.com/shakacode/control-plane-flow/actions/workflows/rubocop.yml)
 
-[![Gem](https://badge.fury.io/rb/cpl.svg)](https://badge.fury.io/rb/cpl)
+[![Gem](https://badge.fury.io/rb/cpflow.svg)](https://badge.fury.io/rb/cpflow)
 
 
-Here's a playbook for migrating from [Heroku Flow](https://www.heroku.com/flow) to [Control Plane](https://shakacode.controlplane.com) with our `cpl` gem source code.
+Here's a playbook for migrating from [Heroku Flow](https://www.heroku.com/flow) to [Control Plane](https://shakacode.controlplane.com) with our `cpflow` gem source code.
 
 ----
 
@@ -22,12 +22,12 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane)
 If you would like to see the simple YAML configuration and setup,
-Also, check [how the `cpl` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
+Also, check [how the `cpflow` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
 ---
 
-This playbook shows how to move "Heroku apps" to "Control Plane workloads" via an open-source `cpl` CLI on top of
+This playbook shows how to move "Heroku apps" to "Control Plane workloads" via an open-source `cpflow` CLI on top of
 Control Plane's `cpln` CLI.
 
 Heroku provides a UX and CLI that enables easy publishing of Ruby on Rails and other apps. This ease of use comes via
@@ -50,7 +50,7 @@ a **helper CLI** based on templates to save lots of day-to-day typing (and human
 9. [In-memory Databases](#in-memory-databases)
 10. [Scheduled Jobs](#scheduled-jobs)
 11. [CLI Commands Reference](#cli-commands-reference)
-12. [Mapping of Heroku Commands to `cpl` and `cpln`](#mapping-of-heroku-commands-to-cpl-and-cpln)
+12. [Mapping of Heroku Commands to `cpflow` and `cpln`](#mapping-of-heroku-commands-to-cpflow-and-cpln)
 13. [Examples](#examples)
 14. [Migrating Postgres Database from Heroku Infrastructure](/docs/postgres.md)
 15. [Migrating Redis Database from Heroku Infrastructure](/docs/redis.md)
@@ -58,7 +58,7 @@ a **helper CLI** based on templates to save lots of day-to-day typing (and human
 
 ## Key Features
 
-- A `cpl` command to complement the default Control Plane `cpln` command with "Heroku style scripting." The Ruby source
+- A `cpflow` command to complement the default Control Plane `cpln` command with "Heroku style scripting." The Ruby source
   can serve as inspiration for your own scripts.
 - Easy to understand Heroku to Control Plane conventions in setup and naming.
 - **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane.
@@ -125,11 +125,11 @@ npm update -g @controlplane/cli
 
 5. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
 
-6. Install Heroku to Control Plane `cpl` CLI as a [Ruby gem](https://rubygems.org/gems/cpl): `gem install cpl`. If you want to use `cpl` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpl help` } or else you'll get an error that `cpl` cannot be found. While you can add `cpl` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
+6. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
 
 7. You can use [this Dockerfile](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile) as an example for your project. Ensure that you have Docker running.
 
-**Note:** Do not confuse the `cpl` CLI with the `cpln` CLI. The `cpl` CLI is the Heroku to Control Plane playbook CLI.
+**Note:** Do not confuse the `cpflow` CLI with the `cpln` CLI. The `cpflow` CLI is the Control Plane Flow playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
 
 ## Steps to Migrate
@@ -138,7 +138,7 @@ Click [here](/docs/migrating.md) to see the steps to migrate.
 
 ## Configuration Files
 
-The `cpl` gem is based on several configuration files within a `/.controlplane` top-level directory in your project.
+The `cpflow` gem is based on several configuration files within a `/.controlplane` top-level directory in your project.
 
 ```
 .controlplane/
@@ -166,7 +166,7 @@ Here's a complete example of all supported config keys explained for the `contro
 ```yaml
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
-# Global settings that apply to `cpl` usage.
+# Global settings that apply to `cpflow` usage.
 # You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
 # to avoid any accidents with the wrong org / app.
 allow_org_override_by_env: true
@@ -177,7 +177,7 @@ aliases:
     # Organization for staging and QA apps is typically set as an alias.
     # Production apps will use a different organization, specified in `apps`, for security.
     # Change this value to your organization name
-    # or set the CPLN_ORG env var and it will override this for all `cpl` commands
+    # or set the CPLN_ORG env var and it will override this for all `cpflow` commands
     # (provided that `allow_org_override_by_env` is set to `true`).
     cpln_org: my-org-staging
 
@@ -188,8 +188,8 @@ aliases:
     # CPLN_LOCATION environment variable.
     default_location: aws-us-east-2
 
-    # Allows running the command `cpl setup-app`
-    # instead of `cpl apply-template app redis postgres memcached rails sidekiq`.
+    # Allows running the command `cpflow setup-app`
+    # instead of `cpflow apply-template app redis postgres memcached rails sidekiq`.
     #
     # Note:
     # 1. These names correspond to files in the `./controlplane/templates` directory.
@@ -204,7 +204,7 @@ aliases:
       - rails
       - sidekiq
 
-    # Skips secrets setup when running `cpl setup-app`.
+    # Skips secrets setup when running `cpflow setup-app`.
     skip_secrets_setup: true
 
     # Only needed if using a custom secrets name.
@@ -246,31 +246,31 @@ aliases:
     maintenance_workload: maintenance
 
     # Fixes the remote terminal size to match the local terminal size
-    # when running `cpl run`.
+    # when running `cpflow run`.
     fix_terminal_size: true
 
-    # Sets a default CPU size for `cpl run` jobs (can be overridden per job through `--cpu`).
+    # Sets a default CPU size for `cpflow run` jobs (can be overridden per job through `--cpu`).
     # If not specified, defaults to "1" (1 core).
     runner_job_default_cpu: "2"
 
-    # Sets a default memory size for `cpl run` jobs (can be overridden per job through `--memory`).
+    # Sets a default memory size for `cpflow run` jobs (can be overridden per job through `--memory`).
     # If not specified, defaults to "2Gi" (2 gibibytes).
     runner_job_default_memory: "4Gi"
 
-    # Sets the maximum number of seconds that `cpl run` jobs can execute before being stopped.
+    # Sets the maximum number of seconds that `cpflow run` jobs can execute before being stopped.
     # If not specified, defaults to 21600 (6 hours).
     runner_job_timeout: 1000
 
     # Apps with a deployed image created before this amount of days will be listed for deletion
-    # when running the command `cpl cleanup-stale-apps`.
+    # when running the command `cpflow cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
 
     # Images that exceed this quantity will be listed for deletion
-    # when running the command `cpl cleanup-images`.
+    # when running the command `cpflow cleanup-images`.
     image_retention_max_qty: 20
 
     # Images created before this amount of days will be listed for deletion
-    # when running the command `cpl cleanup-images` (`image_retention_max_qty` takes precedence).
+    # when running the command `cpflow cleanup-images` (`image_retention_max_qty` takes precedence).
     image_retention_days: 5
 
 apps:
@@ -286,12 +286,12 @@ apps:
     match_if_app_name_starts_with: true
 
     # Hooks can be either a script path that exists in the app image or a command.
-    # They're run in the context of `cpl run` with the latest image.
+    # They're run in the context of `cpflow run` with the latest image.
     hooks:
-      # Used by the command `cpl setup-app` to run a hook after creating the app.
+      # Used by the command `cpflow setup-app` to run a hook after creating the app.
       post_creation: bundle exec rake db:prepare
 
-      # Used by the command `cpl delete` to run a hook before deleting the app.
+      # Used by the command `cpflow delete` to run a hook before deleting the app.
       pre_deletion: bundle exec rake db:drop
 
   my-app-production:
@@ -305,11 +305,11 @@ apps:
     # Use a different organization for production.
     cpln_org: my-org-production
 
-    # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
+    # Allows running the command `cpflow promote-app-from-upstream -a my-app-production`
     # to promote the staging app to production.
     upstream: my-app-staging
 
-    # Used by the command `cpl promote-app-from-upstream` to run a release script before deploying.
+    # Used by the command `cpflow promote-app-from-upstream` to run a release script before deploying.
     # This is relative to the `.controlplane/` directory.
     release_script: release_script
 
@@ -337,22 +337,22 @@ Suppose your app is called `tutorial-app`. You can run the following commands.
 ```sh
 # Provision all infrastructure on Control Plane.
 # `tutorial-app` will be created per definition in .controlplane/controlplane.yml.
-cpl apply-template app postgres redis rails daily-task -a tutorial-app
+cpflow apply-template app postgres redis rails daily-task -a tutorial-app
 
 # Build and push the Docker image to the Control Plane repository.
 # Note, it may take many minutes. Be patient.
 # Check for error messages, such as forgetting to run `cpln image docker-login --org <your-org>`.
-cpl build-image -a tutorial-app
+cpflow build-image -a tutorial-app
 
-# Promote the image to the app after running the `cpl build-image` command.
+# Promote the image to the app after running the `cpflow build-image` command.
 # Note, the UX of the images may not show the image for up to 5 minutes. However, it's ready.
-cpl deploy-image -a tutorial-app
+cpflow deploy-image -a tutorial-app
 
 # See how the app is starting up.
-cpl logs -a tutorial-app
+cpflow logs -a tutorial-app
 
 # Open the app in browser (once it has started up).
-cpl open -a tutorial-app
+cpflow open -a tutorial-app
 ```
 
 ### Promoting Code Updates
@@ -361,22 +361,22 @@ After committing code, you will update your deployment of `tutorial-app` with th
 
 ```sh
 # Build and push a new image with sequential image tagging, e.g. 'tutorial-app:1', then 'tutorial-app:2', etc.
-cpl build-image -a tutorial-app
+cpflow build-image -a tutorial-app
 
 # Run database migrations (or other release tasks) with the latest image,
 # while the app is still running on the previous image.
 # This is analogous to the release phase.
-cpl run -a tutorial-app --image latest -- rails db:migrate
+cpflow run -a tutorial-app --image latest -- rails db:migrate
 
 # Pomote the latest image to the app.
-cpl deploy-image -a tutorial-app
+cpflow deploy-image -a tutorial-app
 ```
 
 If you needed to push a new image with a specific commit SHA, you can run the following command:
 
 ```sh
 # Build and push with sequential image tagging and commit SHA, e.g. 'tutorial-app:123_ABCD', etc.
-cpl build-image -a tutorial-app --commit ABCD
+cpflow build-image -a tutorial-app --commit ABCD
 ```
 
 ### Real World
@@ -504,9 +504,9 @@ A complete example can be found at [templates/daily-task.yml](templates/daily-ta
 suitable for development purposes.
 
 You can create the cron workload by adding the template for it to the `.controlplane/templates/` directory and running
-`cpl apply-template my-template -a my-app`, where `my-template` is the name of the template file (e.g., `my-template.yml`).
+`cpflow apply-template my-template -a my-app`, where `my-template` is the name of the template file (e.g., `my-template.yml`).
 
-Then to view the logs of the cron workload, you can run `cpl logs -a my-app -w my-template`.
+Then to view the logs of the cron workload, you can run `cpflow logs -a my-app -w my-template`.
 
 ## CLI Commands Reference
 
@@ -515,19 +515,19 @@ Click [here](/docs/commands.md) to see the commands.
 You can also run the following command:
 
 ```sh
-cpl --help
+cpflow --help
 ```
 
-## Mapping of Heroku Commands to `cpl` and `cpln`
+## Mapping of Heroku Commands to `cpflow` and `cpln`
 
-| Heroku Command                                                                                                 | `cpl` or `cpln`                 |
+| Heroku Command                                                                                                 | `cpflow` or `cpln`                 |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpl ps`                        |
+| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpflow ps`                        |
 | [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | ?                               |
-| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | `cpl maintenance`               |
-| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpl logs`                      |
+| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | `cpflow maintenance`               |
+| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpflow logs`                      |
 | [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | ?                               |
-| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpl promote-app-from-upstream` |
+| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpflow promote-app-from-upstream` |
 | [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | ?                               |
 | [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | ?                               |
 | [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | ?                               |
@@ -537,10 +537,10 @@ cpl --help
 - See this repository's `examples/` and `templates/` directories.
 - See the `.controlplane/` directory of this live example:
   [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane).
-- See [how the `cpl` gem is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
+- See [how the `cpflow` gem is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
 - Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
 ## Resources
 * If you need a free demo account for Control Plane (no CC required), you can contact [Justin Gordon, CEO of ShakaCode](mailto:justin@shakacode.com).
 * [Control Plane Site](https://shakacode.controlplane.com)
-* [Join our Slack to Discuss Heroku to Control Plane](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE)
+* [Join our Slack to Discuss Control Plane Flow](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE)

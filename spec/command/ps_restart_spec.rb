@@ -7,7 +7,7 @@ describe Command::PsRestart do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
     it "raises error" do
-      result = run_cpl_command("ps:restart", "-a", app)
+      result = run_cpflow_command("ps:restart", "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'rails'")
@@ -18,11 +18,11 @@ describe Command::PsRestart do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
     before do
-      run_cpl_command!("ps:start", "-a", app, "--wait")
+      run_cpflow_command!("ps:start", "-a", app, "--wait")
     end
 
     it "restarts all workloads", :slow do
-      result = run_cpl_command("ps:restart", "-a", app)
+      result = run_cpflow_command("ps:restart", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Restarting workload 'rails'[.]+? done!/)
@@ -30,7 +30,7 @@ describe Command::PsRestart do
     end
 
     it "restarts specific workload", :slow do
-      result = run_cpl_command("ps:restart", "-a", app, "--workload", "rails")
+      result = run_cpflow_command("ps:restart", "-a", app, "--workload", "rails")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Restarting workload 'rails'[.]+? done!/)

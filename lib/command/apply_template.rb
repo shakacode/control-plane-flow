@@ -34,10 +34,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Applies single template.
-      cpl apply-template redis -a $APP_NAME
+      cpflow apply-template redis -a $APP_NAME
 
       # Applies several templates (practically creating full app).
-      cpl apply-template app postgres redis rails -a $APP_NAME
+      cpflow apply-template app postgres redis rails -a $APP_NAME
       ```
     EX
     VALIDATIONS = %w[config templates].freeze

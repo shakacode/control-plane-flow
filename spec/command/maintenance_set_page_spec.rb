@@ -9,7 +9,7 @@ describe Command::MaintenanceSetPage do
     let!(:app) { dummy_test_app("default", create_if_not_exists: true) }
 
     it "raises error" do
-      result = run_cpl_command("maintenance:set-page", example_maintenance_page, "-a", app)
+      result = run_cpflow_command("maintenance:set-page", example_maintenance_page, "-a", app)
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Can't find workload 'maintenance'")
@@ -20,15 +20,15 @@ describe Command::MaintenanceSetPage do
     let!(:app) { dummy_test_app("external-maintenance-image") }
 
     before do
-      run_cpl_command!("apply-template", "app", "maintenance-with-external-image", "-a", app)
+      run_cpflow_command!("apply-template", "app", "maintenance-with-external-image", "-a", app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "does nothing" do
-      result = run_cpl_command("maintenance:set-page", example_maintenance_page, "-a", app)
+      result = run_cpflow_command("maintenance:set-page", example_maintenance_page, "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Setting '#{example_maintenance_page}' as the page for maintenance mode")
@@ -39,7 +39,7 @@ describe Command::MaintenanceSetPage do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
     it "sets page for maintenance mode" do
-      result = run_cpl_command("maintenance:set-page", example_maintenance_page, "-a", app)
+      result = run_cpflow_command("maintenance:set-page", example_maintenance_page, "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr])

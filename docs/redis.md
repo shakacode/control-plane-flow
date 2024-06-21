@@ -44,8 +44,8 @@ heroku redis:cli -a my-app
 Connect to Control Plane Redis CLI:
 
 ```sh
-# open cpl interactive shell
-cpl run bash -a my-app
+# open cpflow interactive shell
+cpflow run bash -a my-app
 
 # install redis CLI if you don't have it in Docker
 apt-get update
@@ -97,7 +97,7 @@ command args:
 1. open 1st terminal window with heroku redis CLI, check keys qty
 2. open 2nd terminal window with controlplane redis CLI, check keys qty
 3. start sync container
-4. open logs with `cpl logs -a my-app -w riot-redis`
+4. open logs with `cpflow logs -a my-app -w riot-redis`
 4. re-check keys sync qty again
 5. stop sync container
 

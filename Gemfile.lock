@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpl (2.2.4)
+    cpflow (2.2.4)
       debug (~> 1.7.1)
       dotenv (~> 2.8.1)
       jwt (~> 2.8.1)
@@ -110,7 +110,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
-  cpl!
+  cpflow!
   overcommit (~> 0.60.0)
   rake (~> 13.0)
   rspec (~> 3.12.0)

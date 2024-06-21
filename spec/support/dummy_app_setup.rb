@@ -14,7 +14,7 @@ module DummyAppSetup
       puts "\n\nNo dummy apps to delete\n"
     else
       CommandHelpers.apps_to_delete.each do |app|
-        CommandHelpers.run_cpl_command("delete", "-a", app, "--yes")
+        CommandHelpers.run_cpflow_command("delete", "-a", app, "--yes")
       end
     end
 

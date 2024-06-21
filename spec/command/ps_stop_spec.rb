@@ -6,12 +6,12 @@ describe Command::PsStop do
   let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
   before do
-    run_cpl_command!("ps:start", "-a", app, "--wait")
+    run_cpflow_command!("ps:start", "-a", app, "--wait")
   end
 
   context "when no workload is provided" do
     it "stops all workloads", :slow do
-      result = run_cpl_command("ps:stop", "-a", app)
+      result = run_cpflow_command("ps:stop", "-a", app)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Stopping workload 'rails'[.]+? done!/)
@@ -19,7 +19,7 @@ describe Command::PsStop do
     end
 
     it "stops all workloads and waits for them to not be ready", :slow do
-      result = run_cpl_command("ps:stop", "-a", app, "--wait")
+      result = run_cpflow_command("ps:stop", "-a", app, "--wait")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Stopping workload 'rails'[.]+? done!/)
@@ -31,7 +31,7 @@ describe Command::PsStop do
 
   context "when workload is provided" do
     it "stops specific workload", :slow do
-      result = run_cpl_command("ps:stop", "-a", app, "--workload", "rails")
+      result = run_cpflow_command("ps:stop", "-a", app, "--workload", "rails")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Stopping workload 'rails'[.]+? done!/)
@@ -41,22 +41,22 @@ describe Command::PsStop do
 
   context "when replica is provided" do
     let!(:replica) do
-      run_cpl_command!("ps:stop", "-a", app, "--wait")
-      run_cpl_command!("ps:start", "-a", app, "--wait")
+      run_cpflow_command!("ps:stop", "-a", app, "--wait")
+      run_cpflow_command!("ps:start", "-a", app, "--wait")
 
-      result = run_cpl_command!("ps", "-a", app, "--workload", "rails")
+      result = run_cpflow_command!("ps", "-a", app, "--workload", "rails")
       result[:stdout].strip
     end
 
     it "stops specific replica", :slow do
-      result = run_cpl_command("ps:stop", "-a", app, "--workload", "rails", "--replica", replica)
+      result = run_cpflow_command("ps:stop", "-a", app, "--workload", "rails", "--replica", replica)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Stopping replica '#{replica}'[.]+? done!/)
     end
 
     it "stops specific replica and waits for it to not be ready", :slow do
-      result = run_cpl_command("ps:stop", "-a", app, "--workload", "rails", "--replica", replica, "--wait")
+      result = run_cpflow_command("ps:stop", "-a", app, "--workload", "rails", "--replica", replica, "--wait")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Stopping replica '#{replica}'[.]+? done!/)

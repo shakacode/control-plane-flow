@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require_relative "lib/cpl/version"
+require_relative "lib/cpflow/version"
 
 Gem::Specification.new do |spec|
-  spec.name    = "cpl"
-  spec.version = Cpl::VERSION
+  spec.name    = "cpflow"
+  spec.version = Cpflow::VERSION
   spec.authors = ["Justin Gordon", "Sergey Tarasov"]
   spec.email   = ["justin@shakacode.com", "sergey@shakacode.com"]
 
-  spec.summary     = "Heroku to Control Plane"
+  spec.summary     = "Control Plane Flow"
   spec.description = "CLI for providing Heroku-like platform-as-a-service on Control Plane"
   spec.homepage    = "https://github.com/shakacode/control-plane-flow"
   spec.license     = "MIT"
@@ -35,11 +35,7 @@ Gem::Specification.new do |spec|
     file.match(%r{^(coverage|pkg|spec|tmp)/})
   end
 
-  spec.executables = ["cpl"]
+  spec.executables = ["cpflow"]
 
   spec.metadata["rubygems_mfa_required"] = "true"
-
-  spec.post_install_message = "DEPRECATED: The `cpl` gem has been renamed to `cpflow` " \
-                              "and will no longer be supported. " \
-                              "Please switch to `cpflow` as soon as possible."
 end

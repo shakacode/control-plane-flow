@@ -1,6 +1,6 @@
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 
-# Global settings that apply to `cpl` usage.
+# Global settings that apply to `cpflow` usage.
 # You can opt out of allowing the use of CPLN_ORG and CPLN_APP env vars
 # to avoid any accidents with the wrong org / app.
 allow_org_override_by_env: true
@@ -11,7 +11,7 @@ aliases:
     # Organization for staging and QA apps is typically set as an alias.
     # Production apps will use a different organization, specified in `apps`, for security.
     # Change this value to your organization name
-    # or set the CPLN_ORG env var and it will override this for all `cpl` commands
+    # or set the CPLN_ORG env var and it will override this for all `cpflow` commands
     # (provided that `allow_org_override_by_env` is set to `true`).
     cpln_org: my-org-staging
 
@@ -23,8 +23,8 @@ aliases:
     # TODO: Allow specification of multiple locations.
     default_location: aws-us-east-2
 
-    # Allows running the command `cpl setup-app`
-    # instead of `cpl apply-template app redis postgres memcached rails sidekiq`.
+    # Allows running the command `cpflow setup-app`
+    # instead of `cpflow apply-template app redis postgres memcached rails sidekiq`.
     #
     # Note:
     # 1. These names correspond to files in the `./controlplane/templates` directory.
@@ -39,7 +39,7 @@ aliases:
       - rails
       - sidekiq
 
-    # Uncomment next line to skips secrets setup when running `cpl setup-app`.
+    # Uncomment next line to skips secrets setup when running `cpflow setup-app`.
     # skip_secrets_setup: true
 
     # Only needed if using a custom secrets name.
@@ -81,31 +81,31 @@ aliases:
     maintenance_workload: maintenance
 
     # Fixes the remote terminal size to match the local terminal size
-    # when running `cpl run`.
+    # when running `cpflow run`.
     fix_terminal_size: true
 
-    # Sets a default CPU size for `cpl run` jobs (can be overridden per job through `--cpu`).
+    # Sets a default CPU size for `cpflow run` jobs (can be overridden per job through `--cpu`).
     # If not specified, defaults to "1" (1 core).
     runner_job_default_cpu: "2"
 
-    # Sets a default memory size for `cpl run` jobs (can be overridden per job through `--memory`).
+    # Sets a default memory size for `cpflow run` jobs (can be overridden per job through `--memory`).
     # If not specified, defaults to "2Gi" (2 gibibytes).
     runner_job_default_memory: "4Gi"
 
-    # Sets the maximum number of seconds that `cpl run` jobs can execute before being stopped.
+    # Sets the maximum number of seconds that `cpflow run` jobs can execute before being stopped.
     # If not specified, defaults to 21600 (6 hours).
     runner_job_timeout: 1000
 
     # Apps with a deployed image created before this amount of days will be listed for deletion
-    # when running the command `cpl cleanup-stale-apps`.
+    # when running the command `cpflow cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
 
     # Images that exceed this quantity will be listed for deletion
-    # when running the command `cpl cleanup-images`.
+    # when running the command `cpflow cleanup-images`.
     image_retention_max_qty: 20
 
     # Images created before this amount of days will be listed for deletion
-    # when running the command `cpl cleanup-images` (`image_retention_max_qty` takes precedence).
+    # when running the command `cpflow cleanup-images` (`image_retention_max_qty` takes precedence).
     image_retention_days: 5
 
 apps:
@@ -121,12 +121,12 @@ apps:
     match_if_app_name_starts_with: true
 
     # Hooks can be either a script path that exists in the app image or a command.
-    # They're run in the context of `cpl run` with the latest image.
+    # They're run in the context of `cpflow run` with the latest image.
     hooks:
-      # Used by the command `cpl setup-app` to run a hook after creating the app.
+      # Used by the command `cpflow setup-app` to run a hook after creating the app.
       post_creation: bundle exec rake db:prepare
 
-      # Used by the command `cpl delete` to run a hook before deleting the app.
+      # Used by the command `cpflow delete` to run a hook before deleting the app.
       pre_deletion: bundle exec rake db:drop
 
   my-app-production:
@@ -140,11 +140,11 @@ apps:
     # Use a different organization for production.
     cpln_org: my-org-production
 
-    # Allows running the command `cpl promote-app-from-upstream -a my-app-production`
+    # Allows running the command `cpflow promote-app-from-upstream -a my-app-production`
     # to promote the staging app to production.
     upstream: my-app-staging
 
-    # Used by the command `cpl promote-app-from-upstream` to run a release script before deploying.
+    # Used by the command `cpflow promote-app-from-upstream` to run a release script before deploying.
     # This is relative to the `.controlplane/` directory.
     release_script: release_script
 

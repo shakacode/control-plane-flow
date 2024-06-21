@@ -17,12 +17,12 @@ describe Command::Info do
     it "does not include app" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app_prefix)
+      result = run_cpflow_command("info", "-a", app_prefix)
 
       expect(Shell).not_to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
       expect(result[:status]).to eq(0)
-      expect(result[:stdout]).not_to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).not_to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
   end
 
@@ -34,7 +34,7 @@ describe Command::Info do
     it "does not highlight anything for single app" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app1)
+      result = run_cpflow_command("info", "-a", app1)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
@@ -42,14 +42,14 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).not_to include("cpl setup-app")
-      expect(result[:stdout]).not_to include("cpl apply-template")
+      expect(result[:stdout]).not_to include("cpflow setup-app")
+      expect(result[:stdout]).not_to include("cpflow apply-template")
     end
 
     it "does not highlight anything for multiple apps" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app_prefix)
+      result = run_cpflow_command("info", "-a", app_prefix)
 
       expect(Shell).not_to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
@@ -58,8 +58,8 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).not_to include("cpl setup-app")
-      expect(result[:stdout]).not_to include("cpl apply-template")
+      expect(result[:stdout]).not_to include("cpflow setup-app")
+      expect(result[:stdout]).not_to include("cpflow apply-template")
     end
   end
 
@@ -71,7 +71,7 @@ describe Command::Info do
     it "highlights single app with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app1)
+      result = run_cpflow_command("info", "-a", app1)
 
       expect(Shell).to have_received(:color).with(app1, :red)
       expect(Shell).to have_received(:color).with("rails", :red)
@@ -79,13 +79,13 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl setup-app -a #{app1}`")
+      expect(result[:stdout]).to include("`cpflow setup-app -a #{app1}`")
     end
 
     it "highlights multiple apps with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app_prefix)
+      result = run_cpflow_command("info", "-a", app_prefix)
 
       expect(Shell).to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
@@ -94,13 +94,13 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).not_to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
 
     it "highlights apps for single org with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-o", dummy_test_org)
+      result = run_cpflow_command("info", "-o", dummy_test_org)
 
       expect(Shell).to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
@@ -109,13 +109,13 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).not_to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
 
     it "highlights apps for multiple orgs with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info")
+      result = run_cpflow_command("info")
 
       expect(Shell).to have_received(:color)
         .with(include("Any app starting with '#{app_prefix}'"), :red)
@@ -124,7 +124,7 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).not_to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
   end
 
@@ -136,7 +136,7 @@ describe Command::Info do
     it "highlights workloads for single app with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app1)
+      result = run_cpflow_command("info", "-a", app1)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
@@ -144,13 +144,13 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app1}`")
     end
 
     it "highlights workloads for multiple apps with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app_prefix)
+      result = run_cpflow_command("info", "-a", app_prefix)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
@@ -158,14 +158,14 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app2}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app2}`")
     end
 
     it "highlights workloads for single org with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-o", dummy_test_org)
+      result = run_cpflow_command("info", "-o", dummy_test_org)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
@@ -173,14 +173,14 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app2}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app2}`")
     end
 
     it "highlights workloads for multiple orgs with red" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info")
+      result = run_cpflow_command("info")
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
@@ -188,8 +188,8 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app1}`")
-      expect(result[:stdout]).to include("`cpl apply-template postgres -a #{app2}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app1}`")
+      expect(result[:stdout]).to include("`cpflow apply-template postgres -a #{app2}`")
     end
   end
 
@@ -201,7 +201,7 @@ describe Command::Info do
     it "highlights workloads for single app with green" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app1)
+      result = run_cpflow_command("info", "-a", app1)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with("rails", :red)
@@ -210,14 +210,14 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).not_to include("- #{app2}")
-      expect(result[:stdout]).not_to include("cpl setup-app")
-      expect(result[:stdout]).not_to include("cpl apply-template")
+      expect(result[:stdout]).not_to include("cpflow setup-app")
+      expect(result[:stdout]).not_to include("cpflow apply-template")
     end
 
     it "highlights workloads for multiple apps with green" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-a", app_prefix)
+      result = run_cpflow_command("info", "-a", app_prefix)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
@@ -225,13 +225,13 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).not_to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).not_to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
 
     it "highlights workloads for single org with green" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info", "-o", dummy_test_org)
+      result = run_cpflow_command("info", "-o", dummy_test_org)
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
@@ -239,13 +239,13 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).not_to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).not_to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
 
     it "highlights workloads for multiple orgs with green" do
       allow(Shell).to receive(:color).and_call_original
 
-      result = run_cpl_command("info")
+      result = run_cpflow_command("info")
 
       expect(Shell).not_to have_received(:color).with(app1, :red)
       expect(Shell).not_to have_received(:color).with(app2, :red)
@@ -253,7 +253,7 @@ describe Command::Info do
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("- #{app1}")
       expect(result[:stdout]).to include("- #{app2}")
-      expect(result[:stdout]).not_to include("`cpl setup-app -a #{app_prefix}-whatever`")
+      expect(result[:stdout]).not_to include("`cpflow setup-app -a #{app_prefix}-whatever`")
     end
   end
 end

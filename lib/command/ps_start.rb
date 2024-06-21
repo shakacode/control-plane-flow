@@ -16,10 +16,10 @@ module Command
     EXAMPLES = <<~EX
       ```sh
       # Starts all workloads in app.
-      cpl ps:start -a $APP_NAME
+      cpflow ps:start -a $APP_NAME
 
       # Starts a specific workload in app.
-      cpl ps:start -a $APP_NAME -w $WORKLOAD_NAME
+      cpflow ps:start -a $APP_NAME -w $WORKLOAD_NAME
       ```
     EX
 

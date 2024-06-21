@@ -13,18 +13,18 @@ describe Command::PromoteAppFromUpstream do
       # Ideally, we should have a different org, but for testing purposes, this works
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
 
-      run_cpl_command!("apply-template", "app", "-a", upstream_app)
-      run_cpl_command!("apply-template", "app", "rails", "-a", app)
-      run_cpl_command!("build-image", "-a", upstream_app)
+      run_cpflow_command!("apply-template", "app", "-a", upstream_app)
+      run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+      run_cpflow_command!("build-image", "-a", upstream_app)
     end
 
     after do
-      run_cpl_command!("delete", "-a", upstream_app, "--yes")
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", upstream_app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "copies latest image from upstream, skips release script and deploys image", :slow do
-      result = run_cpl_command("promote-app-from-upstream", "-a", app, "--upstream-token", token)
+      result = run_cpflow_command("promote-app-from-upstream", "-a", app, "--upstream-token", token)
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(%r{Pulling image from '.+?/#{upstream_app}:1'})
@@ -45,21 +45,21 @@ describe Command::PromoteAppFromUpstream do
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
       ENV["APP_NAME"] = app
 
-      run_cpl_command!("apply-template", "app", "-a", upstream_app)
-      run_cpl_command!("apply-template", "app", "rails", "postgres", "-a", app)
-      run_cpl_command!("build-image", "-a", upstream_app)
-      run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
+      run_cpflow_command!("apply-template", "app", "-a", upstream_app)
+      run_cpflow_command!("apply-template", "app", "rails", "postgres", "-a", app)
+      run_cpflow_command!("build-image", "-a", upstream_app)
+      run_cpflow_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
 
     after do
-      run_cpl_command!("delete", "-a", upstream_app, "--yes")
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", upstream_app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "copies latest image from upstream, fails to run release script and fails to deploy image", :slow do
       result = nil
 
-      spawn_cpl_command("promote-app-from-upstream", "-a", app, "--upstream-token", token) do |it|
+      spawn_cpflow_command("promote-app-from-upstream", "-a", app, "--upstream-token", token) do |it|
         result = it.read_full_output
       end
 
@@ -82,21 +82,21 @@ describe Command::PromoteAppFromUpstream do
       ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
       ENV["APP_NAME"] = app
 
-      run_cpl_command!("apply-template", "app", "-a", upstream_app)
-      run_cpl_command!("apply-template", "app", "rails", "postgres", "-a", app)
-      run_cpl_command!("build-image", "-a", upstream_app)
-      run_cpl_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
+      run_cpflow_command!("apply-template", "app", "-a", upstream_app)
+      run_cpflow_command!("apply-template", "app", "rails", "postgres", "-a", app)
+      run_cpflow_command!("build-image", "-a", upstream_app)
+      run_cpflow_command!("ps:start", "-a", app, "--workload", "postgres", "--wait")
     end
 
     after do
-      run_cpl_command!("delete", "-a", upstream_app, "--yes")
-      run_cpl_command!("delete", "-a", app, "--yes")
+      run_cpflow_command!("delete", "-a", upstream_app, "--yes")
+      run_cpflow_command!("delete", "-a", app, "--yes")
     end
 
     it "copies latest image from upstream, runs release script and deploys image", :slow do
       result = nil
 
-      spawn_cpl_command("promote-app-from-upstream", "-a", app, "--upstream-token", token) do |it|
+      spawn_cpflow_command("promote-app-from-upstream", "-a", app, "--upstream-token", token) do |it|
         result = it.read_full_output
       end
 

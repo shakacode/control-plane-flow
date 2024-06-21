@@ -14,9 +14,9 @@ module Command
 
     def call
       if config.options[:version]
-        Cpl::Cli.start(["version"])
+        Cpflow::Cli.start(["version"])
       else
-        Cpl::Cli.start(["help"])
+        Cpflow::Cli.start(["help"])
       end
     end
   end
