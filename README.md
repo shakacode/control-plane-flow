@@ -12,7 +12,7 @@
 [![Gem](https://badge.fury.io/rb/cpflow.svg)](https://badge.fury.io/rb/cpflow)
 
 
-Here's a playbook for migrating from [Heroku Flow](https://www.heroku.com/flow) to [Control Plane](https://shakacode.controlplane.com) with our `cpflow` gem source code.
+Enable the [Heroku Flow](https://www.heroku.com/flow) deployment model with [Control Plane](https://shakacode.controlplane.com) using the `cpflow` gem.
 
 ----
 
