@@ -527,7 +527,7 @@ module Command
       progress.puts("Running #{title}...\n\n")
 
       begin
-        Cpflow::Cli.start(["run", "-a", config.app, "--image", "latest", "--", command])
+        run_cpflow_command("run", "-a", config.app, "--image", "latest", "--", command)
       rescue SystemExit => e
         progress.puts
 
@@ -535,6 +535,20 @@ module Command
 
         progress.puts("Finished running #{title}.\n\n")
       end
+    end
+
+    def run_cpflow_command(command, *args)
+      common_args = []
+
+      self.class.common_options.each do |option|
+        value = config.options[option[:name]]
+        next if value.nil?
+
+        name = "--#{option[:name].to_s.tr('_', '-')}"
+        common_args.push(name, value)
+      end
+
+      Cpflow::Cli.start([command, *common_args, *args])
     end
   end
 end

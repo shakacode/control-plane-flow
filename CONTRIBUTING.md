@@ -64,7 +64,7 @@ CPLN_ORG=your-org-for-tests bundle exec rspec --tag slow
 2. Use the `--trace` option to see full logging of HTTP requests. Warning, this will display keys to your logs or console.
 1. Add a breakpoint (`debugger`) to any line of code you want to debug.
 2. Modify the `lib/command/test.rb` file to trigger the code you want to test. To simulate a command, you can use
-   `Cpflow::Cli.start` (e.g., `Cpflow::Cli.start(["deploy-image", "-a", "my-app-name"])` would be the same as running
+   `run_cpflow_command` (e.g., `run_cpflow_command("deploy-image", "-a", "my-app-name")` would be the same as running
    `cpflow deploy-image -a my-app-name`).
 3. Run the `test` command in your test app with a `.controlplane` directory.
 

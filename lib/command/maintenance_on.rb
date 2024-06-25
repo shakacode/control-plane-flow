@@ -39,7 +39,7 @@ module Command
       cp.fetch_workload!(maintenance_workload)
 
       # Start maintenance workload
-      Cpflow::Cli.start(["ps:start", "-a", config.app, "-w", maintenance_workload, "--wait"])
+      run_cpflow_command("ps:start", "-a", config.app, "-w", maintenance_workload, "--wait")
 
       progress.puts
 
@@ -54,7 +54,7 @@ module Command
       progress.puts
 
       # Stop all other workloads
-      Cpflow::Cli.start(["ps:stop", "-a", config.app, "--wait"])
+      run_cpflow_command("ps:stop", "-a", config.app, "--wait")
 
       progress.puts("\nMaintenance mode enabled for app '#{config.app}'.")
     end
