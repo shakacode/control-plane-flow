@@ -14,6 +14,9 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+## [3.0.1] - 2024-06-25
+### Fixed
+- Moved development dependencies to Gemfile and updated many of them. [PR 208](https://github.com/shakacode/control-plane-flow/pull/208) by [justin808](https://github.com/justin808).
 
 ## [3.0.0] - 2024-06-20
 First release of `cpflow`.
@@ -246,7 +249,8 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 
 - Initial release
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/shakacode/control-plane-flow/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/shakacode/control-plane-flow/compare/v2.2.4...v3.0.0
 [2.2.4]: https://github.com/shakacode/control-plane-flow/compare/v2.2.1...v2.2.4
 [2.2.1]: https://github.com/shakacode/control-plane-flow/compare/v2.2.0...v2.2.1
