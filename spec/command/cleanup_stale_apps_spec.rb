@@ -2,6 +2,7 @@
 
 require "spec_helper"
 
+# rubocop:disable RSpec/IndexedLet
 describe Command::CleanupStaleApps do
   let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
@@ -141,3 +142,4 @@ describe Command::CleanupStaleApps do
     end
   end
 end
+# rubocop:enable RSpec/IndexedLet

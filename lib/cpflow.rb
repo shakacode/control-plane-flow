@@ -64,7 +64,7 @@ module Cpflow
       check_cpflow_version
       fix_help_option
 
-      super(*args)
+      super
     end
 
     def self.check_cpln_version # rubocop:disable Metrics/MethodLength
@@ -127,7 +127,7 @@ module Cpflow
     def self.is_thor_reserved_word?(word, type) # rubocop:disable Naming/PredicateName
       return false if word == "run"
 
-      super(word, type)
+      super
     end
 
     def self.deprecated_commands

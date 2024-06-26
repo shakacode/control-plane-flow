@@ -405,7 +405,7 @@ module Command
           type: :string,
           required: required,
           default: VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS.join(","),
-          valid_regex: /^(#{ALL_VALIDATIONS.join("|")})(,(#{ALL_VALIDATIONS.join("|")}))*$/
+          valid_regex: /^(#{ALL_VALIDATIONS.join('|')})(,(#{ALL_VALIDATIONS.join('|')}))*$/
         }
       }
     end

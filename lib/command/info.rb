@@ -75,7 +75,7 @@ module Command
       if config.org
         result.push(config.org)
       else
-        config.apps.each do |_, app_options|
+        config.apps.each_value do |app_options|
           org = app_org(app_options)
           result.push(org) if org && !result.include?(org)
         end
@@ -173,7 +173,7 @@ module Command
       puts "\nThere are no apps starting with some names. If you wish to create any, do so with " \
            "(replace 'whatever' with whatever suffix you want):"
 
-      @missing_apps_starting_with.each do |app, _workloads|
+      @missing_apps_starting_with.each_key do |app|
         puts "  - `cpflow setup-app -a #{app}-whatever`"
       end
     end

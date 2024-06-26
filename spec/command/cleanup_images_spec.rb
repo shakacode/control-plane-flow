@@ -159,8 +159,10 @@ describe Command::CleanupImages do
 
   context "with multiple apps" do
     let!(:app_prefix) { dummy_test_app_prefix("image-retention") }
+    # rubocop:disable RSpec/IndexedLet
     let!(:app1) { dummy_test_app("image-retention", "1", create_if_not_exists: true) }
     let!(:app2) { dummy_test_app("image-retention", "2", create_if_not_exists: true) }
+    # rubocop:enable RSpec/IndexedLet
 
     it "lists correct images from exact app", :slow do
       allow(Shell).to receive(:confirm).with(include("2 images")).and_return(false)
