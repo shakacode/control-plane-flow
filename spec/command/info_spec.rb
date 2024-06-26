@@ -2,6 +2,7 @@
 
 require "spec_helper"
 
+# rubocop:disable RSpec/IndexedLet
 describe Command::Info do
   before do
     allow_any_instance_of(described_class).to receive(:app_org).and_return(dummy_test_org) # rubocop:disable RSpec/AnyInstance
@@ -257,3 +258,4 @@ describe Command::Info do
     end
   end
 end
+# rubocop:enable RSpec/IndexedLet
