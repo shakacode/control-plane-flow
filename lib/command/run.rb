@@ -306,7 +306,7 @@ module Command
           exit(ExitCode::SUCCESS)
         end
 
-        Cpflow::Cli.start(["logs", *app_workload_replica_args])
+        run_cpflow_command("logs", *app_workload_replica_args)
       end
       Process.detach(logs_pid)
 

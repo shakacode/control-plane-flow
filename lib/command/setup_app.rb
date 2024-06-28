@@ -42,7 +42,7 @@ module Command
 
       args = []
       args.push("--add-app-identity") unless skip_secrets_setup
-      Cpflow::Cli.start(["apply-template", *templates, "-a", config.app, *args])
+      run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
 
       bind_identity_to_policy unless skip_secrets_setup
       run_post_creation_hook unless config.options[:skip_post_creation_hook]

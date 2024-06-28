@@ -157,4 +157,24 @@ describe Command::SetupApp do
       expect(result[:stderr]).not_to include("Running post-creation hook")
     end
   end
+
+  context "when forwarding org" do
+    let!(:app) { dummy_test_app("undefined-org") }
+
+    before do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
+    end
+
+    after do
+      run_cpflow_command!("delete", "-a", app, "--org", dummy_test_org, "--yes")
+    end
+
+    it "forwards org correctly to apply-template" do
+      result = run_cpflow_command("setup-app", "-a", app, "--org", dummy_test_org, "--skip-secrets-setup")
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("[app] #{app}")
+    end
+  end
 end

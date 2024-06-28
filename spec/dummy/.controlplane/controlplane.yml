@@ -109,6 +109,8 @@ apps:
 
     match_if_app_name_starts_with: true
     cpln_org:
+    setup_app_templates:
+      - app
 
   dummy-test-rails-non-app-image-{GLOBAL_IDENTIFIER}:
     <<: *common

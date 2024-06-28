@@ -25,14 +25,14 @@ module Command
     private
 
     def copy_image_from_upstream
-      Cpflow::Cli.start(["copy-image-from-upstream", "-a", config.app, "-t", config.options[:upstream_token]])
+      run_cpflow_command("copy-image-from-upstream", "-a", config.app, "-t", config.options[:upstream_token])
       progress.puts
     end
 
     def deploy_image
       args = []
       args.push("--run-release-phase") if config.current[:release_script]
-      Cpflow::Cli.start(["deploy-image", "-a", config.app, *args])
+      run_cpflow_command("deploy-image", "-a", config.app, *args)
     end
   end
 end
