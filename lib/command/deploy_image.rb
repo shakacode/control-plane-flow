@@ -35,7 +35,7 @@ module Command
           container_name = container["name"]
           step("Deploying image '#{image}' for workload '#{container_name}'") do
             cp.workload_set_image_ref(workload, container: container_name, image: image)
-            deployed_endpoints[container_name] = workload_data.dig("status", "endpoint")
+            deployed_endpoints[container_name] = endpoint_for_workload(workload_data)
           end
         end
       end
@@ -47,6 +47,15 @@ module Command
     end
 
     private
+
+    def endpoint_for_workload(workload_data)
+      endpoint = workload_data.dig("status", "endpoint")
+      Resolv.getaddress(endpoint.split("/").last)
+      endpoint
+    rescue Resolv::ResolvError
+      deployments = cp.fetch_workload_deployments(workload_data["name"])
+      deployments.dig("items", 0, "status", "endpoint")
+    end
 
     def run_release_script
       release_script = config[:release_script]
