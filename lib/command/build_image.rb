@@ -36,9 +36,14 @@ module Command
 
       cp.image_build(image_url, dockerfile: dockerfile,
                                 docker_args: config.args,
-                                build_args: build_args)
+                                build_args: build_args,
+                                push: false)
 
-      progress.puts("\nPushed image to '/org/#{config.org}/image/#{image_name}'.\n\n")
+      push_path = "/org/#{config.org}/image/#{image_name}"
+
+      progress.puts("\nPushing image to '#{push_path}'...\n\n")
+      cp.image_push(image_url)
+      progress.puts("\nPushed image to '#{push_path}'.\n\n")
 
       step("Waiting for image to be available", retry_on_failure: true) do
         images = cp.query_images["items"]
