@@ -36,8 +36,7 @@ module Command
 
       cp.image_build(image_url, dockerfile: dockerfile,
                                 docker_args: config.args,
-                                build_args: build_args,
-                                push: false)
+                                build_args: build_args)
 
       push_path = "/org/#{config.org}/image/#{image_name}"
 
