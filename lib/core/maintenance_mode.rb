@@ -24,34 +24,40 @@ class MaintenanceMode
   def enable!
     if enabled?
       progress.puts("Maintenance mode is already enabled for app '#{config.app}'.")
-      return
+    else
+      enable_maintenance_mode
     end
-
-    validate_maintenance_workload_exists!
-
-    run_maintenance_workload(:start)
-    switch_domain_workload(to: maintenance_workload)
-    run_all_workloads(:stop)
-
-    progress.puts("\nMaintenance mode enabled for app '#{config.app}'.")
   end
 
   def disable!
     if disabled?
       progress.puts("Maintenance mode is already disabled for app '#{config.app}'.")
-      return
+    else
+      disable_maintenance_mode
     end
-
-    validate_maintenance_workload_exists!
-
-    run_all_workloads(:start)
-    switch_domain_workload(to: one_off_workload)
-    run_maintenance_workload(:stop)
-
-    progress.puts("\nMaintenance mode disabled for app '#{config.app}'.")
   end
 
   private
+
+  def enable_maintenance_mode
+    validate_maintenance_workload_exists!
+
+    start_or_stop_maintenance_workload(:start)
+    switch_domain_workload(to: maintenance_workload)
+    start_or_stop_all_workloads(:stop)
+
+    progress.puts("\nMaintenance mode enabled for app '#{config.app}'.")
+  end
+
+  def disable_maintenance_mode
+    validate_maintenance_workload_exists!
+
+    start_or_stop_maintenance_workload(:start)
+    switch_domain_workload(to: one_off_workload)
+    start_or_stop_all_workloads(:stop)
+
+    progress.puts("\nMaintenance mode disabled for app '#{config.app}'.")
+  end
 
   def validate_domain_exists!
     return if domain_data
@@ -65,14 +71,14 @@ class MaintenanceMode
     cp.fetch_workload!(maintenance_workload)
   end
 
-  def run_all_workloads(start_or_stop)
-    run_cpflow_command("ps:#{start_or_stop}", "-a", config.app, "--wait")
+  def start_or_stop_all_workloads(action)
+    run_cpflow_command("ps:#{action}", "-a", config.app, "--wait")
 
     progress.puts
   end
 
-  def run_maintenance_workload(start_or_stop)
-    run_cpflow_command("ps:#{start_or_stop}", "-a", config.app, "-w", maintenance_workload, "--wait")
+  def start_or_stop_maintenance_workload(action)
+    run_cpflow_command("ps:#{action}", "-a", config.app, "-w", maintenance_workload, "--wait")
 
     progress.puts
   end

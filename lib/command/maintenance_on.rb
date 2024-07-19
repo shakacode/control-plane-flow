@@ -22,7 +22,7 @@ module Command
     private
 
     def maintenance_mode
-      @maintenance_mode ||= ::MaintenanceMode.new(self)
+      @maintenance_mode ||= MaintenanceMode.new(self)
     end
   end
 end

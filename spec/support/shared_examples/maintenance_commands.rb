@@ -26,7 +26,7 @@ RSpec.shared_examples "validates maintenance workload existence" do |command:|
   end
 end
 
-RSpec.shared_examples "switch maintenance mode command" do |action:|
+RSpec.shared_examples "switches maintenance mode command" do |action:|
   include_examples "validates domain existence", command: "maintenance:#{action}"
   include_examples "validates maintenance workload existence", command: "maintenance:#{action}"
 
@@ -35,7 +35,7 @@ RSpec.shared_examples "switch maintenance mode command" do |action:|
 
     let(:command) { "maintenance:#{action}" }
     let(:opposite_command) { "maintenance:#{enable?(action) ? 'off' : 'on'}" }
-    let(:state_switched_text) { enable?(action) ? "enabled" : "disabled" }
+    let(:state) { enable?(action) ? "enabled" : "disabled" }
 
     before do
       allow(Kernel).to receive(:sleep)
@@ -48,7 +48,7 @@ RSpec.shared_examples "switch maintenance mode command" do |action:|
       result = run_cpflow_command(command, "-a", app)
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("Maintenance mode is already #{state_switched_text} for app '#{app}'")
+      expect(result[:stderr]).to include("Maintenance mode is already #{state} for app '#{app}'")
     end
 
     it "switches maintenance mode state", :slow do
@@ -56,7 +56,7 @@ RSpec.shared_examples "switch maintenance mode command" do |action:|
       result = run_cpflow_command(command, "-a", app)
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("Maintenance mode #{state_switched_text} for app '#{app}'")
+      expect(result[:stderr]).to include("Maintenance mode #{state} for app '#{app}'")
     end
 
     def enable?(action)

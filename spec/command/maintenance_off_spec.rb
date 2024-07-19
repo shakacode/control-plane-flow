@@ -3,5 +3,5 @@
 require "spec_helper"
 
 describe Command::MaintenanceOff do
-  it_behaves_like "switch maintenance mode command", action: :off
+  it_behaves_like "switches maintenance mode command", action: :off
 end
