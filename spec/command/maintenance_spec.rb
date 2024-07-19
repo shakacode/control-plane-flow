@@ -3,16 +3,7 @@
 require "spec_helper"
 
 describe Command::Maintenance do
-  context "when app has no domain" do
-    let!(:app) { dummy_test_app("nothing") }
-
-    it "raises error" do
-      result = run_cpflow_command("maintenance", "-a", app)
-
-      expect(result[:status]).not_to eq(0)
-      expect(result[:stderr]).to include("Can't find domain")
-    end
-  end
+  include_examples "validates domain existence", command: "maintenance"
 
   context "when app has domain" do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }

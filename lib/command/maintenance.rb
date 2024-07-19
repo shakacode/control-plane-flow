@@ -17,26 +17,14 @@ module Command
     DESC
     WITH_INFO_HEADER = false
 
-    def call # rubocop:disable Metrics/MethodLength
-      one_off_workload = config[:one_off_workload]
-      maintenance_workload = config.current[:maintenance_workload] || "maintenance"
+    def call
+      puts maintenance_mode.enabled? ? "on" : "off"
+    end
 
-      domain_data = if config.domain
-                      cp.fetch_domain(config.domain)
-                    else
-                      cp.find_domain_for([one_off_workload, maintenance_workload])
-                    end
-      unless domain_data
-        raise "Can't find domain. " \
-              "Maintenance mode is only supported for domains that use path based routing mode " \
-              "and have a route configured for the prefix '/' on either port 80 or 443."
-      end
+    private
 
-      if cp.domain_workload_matches?(domain_data, maintenance_workload)
-        puts "on"
-      else
-        puts "off"
-      end
+    def maintenance_mode
+      @maintenance_mode ||= MaintenanceMode.new(self)
     end
   end
 end
