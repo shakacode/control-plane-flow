@@ -62,7 +62,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app("invalid-release-script") }
 
     before do
-      ENV["APP_NAME"] = app
+      stub_env("APP_NAME", app)
 
       allow(Kernel).to receive(:sleep)
 
@@ -92,7 +92,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
 
     before do
-      ENV["APP_NAME"] = app
+      stub_env("APP_NAME", app)
 
       allow(Kernel).to receive(:sleep)
 

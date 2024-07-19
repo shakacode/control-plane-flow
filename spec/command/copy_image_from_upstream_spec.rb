@@ -46,7 +46,7 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
-      ENV["CPLN_UPSTREAM"] = upstream_app
+      stub_env("CPLN_UPSTREAM", upstream_app)
     end
 
     it "raises error" do
@@ -62,9 +62,9 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
-      ENV["CPLN_UPSTREAM"] = upstream_app
+      stub_env("CPLN_UPSTREAM", upstream_app)
       # Ideally, we should have a different org, but for testing purposes, this works
-      ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
+      stub_env("CPLN_ORG_UPSTREAM", dummy_test_org)
 
       run_cpflow_command!("apply-template", "app", "-a", upstream_app)
       run_cpflow_command!("apply-template", "app", "-a", app)
@@ -93,9 +93,9 @@ describe Command::CopyImageFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
-      ENV["CPLN_UPSTREAM"] = upstream_app
+      stub_env("CPLN_UPSTREAM", upstream_app)
       # Ideally, we should have a different org, but for testing purposes, this works
-      ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
+      stub_env("CPLN_ORG_UPSTREAM", dummy_test_org)
 
       run_cpflow_command!("apply-template", "app", "-a", upstream_app)
       run_cpflow_command!("apply-template", "app", "-a", app)

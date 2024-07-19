@@ -9,9 +9,9 @@ describe Command::PromoteAppFromUpstream do
     let!(:app) { dummy_test_app("nothing") }
 
     before do
-      ENV["CPLN_UPSTREAM"] = upstream_app
+      stub_env("CPLN_UPSTREAM", upstream_app)
       # Ideally, we should have a different org, but for testing purposes, this works
-      ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
+      stub_env("CPLN_ORG_UPSTREAM", dummy_test_org)
 
       run_cpflow_command!("apply-template", "app", "-a", upstream_app)
       run_cpflow_command!("apply-template", "app", "rails", "-a", app)
@@ -40,10 +40,10 @@ describe Command::PromoteAppFromUpstream do
     let!(:app) { dummy_test_app("invalid-release-script") }
 
     before do
-      ENV["CPLN_UPSTREAM"] = upstream_app
+      stub_env("CPLN_UPSTREAM", upstream_app)
       # Ideally, we should have a different org, but for testing purposes, this works
-      ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
-      ENV["APP_NAME"] = app
+      stub_env("CPLN_ORG_UPSTREAM", dummy_test_org)
+      stub_env("APP_NAME", app)
 
       run_cpflow_command!("apply-template", "app", "-a", upstream_app)
       run_cpflow_command!("apply-template", "app", "rails", "postgres", "-a", app)
@@ -77,10 +77,10 @@ describe Command::PromoteAppFromUpstream do
     let!(:app) { dummy_test_app }
 
     before do
-      ENV["CPLN_UPSTREAM"] = upstream_app
+      stub_env("CPLN_UPSTREAM", upstream_app)
       # Ideally, we should have a different org, but for testing purposes, this works
-      ENV["CPLN_ORG_UPSTREAM"] = dummy_test_org
-      ENV["APP_NAME"] = app
+      stub_env("CPLN_ORG_UPSTREAM", dummy_test_org)
+      stub_env("APP_NAME", app)
 
       run_cpflow_command!("apply-template", "app", "-a", upstream_app)
       run_cpflow_command!("apply-template", "app", "rails", "postgres", "-a", app)

@@ -7,7 +7,7 @@ describe ControlplaneApiDirect do
 
   describe "#api_host" do
     it "returns correct host for 'api' when CPLN_ENDPOINT is not set" do
-      allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("https://api.cpln.io")
+      stub_env("CPLN_ENDPOINT", nil)
 
       host = described_instance.api_host(:api)
 
@@ -15,7 +15,7 @@ describe ControlplaneApiDirect do
     end
 
     it "returns correct host for 'api' when CPLN_ENDPOINT is set" do
-      allow(ENV).to receive(:fetch).with("CPLN_ENDPOINT", "https://api.cpln.io").and_return("http://api.cpln.io")
+      stub_env("CPLN_ENDPOINT", "http://api.cpln.io")
 
       host = described_instance.api_host(:api)
 
@@ -39,7 +39,7 @@ describe ControlplaneApiDirect do
     end
 
     it "returns token from CPLN_TOKEN" do
-      allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return("token_1")
+      stub_env("CPLN_TOKEN", "token_1")
 
       result = described_instance.api_token
 
@@ -48,7 +48,7 @@ describe ControlplaneApiDirect do
     end
 
     it "returns token from 'cpln profile token'" do
-      allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
+      stub_env("CPLN_TOKEN", nil)
       allow(Shell).to receive(:cmd).with("cpln", "profile", "token").and_return({ output: "token_2" })
 
       result = described_instance.api_token
@@ -58,7 +58,7 @@ describe ControlplaneApiDirect do
     end
 
     it "raises error if token is not found" do
-      allow(ENV).to receive(:fetch).with("CPLN_TOKEN", nil).and_return(nil)
+      stub_env("CPLN_TOKEN", nil)
       allow(Shell).to receive(:cmd).with("cpln", "profile", "token").and_return({ output: "" })
 
       message = "Unknown API token format. " \

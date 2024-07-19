@@ -19,7 +19,7 @@ describe Controlplane do
     let!(:original_cmd) { "cmd" }
 
     before do
-      allow(ENV).to receive(:fetch).with("HIDE_COMMAND_OUTPUT", nil).and_return(nil)
+      stub_env("HIDE_COMMAND_OUTPUT", nil)
       allow(Shell).to receive(:should_hide_output?).and_return(false)
     end
 
@@ -48,7 +48,7 @@ describe Controlplane do
     end
 
     it "hides everything when 'HIDE_COMMAND_OUTPUT' env var is set to 'true'" do
-      allow(ENV).to receive(:fetch).with("HIDE_COMMAND_OUTPUT", nil).and_return("true")
+      stub_env("HIDE_COMMAND_OUTPUT", "true")
 
       cmd = described_instance.send(:build_command, original_cmd)
 
@@ -56,7 +56,7 @@ describe Controlplane do
     end
 
     it "provided 'output_mode' overrides 'HIDE_COMMAND_OUTPUT' env var" do
-      allow(ENV).to receive(:fetch).with("HIDE_COMMAND_OUTPUT", nil).and_return("true")
+      stub_env("HIDE_COMMAND_OUTPUT", "true")
 
       cmd = described_instance.send(:build_command, original_cmd, output_mode: :all)
 

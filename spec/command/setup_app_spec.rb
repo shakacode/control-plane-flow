@@ -162,8 +162,7 @@ describe Command::SetupApp do
     let!(:app) { dummy_test_app("undefined-org") }
 
     before do
-      allow(ENV).to receive(:fetch).and_call_original
-      allow(ENV).to receive(:fetch).with("CPLN_ORG", nil).and_return(nil)
+      stub_env("CPLN_ORG", nil)
     end
 
     after do
