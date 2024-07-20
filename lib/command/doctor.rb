@@ -29,7 +29,7 @@ module Command
       validations = config.options[:validations].split(",")
       ensure_required_options!(validations)
 
-      doctor_service = DoctorService.new(config)
+      doctor_service = DoctorService.new(self)
       doctor_service.run_validations(validations)
     end
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "date"
+require "forwardable"
 require "dotenv/load"
 require "cgi"
 require "json"
@@ -226,12 +227,14 @@ module Cpflow
 
           Cpflow::Cli.show_info_header(config) if with_info_header
 
+          command = command_class.new(config)
+
           if validations.any? && ENV.fetch("DISABLE_VALIDATIONS", nil) != "true"
-            doctor = DoctorService.new(config)
+            doctor = DoctorService.new(command)
             doctor.run_validations(validations, silent_if_passing: true)
           end
 
-          command_class.new(config).call
+          command.call
         rescue RuntimeError => e
           ::Shell.abort(e.message)
         end
