@@ -10,7 +10,10 @@ on:
         required: true
         type: string
       test-tag:
-        required: true
+        required: false
+        type: string
+      spec_paths:
+        required: false
         type: string
 
 jobs:
@@ -41,7 +44,7 @@ jobs:
           cpln profile create default --token $CPLN_TOKEN_CI --org $CPLN_ORG
           cpln image docker-login
       - name: Run tests
-        run: bundle exec rspec --format documentation --tag ${{ inputs.test-tag }}
+        run: bundle exec rspec --format documentation ${{ inputs.test-tag && format('--tag {0}', inputs.test-tag) }} ${{ inputs.spec_paths }}
       - name: Upload spec log
         uses: actions/upload-artifact@master
         if: always()

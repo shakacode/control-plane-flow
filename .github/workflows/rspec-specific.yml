@@ -1,0 +1,18 @@
+name: RSpec Specific
+
+on:
+  workflow_dispatch:
+    inputs:
+      spec_paths:
+        description: "Test files or directories that should be run"
+        required: true
+
+jobs:
+  rspec-specific-tests:
+    name: RSpec (Specific)
+    uses: ./.github/workflows/rspec-shared.yml
+    with:
+      os-version: ubuntu-latest
+      ruby-version: "3.2"
+      spec_paths: ${{ inputs.spec_paths }}
+    secrets: inherit
