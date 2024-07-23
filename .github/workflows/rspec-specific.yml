@@ -8,11 +8,11 @@ on:
         required: true
 
 jobs:
-  rspec-specific-tests:
+  rspec-specific:
     name: RSpec (Specific)
     uses: ./.github/workflows/rspec-shared.yml
     with:
-      os-version: ubuntu-latest
-      ruby-version: "3.2"
+      os_version: ubuntu-latest
+      ruby_version: "3.2"
       spec_paths: ${{ inputs.spec_paths }}
     secrets: inherit

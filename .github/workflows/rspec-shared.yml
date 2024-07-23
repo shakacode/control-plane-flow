@@ -3,13 +3,13 @@ name: RSpec Shared
 on:
   workflow_call:
     inputs:
-      os-version:
+      os_version:
         required: true
         type: string
-      ruby-version:
+      ruby_version:
         required: true
         type: string
-      test-tag:
+      test_tag:
         required: false
         type: string
       spec_paths:
@@ -18,7 +18,7 @@ on:
 
 jobs:
   rspec:
-    runs-on: ${{ inputs.os-version }}
+    runs-on: ${{ inputs.os_version }}
     env:
       RAILS_ENV: test
       # We have to add "_CI" to the end, otherwise it messes with tests where we switch profiles,
@@ -31,7 +31,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ inputs.ruby-version }}
+          ruby-version: ${{ inputs.ruby_version }}
           bundler-cache: true
       - name: Install dependencies
         run: bundle install
@@ -44,16 +44,16 @@ jobs:
           cpln profile create default --token $CPLN_TOKEN_CI --org $CPLN_ORG
           cpln image docker-login
       - name: Run tests
-        run: bundle exec rspec --format documentation ${{ inputs.test-tag && format('--tag {0}', inputs.test-tag) }} ${{ inputs.spec_paths }}
+        run: bundle exec rspec --format documentation ${{ inputs.test_tag && format('--tag {0}', inputs.test_tag) }} ${{ inputs.spec_paths }}
       - name: Upload spec log
         uses: actions/upload-artifact@master
         if: always()
         with:
-          name: spec-${{ inputs.test-tag }}-${{ github.run_id }}-${{ inputs.os-version }}-${{ inputs.ruby-version }}.log
+          name: spec-${{ inputs.test_tag }}-${{ github.run_id }}-${{ inputs.os_version }}-${{ inputs.ruby_version }}.log
           path: spec.log
       - name: Upload coverage results
         uses: actions/upload-artifact@master
         if: always()
         with:
-          name: coverage-report-${{ inputs.test-tag }}-${{ github.run_id }}-${{ inputs.os-version }}-${{ inputs.ruby-version }}
+          name: coverage-report-${{ inputs.test_tag }}-${{ github.run_id }}-${{ inputs.os_version }}-${{ inputs.ruby_version }}
           path: coverage
