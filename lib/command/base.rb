@@ -474,7 +474,7 @@ module Command
       end
     end
 
-    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: 5, wait: 1) # rubocop:disable Metrics/MethodLength
+    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: Float::INFINITY, wait: 1) # rubocop:disable Metrics/MethodLength
       progress.print("#{message}...")
 
       Shell.use_tmp_stderr do

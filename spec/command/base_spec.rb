@@ -17,17 +17,6 @@ describe Command::Base do
     context "with retry_on_failure: true" do
       let(:options) { { retry_on_failure: true, wait: 0 } }
 
-      it "does not exceed default max_retry_count" do
-        run_count = 0
-
-        command.step(message, **options) do
-          run_count += 1
-          false
-        end
-
-        expect(run_count).to eq 5
-      end
-
       it "retries block until success" do
         run_count = 0
 
