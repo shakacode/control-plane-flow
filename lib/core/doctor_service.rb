@@ -3,10 +3,12 @@
 class ValidationError < StandardError; end
 
 class DoctorService
-  attr_reader :config
+  extend Forwardable
 
-  def initialize(config)
-    @config = config
+  def_delegators :@command, :config, :progress
+
+  def initialize(command)
+    @command = command
   end
 
   def run_validations(validations, silent_if_passing: false) # rubocop:disable Metrics/MethodLength
@@ -37,7 +39,7 @@ class DoctorService
   end
 
   def validate_templates
-    @template_parser = TemplateParser.new(config)
+    @template_parser = TemplateParser.new(@command)
     filenames = Dir.glob("#{@template_parser.template_dir}/*.yml")
     templates = @template_parser.parse(filenames)
 
@@ -96,9 +98,5 @@ class DoctorService
            .map { |old_key, new_key| "  - #{old_key} -> #{new_key}" }
            .join("\n")
     progress.puts("\n#{Shell.color("DEPRECATED: #{message}", :yellow)}\n#{list}\n\n")
-  end
-
-  def progress
-    $stderr
   end
 end

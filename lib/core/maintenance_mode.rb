@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "forwardable"
-
 class MaintenanceMode
   extend Forwardable
 

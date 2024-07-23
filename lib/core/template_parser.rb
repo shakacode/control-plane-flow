@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
 class TemplateParser
-  attr_reader :config, :deprecated_variables
+  extend Forwardable
 
-  def initialize(config)
-    @config = config
+  def_delegators :@command, :config, :cp
+
+  attr_reader :deprecated_variables
+
+  def initialize(command)
+    @command = command
   end
 
   def template_dir
@@ -68,9 +72,5 @@ class TemplateParser
       "APP_LOCATION" => "{{APP_LOCATION}}",
       "APP_IMAGE" => "{{APP_IMAGE}}"
     }
-  end
-
-  def cp
-    @cp ||= Controlplane.new(config)
   end
 end

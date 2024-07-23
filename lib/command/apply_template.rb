@@ -43,7 +43,7 @@ module Command
     VALIDATIONS = %w[config templates].freeze
 
     def call # rubocop:disable Metrics/MethodLength
-      @template_parser = TemplateParser.new(config)
+      @template_parser = TemplateParser.new(self)
       @names_to_filenames = config.args.to_h do |name|
         [name, @template_parser.template_filename(name)]
       end
