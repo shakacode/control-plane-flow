@@ -63,11 +63,16 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     ENV["CONFIG_FILE_PATH"] = @@tmp_config_file.path
   end
 
+  def unset_config_file
+    @@tmp_config_file = nil # rubocop:disable Style/ClassVars
+    ENV["CONFIG_FILE_PATH"] = nil
+  end
+
   def delete_config_file
     return unless @@tmp_config_file
 
     File.delete(@@tmp_config_file.path)
-    @@tmp_config_file = nil # rubocop:disable Style/ClassVars
+    unset_config_file
   end
 
   def temporarily_switch_config_file(extra_prefix = "")
