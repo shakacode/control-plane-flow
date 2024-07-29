@@ -38,16 +38,27 @@ module Command
     WITH_INFO_HEADER = true
     # Which validations to run before the command
     VALIDATIONS = %w[config].freeze
+    SUBCOMMAND = nil
 
     def initialize(config)
       @config = config
     end
 
-    def self.all_commands
-      Dir["#{__dir__}/*.rb"].each_with_object({}) do |file, result|
+    def self.all_commands # rubocop:disable Metrics/MethodLength
+      Dir["#{__dir__}/**/*.rb"].each_with_object({}) do |file, result|
         filename = File.basename(file, ".rb")
-        classname = File.read(file).match(/^\s+class (\w+) < Base($| .*$)/)&.captures&.first
-        result[filename.to_sym] = Object.const_get("::Command::#{classname}") if classname
+
+        classname = File.read(file).match(/^\s+class (\w+) < (?:.*Base)(?:$| .*$)/)&.captures&.first
+        next unless classname
+
+        namespaces = File.read(file).scan(/^\s+module (\w+)/).flatten
+        full_classname = [*namespaces, classname].join("::").prepend("::")
+
+        command_key = filename
+        prefix = namespaces[1..1].map(&:downcase).join("_")
+        command_key.prepend(prefix.concat("_")) unless prefix.empty?
+
+        result[command_key.to_sym] = Object.const_get(full_classname)
       end
     end
 

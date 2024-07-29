@@ -9,7 +9,7 @@ module Command
     end
 
     def self.source_root
-      File.expand_path("../", __dir__)
+      Cpflow.root_path
     end
   end
 
@@ -26,6 +26,7 @@ module Command
       ```
     EX
     WITH_INFO_HEADER = false
+    VALIDATIONS = [].freeze
 
     def call
       if controlplane_directory_exists?

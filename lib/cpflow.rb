@@ -17,6 +17,8 @@ require_relative "constants/exit_code"
 
 # We need to require base before all commands, since the commands inherit from it
 require_relative "command/base"
+# We need to require base config before all commands, since the terraform configs inherit from it
+require_relative "core/terraform/config/base"
 
 modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
   file == __FILE__ || file.end_with?("base.rb")
@@ -51,8 +53,27 @@ class Thor
   end
 end
 
+# String methods copied from Rails
+# rubocop:disable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName
+class String
+  def indent(amount, indent_string = nil, indent_empty_lines = false)
+    dup.tap { |_| _.indent!(amount, indent_string, indent_empty_lines) }
+  end
+
+  def indent!(amount, indent_string = nil, indent_empty_lines = false)
+    indent_string = indent_string || self[/^[ \t]/] || " "
+    re = indent_empty_lines ? /^/ : /^(?!$)/
+    gsub!(re, indent_string * amount)
+  end
+end
+# rubocop:enable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName
+
 module Cpflow
   class Error < StandardError; end
+
+  def self.root_path
+    File.expand_path("../", __dir__)
+  end
 
   class Cli < Thor # rubocop:disable Metrics/ClassLength
     package_name "cpflow"
@@ -111,6 +132,8 @@ module Cpflow
     # (it basically changes it to `cpflow --help COMMAND`, which Thor recognizes)
     # Based on https://stackoverflow.com/questions/49042591/how-to-add-help-h-flag-to-thor-command
     def self.fix_help_option
+      return unless (ARGV & all_subcommands).empty?
+
       help_mappings = Thor::HELP_MAPPINGS + ["help"]
       matches = help_mappings & ARGV
       matches.each do |match|
@@ -149,6 +172,10 @@ module Cpflow
       ::Command::Base.all_commands.merge(deprecated_commands)
     end
 
+    def self.all_subcommands
+      ::Command::Base.all_commands.values.map { |command| command::SUBCOMMAND }.compact
+    end
+
     def self.process_option_params(params)
       # Ensures that if no value is provided for a non-boolean option (e.g., `cpflow command --option`),
       # it defaults to an empty string instead of the option name (which is the default Thor behavior)
@@ -181,6 +208,7 @@ module Cpflow
       hide = command_class::HIDE || deprecated
       with_info_header = command_class::WITH_INFO_HEADER
       validations = command_class::VALIDATIONS
+      subcommand = command_class::SUBCOMMAND
 
       long_description += "\n#{examples}" if examples.length.positive?
 
@@ -188,21 +216,39 @@ module Cpflow
       # so we store it here to be able to use it
       raise_args_error = ->(*args) { handle_argument_error(commands[name_for_method], ArgumentError, *args) }
 
-      desc(usage, description, hide: hide)
-      long_desc(long_description)
-
-      command_options.each do |option|
-        params = process_option_params(option[:params])
-        method_option(option[:name], **params)
-      end
-
       # We'll handle required options manually in `Config`
       required_options = command_options.select { |option| option[:params][:required] }.map { |option| option[:name] }
       @commands_with_required_options.push(name_for_method.to_sym) if required_options.any?
 
       @commands_with_extra_options.push(name_for_method.to_sym) if accepts_extra_options
 
-      define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/BlockLength, Metrics/MethodLength
+      klass =
+        if subcommand
+          klass_name = subcommand.to_s.split("_").collect(&:capitalize).join
+
+          if Object.const_defined?("Cpflow::#{klass_name}")
+            Cpflow.const_get(klass_name)
+          else
+            Cpflow.const_set(klass_name, Class.new(BaseSubCommand)).tap do |subcommand_klass|
+              desc subcommand, "#{subcommand.capitalize} commands"
+              subcommand subcommand, subcommand_klass
+            end
+          end
+        else
+          self
+        end
+
+      klass.class_eval do
+        desc(usage, description, hide: hide)
+        long_desc(long_description)
+
+        command_options.each do |option|
+          params = process_option_params(option[:params])
+          method_option(option[:name], **params)
+        end
+      end
+
+      klass.define_method(name_for_method) do |*provided_args| # rubocop:disable Metrics/BlockLength, Metrics/MethodLength
         if deprecated
           normalized_old_name = ::Helpers.normalize_command_name(command_key)
           ::Shell.warn_deprecated("Command '#{normalized_old_name}' is deprecated, " \
