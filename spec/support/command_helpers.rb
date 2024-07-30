@@ -157,6 +157,9 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   end
 
   def run_cpflow_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
+    program_name_before = $PROGRAM_NAME
+    $PROGRAM_NAME = package_name
+
     LogHelpers.write_command_to_log(args.join(" "))
 
     result = {
@@ -182,6 +185,8 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     raise result.to_json if result[:status].nonzero? && raise_errors
 
     result
+  ensure
+    $PROGRAM_NAME = program_name_before
   end
 
   def run_cpflow_command!(*args)
@@ -256,5 +261,9 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     current_directory = File.dirname(current_file_path)
 
     File.dirname(current_directory)
+  end
+
+  def package_name
+    @package_name ||= Cpflow::Cli.instance_variable_get("@package_name")
   end
 end

@@ -19,4 +19,19 @@ describe Cpflow do
       expect(result[:stderr]).to include("No value provided for option --#{option[:name].to_s.tr('_', '-')}")
     end
   end
+
+  it "handles subcommands correctly" do
+    result = run_cpflow_command("help")
+
+    expect(result[:status]).to eq(0)
+
+    Cpflow::Cli.subcommand_names.each do |subcommand|
+      expect(result[:stdout]).to include("#{package_name} #{subcommand}")
+
+      subcommand_result = run_cpflow_command(subcommand, "help")
+
+      expect(subcommand_result[:status]).to eq(0)
+      expect(subcommand_result[:stdout]).to include("#{package_name} #{subcommand} help [COMMAND]")
+    end
+  end
 end
