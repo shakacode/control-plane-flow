@@ -154,7 +154,7 @@ RSpec.configure do |config|
   end
 
   config.around(:example, :without_config_file) do |example|
-    CommandHelpers.unset_config_file
+    CommandHelpers.delete_config_file
     example.run
     CommandHelpers.configure_config_file
   end
