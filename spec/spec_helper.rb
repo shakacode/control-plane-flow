@@ -152,4 +152,16 @@ RSpec.configure do |config|
     # Times out after 10 minutes
     Timeout.timeout(600) { example.run }
   end
+
+  config.around(:example, :without_config_file) do |example|
+    CommandHelpers.delete_config_file
+    example.run
+    CommandHelpers.configure_config_file
+  end
+
+  config.around(:example, :enable_validations) do |example|
+    ENV["DISABLE_VALIDATIONS"] = "false"
+    example.run
+    ENV["DISABLE_VALIDATIONS"] = "true"
+  end
 end

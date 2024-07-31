@@ -26,6 +26,7 @@ module Command
       ```
     EX
     WITH_INFO_HEADER = false
+    VALIDATIONS = [].freeze
 
     def call
       if controlplane_directory_exists?

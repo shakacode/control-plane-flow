@@ -17,7 +17,9 @@ ensure
   Dir.chdir original_working_dir
 end
 
-describe Command::Generate do
+describe Command::Generate, :enable_validations, :without_config_file do
+  let(:controlplane_config_file_path) { CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml") }
+
   before do
     FileUtils.rm_r(GENERATOR_PLAYGROUND_PATH) if Dir.exist?(GENERATOR_PLAYGROUND_PATH)
     FileUtils.mkdir_p GENERATOR_PLAYGROUND_PATH
@@ -30,23 +32,30 @@ describe Command::Generate do
   context "when no configuration exist in the project" do
     it "generates base config files" do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect(controlplane_config_file_path).not_to exist
+
         Cpflow::Cli.start([described_class::NAME])
-        controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
+
         expect(controlplane_config_file_path).to exist
       end
     end
   end
 
   context "when .controlplane directory already exist" do
+    let(:controlplane_config_dir) { controlplane_config_file_path.parent }
+
+    before do
+      Dir.mkdir(controlplane_config_dir)
+    end
+
     it "doesn't generates base config files" do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
-        Dir.mkdir(CONTROLPLANE_CONFIG_DIR_PATH)
+        expect(controlplane_config_dir).to exist
 
         expect do
           Cpflow::Cli.start([described_class::NAME])
         end.to output(/already exist/).to_stderr
 
-        controlplane_config_file_path = CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
         expect(controlplane_config_file_path).not_to exist
       end
     end
