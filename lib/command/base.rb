@@ -12,6 +12,8 @@ module Command
     VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
     ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
 
+    # Used to call the command (`cpflow SUBCOMMAND_NAME NAME`)
+    SUBCOMMAND_NAME = nil
     # Used to call the command (`cpflow NAME`)
     # NAME = ""
     # Displayed when running `cpflow help` or `cpflow help NAME` (defaults to `NAME`)
@@ -38,7 +40,6 @@ module Command
     WITH_INFO_HEADER = true
     # Which validations to run before the command
     VALIDATIONS = %w[config].freeze
-    SUBCOMMAND = nil
 
     def initialize(config)
       @config = config
@@ -55,7 +56,7 @@ module Command
         full_classname = [*namespaces, classname].join("::").prepend("::")
 
         command_key = File.basename(file, ".rb")
-        prefix = namespaces[1..1].map(&:downcase).join("_")
+        prefix = namespaces[1..].map(&:downcase).join("_")
         command_key.prepend(prefix.concat("_")) unless prefix.empty?
 
         result[command_key.to_sym] = Object.const_get(full_classname)

@@ -21,17 +21,20 @@ describe Cpflow do
   end
 
   it "handles subcommands correctly" do
-    result = run_cpflow_command("help")
+    result = run_cpflow_command("--help")
 
     expect(result[:status]).to eq(0)
 
-    Cpflow::Cli.subcommand_names.each do |subcommand|
-      expect(result[:stdout]).to include("#{package_name} #{subcommand}")
+    # Temporary solution, will be fixed with https://github.com/rails/thor/issues/742
+    basename = Cpflow::Cli.send(:basename)
 
-      subcommand_result = run_cpflow_command(subcommand, "help")
+    Cpflow::Cli.subcommand_names.each do |subcommand|
+      expect(result[:stdout]).to include("#{basename} #{subcommand}")
+
+      subcommand_result = run_cpflow_command(subcommand, "--help")
 
       expect(subcommand_result[:status]).to eq(0)
-      expect(subcommand_result[:stdout]).to include("#{package_name} #{subcommand} help [COMMAND]")
+      expect(subcommand_result[:stdout]).to include("#{basename} #{subcommand} help [COMMAND]")
     end
   end
 end

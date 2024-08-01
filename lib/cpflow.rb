@@ -115,13 +115,18 @@ module Cpflow
       matches = help_mappings & ARGV
 
       # Help option works correctly for subcommands
-      return if matches && (ARGV & subcommand_names).any?
+      return if matches && subcommand?
 
       matches.each do |match|
         ARGV.delete(match)
         ARGV.unshift(match)
       end
     end
+
+    def self.subcommand?
+      (subcommand_names & ARGV).any?
+    end
+    private_class_method :subcommand?
 
     # Needed to silence deprecation warning
     def self.exit_on_failure?
@@ -154,7 +159,7 @@ module Cpflow
     end
 
     def self.subcommand_names
-      ::Command::Base.all_commands.values.map { |command| command::SUBCOMMAND }.compact
+      Dir["#{__dir__}/command/*"].filter_map { |name| File.basename(name) if File.directory?(name) }
     end
 
     def self.process_option_params(params)
@@ -165,13 +170,13 @@ module Cpflow
       params
     end
 
-    def self.klass_for(subcommand)
-      klass_name = subcommand.to_s.split("-").collect(&:capitalize).join
+    def self.klass_for(subcommand_name)
+      klass_name = subcommand_name.to_s.split("-").map(&:capitalize).join
       return Cpflow.const_get(klass_name) if Cpflow.const_defined?(klass_name)
 
       Cpflow.const_set(klass_name, Class.new(BaseSubCommand)).tap do |subcommand_klass|
-        desc subcommand, "#{subcommand.capitalize} commands"
-        subcommand subcommand, subcommand_klass
+        desc(subcommand_name, "#{subcommand_name.capitalize} commands")
+        subcommand(subcommand_name, subcommand_klass)
       end
     end
     private_class_method :klass_for
@@ -188,6 +193,7 @@ module Cpflow
       deprecated = deprecated_commands[command_key]
 
       name = command_class::NAME
+      subcommand_name = command_class::SUBCOMMAND_NAME
       name_for_method = deprecated ? command_key : name.tr("-", "_")
       usage = command_class::USAGE.empty? ? name : command_class::USAGE
       requires_args = command_class::REQUIRES_ARGS
@@ -200,7 +206,6 @@ module Cpflow
       hide = command_class::HIDE || deprecated
       with_info_header = command_class::WITH_INFO_HEADER
       validations = command_class::VALIDATIONS
-      subcommand = command_class::SUBCOMMAND
 
       long_description += "\n#{examples}" if examples.length.positive?
 
@@ -214,7 +219,7 @@ module Cpflow
 
       @commands_with_extra_options.push(name_for_method.to_sym) if accepts_extra_options
 
-      klass = subcommand ? klass_for(subcommand) : self
+      klass = subcommand_name ? klass_for(subcommand_name) : self
 
       klass.class_eval do
         desc(usage, description, hide: hide)

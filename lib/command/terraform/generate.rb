@@ -2,18 +2,13 @@
 
 module Command
   module Terraform
-    class Generate < ::Command::Base
-      SUBCOMMAND = "terraform"
+    class Generate < Base
+      SUBCOMMAND_NAME = "terraform"
       NAME = "generate"
       DESCRIPTION = "Generates terraform configuration files"
       LONG_DESCRIPTION = <<~DESC
-        Generates terraform configuration files based on `controlplane.yml` and `templates/` config
+        - Generates terraform configuration files based on `controlplane.yml` and `templates/` config
       DESC
-      EXAMPLES = <<~EX
-        ```sh
-        cpflow terraform generate
-        ```
-      EX
       WITH_INFO_HEADER = false
       VALIDATIONS = [].freeze
 

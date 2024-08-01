@@ -444,9 +444,9 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 cpflow setup-app -a $APP_NAME
 ```
 
-### `generate`
+### `terraform generate`
 
-Generates terraform configuration files based on `controlplane.yml` and `templates/` config
+- Generates terraform configuration files based on `controlplane.yml` and `templates/` config
 
 ```sh
 cpflow terraform generate
