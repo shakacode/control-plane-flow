@@ -17,6 +17,8 @@ require_relative "constants/exit_code"
 
 # We need to require base before all commands, since the commands inherit from it
 require_relative "command/base"
+# We need to require base terraform config before all commands, since the terraform configs inherit from it
+require_relative "core/terraform/config/base"
 
 modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
   file == __FILE__ || file.end_with?("base.rb")
@@ -51,8 +53,14 @@ class Thor
   end
 end
 
+require_relative "patches/string"
+
 module Cpflow
   class Error < StandardError; end
+
+  def self.root_path
+    Pathname.new(File.expand_path("../", __dir__))
+  end
 
   class Cli < Thor # rubocop:disable Metrics/ClassLength
     package_name "cpflow"
@@ -172,7 +180,8 @@ module Cpflow
 
     def self.klass_for(subcommand_name)
       klass_name = subcommand_name.to_s.split("-").map(&:capitalize).join
-      return Cpflow.const_get(klass_name) if Cpflow.const_defined?(klass_name)
+      full_klass_name = "Cpflow::#{klass_name}"
+      return const_get(full_klass_name) if const_defined?(full_klass_name)
 
       Cpflow.const_set(klass_name, Class.new(BaseSubCommand)).tap do |subcommand_klass|
         desc(subcommand_name, "#{subcommand_name.capitalize} commands")

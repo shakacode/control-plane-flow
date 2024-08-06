@@ -13,7 +13,19 @@ module Command
       VALIDATIONS = [].freeze
 
       def call
-        # TODO: Implement
+        File.write(terraform_dir.join("providers.tf"), cpln_provider.to_tf)
+      end
+
+      private
+
+      def cpln_provider
+        ::Terraform::Config::RequiredProvider.new("cpln", source: "controlplane-com/cpln", version: "~> 1.0")
+      end
+
+      def terraform_dir
+        @terraform_dir ||= Cpflow.root_path.join("terraform").tap do |path|
+          FileUtils.mkdir_p(path)
+        end
       end
     end
   end

@@ -9,7 +9,7 @@ module Command
     end
 
     def self.source_root
-      File.expand_path("../", __dir__)
+      Cpflow.root_path.join("lib")
     end
   end
 
