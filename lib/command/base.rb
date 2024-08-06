@@ -12,6 +12,8 @@ module Command
     VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
     ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
 
+    # Used to call the command (`cpflow SUBCOMMAND_NAME NAME`)
+    SUBCOMMAND_NAME = nil
     # Used to call the command (`cpflow NAME`)
     # NAME = ""
     # Displayed when running `cpflow help` or `cpflow help NAME` (defaults to `NAME`)
@@ -43,11 +45,21 @@ module Command
       @config = config
     end
 
-    def self.all_commands
-      Dir["#{__dir__}/*.rb"].each_with_object({}) do |file, result|
-        filename = File.basename(file, ".rb")
-        classname = File.read(file).match(/^\s+class (\w+) < Base($| .*$)/)&.captures&.first
-        result[filename.to_sym] = Object.const_get("::Command::#{classname}") if classname
+    def self.all_commands # rubocop:disable Metrics/MethodLength
+      Dir["#{__dir__}/**/*.rb"].each_with_object({}) do |file, result|
+        content = File.read(file)
+
+        classname = content.match(/^\s+class (\w+) < (?:.*Base)(?:$| .*$)/)&.captures&.first
+        next unless classname
+
+        namespaces = content.scan(/^\s+module (\w+)/).flatten
+        full_classname = [*namespaces, classname].join("::").prepend("::")
+
+        command_key = File.basename(file, ".rb")
+        prefix = namespaces[1..].map(&:downcase).join("_")
+        command_key.prepend(prefix.concat("_")) unless prefix.empty?
+
+        result[command_key.to_sym] = Object.const_get(full_classname)
       end
     end
 
