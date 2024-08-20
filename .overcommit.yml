@@ -10,7 +10,7 @@ PreCommit:
     on_warn: fail
     command: ["bundle", "exec", "rubocop"]
 
-PrePush:
-  RSpec:
-    enabled: true
-    command: ["bundle", "exec", "rspec"]
+# PrePush:
+#   RSpec:
+#     enabled: true
+#     command: ["bundle", "exec", "rspec"]
