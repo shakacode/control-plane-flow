@@ -69,6 +69,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     File.delete(@@tmp_config_file.path)
 
     @@tmp_config_file = nil # rubocop:disable Style/ClassVars
+
     ENV["CONFIG_FILE_PATH"] = nil
   end
 
