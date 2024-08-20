@@ -2,7 +2,7 @@
 
 require "support/stub_env"
 
-# Copied from https://gitlab.com/gitlab-org/gitlab/-/blob/master/gems/gitlab-rspec/lib/gitlab/rspec/stub_env.rb
+# Copied from https://gitlab.com/gitlab-org/gitlab/-/blob/master/gems/gitlab-rspec/spec/gitlab/rspec/stub_env_spec.rb
 RSpec.describe "StubENV" do
   include StubENV
 
