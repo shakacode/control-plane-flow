@@ -7,7 +7,6 @@ GEM_ROOT_PATH = Pathname.new(Dir.pwd)
 GEM_TEMP_PATH = GEM_ROOT_PATH.join("tmp")
 GENERATOR_PLAYGROUND_PATH = GEM_TEMP_PATH.join("sample-project")
 CONTROLPLANE_CONFIG_DIR_PATH = GENERATOR_PLAYGROUND_PATH.join(".controlplane")
-CPFLOW_EXECUTABLE_PATH = GEM_ROOT_PATH.join("bin", "cpflow")
 
 def inside_dir(path)
   original_working_dir = Dir.pwd
