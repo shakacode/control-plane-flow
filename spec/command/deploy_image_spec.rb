@@ -106,4 +106,19 @@ describe Command::DeployImage do
       expect(result[:stderr]).not_to include("- rails-with-non-app-image:")
     end
   end
+
+  context "when workload uses BYOK location" do
+    let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
+
+    before do
+      allow(Resolv).to receive(:getaddress).and_raise(Resolv::ResolvError)
+    end
+
+    it "lists correct endpoint", :slow do
+      result = run_cpflow_command("deploy-image", "-a", app)
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(%r{- rails: https://rails-.+?.controlplane.us})
+    end
+  end
 end
