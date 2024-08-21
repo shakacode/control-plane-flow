@@ -19,7 +19,7 @@ module Command
       private
 
       def cpln_provider
-        ::TerraformConfig::RequiredProvider.new("cpln", source: "controlplane-com/cpln", version: "~> 1.0")
+        TerraformConfig::RequiredProvider.new("cpln", source: "controlplane-com/cpln", version: "~> 1.0")
       end
 
       def terraform_dir
