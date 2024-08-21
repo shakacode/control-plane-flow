@@ -109,14 +109,11 @@ describe Command::SetupApp do
     end
 
     it "fails to run hook", :slow do
-      result = nil
+      result = run_cpflow_command("setup-app", "-a", app)
 
-      spawn_cpflow_command("setup-app", "-a", app) do |it|
-        result = it.read_full_output
-      end
-
-      expect(result).to include("Running post-creation hook")
-      expect(result).to include("Failed to run post-creation hook")
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Running post-creation hook")
+      expect(result[:stderr]).to include("Failed to run post-creation hook")
     end
   end
 
@@ -132,14 +129,11 @@ describe Command::SetupApp do
     end
 
     it "successfully runs hook", :slow do
-      result = nil
+      result = run_cpflow_command("setup-app", "-a", app)
 
-      spawn_cpflow_command("setup-app", "-a", app) do |it|
-        result = it.read_full_output
-      end
-
-      expect(result).to include("Running post-creation hook")
-      expect(result).to include("Finished running post-creation hook")
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("Running post-creation hook")
+      expect(result[:stderr]).to include("Finished running post-creation hook")
     end
   end
 

@@ -277,7 +277,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_exec(workload, replica, location:, container: nil, command: nil)
-    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location}"
+    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location} -it"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
     perform!(cmd, output_mode: :all)

@@ -70,27 +70,8 @@ describe Command::Logs do
   end
 
   context "when using different limit on number of entries" do
-    let!(:workload) do
-      cmd = "'for i in {1..10}; do echo \"Line $i\"; done; while true; do sleep 1; done'"
-      create_run_workload(cmd)
-    end
-
-    it "displays correct number of entries", :slow do
-      result = nil
-      expected_regex = /Line \d+/
-
-      spawn_cpflow_command("logs", "-a", app, "--workload", workload, "--limit", "5") do |it|
-        result = it.wait_for(expected_regex)
-        it.kill
-      end
-
-      expect(result).to include("Line 6")
-    end
-  end
-
-  context "when using different loopback window" do
-    let!(:workload) do
-      cmd = "'echo \"Line 1\"; sleep 30; echo \"Line 2\"; while true; do sleep 1; done'"
+    let!(:cmd_args) do
+      cmd = 'for i in {0..9}; do echo "Line $i"; done; while true; do sleep 1; done'
       create_run_workload(cmd)
     end
 
@@ -98,28 +79,56 @@ describe Command::Logs do
       Kernel.sleep(30)
     end
 
-    it "displays entries from correct duration", :slow do
-      result = nil
-      expected_regex = /Line \d+/
+    after do
+      run_cpflow_command!(*cmd_args[:ps_stop])
+    end
 
-      spawn_cpflow_command("logs", "-a", app, "--workload", workload, "--since", "30s") do |it|
-        result = it.wait_for(expected_regex)
+    it "displays correct number of entries", :slow do
+      result = nil
+
+      spawn_cpflow_command(*cmd_args[:logs], "--limit", "5") do |it|
+        result = it.wait_for(/Line 9/)
         it.kill
       end
 
+      expect(result).not_to match(/Line [0-4]/)
+      expect(result).to match(/Line [5-9]/)
+    end
+  end
+
+  context "when using different loopback window" do
+    let!(:cmd_args) do
+      cmd = 'echo "Line 1"; sleep 30; while true; do echo "Line 2"; sleep 1; done'
+      create_run_workload(cmd)
+    end
+
+    before do
+      Kernel.sleep(30)
+    end
+
+    after do
+      run_cpflow_command!(*cmd_args[:ps_stop])
+    end
+
+    it "displays entries from correct duration", :slow do
+      result = nil
+
+      spawn_cpflow_command(*cmd_args[:logs], "--since", "30s") do |it|
+        result = it.wait_for(/Line 2/)
+        it.kill
+      end
+
+      expect(result).not_to include("Line 1")
       expect(result).to include("Line 2")
     end
   end
 
   def create_run_workload(cmd)
-    runner_workload = nil
+    result = run_cpflow_command("run", "-a", app, "--detached", "--", cmd)
 
-    runner_workload_regex = /runner workload '(.+?)'/
-    spawn_cpflow_command("run", "-a", app, "--detached", "--", cmd) do |it|
-      runner_workload_result = it.wait_for(runner_workload_regex)
-      runner_workload = runner_workload_result.match(runner_workload_regex)[1]
-    end
-
-    runner_workload
+    {
+      logs: result[:stderr].match(/`cpflow (logs .+?)`/)[1].split,
+      ps_stop: result[:stderr].match(/`cpflow (ps:stop .+?)`/)[1].split
+    }
   end
 end

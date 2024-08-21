@@ -19,6 +19,7 @@ _Please add entries here for your pull requests that have not yet been released.
 - Fixed issue where common options are not forwarded to other commands. [PR 207](https://github.com/shakacode/control-plane-flow/pull/207) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Fixed BYOK endpoint. [PR 209](https://github.com/shakacode/control-plane-flow/pull/209) by [Sergey Tarasov](https://github.com/dzirtusss).
 - Fixed issue where `generate` command fails if no project config exists. [PR 219](https://github.com/shakacode/control-plane-flow/pull/219) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+- Bumped min `cpln` version to `3.1.0` and fixed `cpln workload exec` calls. [PR 226](https://github.com/shakacode/control-plane-flow/pull/226) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [3.0.1] - 2024-06-26
 

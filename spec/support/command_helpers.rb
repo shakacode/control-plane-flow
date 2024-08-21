@@ -191,13 +191,14 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     run_cpflow_command(*args, raise_errors: true)
   end
 
-  def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true)
+  def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true) # rubocop:disable Metrics/MethodLength
     cmd = ""
     cmd += "stty rows #{stty_rows} && " if stty_rows
     cmd += "stty cols #{stty_cols} && " if stty_cols
     cmd += "#{cpflow_executable_with_simplecov} #{args.join(' ')}"
 
     LogHelpers.write_command_to_log(cmd)
+    LogHelpers.write_section_separator_to_log
 
     PTY.spawn(cmd) do |output, input, pid|
       yield(SpawnedCommand.new(output, input, pid))
