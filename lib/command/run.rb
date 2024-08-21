@@ -243,7 +243,7 @@ module Command
 
       step("Updating runner workload '#{runner_workload}'") do
         # Update runner workload
-        @expected_deployed_version = cp.cron_workload_deployed_version(runner_workload) + 1
+        @expected_deployed_version = (cp.cron_workload_deployed_version(runner_workload) || 0) + 1
         cp.apply_hash("kind" => "workload", "name" => runner_workload, "spec" => spec)
       end
     end
@@ -256,7 +256,7 @@ module Command
 
     def wait_for_runner_workload_update
       step("Waiting for runner workload '#{runner_workload}' to be updated", retry_on_failure: true) do
-        cp.cron_workload_deployed_version(runner_workload) >= expected_deployed_version
+        (cp.cron_workload_deployed_version(runner_workload) || 0) >= expected_deployed_version
       end
     end
 
