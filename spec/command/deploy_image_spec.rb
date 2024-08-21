@@ -76,15 +76,12 @@ describe Command::DeployImage do
     end
 
     it "fails to run release script and fails to deploy image", :slow do
-      result = nil
+      result = run_cpflow_command("deploy-image", "-a", app, "--run-release-phase")
 
-      spawn_cpflow_command("deploy-image", "-a", app, "--run-release-phase") do |it|
-        result = it.read_full_output
-      end
-
-      expect(result).to include("Running release script")
-      expect(result).to include("Failed to run release script")
-      expect(result).not_to include("- rails:")
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Running release script")
+      expect(result[:stderr]).to include("Failed to run release script")
+      expect(result[:stderr]).not_to include("- rails:")
     end
   end
 
@@ -100,16 +97,13 @@ describe Command::DeployImage do
     end
 
     it "runs release script and deploys image", :slow do
-      result = nil
+      result = run_cpflow_command("deploy-image", "-a", app, "--run-release-phase")
 
-      spawn_cpflow_command("deploy-image", "-a", app, "--run-release-phase") do |it|
-        result = it.read_full_output
-      end
-
-      expect(result).to include("Running release script")
-      expect(result).to include("Finished running release script")
-      expect(result).to match(%r{- rails: https://rails-.+?.cpln.app})
-      expect(result).not_to include("- rails-with-non-app-image:")
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("Running release script")
+      expect(result[:stderr]).to include("Finished running release script")
+      expect(result[:stderr]).to match(%r{- rails: https://rails-.+?.cpln.app})
+      expect(result[:stderr]).not_to include("- rails-with-non-app-image:")
     end
   end
 end
