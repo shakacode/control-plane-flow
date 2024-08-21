@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe Terraform::Config::Base do
+describe TerraformConfig::Base do
   let(:config) { described_class.new }
 
   describe "#to_tf" do

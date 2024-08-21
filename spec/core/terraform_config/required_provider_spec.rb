@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe Terraform::Config::RequiredProvider do
+describe TerraformConfig::RequiredProvider do
   let(:config) { described_class.new(name, **options) }
 
   describe "#to_tf" do

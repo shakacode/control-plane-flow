@@ -14,8 +14,8 @@ class String
     gsub!(re, indent_string * amount)
   end
 
-  def unindent(amount, indent_string = " ")
-    lines.map { |line| line.delete_prefix(indent_string * amount) }.join
+  def unindent
+    gsub(/^#{scan(/^[ \t]+(?=\S)/).min}/, "")
   end
 end
 # rubocop:enable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName

@@ -18,7 +18,7 @@ require_relative "constants/exit_code"
 # We need to require base before all commands, since the commands inherit from it
 require_relative "command/base"
 # We need to require base terraform config before all commands, since the terraform configs inherit from it
-require_relative "core/terraform/config/base"
+require_relative "core/terraform_config/base"
 
 modules = Dir["#{__dir__}/**/*.rb"].reject do |file|
   file == __FILE__ || file.end_with?("base.rb")

@@ -2,7 +2,7 @@
 
 require "spec_helper"
 
-describe Terraform::Config::Dsl do
+describe TerraformConfig::Dsl do
   include described_class
 
   context "with simple config" do
@@ -15,6 +15,22 @@ describe Terraform::Config::Dsl do
       expect(generated).to eq(
         <<~EXPECTED
           block_name {
+          }
+        EXPECTED
+      )
+    end
+  end
+
+  context "when block has arguments" do
+    subject(:generated) do
+      block :block_name, :label1, "label2" do # rubocop:disable Lint/EmptyBlock
+      end
+    end
+
+    it "generates correct config" do
+      expect(generated).to eq(
+        <<~EXPECTED
+          block_name "label1" "label2" {
           }
         EXPECTED
       )
