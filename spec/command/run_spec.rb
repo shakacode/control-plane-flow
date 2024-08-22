@@ -252,5 +252,27 @@ describe Command::Run do
         expect(result[:stderr]).to include("Gemfile")
       end
     end
+
+    context "when runner workload has ENV but original workload does not" do
+      let!(:app) { dummy_test_app }
+
+      before do
+        run_cpflow_command!("apply-template", "app", "rails", "rails-runner-with-different-env", "-a", app)
+        run_cpflow_command!("build-image", "-a", app)
+        run_cpflow_command!("deploy-image", "-a", app)
+      end
+
+      after do
+        run_cpflow_command!("delete", "-a", app, "--yes")
+      end
+
+      it "updates runner workload", :slow do
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("Updating runner workload")
+        expect(result[:stderr]).to include("Gemfile")
+      end
+    end
   end
 end

@@ -207,7 +207,7 @@ module Command
         original_env_str = original_container_spec["env"]&.sort_by { |env| env["name"] }.to_s
         env_str = container_spec["env"]&.sort_by { |env| env["name"] }.to_s
         if original_env_str != env_str
-          container_spec["env"] = original_container_spec["env"]
+          container_spec["env"] = original_container_spec["env"] || []
           should_update = true
         end
 
