@@ -465,21 +465,12 @@ module Command
       $stderr
     end
 
-    def step_error(error, abort_on_error: true)
-      message = error.message
-      if abort_on_error
-        progress.puts(" #{Shell.color('failed!', :red)}\n\n")
-        Shell.abort(message)
-      else
-        Shell.write_to_tmp_stderr(message)
-      end
-    end
-
-    def step_finish(success)
+    def step_finish(success, abort_on_error: true)
       if success
         progress.puts(" #{Shell.color('done!', :green)}")
       else
         progress.puts(" #{Shell.color('failed!', :red)}\n\n#{Shell.read_from_tmp_stderr}\n\n")
+        exit(ExitCode::ERROR_DEFAULT) if abort_on_error
       end
     end
 
@@ -499,10 +490,10 @@ module Command
             success = yield
           end
         rescue RuntimeError => e
-          step_error(e, abort_on_error: abort_on_error)
+          Shell.write_to_tmp_stderr(e.message)
         end
 
-        step_finish(success)
+        step_finish(success, abort_on_error: abort_on_error)
       end
     end
 

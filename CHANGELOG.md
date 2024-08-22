@@ -14,6 +14,9 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Fixed
+
+- Fixed issue where `run` command fails when runner workload has ENV but original workload does not. [PR 227](https://github.com/shakacode/control-plane-flow/pull/227) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ## [4.0.0] - 2024-08-21
 
