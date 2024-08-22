@@ -14,6 +14,9 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+
+## [4.0.0] - 2024-08-21
+
 ### Fixed
 
 - Fixed issue where common options are not forwarded to other commands. [PR 207](https://github.com/shakacode/control-plane-flow/pull/207) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -260,7 +263,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/shakacode/control-plane-flow/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/shakacode/control-plane-flow/compare/v2.2.4...v3.0.0
 [2.2.4]: https://github.com/shakacode/control-plane-flow/compare/v2.2.1...v2.2.4
