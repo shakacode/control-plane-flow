@@ -474,7 +474,7 @@ module Command
       end
     end
 
-    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: Float::INFINITY, wait: 1) # rubocop:disable Metrics/MethodLength
+    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: 1000, wait: 1) # rubocop:disable Metrics/MethodLength
       progress.print("#{message}...")
 
       Shell.use_tmp_stderr do
@@ -482,15 +482,15 @@ module Command
 
         begin
           if retry_on_failure
-            run_count = 0
-            while !success && run_count < max_retry_count
+            retry_count = 0
+            while !success && retry_count <= max_retry_count
               success = yield
               break if success
 
               progress.print(".")
               Kernel.sleep(wait)
 
-              run_count += 1
+              retry_count += 1
             end
           else
             success = yield

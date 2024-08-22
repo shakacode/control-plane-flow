@@ -3,9 +3,8 @@
 require "spec_helper"
 
 describe Command::Base do
-  subject(:command) { described_class.new(config) }
-
   let(:config) { instance_double(Command::Config) }
+  let(:command) { described_class.new(config) }
 
   around do |example|
     suppress_output { example.run }
@@ -25,7 +24,7 @@ describe Command::Base do
           true if run_count == 3
         end
 
-        expect(run_count).to eq 3
+        expect(run_count).to eq(3)
       end
 
       context "with max_retry_count option" do
@@ -39,7 +38,7 @@ describe Command::Base do
             false
           end
 
-          expect(run_count).to eq 1
+          expect(run_count).to eq(1 + 1) # 1 run and 1 retry after fail
         end
       end
     end
@@ -55,7 +54,7 @@ describe Command::Base do
           false
         end
 
-        expect(run_count).to eq 1
+        expect(run_count).to eq(1)
       end
     end
   end
