@@ -12,9 +12,10 @@ describe Command::Base do
 
   describe "#step" do
     let(:message) { "test message" }
+    let(:common_options) { { abort_on_error: false } }
 
     context "with retry_on_failure: true" do
-      let(:options) { { retry_on_failure: true, wait: 0 } }
+      let(:options) { common_options.merge(retry_on_failure: true, wait: 0) }
 
       it "retries block until success" do
         run_count = 0
@@ -27,8 +28,19 @@ describe Command::Base do
         expect(run_count).to eq(3)
       end
 
+      it "does not exceed default max_retry_count" do
+        run_count = 0
+
+        command.step(message, **options) do
+          run_count += 1
+          false
+        end
+
+        expect(run_count).to eq(1001) # 1 run and 1000 retries after fail
+      end
+
       context "with max_retry_count option" do
-        let(:options) { super().merge(max_retry_count: 1) }
+        let(:options) { common_options.merge(retry_on_failure: true, wait: 0, max_retry_count: 1) }
 
         it "retries block specified times" do
           run_count = 0
@@ -38,13 +50,13 @@ describe Command::Base do
             false
           end
 
-          expect(run_count).to eq(1 + 1) # 1 run and 1 retry after fail
+          expect(run_count).to eq(2)
         end
       end
     end
 
     context "with retry_on_failure: false" do
-      let(:options) { { retry_on_failure: false } }
+      let(:options) { common_options.merge(retry_on_failure: false) }
 
       it "does not retry block" do
         run_count = 0

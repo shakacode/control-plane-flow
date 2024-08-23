@@ -474,33 +474,41 @@ module Command
       end
     end
 
-    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: 1000, wait: 1) # rubocop:disable Metrics/MethodLength
+    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: 1000, wait: 1, &block) # rubocop:disable Metrics/MethodLength
       progress.print("#{message}...")
 
       Shell.use_tmp_stderr do
         success = false
 
         begin
-          if retry_on_failure
-            retry_count = 0
-            while !success && retry_count <= max_retry_count
-              success = yield
-              break if success
-
-              progress.print(".")
-              Kernel.sleep(wait)
-
-              retry_count += 1
+          success =
+            if retry_on_failure
+              with_retry(max_retry_count: max_retry_count, wait: wait, &block)
+            else
+              yield
             end
-          else
-            success = yield
-          end
         rescue RuntimeError => e
           Shell.write_to_tmp_stderr(e.message)
         end
 
         step_finish(success, abort_on_error: abort_on_error)
       end
+    end
+
+    def with_retry(max_retry_count:, wait:)
+      retry_count = 0
+      success = false
+
+      while !success && retry_count <= max_retry_count
+        success = yield
+        break if success
+
+        progress.print(".")
+        Kernel.sleep(wait)
+        retry_count += 1
+      end
+
+      success
     end
 
     def cp
