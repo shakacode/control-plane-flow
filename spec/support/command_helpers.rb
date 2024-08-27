@@ -207,6 +207,16 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     end
   end
 
+  def suppress_output
+    original_stderr = replace_stderr
+    original_stdout = replace_stdout
+
+    yield
+  ensure
+    restore_stderr(original_stderr)
+    restore_stdout(original_stdout)
+  end
+
   def replace_stderr
     original_stderr = $stderr
     $stderr = Tempfile.create
