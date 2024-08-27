@@ -18,6 +18,8 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Fixed issue where `run` command fails when runner workload has ENV but original workload does not. [PR 227](https://github.com/shakacode/control-plane-flow/pull/227) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
+- Fixed potential infinite loop that could occur for a command if one of the execution steps fails and gets stuck. [PR 217](https://github.com/shakacode/control-plane-flow/pull/217) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+
 ## [4.0.0] - 2024-08-21
 
 ### Fixed
