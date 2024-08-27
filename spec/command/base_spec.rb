@@ -36,16 +36,16 @@ describe Command::Base do
           false
         end
 
-        expect(run_count).to eq(1001) # 1 run and 1000 retries after fail
+        expect(run_count).to eq(1001)
       end
 
-      context "with max_retry_count option" do
-        let(:options) { common_options.merge(retry_on_failure: true, wait: 0, max_retry_count: 1) }
+      context "with max_retry_count option" do # rubocop:disable RSpec/MultipleMemoizedHelpers
+        let(:options_with_max_retry_count) { common_options.merge(retry_on_failure: true, wait: 0, max_retry_count: 1) }
 
         it "retries block specified times" do
           run_count = 0
 
-          command.step(message, **options) do
+          command.step(message, **options_with_max_retry_count) do
             run_count += 1
             false
           end
