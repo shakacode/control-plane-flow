@@ -84,9 +84,13 @@ class MaintenanceMode
   def switch_domain_workload(to:)
     step("Switching workload for domain '#{domain_data['name']}' to '#{to}'") do
       cp.set_domain_workload(domain_data, to)
+    end
 
-      # Give it a bit of time for the domain to update
-      Kernel.sleep(30)
+    step("Waiting for changes to take effect", retry_on_failure: true, wait: 10, max_retry_count: 3) do
+      refetched_domain_data = cp.fetch_domain(domain_data["name"])
+      raise "Can't find domain" if refetched_domain_data.nil?
+
+      cp.domain_workload_matches?(refetched_domain_data, to)
     end
 
     progress.puts
