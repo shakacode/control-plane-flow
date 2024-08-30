@@ -9,6 +9,8 @@ GENERATOR_PLAYGROUND_PATH = GEM_TEMP_PATH.join("sample-project")
 TERRAFORM_CONFIG_DIR_PATH = GENERATOR_PLAYGROUND_PATH.join("terraform")
 
 describe Command::Terraform::Generate do
+  let!(:app) { dummy_test_app }
+
   before do
     FileUtils.rm_r(GENERATOR_PLAYGROUND_PATH) if Dir.exist?(GENERATOR_PLAYGROUND_PATH)
     FileUtils.mkdir_p GENERATOR_PLAYGROUND_PATH
@@ -20,11 +22,13 @@ describe Command::Terraform::Generate do
     FileUtils.rm_r GENERATOR_PLAYGROUND_PATH
   end
 
-  it "generates terraform config files" do
-    providers_config_file_path = TERRAFORM_CONFIG_DIR_PATH.join("providers.tf")
+  it "generates terraform config files", :aggregate_failures do
+    config_file_paths = %w[providers.tf gvc.tf identities.tf].map do |config_file_path|
+      TERRAFORM_CONFIG_DIR_PATH.join(config_file_path)
+    end
 
-    expect(providers_config_file_path).not_to exist
-    run_cpflow_command(described_class::SUBCOMMAND_NAME, described_class::NAME)
-    expect(providers_config_file_path).to exist
+    config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
+    run_cpflow_command(described_class::SUBCOMMAND_NAME, described_class::NAME, "-a", app)
+    expect(config_file_paths).to all(exist)
   end
 end

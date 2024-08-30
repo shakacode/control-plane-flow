@@ -449,7 +449,7 @@ cpflow setup-app -a $APP_NAME
 - Generates terraform configuration files based on `controlplane.yml` and `templates/` config
 
 ```sh
-cpflow terraform generate
+cpflow terraform generate -a $APP_NAME
 ```
 
 ### `version`
