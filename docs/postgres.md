@@ -25,7 +25,7 @@ And if the database is small or it is a hobby app, this should not be looked any
 However, this is not acceptable for 99% of production apps as their databases are huge and maintenance time
 should be as small as possible.
 
-Rough timing for a 1Gb database can be (but your mileage may vary):
+Rough timing for a 1Tb database can be (but your mileage may vary):
 
 - 2.5h creating Heroku backup
 - 0.5h downloading backup to EC2
@@ -52,7 +52,7 @@ The migration process with Bucardo looks as follows:
 
 Maintenance downtime here can be minutes not hours or days like in p1, but no free lunches - the process is more complex.
 
-Rough timing for a 1Gb database can be (but your mileage may vary):
+Rough timing for a 1Tb database can be (but your mileage may vary):
 
 - whatever setup time, no hurry
 - 1.5 days for onetimecopy (in 1 thread) - DDL changes not allowed, but no downtime
