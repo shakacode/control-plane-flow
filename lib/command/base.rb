@@ -454,6 +454,19 @@ module Command
         }
       }
     end
+
+    def self.dir_option(required: false)
+      {
+        name: :dir,
+        params: {
+          banner: "DIR",
+          desc: "Output directory",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options

@@ -12,23 +12,24 @@ describe Command::Terraform::Generate do
   let!(:app) { dummy_test_app }
 
   before do
-    FileUtils.rm_r(GENERATOR_PLAYGROUND_PATH) if Dir.exist?(GENERATOR_PLAYGROUND_PATH)
-    FileUtils.mkdir_p GENERATOR_PLAYGROUND_PATH
-
+    FileUtils.rm_rf(GENERATOR_PLAYGROUND_PATH)
+    FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH)
     allow(Cpflow).to receive(:root_path).and_return(GENERATOR_PLAYGROUND_PATH)
   end
 
   after do
-    FileUtils.rm_r GENERATOR_PLAYGROUND_PATH
+    FileUtils.rm_rf GENERATOR_PLAYGROUND_PATH
   end
 
   it "generates terraform config files", :aggregate_failures do
-    config_file_paths = %w[providers.tf gvc.tf identities.tf].map do |config_file_path|
-      TERRAFORM_CONFIG_DIR_PATH.join(config_file_path)
-    end
-
     config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
     run_cpflow_command(described_class::SUBCOMMAND_NAME, described_class::NAME, "-a", app)
     expect(config_file_paths).to all(exist)
+  end
+
+  def config_file_paths
+    [TERRAFORM_CONFIG_DIR_PATH.join("providers.tf")] + %w[gvc.tf identities.tf].map do |config_file_path|
+      TERRAFORM_CONFIG_DIR_PATH.join(app, config_file_path)
+    end
   end
 end
