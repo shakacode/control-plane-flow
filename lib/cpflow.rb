@@ -235,7 +235,7 @@ module Cpflow
         long_desc(long_description)
 
         command_options.each do |option|
-          params = process_option_params(option[:params])
+          params = Cpflow::Cli.process_option_params(option[:params])
           method_option(option[:name], **params)
         end
       end

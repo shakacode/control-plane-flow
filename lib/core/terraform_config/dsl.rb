@@ -4,6 +4,8 @@ module TerraformConfig
   module Dsl
     extend Forwardable
 
+    REFERENCE_PATTERN = /^(var|locals|cpln_\w+)\./.freeze
+
     def_delegators :current_context, :put, :output
 
     def block(name, *labels)
@@ -44,7 +46,7 @@ module TerraformConfig
     end
 
     def expression?(value)
-      value.start_with?("var.") || value.start_with?("locals.")
+      value.match?(REFERENCE_PATTERN)
     end
 
     def block_declaration(name, labels)
@@ -62,7 +64,7 @@ module TerraformConfig
       end
 
       def put(content, indent: 0)
-        @output += content.indent(indent)
+        @output += content.to_s.indent(indent)
       end
     end
 
