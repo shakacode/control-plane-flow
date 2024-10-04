@@ -56,6 +56,10 @@ module Command
       def recreate_terraform_app_dir(app_path)
         full_path = terraform_dir.join(app_path)
 
+        unless File.expand_path(full_path).include?(Cpflow.root_path.to_s)
+          Shell.abort("Directory to save terraform configuration files cannot be outside of current directory")
+        end
+
         FileUtils.rm_rf(full_path)
         FileUtils.mkdir_p(full_path)
 
@@ -80,7 +84,11 @@ module Command
       def terraform_dir
         @terraform_dir ||= begin
           full_path = config.options.fetch(:dir, Cpflow.root_path.join("terraform"))
-          Pathname.new(full_path).tap { |path| FileUtils.mkdir_p(path) }
+          Pathname.new(full_path).tap do |path|
+            FileUtils.mkdir_p(path)
+          rescue StandardError => e
+            Shell.abort("Invalid directory: #{e.message}")
+          end
         end
       end
     end

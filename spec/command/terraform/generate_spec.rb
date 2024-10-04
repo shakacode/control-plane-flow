@@ -9,9 +9,10 @@ GENERATOR_PLAYGROUND_PATH = GEM_TEMP_PATH.join("sample-project")
 TERRAFORM_CONFIG_DIR_PATH = GENERATOR_PLAYGROUND_PATH.join("terraform")
 
 describe Command::Terraform::Generate do
-  subject(:result) { run_cpflow_command(described_class::SUBCOMMAND_NAME, described_class::NAME, "-a", app) }
+  subject(:result) { run_cpflow_command(described_class::SUBCOMMAND_NAME, described_class::NAME, *options) }
 
   let!(:app) { dummy_test_app }
+  let(:options) { ["-a", app] }
 
   before do
     FileUtils.rm_rf(GENERATOR_PLAYGROUND_PATH)
@@ -64,6 +65,28 @@ describe Command::Terraform::Generate do
 
       expect(common_config_files).to all(exist)
       app_config_files.each { |config_file_path| expect(config_file_path).not_to exist }
+    end
+  end
+
+  context "when --dir option is outside of project dir" do
+    let(:options) { ["-a", app, "--dir", GEM_TEMP_PATH.join("path-outside-of-project").to_s] }
+
+    it "aborts command execution" do
+      expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+      expect(result[:stderr]).to include(
+        "Directory to save terraform configuration files cannot be outside of current directory"
+      )
+    end
+  end
+
+  context "when terraform config directory creation fails" do
+    before do
+      allow(FileUtils).to receive(:mkdir_p).and_raise("error")
+    end
+
+    it "aborts command execution" do
+      expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+      expect(result[:stderr]).to include("error")
     end
   end
 
