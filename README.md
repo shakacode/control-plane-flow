@@ -1,9 +1,9 @@
 # The power of Kubernetes with the ease of Heroku!
 
-<meta name="author" content="Justin Gordon and Sergey Tarasov">
-<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpflow to make it easier.">
-<meta name="copyright" content="ShakaCode, 2023">
-<meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
+<meta name="author" content="Justin Gordon and Sergey Tarasov" />
+<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpflow to make it easier." />
+<meta name="copyright" content="ShakaCode, 2023" />
+<meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure" />
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
 
 [![RSpec](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml)
