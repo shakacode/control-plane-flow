@@ -18,8 +18,9 @@ class String
     gsub(/^#{scan(/^[ \t]+(?=\S)/).min}/, "")
   end
 
+  # Copied from Rails
   def underscore
-    gsub(/(.)([A-Z])/, '\1_\2').downcase
+    gsub("::", "/").gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').tr("-", "_").downcase
   end
 end
 # rubocop:enable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName

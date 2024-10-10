@@ -47,7 +47,7 @@ module Command
           generator = TerraformConfig::Generator.new(config: config, template: template)
 
           # TODO: Delete line below after all template kinds are supported
-          next unless %w[gvc identity].include?(template["kind"])
+          next unless %w[gvc identity secret].include?(template["kind"])
 
           File.write(terraform_app_dir.join(generator.filename), generator.tf_config.to_tf, mode: "a+")
         end

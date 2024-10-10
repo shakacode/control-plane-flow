@@ -7,6 +7,15 @@ describe TerraformConfig::Generator do
 
   let(:config) { instance_double(Config, org: "org-name", app: "app-name") }
 
+  context "when template's kind is unsupported" do
+    let(:template) { { "kind" => "invalid" } }
+
+    it "does not generate terraform config or filename for it", :aggregate_failures do
+      expect { generator.tf_config }.to raise_error("Unsupported template kind - #{template['kind']}")
+      expect { generator.filename }.to raise_error("Unsupported template kind - #{template['kind']}")
+    end
+  end
+
   context "when template's kind is gvc" do
     let(:template) do
       {
@@ -87,6 +96,31 @@ describe TerraformConfig::Generator do
 
       tf_filename = generator.filename
       expect(tf_filename).to eq("identities.tf")
+    end
+  end
+
+  context "when template's kind is secret" do
+    let(:template) do
+      {
+        "kind" => "secret",
+        "type" => "dictionary",
+        "name" => "secret-name",
+        "description" => "description",
+        "tags" => { "tag1" => "tag1_value", "tag2" => "tag2_value" },
+        "data" => { "key1" => "key1_value", "key2" => "key2_value2" }
+      }
+    end
+
+    it "generates correct terraform config and filename for it", :aggregate_failures do
+      tf_config = generator.tf_config
+      expect(tf_config).to be_an_instance_of(TerraformConfig::Secret)
+
+      expect(tf_config.name).to eq("secret-name")
+      expect(tf_config.description).to eq("description")
+      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+
+      tf_filename = generator.filename
+      expect(tf_filename).to eq("secrets.tf")
     end
   end
 end
