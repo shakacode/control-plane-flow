@@ -1,7 +1,20 @@
 # frozen_string_literal: true
 
 module TerraformConfig
+  # rubocop:disable Metrics/ClassLength
   class Secret < Base
+    REQUIRED_DATA_KEYS = {
+      "aws" => %i[secret_key access_key],
+      "azure-connector" => %i[url code],
+      "ecr" => %i[secret_key access_key repos],
+      "keypair" => %i[secret_key],
+      "nats-account" => %i[account_id private_key],
+      "opaque" => %i[payload],
+      "tls" => %i[key cert],
+      "userpass" => %i[username password],
+      "dictionary" => []
+    }.freeze
+
     attr_reader :name, :type, :data, :description, :tags
 
     def initialize(name:, type:, data:, description: nil, tags: nil)
@@ -9,9 +22,9 @@ module TerraformConfig
 
       @name = name
       @type = type
-      @data = data.is_a?(Hash) ? data.underscore_keys.symbolize_keys : data
       @description = description
       @tags = tags
+      @data = prepare_data(type: type, data: data)
     end
 
     def to_tf
@@ -25,6 +38,20 @@ module TerraformConfig
     end
 
     private
+
+    def prepare_data(type:, data:)
+      return data unless data.is_a?(Hash)
+
+      data.underscore_keys.symbolize_keys.tap do |prepared_data|
+        validate_required_data_keys!(type: type, data: prepared_data)
+      end
+    end
+
+    def validate_required_data_keys!(type:, data:)
+      required = REQUIRED_DATA_KEYS[type]
+      missing_keys = required - data.keys
+      raise ArgumentError, "Missing required data keys for #{type}: #{missing_keys.join(', ')}" if missing_keys.any?
+    end
 
     def secret_data
       case type
@@ -101,4 +128,5 @@ module TerraformConfig
       end
     end
   end
+  # rubocop:enable Metrics/ClassLength
 end

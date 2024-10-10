@@ -34,17 +34,14 @@ module TerraformConfig
 
     private
 
-    def tf_value(value)
+    def tf_value(value, heredoc_delimiter: "EOF", multiline_indent: 2)
       value = value.to_s if value.is_a?(Symbol)
 
-      case value
-      when String
-        return value if expression?(value)
+      return value unless value.is_a?(String)
+      return value if expression?(value)
+      return "\"#{value}\"" unless value.include?("\n")
 
-        value.include?("\n") ? "EOF\n#{value.strip.indent(2)}\nEOF" : "\"#{value}\""
-      else
-        value
-      end
+      "#{heredoc_delimiter}\n#{value.indent(multiline_indent)}\n#{heredoc_delimiter}"
     end
 
     def expression?(value)
