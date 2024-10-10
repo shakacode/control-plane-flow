@@ -13,6 +13,8 @@ module TerraformConfig
       case template["kind"]
       when "gvc"
         "gvc.tf"
+      when "secret"
+        "secrets.tf"
       when "identity"
         "identities.tf"
       else
@@ -26,6 +28,8 @@ module TerraformConfig
         gvc_config
       when "identity"
         identity_config
+      when "secret"
+        secret_config
       else
         raise "Unsupported template kind - #{template['kind']}"
       end
@@ -60,6 +64,16 @@ module TerraformConfig
         gvc: "cpln_gvc.#{config.app}.name", # GVC name matches application name
         name: template["name"],
         description: template["description"],
+        tags: template["tags"]
+      )
+    end
+
+    def secret_config
+      TerraformConfig::Secret.new(
+        name: template["name"],
+        description: template["description"],
+        type: template["type"],
+        data: template["data"],
         tags: template["tags"]
       )
     end

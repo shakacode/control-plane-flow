@@ -39,7 +39,9 @@ module TerraformConfig
 
       case value
       when String
-        expression?(value) ? value : "\"#{value}\""
+        return value if expression?(value)
+
+        value.include?("\n") ? "EOF\n#{value.strip.indent(2)}\nEOF" : "\"#{value}\""
       else
         value
       end
