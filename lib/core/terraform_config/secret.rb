@@ -65,28 +65,17 @@ module TerraformConfig
     end
 
     def aws_tf
-      block :aws do
-        argument :secret_key, data.fetch(:secret_key)
-        argument :access_key, data.fetch(:access_key)
-        argument :role_arn, data.fetch(:role_arn, nil), optional: true
-        argument :external_id, data.fetch(:external_id, nil), optional: true
-      end
+      aws_based_tf(:aws)
+    end
+
+    def ecr_tf
+      aws_based_tf(:ecr, repos: data.fetch(:repos))
     end
 
     def azure_connector_tf
       block :azure_connector do
         argument :url, data.fetch(:url)
         argument :code, data.fetch(:code)
-      end
-    end
-
-    def ecr_tf
-      block :ecr do
-        argument :secret_key, data.fetch(:secret_key)
-        argument :access_key, data.fetch(:access_key)
-        argument :repos, data.fetch(:repos)
-        argument :role_arn, data.fetch(:role_arn, nil), optional: true
-        argument :external_id, data.fetch(:external_id, nil), optional: true
       end
     end
 
@@ -125,6 +114,17 @@ module TerraformConfig
         argument :username, data.fetch(:username)
         argument :password, data.fetch(:password)
         argument :encoding, data.fetch(:encoding, nil), optional: true
+      end
+    end
+
+    def aws_based_tf(name, **kwargs)
+      block name do
+        argument :secret_key, data.fetch(:secret_key)
+        argument :access_key, data.fetch(:access_key)
+        argument :role_arn, data.fetch(:role_arn, nil), optional: true
+        argument :external_id, data.fetch(:external_id, nil), optional: true
+
+        kwargs.each { |key, value| argument key, value }
       end
     end
   end

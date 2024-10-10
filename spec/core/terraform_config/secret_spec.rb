@@ -82,9 +82,9 @@ describe TerraformConfig::Secret do
       let(:type) { "azure-sdk" }
       let(:data) do
         {
-          subscriptionId: "2cd2674e-4f89-4a1f-b420-7a1361b46ef7",
-          tenantId: "292f5674-78b0-488b-9ff8-6d30d77f38d9",
-          clientId: "649746ce-d862-49d5-a5eb-7d5aad90f54e",
+          subscriptionId: "FAKE_SUBSCRIPTION_ID",
+          tenantId: "FAKE_TENANT_ID",
+          clientId: "FAKE_CLIENT_ID",
           clientSecret: "FAKE_CLIENT_SECRET"
         }.to_json
       end
@@ -173,7 +173,7 @@ describe TerraformConfig::Secret do
         {
           "accessKey" => "FAKE_ECR_ACCESS_KEY",
           "secretKey" => "FAKE_ECR_SECRET_KEY",
-          "repos" => ["015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"],
+          "repos" => ["<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/cpln-test"],
           "roleArn" => "arn:awskey",
           "externalId" => "123"
         }
@@ -192,9 +192,9 @@ describe TerraformConfig::Secret do
               ecr {
                 secret_key = "#{data.fetch('secretKey')}"
                 access_key = "#{data.fetch('accessKey')}"
-                repos = #{data.fetch('repos')}
                 role_arn = "#{data.fetch('roleArn')}"
                 external_id = "#{data.fetch('externalId')}"
+                repos = #{data.fetch('repos')}
               }
             }
           EXPECTED
@@ -207,15 +207,15 @@ describe TerraformConfig::Secret do
       let(:data) do
         {
           "type" => "gcp",
-          "project_id" => "cpln12345",
-          "private_key_id" => "pvt_key",
-          "private_key" => "key",
-          "client_email" => "support@cpln.io",
-          "client_id" => "12744",
-          "auth_uri" => "cloud.google.com",
-          "token_uri" => "token.cloud.google.com",
-          "auth_provider_x509_cert_url" => "cert.google.com",
-          "client_x509_cert_url" => "cert.google.com"
+          "project_id" => "FAKE_PROJECT_ID",
+          "private_key_id" => "FAKE_PRIVATE_KEY_ID",
+          "private_key" => "FAKE_PRIVATE_KEY",
+          "client_email" => "fake-email@example.com",
+          "client_id" => "FAKE_CLIENT_ID",
+          "auth_uri" => "https://auth-uri.example.com",
+          "token_uri" => "https://token-uri.example.com",
+          "auth_provider_x509_cert_url" => "https://auth-provider-cert-url.example.com",
+          "client_x509_cert_url" => "https://client-cert-url.example.com"
         }.to_json
       end
 
