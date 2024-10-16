@@ -57,7 +57,7 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq(config.app)
       expect(tf_config.description).to eq("description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
 
       expect(tf_config.domain).to eq("app.example.com")
       expect(tf_config.locations).to eq(["aws-us-east-2"])
@@ -92,7 +92,7 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq("identity-name")
       expect(tf_config.description).to eq("description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
 
       tf_filename = generator.filename
       expect(tf_filename).to eq("identities.tf")
@@ -117,10 +117,62 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq("secret-name")
       expect(tf_config.description).to eq("description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
 
       tf_filename = generator.filename
       expect(tf_filename).to eq("secrets.tf")
+    end
+  end
+
+  context "when template's kind is policy" do
+    let(:template) do
+      {
+        "kind" => "policy",
+        "name" => "policy-name",
+        "description" => "policy description",
+        "tags" => { "tag1" => "tag1_value", "tag2" => "tag2_value" },
+        "target" => "all",
+        "targetKind" => "secret",
+        "targetLinks" => [
+          "//secret/postgres-poc-credentials",
+          "//secret/postgres-poc-entrypoint-script"
+        ],
+        "bindings" => [
+          {
+            "permissions" => %w[reveal view use],
+            "principalLinks" => %W[//gvc/#{config.app}/identity/postgres-poc-identity]
+          },
+          {
+            "permissions" => %w[view],
+            "principalLinks" => %w[user/fake-user@fake-email.com]
+          }
+        ]
+      }
+    end
+
+    it "generates correct terraform config and filename for it", :aggregate_failures do
+      tf_config = generator.tf_config
+      expect(tf_config).to be_an_instance_of(TerraformConfig::Policy)
+
+      expect(tf_config.name).to eq("policy-name")
+      expect(tf_config.description).to eq("policy description")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
+      expect(tf_config.target).to eq("all")
+      expect(tf_config.target_kind).to eq("secret")
+      expect(tf_config.target_links).to eq(%w[postgres-poc-credentials postgres-poc-entrypoint-script])
+      expect(tf_config.bindings).to contain_exactly(
+        {
+          permissions: %w[reveal view use],
+          principal_links: %W[gvc/#{config.app}/identity/postgres-poc-identity]
+        },
+        {
+          permissions: %w[view],
+          principal_links: %w[user/fake-user@fake-email.com]
+        }
+      )
+
+      tf_filename = generator.filename
+      expect(tf_filename).to eq("policies.tf")
     end
   end
 end

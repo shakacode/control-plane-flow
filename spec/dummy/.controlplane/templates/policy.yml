@@ -1,0 +1,16 @@
+kind: identity
+name: postgres-poc-identity
+description: postgres-poc-identity
+---
+kind: policy
+name: postgres-poc-access
+description: postgres-poc-access
+bindings:
+  - permissions:
+      - view
+    principalLinks:
+      - //gvc/{{APP_NAME}}/identity/postgres-poc-identity
+targetKind: secret
+targetLinks:
+  - //secret/postgres-poc-credentials
+  - //secret/postgres-poc-entrypoint-script
