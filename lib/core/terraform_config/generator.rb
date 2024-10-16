@@ -78,17 +78,6 @@ module TerraformConfig
 
     # rubocop:disable Metrics/MethodLength
     def policy_config
-      # //secret/secret-name -> secret-name
-      target_links = template["targetLinks"]&.map do |target_link|
-        target_link.split("/").last
-      end
-
-      # //group/viewers -> group/viewers
-      bindings = template["bindings"]&.map do |data|
-        principal_links = data.delete("principalLinks")&.map { |link| link.delete_prefix("//") }
-        data.merge("principalLinks" => principal_links)
-      end
-
       TerraformConfig::Policy.new(
         name: template["name"],
         description: template["description"],
@@ -96,9 +85,9 @@ module TerraformConfig
         target: template["target"],
         target_kind: template["targetKind"],
         target_query: template["targetQuery"],
-        target_links: target_links,
+        target_links: policy_target_links,
         gvc: gvc,
-        bindings: bindings
+        bindings: policy_bindings
       )
     end
     # rubocop:enable Metrics/MethodLength
@@ -106,6 +95,21 @@ module TerraformConfig
     # GVC name matches application name
     def gvc
       "cpln_gvc.#{config.app}.name"
+    end
+
+    # //secret/secret-name -> secret-name
+    def policy_target_links
+      template["targetLinks"]&.map do |target_link|
+        target_link.split("/").last
+      end
+    end
+
+    # //group/viewers -> group/viewers
+    def policy_bindings
+      template["bindings"]&.map do |data|
+        principal_links = data.delete("principalLinks")&.map { |link| link.delete_prefix("//") }
+        data.merge("principalLinks" => principal_links)
+      end
     end
 
     def env

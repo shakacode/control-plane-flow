@@ -139,7 +139,8 @@ module TerraformConfig
       return unless (%i[property rel tag] & term.keys).count > 1
 
       raise ArgumentError,
-            "`target_query.spec.terms` can contain only one of the following attributes: `property`, `rel`, `tag`."
+            "Each term in `target_query.spec.terms` must contain exactly one of the following attributes: " \
+            "`property`, `rel`, or `tag`."
     end
   end
   # rubocop:enable Metrics/ClassLength

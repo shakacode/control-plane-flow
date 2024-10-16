@@ -134,7 +134,8 @@ describe TerraformConfig::Policy do
         it "raises an argument error" do
           expect { generated }.to raise_error(
             ArgumentError,
-            "`target_query.spec.terms` can contain only one of the following attributes: `property`, `rel`, `tag`."
+            "Each term in `target_query.spec.terms` must contain exactly one of the following attributes: " \
+            "`property`, `rel`, or `tag`."
           )
         end
       end
