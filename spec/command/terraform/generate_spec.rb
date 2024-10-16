@@ -99,7 +99,7 @@ describe Command::Terraform::Generate do
   end
 
   def app_config_files
-    %w[gvc.tf identities.tf secrets.tf policies.tf].map do |config_file_path|
+    %w[gvcs.tf identities.tf secrets.tf policies.tf volumesets.tf].map do |config_file_path|
       TERRAFORM_CONFIG_DIR_PATH.join(app, config_file_path)
     end
   end
