@@ -57,7 +57,7 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq(config.app)
       expect(tf_config.description).to eq("description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
 
       expect(tf_config.domain).to eq("app.example.com")
       expect(tf_config.locations).to eq(["aws-us-east-2"])
@@ -92,7 +92,7 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq("identity-name")
       expect(tf_config.description).to eq("description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
 
       tf_filename = generator.filename
       expect(tf_filename).to eq("identities.tf")
@@ -117,7 +117,7 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq("secret-name")
       expect(tf_config.description).to eq("description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
 
       tf_filename = generator.filename
       expect(tf_filename).to eq("secrets.tf")
@@ -156,7 +156,7 @@ describe TerraformConfig::Generator do
 
       expect(tf_config.name).to eq("policy-name")
       expect(tf_config.description).to eq("policy description")
-      expect(tf_config.tags).to eq("tag1" => "tag1_value", "tag2" => "tag2_value")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
       expect(tf_config.target).to eq("all")
       expect(tf_config.target_kind).to eq("secret")
       expect(tf_config.target_links).to eq(%w[postgres-poc-credentials postgres-poc-entrypoint-script])
