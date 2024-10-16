@@ -3,22 +3,22 @@
 require "spec_helper"
 
 describe Hash do
-  describe "#underscore_keys" do
-    subject(:underscored_keys_hash) { hash.underscore_keys }
+  describe "#deep_underscore_keys" do
+    subject(:deep_underscored_keys_hash) { hash.deep_underscore_keys }
 
     context "with an empty hash" do
       let(:hash) { {} }
 
       it "returns an empty hash" do
-        expect(underscored_keys_hash).to eq({})
+        expect(deep_underscored_keys_hash).to eq({})
       end
     end
 
     context "with a nested hash" do
       let(:hash) { { "outerCamelCase" => { innerCamelCase: "value" } } }
 
-      it "transforms keys only at top level" do
-        expect(underscored_keys_hash).to eq("outer_camel_case" => { innerCamelCase: "value" })
+      it "transforms keys at all levels" do
+        expect(deep_underscored_keys_hash).to eq("outer_camel_case" => { inner_camel_case: "value" })
       end
     end
 
@@ -26,7 +26,7 @@ describe Hash do
       let(:hash) { { "already_underscored" => "value" } }
 
       it "leaves underscored keys unchanged" do
-        expect(underscored_keys_hash).to eq("already_underscored" => "value")
+        expect(deep_underscored_keys_hash).to eq("already_underscored" => "value")
       end
     end
 
@@ -34,7 +34,7 @@ describe Hash do
       let(:hash) { { "camelCase123" => "value1", "special@CaseKey" => "value2" } }
 
       it "correctly transforms keys with numbers or special characters" do
-        expect(underscored_keys_hash).to eq("camel_case123" => "value1", "special@case_key" => "value2")
+        expect(deep_underscored_keys_hash).to eq("camel_case123" => "value1", "special@case_key" => "value2")
       end
     end
 
@@ -42,15 +42,15 @@ describe Hash do
       let(:hash) { { "camelCaseKey" => "value1", "snake_case_key" => "value2", "XMLHttpRequest" => "value3" } }
 
       it "transforms camelCase keys to snake_case" do
-        expect(underscored_keys_hash["camel_case_key"]).to eq("value1")
+        expect(deep_underscored_keys_hash["camel_case_key"]).to eq("value1")
       end
 
       it "leaves snake_case keys unchanged" do
-        expect(underscored_keys_hash["snake_case_key"]).to eq("value2")
+        expect(deep_underscored_keys_hash["snake_case_key"]).to eq("value2")
       end
 
       it "correctly handles keys with multiple uppercase letters" do
-        expect(underscored_keys_hash["xml_http_request"]).to eq("value3")
+        expect(deep_underscored_keys_hash["xml_http_request"]).to eq("value3")
       end
     end
 
@@ -58,15 +58,15 @@ describe Hash do
       let(:hash) { { camelCaseKey: "value1", snake_case_key: "value2", XMLHttpRequest: "value3" } }
 
       it "transforms camelCase symbol keys to snake_case" do
-        expect(underscored_keys_hash[:camel_case_key]).to eq("value1")
+        expect(deep_underscored_keys_hash[:camel_case_key]).to eq("value1")
       end
 
       it "leaves snake_case symbol keys unchanged" do
-        expect(underscored_keys_hash[:snake_case_key]).to eq("value2")
+        expect(deep_underscored_keys_hash[:snake_case_key]).to eq("value2")
       end
 
       it "correctly handles symbol keys with multiple uppercase letters" do
-        expect(underscored_keys_hash[:xml_http_request]).to eq("value3")
+        expect(deep_underscored_keys_hash[:xml_http_request]).to eq("value3")
       end
     end
   end

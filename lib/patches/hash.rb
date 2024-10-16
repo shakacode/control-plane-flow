@@ -2,16 +2,37 @@
 
 class Hash
   # Copied from Rails
-  def symbolize_keys
-    transform_keys { |key| key.to_sym rescue key } # rubocop:disable Style/RescueModifier
+  def deep_symbolize_keys
+    deep_transform_keys { |key| key.to_sym rescue key } # rubocop:disable Style/RescueModifier
   end
 
-  def underscore_keys
-    transform_keys do |key|
+  def deep_underscore_keys
+    deep_transform_keys do |key|
       underscored = key.to_s.underscore
       key.is_a?(Symbol) ? underscored.to_sym : underscored
     rescue StandardError
       key
+    end
+  end
+
+  private
+
+  # Copied from Rails
+  def deep_transform_keys(&block)
+    deep_transform_keys_in_object(self, &block)
+  end
+
+  # Copied from Rails
+  def deep_transform_keys_in_object(object, &block)
+    case object
+    when Hash
+      object.each_with_object(self.class.new) do |(key, value), result|
+        result[yield(key)] = deep_transform_keys_in_object(value, &block)
+      end
+    when Array
+      object.map { |e| deep_transform_keys_in_object(e, &block) }
+    else
+      object
     end
   end
 end

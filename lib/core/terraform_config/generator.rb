@@ -9,6 +9,7 @@ module TerraformConfig
       @template = template
     end
 
+    # rubocop:disable Metrics/MethodLength
     def filename
       case template["kind"]
       when "gvc"
@@ -17,22 +18,19 @@ module TerraformConfig
         "secrets.tf"
       when "identity"
         "identities.tf"
+      when "policy"
+        "policies.tf"
       else
         raise "Unsupported template kind - #{template['kind']}"
       end
     end
+    # rubocop:enable Metrics/MethodLength
 
     def tf_config
-      case template["kind"]
-      when "gvc"
-        gvc_config
-      when "identity"
-        identity_config
-      when "secret"
-        secret_config
-      else
-        raise "Unsupported template kind - #{template['kind']}"
-      end
+      method_name = :"#{template['kind']}_config"
+      raise "Unsupported template kind - #{template['kind']}" unless self.class.private_method_defined?(method_name)
+
+      send(method_name)
     end
 
     private
@@ -61,7 +59,7 @@ module TerraformConfig
 
     def identity_config
       TerraformConfig::Identity.new(
-        gvc: "cpln_gvc.#{config.app}.name", # GVC name matches application name
+        gvc: gvc,
         name: template["name"],
         description: template["description"],
         tags: template["tags"]
@@ -76,6 +74,38 @@ module TerraformConfig
         data: template["data"],
         tags: template["tags"]
       )
+    end
+
+    # rubocop:disable Metrics/MethodLength
+    def policy_config
+      # //secret/secret-name -> secret-name
+      target_links = template["targetLinks"]&.map do |target_link|
+        target_link.split("/").last
+      end
+
+      # //group/viewers -> group/viewers
+      bindings = template["bindings"]&.map do |data|
+        principal_links = data.delete("principalLinks")&.map { |link| link.delete_prefix("//") }
+        data.merge("principalLinks" => principal_links)
+      end
+
+      TerraformConfig::Policy.new(
+        name: template["name"],
+        description: template["description"],
+        tags: template["tags"],
+        target: template["target"],
+        target_kind: template["targetKind"],
+        target_query: template["targetQuery"],
+        target_links: target_links,
+        gvc: gvc,
+        bindings: bindings
+      )
+    end
+    # rubocop:enable Metrics/MethodLength
+
+    # GVC name matches application name
+    def gvc
+      "cpln_gvc.#{config.app}.name"
     end
 
     def env
