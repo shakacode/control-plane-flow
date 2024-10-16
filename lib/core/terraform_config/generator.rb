@@ -2,85 +2,91 @@
 
 module TerraformConfig
   class Generator
+    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset].freeze
+
     attr_reader :config, :template
 
     def initialize(config:, template:)
       @config = config
       @template = template.deep_underscore_keys.deep_symbolize_keys
+      validate_template_kind!
     end
 
-    # rubocop:disable Metrics/MethodLength
     def filename
-      case kind
-      when "gvc"
-        "gvc.tf"
-      when "secret"
-        "secrets.tf"
-      when "identity"
-        "identities.tf"
-      when "policy"
-        "policies.tf"
-      else
-        raise "Unsupported template kind - #{kind}"
-      end
+      "#{kind.pluralize}.tf"
     end
-    # rubocop:enable Metrics/MethodLength
 
     def tf_config
-      method_name = :"#{kind}_config"
-      raise "Unsupported template kind - #{kind}" unless self.class.private_method_defined?(method_name)
-
-      send(method_name)
+      config_class.new(**config_params)
     end
 
     private
 
-    def kind
-      @kind ||= template[:kind]
+    def validate_template_kind!
+      return if SUPPORTED_TEMPLATE_KINDS.include?(kind)
+
+      raise ArgumentError, "Unsupported template kind: #{kind}"
+    end
+
+    def config_class
+      return TerraformConfig.const_get(kind.capitalize) if TerraformConfig.const_defined?(kind.capitalize)
+      return TerraformConfig::VolumeSet if kind == "volumeset"
+
+      raise "Unsupported template kind: #{kind}"
+    end
+
+    def config_params
+      send("#{kind}_config_params")
+    end
+
+    def gvc_config_params
+      template
+        .slice(:name, :description, :tags)
+        .merge(
+          env: gvc_env,
+          pull_secrets: gvc_pull_secrets,
+          locations: gvc_locations,
+          domain: template.dig(:spec, :domain),
+          load_balancer: template.dig(:spec, :load_balancer)
+        )
+    end
+
+    def identity_config_params
+      template.slice(:name, :description, :tags).merge(gvc: gvc)
+    end
+
+    def secret_config_params
+      template.slice(:name, :description, :type, :data, :tags)
+    end
+
+    def policy_config_params
+      template
+        .slice(:name, :description, :tags, :target, :target_kind, :target_query)
+        .merge(gvc: gvc, target_links: policy_target_links, bindings: policy_bindings)
     end
 
     # rubocop:disable Metrics/MethodLength
-    def gvc_config
-      TerraformConfig::Gvc.new(
-        **template
-          .slice(:name, :description, :tags)
-          .merge(
-            env: gvc_env,
-            pull_secrets: gvc_pull_secrets,
-            locations: gvc_locations,
-            domain: template.dig(:spec, :domain),
-            load_balancer: template.dig(:spec, :load_balancer)
-          )
-      )
+    def volumeset_config_params
+      template
+        .slice(:name, :description, :tags)
+        .merge(
+          gvc: gvc,
+          initial_capacity: template.dig(:spec, :initial_capacity),
+          performance_class: template.dig(:spec, :performance_class),
+          file_system_type: template.dig(:spec, :file_system_type),
+          storage_class_suffix: template.dig(:spec, :storage_class_suffix),
+          snapshots: template.dig(:spec, :snapshots),
+          autoscaling: template.dig(:spec, :autoscaling)
+        )
     end
     # rubocop:enable Metrics/MethodLength
 
-    def identity_config
-      TerraformConfig::Identity.new(**template.slice(:name, :description, :tags).merge(gvc: gvc))
-    end
-
-    def secret_config
-      TerraformConfig::Secret.new(**template.slice(:name, :description, :type, :data, :tags))
-    end
-
-    def policy_config
-      TerraformConfig::Policy.new(
-        **template
-          .slice(:name, :description, :tags, :target, :target_kind, :target_query)
-          .merge(gvc: gvc, target_links: policy_target_links, bindings: policy_bindings)
-      )
-    end
-
-    # GVC name matches application name
     def gvc
       "cpln_gvc.#{config.app}.name"
     end
 
     def gvc_pull_secrets
-      template.dig(:spec, :pull_secret_links)&.map do |secret_link|
-        secret_name = secret_link.split("/").last
-        "cpln_secret.#{secret_name}.name"
-      end
+      template.dig(:spec, :pull_secret_links)&.map { |secret_link| "cpln_secret.#{secret_link.split('/').last}.name" }
     end
 
     def gvc_env
@@ -88,24 +94,22 @@ module TerraformConfig
     end
 
     def gvc_locations
-      template.dig(:spec, :static_placement, :location_links)&.map do |location_link|
-        location_link.split("/").last
-      end
+      template.dig(:spec, :static_placement, :location_links)&.map { |location_link| location_link.split("/").last }
     end
 
-    # //secret/secret-name -> secret-name
     def policy_target_links
-      template[:target_links]&.map do |target_link|
-        target_link.split("/").last
-      end
+      template[:target_links]&.map { |target_link| target_link.split("/").last }
     end
 
-    # //group/viewers -> group/viewers
     def policy_bindings
       template[:bindings]&.map do |data|
         principal_links = data.delete(:principal_links)&.map { |link| link.delete_prefix("//") }
         data.merge(principal_links: principal_links)
       end
+    end
+
+    def kind
+      @kind ||= template[:kind]
     end
   end
 end

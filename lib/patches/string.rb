@@ -22,5 +22,19 @@ class String
   def underscore
     gsub("::", "/").gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').tr("-", "_").downcase
   end
+
+  def pluralize
+    return self if empty?
+
+    if end_with?("ies")
+      self
+    elsif end_with?("s", "x", "z", "ch", "sh")
+      end_with?("es") ? self : "#{self}es"
+    elsif end_with?("y")
+      "#{self[...-1]}ies"
+    else
+      end_with?("s") ? self : "#{self}s"
+    end
+  end
 end
 # rubocop:enable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName

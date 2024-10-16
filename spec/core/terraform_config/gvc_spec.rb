@@ -18,7 +18,7 @@ describe TerraformConfig::Gvc do
           tags: { "tag1" => "tag_value", "tag2" => true },
           locations: %w[aws-us-east-1 aws-us-east-2],
           pull_secrets: ["cpln_secret.docker.name"],
-          load_balancer: { "dedicated" => true, "trusted_proxies" => 1 }
+          load_balancer: { "dedicated" => true, "trustedProxies" => 1 }
         }
       end
 

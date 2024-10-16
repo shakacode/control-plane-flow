@@ -44,11 +44,10 @@ module Command
         terraform_app_dir = recreate_terraform_app_dir(app)
 
         templates.each do |template|
+          # TODO: Raise error i/o ignoring invalid template kind after all template kinds are supported
+          next unless TerraformConfig::Generator::SUPPORTED_TEMPLATE_KINDS.include?(template["kind"])
+
           generator = TerraformConfig::Generator.new(config: config, template: template)
-
-          # TODO: Delete line below after all template kinds are supported
-          next unless %w[gvc identity secret policy].include?(template["kind"])
-
           File.write(terraform_app_dir.join(generator.filename), generator.tf_config.to_tf, mode: "a+")
         end
       end
