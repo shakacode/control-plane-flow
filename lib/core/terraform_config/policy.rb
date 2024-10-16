@@ -8,7 +8,7 @@ module TerraformConfig
       org policy quota secret serviceaccount task user volumeset workload
     ].freeze
 
-    GVC_REQUIERD_TARGET_KINDS = %w[identity workload volumeset].freeze
+    GVC_REQUIRED_TARGET_KINDS = %w[identity workload volumeset].freeze
 
     attr_reader :name, :description, :tags, :target_kind, :gvc, :target, :target_links, :target_query, :bindings
 
@@ -66,7 +66,7 @@ module TerraformConfig
     end
 
     def validate_gvc!
-      return unless GVC_REQUIERD_TARGET_KINDS.include?(target_kind.to_s) && gvc.nil?
+      return unless GVC_REQUIRED_TARGET_KINDS.include?(target_kind.to_s) && gvc.nil?
 
       raise ArgumentError, "`gvc` is required for `#{target_kind}` target kind"
     end
