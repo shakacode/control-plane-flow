@@ -13,10 +13,10 @@ module TerraformConfig
       case template["kind"]
       when "gvc"
         "gvc.tf"
-      when "secret"
-        "secrets.tf"
       when "identity"
         "identities.tf"
+      when "secret"
+        "secrets.tf"
       else
         raise "Unsupported template kind - #{template['kind']}"
       end
