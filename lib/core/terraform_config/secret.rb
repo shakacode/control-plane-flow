@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 module TerraformConfig
-  # rubocop:disable Metrics/ClassLength
-  class Secret < Base
+  class Secret < Base # rubocop:disable Metrics/ClassLength
     REQUIRED_DATA_KEYS = {
       "aws" => %i[secret_key access_key],
       "azure-connector" => %i[url code],
@@ -128,5 +127,4 @@ module TerraformConfig
       end
     end
   end
-  # rubocop:enable Metrics/ClassLength
 end
