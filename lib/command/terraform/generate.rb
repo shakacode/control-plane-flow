@@ -34,7 +34,7 @@ module Command
 
       def generate_app_configs
         Array(config.app || config.apps.keys).each do |app|
-          config.instance_variable_set(:@app, app)
+          config.instance_variable_set(:@app, app.to_s)
           generate_app_config
         end
       end
@@ -43,12 +43,10 @@ module Command
         terraform_app_dir = recreate_terraform_app_dir
 
         templates.each do |template|
-          # TODO: Raise error i/o ignoring invalid template kind after all template kinds are supported
-          next unless TerraformConfig::Generator::SUPPORTED_TEMPLATE_KINDS.include?(template["kind"])
-
           generator = TerraformConfig::Generator.new(config: config, template: template)
-
           File.write(terraform_app_dir.join(generator.filename), generator.tf_config.to_tf, mode: "a+")
+        rescue TerraformConfig::Generator::InvalidTemplateError => e
+          Shell.warn(e.message)
         end
       end
 

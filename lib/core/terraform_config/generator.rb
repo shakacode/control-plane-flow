@@ -4,6 +4,8 @@ module TerraformConfig
   class Generator
     SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset].freeze
 
+    InvalidTemplateError = Class.new(ArgumentError)
+
     attr_reader :config, :template
 
     def initialize(config:, template:)
@@ -27,7 +29,7 @@ module TerraformConfig
     def validate_template_kind!
       return if SUPPORTED_TEMPLATE_KINDS.include?(kind)
 
-      raise ArgumentError, "Unsupported template kind: #{kind}"
+      raise InvalidTemplateError, "Unsupported template kind: #{kind}"
     end
 
     def config_class
