@@ -36,9 +36,7 @@ describe Command::Terraform::Generate do
     let(:template_dir) { "non-existing-folder" }
 
     before do
-      # rubocop:disable RSpec/AnyInstance
-      allow_any_instance_of(TemplateParser).to receive(:template_dir).and_return(template_dir)
-      # rubocop:enable RSpec/AnyInstance
+      allow_any_instance_of(TemplateParser).to receive(:template_dir).and_return(template_dir) # rubocop:disable RSpec/AnyInstance
     end
 
     it "generates only common config files" do
@@ -53,9 +51,7 @@ describe Command::Terraform::Generate do
 
   context "when template parsing fails" do
     before do
-      # rubocop:disable RSpec/AnyInstance
-      allow_any_instance_of(TemplateParser).to receive(:parse).and_raise("error")
-      # rubocop:enable RSpec/AnyInstance
+      allow_any_instance_of(TemplateParser).to receive(:parse).and_raise("error") # rubocop:disable RSpec/AnyInstance
     end
 
     it "generates only common config files" do

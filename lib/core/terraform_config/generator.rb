@@ -33,8 +33,7 @@ module TerraformConfig
 
     private
 
-    # rubocop:disable Metrics/MethodLength
-    def gvc_config
+    def gvc_config # rubocop:disable Metrics/MethodLength
       pull_secrets = template.dig("spec", "pullSecretLinks")&.map do |secret_link|
         secret_name = secret_link.split("/").last
         "cpln_secret.#{secret_name}.name"
@@ -53,7 +52,6 @@ module TerraformConfig
         load_balancer: load_balancer
       )
     end
-    # rubocop:enable Metrics/MethodLength
 
     def identity_config
       TerraformConfig::Identity.new(
