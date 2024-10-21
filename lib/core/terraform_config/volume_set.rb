@@ -70,7 +70,7 @@ module TerraformConfig
     end
 
     def validate_file_system_type!
-      return if FILE_SYSTEM_TYPES.include?(file_system_type)
+      return if FILE_SYSTEM_TYPES.include?(file_system_type.to_s)
 
       raise ArgumentError, "Invalid file system type: #{file_system_type}. Choose from #{FILE_SYSTEM_TYPES.join(', ')}"
     end
