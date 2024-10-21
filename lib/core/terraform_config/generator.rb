@@ -9,8 +9,7 @@ module TerraformConfig
       @template = template.deep_underscore_keys.deep_symbolize_keys
     end
 
-    # rubocop:disable Metrics/MethodLength
-    def filename
+    def filename # rubocop:disable Metrics/MethodLength
       case kind
       when "gvc"
         "gvc.tf"
@@ -24,7 +23,6 @@ module TerraformConfig
         raise "Unsupported template kind - #{kind}"
       end
     end
-    # rubocop:enable Metrics/MethodLength
 
     def tf_config
       method_name = :"#{kind}_config"
@@ -39,8 +37,7 @@ module TerraformConfig
       @kind ||= template[:kind]
     end
 
-    # rubocop:disable Metrics/MethodLength
-    def gvc_config
+    def gvc_config # rubocop:disable Metrics/MethodLength
       TerraformConfig::Gvc.new(
         **template
           .slice(:name, :description, :tags)
@@ -53,7 +50,6 @@ module TerraformConfig
           )
       )
     end
-    # rubocop:enable Metrics/MethodLength
 
     def identity_config
       TerraformConfig::Identity.new(**template.slice(:name, :description, :tags).merge(gvc: gvc))
