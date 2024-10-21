@@ -6,8 +6,8 @@ module Command
       SUBCOMMAND_NAME = "terraform"
       NAME = "generate"
       OPTIONS = [
-        app_option(required: false),
-        dir_option(required: false)
+        app_option,
+        dir_option
       ].freeze
       DESCRIPTION = "Generates terraform configuration files"
       LONG_DESCRIPTION = <<~DESC
@@ -34,14 +34,13 @@ module Command
 
       def generate_app_configs
         Array(config.app || config.apps.keys).each do |app|
-          generate_app_config(app.to_s)
+          config.instance_variable_set(:@app, app)
+          generate_app_config
         end
       end
 
-      def generate_app_config(app)
-        config.class.define_method(:app) { app }
-
-        terraform_app_dir = recreate_terraform_app_dir(app)
+      def generate_app_config
+        terraform_app_dir = recreate_terraform_app_dir
 
         templates.each do |template|
           generator = TerraformConfig::Generator.new(config: config, template: template)
@@ -53,8 +52,8 @@ module Command
         end
       end
 
-      def recreate_terraform_app_dir(app_path)
-        full_path = terraform_dir.join(app_path)
+      def recreate_terraform_app_dir
+        full_path = terraform_dir.join(config.app)
 
         unless File.expand_path(full_path).include?(Cpflow.root_path.to_s)
           Shell.abort("Directory to save terraform configuration files cannot be outside of current directory")
@@ -71,13 +70,13 @@ module Command
         template_files = Dir["#{parser.template_dir}/*.yml"]
 
         if template_files.empty?
-          Shell.warn "No templates found in #{parser.template_dir}"
+          Shell.warn("No templates found in #{parser.template_dir}")
           return []
         end
 
         parser.parse(template_files)
       rescue StandardError => e
-        Shell.warn "Error parsing templates: #{e.message}"
+        Shell.warn("Error parsing templates: #{e.message}")
         []
       end
 
