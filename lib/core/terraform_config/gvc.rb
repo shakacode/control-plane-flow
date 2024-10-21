@@ -23,7 +23,7 @@ module TerraformConfig
       @locations = locations
       @pull_secrets = pull_secrets
       @env = env
-      @load_balancer = load_balancer&.transform_keys { |k| k.to_s.underscore.to_sym }
+      @load_balancer = load_balancer&.underscore_keys&.symbolize_keys
     end
 
     def to_tf
