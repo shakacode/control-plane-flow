@@ -41,7 +41,7 @@ module TerraformConfig
     def prepare_data(type:, data:)
       return data unless data.is_a?(Hash)
 
-      data.underscore_keys.symbolize_keys.tap do |prepared_data|
+      data.deep_underscore_keys.deep_symbolize_keys.tap do |prepared_data|
         validate_required_data_keys!(type: type, data: prepared_data)
       end
     end
