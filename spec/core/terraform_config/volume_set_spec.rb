@@ -99,73 +99,57 @@ describe TerraformConfig::VolumeSet do
   end
 
   describe "validations" do
-    context "with invalid initial_capacity" do
-      it "raises an error" do
-        expect { described_class.new(**options.merge(initial_capacity: 5)) }.to raise_error(
-          ArgumentError, "Initial capacity should be greater than or equal to 10"
-        )
+    shared_examples "an invalid parameter" do |param, value, err_msg|
+      it "raises an error for invalid #{param}" do
+        expect { described_class.new(**options.merge(param => value)) }.to raise_error(ArgumentError, err_msg)
       end
     end
 
-    context "with invalid performance_class" do
-      it "raises an error" do
-        expect { described_class.new(**options.merge(performance_class: "invalid")) }.to raise_error(
-          ArgumentError, "Invalid performance class: invalid. Choose from general-purpose-ssd, high-throughput-ssd"
-        )
-      end
-    end
+    include_examples "an invalid parameter", :initial_capacity, 5, "Initial capacity should be >= 10"
+    include_examples "an invalid parameter", :initial_capacity, "10", "Initial capacity must be numeric"
 
-    context "with invalid file_system_type" do
-      it "raises an error" do
-        expect { described_class.new(**options.merge(file_system_type: "invalid")) }.to raise_error(
-          ArgumentError, "Invalid file system type: invalid. Choose from xfs, ext4"
-        )
-      end
-    end
+    include_examples "an invalid parameter",
+                     :performance_class, "invalid",
+                     "Invalid performance class: invalid. Choose from general-purpose-ssd, high-throughput-ssd"
+
+    include_examples "an invalid parameter",
+                     :file_system_type, "invalid",
+                     "Invalid file system type: invalid. Choose from xfs, ext4"
   end
 
   describe "autoscaling validations" do
-    context "with invalid max_capacity" do
-      let(:invalid_autoscaling) do
-        options.merge(autoscaling: { max_capacity: 5 })
-      end
-
+    shared_examples "invalid autoscaling parameter" do |autoscaling_options, err_msg|
       it "raises an error" do
-        expect { described_class.new(**invalid_autoscaling) }.to raise_error(
-          ArgumentError, "autoscaling.max_capacity should be >= 10"
+        expect { described_class.new(**options.merge(autoscaling: autoscaling_options)) }.to raise_error(
+          ArgumentError, err_msg
         )
       end
+    end
+
+    context "with invalid max_capacity" do
+      include_examples "invalid autoscaling parameter", { max_capacity: 5 }, "autoscaling.max_capacity should be >= 10"
+
+      include_examples "invalid autoscaling parameter", { max_capacity: "100" },
+                       "autoscaling.max_capacity must be numeric"
     end
 
     context "with invalid min_free_percentage" do
-      let(:invalid_autoscaling) do
-        options.merge(autoscaling: { min_free_percentage: 0 })
-      end
+      include_examples "invalid autoscaling parameter", { min_free_percentage: 0 },
+                       "autoscaling.min_free_percentage should be between 1 and 100"
 
-      it "raises an error for value below 1" do
-        expect { described_class.new(**invalid_autoscaling) }.to raise_error(
-          ArgumentError, "autoscaling.min_free_percentage should be between 1 and 100"
-        )
-      end
+      include_examples "invalid autoscaling parameter", { min_free_percentage: 101 },
+                       "autoscaling.min_free_percentage should be between 1 and 100"
 
-      it "raises an error for value above 100" do
-        invalid_autoscaling[:autoscaling][:min_free_percentage] = 101
-        expect { described_class.new(**invalid_autoscaling) }.to raise_error(
-          ArgumentError, "autoscaling.min_free_percentage should be between 1 and 100"
-        )
-      end
+      include_examples "invalid autoscaling parameter", { min_free_percentage: "50" },
+                       "autoscaling.min_free_percentage must be numeric"
     end
 
     context "with invalid scaling_factor" do
-      let(:invalid_autoscaling) do
-        options.merge(autoscaling: { scaling_factor: 1.0 })
-      end
+      include_examples "invalid autoscaling parameter", { scaling_factor: 1.0 },
+                       "autoscaling.scaling_factor should be >= 1.1"
 
-      it "raises an error" do
-        expect { described_class.new(**invalid_autoscaling) }.to raise_error(
-          ArgumentError, "autoscaling.scaling_factor should be >= 1.1"
-        )
-      end
+      include_examples "invalid autoscaling parameter", { scaling_factor: "1.5" },
+                       "autoscaling.scaling_factor must be numeric"
     end
 
     context "with valid autoscaling values" do

@@ -70,18 +70,17 @@ module TerraformConfig
         .merge(gvc: gvc, target_links: policy_target_links, bindings: policy_bindings)
     end
 
-    def volumeset_config_params # rubocop:disable Metrics/MethodLength
-      template
-        .slice(:name, :description, :tags)
-        .merge(
-          gvc: gvc,
-          initial_capacity: template.dig(:spec, :initial_capacity),
-          performance_class: template.dig(:spec, :performance_class),
-          file_system_type: template.dig(:spec, :file_system_type),
-          storage_class_suffix: template.dig(:spec, :storage_class_suffix),
-          snapshots: template.dig(:spec, :snapshots),
-          autoscaling: template.dig(:spec, :autoscaling)
-        )
+    def volumeset_config_params
+      specs = %i[
+        initial_capacity
+        performance_class
+        file_system_type
+        storage_class_suffix
+        snapshots
+        autoscaling
+      ].to_h { |key| [key, template.dig(:spec, key)] }
+
+      template.slice(:name, :description, :tags).merge(gvc: gvc).merge(specs)
     end
 
     # GVC name matches application name

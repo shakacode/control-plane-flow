@@ -56,10 +56,10 @@ module TerraformConfig
     end
 
     def validate_initial_capacity!
-      return unless initial_capacity < MIN_CAPACITY
+      raise ArgumentError, "Initial capacity must be numeric" unless initial_capacity.is_a?(Numeric)
+      return if initial_capacity >= MIN_CAPACITY
 
-      raise ArgumentError,
-            "Initial capacity should be greater than or equal to #{MIN_CAPACITY}"
+      raise ArgumentError, "Initial capacity should be >= #{MIN_CAPACITY}"
     end
 
     def validate_performance_class!
@@ -72,8 +72,7 @@ module TerraformConfig
     def validate_file_system_type!
       return if FILE_SYSTEM_TYPES.include?(file_system_type)
 
-      raise ArgumentError,
-            "Invalid file system type: #{file_system_type}. Choose from #{FILE_SYSTEM_TYPES.join(', ')}"
+      raise ArgumentError, "Invalid file system type: #{file_system_type}. Choose from #{FILE_SYSTEM_TYPES.join(', ')}"
     end
 
     def validate_autoscaling!
@@ -84,21 +83,30 @@ module TerraformConfig
 
     def validate_max_capacity!
       max_capacity = autoscaling.fetch(:max_capacity, nil)
-      return if max_capacity.nil? || max_capacity >= MIN_CAPACITY
+      return if max_capacity.nil?
+
+      raise ArgumentError, "autoscaling.max_capacity must be numeric" unless max_capacity.is_a?(Numeric)
+      return if max_capacity >= MIN_CAPACITY
 
       raise ArgumentError, "autoscaling.max_capacity should be >= #{MIN_CAPACITY}"
     end
 
     def validate_min_free_percentage!
       min_free_percentage = autoscaling.fetch(:min_free_percentage, nil)
-      return if min_free_percentage.nil? || min_free_percentage.between?(1, 100)
+      return if min_free_percentage.nil?
+
+      raise ArgumentError, "autoscaling.min_free_percentage must be numeric" unless min_free_percentage.is_a?(Numeric)
+      return if min_free_percentage.between?(1, 100)
 
       raise ArgumentError, "autoscaling.min_free_percentage should be between 1 and 100"
     end
 
     def validate_scaling_factor!
       scaling_factor = autoscaling.fetch(:scaling_factor, nil)
-      return if scaling_factor.nil? || scaling_factor >= MIN_SCALING_FACTOR
+      return if scaling_factor.nil?
+
+      raise ArgumentError, "autoscaling.scaling_factor must be numeric" unless scaling_factor.is_a?(Numeric)
+      return if scaling_factor >= MIN_SCALING_FACTOR
 
       raise ArgumentError, "autoscaling.scaling_factor should be >= #{MIN_SCALING_FACTOR}"
     end
