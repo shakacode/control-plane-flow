@@ -71,7 +71,7 @@ describe TerraformConfig::Generator do
       expect(tf_config.load_balancer).to eq({ dedicated: true, trusted_proxies: 1 })
 
       tf_filename = generator.filename
-      expect(tf_filename).to eq("gvcs.tf")
+      expect(tf_filename).to eq("gvc.tf")
     end
   end
 

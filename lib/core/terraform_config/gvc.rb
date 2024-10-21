@@ -4,8 +4,7 @@ module TerraformConfig
   class Gvc < Base
     attr_reader :name, :description, :tags, :domain, :locations, :pull_secrets, :env, :load_balancer
 
-    # rubocop:disable Metrics/ParameterLists
-    def initialize(
+    def initialize( # rubocop:disable Metrics/ParameterLists
       name:,
       description: nil,
       tags: nil,
@@ -26,7 +25,6 @@ module TerraformConfig
       @env = env
       @load_balancer = load_balancer&.deep_underscore_keys&.deep_symbolize_keys
     end
-    # rubocop:enable Metrics/ParameterLists
 
     def to_tf
       block :resource, :cpln_gvc, name do

@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 module TerraformConfig
-  # rubocop:disable Metrics/ClassLength
-  class Policy < Base
+  class Policy < Base # rubocop:disable Metrics/ClassLength
     TARGET_KINDS = %w[
       agent auditctx cloudaccount domain group gvc identity image ipset kubernetes location
       org policy quota secret serviceaccount task user volumeset workload
@@ -12,8 +11,7 @@ module TerraformConfig
 
     attr_reader :name, :description, :tags, :target_kind, :gvc, :target, :target_links, :target_query, :bindings
 
-    # rubocop:disable Metrics/ParameterLists, Metrics/MethodLength
-    def initialize(
+    def initialize( # rubocop:disable Metrics/ParameterLists, Metrics/MethodLength
       name:,
       description: nil,
       tags: nil,
@@ -42,7 +40,6 @@ module TerraformConfig
       @target_query = target_query&.deep_underscore_keys&.deep_symbolize_keys
       @bindings = bindings&.map { |data| data.deep_underscore_keys.deep_symbolize_keys }
     end
-    # rubocop:enable Metrics/ParameterLists, Metrics/MethodLength
 
     def to_tf
       block :resource, :cpln_policy, name do
@@ -143,5 +140,4 @@ module TerraformConfig
             "`property`, `rel`, or `tag`."
     end
   end
-  # rubocop:enable Metrics/ClassLength
 end

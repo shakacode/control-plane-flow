@@ -13,6 +13,8 @@ module TerraformConfig
     end
 
     def filename
+      return "gvc.tf" if kind == "gvc"
+
       "#{kind.pluralize}.tf"
     end
 
