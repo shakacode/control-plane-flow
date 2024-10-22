@@ -88,7 +88,32 @@ describe Command::Terraform::Generate do
       allow(FileUtils).to receive(:mkdir_p).and_raise("error")
     end
 
-    it_behaves_like "does not generate any terraform config files", "error"
+    it_behaves_like "does not generate any terraform config files", "Invalid directory: error"
+  end
+
+  context "when required provider config generation fails" do
+    let(:required_provider_config_stub) { instance_double(TerraformConfig::RequiredProvider) }
+
+    before do
+      allow(TerraformConfig::RequiredProvider).to receive(:new).and_return(required_provider_config_stub)
+      allow(required_provider_config_stub).to receive(:to_tf).and_raise("error")
+    end
+
+    it_behaves_like "does not generate any terraform config files", "Failed to generate provider config files"
+  end
+
+  context "when terraform config from template generation fails" do
+    let(:gvc_config_stub) { instance_double(TerraformConfig::Gvc) }
+
+    before do
+      allow(TerraformConfig::Gvc).to receive(:new).and_return(gvc_config_stub)
+      allow(gvc_config_stub).to receive(:to_tf).and_raise("error")
+    end
+
+    it_behaves_like "generates terraform config files" do
+      let(:expected_config_paths) { all_config_paths - [config_path("gvc.tf")] }
+      let(:err_msg) { "Failed to generate config file from 'gvc' template: error" }
+    end
   end
 
   def all_config_paths

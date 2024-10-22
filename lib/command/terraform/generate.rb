@@ -27,8 +27,7 @@ module Command
       def generate_app_config
         terraform_app_dir = recreate_terraform_app_dir
 
-        generate_required_providers(terraform_app_dir)
-        generate_providers(terraform_app_dir)
+        generate_provider_configs(terraform_app_dir)
 
         templates.each do |template|
           generator = TerraformConfig::Generator.new(config: config, template: template)
@@ -37,7 +36,16 @@ module Command
           next unless %w[gvc identity secret policy].include?(template["kind"])
 
           File.write(terraform_app_dir.join(generator.filename), generator.tf_config.to_tf, mode: "a+")
+        rescue StandardError => e
+          Shell.warn("Failed to generate config file from '#{template['kind']}' template: #{e.message}")
         end
+      end
+
+      def generate_provider_configs(terraform_app_dir)
+        generate_required_providers(terraform_app_dir)
+        generate_providers(terraform_app_dir)
+      rescue StandardError => e
+        Shell.abort("Failed to generate provider config files: #{e.message}")
       end
 
       def generate_required_providers(terraform_app_dir)
