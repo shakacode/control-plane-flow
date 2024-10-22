@@ -22,5 +22,13 @@ class String
   def underscore
     gsub("::", "/").gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').tr("-", "_").downcase
   end
+
+  # Covers only simple cases and used for pluralizing controlplane template kinds (`gvc`, `secret`, `policy`, etc.)
+  def pluralize
+    return self if empty?
+    return "#{self[...-1]}ies" if end_with?("y")
+
+    "#{self}s"
+  end
 end
 # rubocop:enable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName

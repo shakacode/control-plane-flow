@@ -49,7 +49,7 @@ describe Command::Terraform::Generate do
 
   it_behaves_like "generates terraform config files" do
     let(:expected_config_paths) { all_config_paths }
-    let(:err_msg) { nil }
+    let(:err_msg) { "Unsupported template kind: workload" }
   end
 
   context "when templates folder is empty" do
@@ -116,6 +116,19 @@ describe Command::Terraform::Generate do
     end
   end
 
+  context "when InvalidTemplateError is raised" do
+    before do
+      allow_any_instance_of(TerraformConfig::Generator).to receive(:tf_config).and_raise( # rubocop:disable RSpec/AnyInstance
+        TerraformConfig::Generator::InvalidTemplateError, "Invalid template: error message"
+      )
+    end
+
+    it_behaves_like "generates terraform config files" do
+      let(:expected_config_paths) { provider_config_paths }
+      let(:err_msg) { "Invalid template: error message" }
+    end
+  end
+
   def all_config_paths
     provider_config_paths + template_config_paths
   end
@@ -125,7 +138,7 @@ describe Command::Terraform::Generate do
   end
 
   def template_config_paths
-    %w[gvc.tf identities.tf secrets.tf policies.tf].map { |filename| config_path(filename) }
+    %w[gvc.tf identities.tf secrets.tf policies.tf volumesets.tf].map { |filename| config_path(filename) }
   end
 
   def config_path(name)
