@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module TerraformConfig
-  class RequiredProvider < Base
+  class Provider < Base
     attr_reader :name, :options
 
     def initialize(name, **options)
@@ -12,13 +12,9 @@ module TerraformConfig
     end
 
     def to_tf
-      block :terraform do
-        block :cloud do
-          argument :organization, "PLACEHOLDER"
-        end
-
-        block :required_providers do
-          argument name, options
+      block :provider, name do
+        options.each do |option, value|
+          argument option, value
         end
       end
     end
