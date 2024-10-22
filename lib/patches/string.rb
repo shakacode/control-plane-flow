@@ -23,18 +23,12 @@ class String
     gsub("::", "/").gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2').gsub(/([a-z\d])([A-Z])/, '\1_\2').tr("-", "_").downcase
   end
 
+  # Covers only simple cases and used for pluralizing controlplane template kinds (`gvc`, `secret`, `policy`, etc.)
   def pluralize
     return self if empty?
+    return "#{self[...-1]}ies" if end_with?("y")
 
-    if end_with?("ies")
-      self
-    elsif end_with?("s", "x", "z", "ch", "sh")
-      end_with?("es") ? self : "#{self}es"
-    elsif end_with?("y")
-      "#{self[...-1]}ies"
-    else
-      end_with?("s") ? self : "#{self}s"
-    end
+    "#{self}s"
   end
 end
 # rubocop:enable Style/OptionalBooleanParameter, Lint/UnderscorePrefixedVariableName

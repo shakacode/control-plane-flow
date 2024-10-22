@@ -4,7 +4,7 @@ module TerraformConfig
   class Generator
     SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset].freeze
 
-    InvalidTemplateError = Class.new(ArgumentError)
+    class InvalidTemplateError < ArgumentError; end
 
     attr_reader :config, :template
 
