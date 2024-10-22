@@ -34,7 +34,7 @@ module Command
 
       def generate_app_configs
         Array(config.app || config.apps.keys).each do |app|
-          config.instance_variable_set(:@app, app)
+          config.instance_variable_set(:@app, app.to_s)
           generate_app_config
         end
       end
@@ -44,11 +44,9 @@ module Command
 
         templates.each do |template|
           generator = TerraformConfig::Generator.new(config: config, template: template)
-
-          # TODO: Delete line below after all template kinds are supported
-          next unless %w[gvc identity secret policy].include?(template["kind"])
-
           File.write(terraform_app_dir.join(generator.filename), generator.tf_config.to_tf, mode: "a+")
+        rescue TerraformConfig::Generator::InvalidTemplateError => e
+          Shell.warn(e.message)
         end
       end
 

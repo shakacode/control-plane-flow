@@ -86,6 +86,24 @@ describe Command::Terraform::Generate do
     end
   end
 
+  context "when InvalidTemplateError is raised" do
+    before do
+      allow_any_instance_of(TerraformConfig::Generator).to receive(:tf_config).and_raise( # rubocop:disable RSpec/AnyInstance
+        TerraformConfig::Generator::InvalidTemplateError, "Invalid template: error message"
+      )
+    end
+
+    it "generates common config files and warns about invalid template" do
+      config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("Invalid template: error message")
+
+      expect(common_config_files).to all(exist)
+      app_config_files.each { |config_file_path| expect(config_file_path).not_to exist }
+    end
+  end
+
   def config_file_paths
     common_config_files + app_config_files
   end
@@ -95,7 +113,7 @@ describe Command::Terraform::Generate do
   end
 
   def app_config_files
-    %w[gvc.tf identities.tf secrets.tf policies.tf].map do |config_file_path|
+    %w[gvc.tf identities.tf secrets.tf policies.tf volumesets.tf].map do |config_file_path|
       TERRAFORM_CONFIG_DIR_PATH.join(app, config_file_path)
     end
   end
