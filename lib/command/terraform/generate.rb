@@ -16,38 +16,50 @@ module Command
       WITH_INFO_HEADER = false
 
       def call
-        generate_common_configs
-        generate_app_configs
-      end
-
-      private
-
-      def generate_common_configs
-        cpln_provider = TerraformConfig::RequiredProvider.new(
-          "cpln",
-          source: "controlplane-com/cpln",
-          version: "~> 1.0"
-        )
-
-        File.write(terraform_dir.join("providers.tf"), cpln_provider.to_tf)
-      end
-
-      def generate_app_configs
         Array(config.app || config.apps.keys).each do |app|
           config.instance_variable_set(:@app, app.to_s)
           generate_app_config
         end
       end
 
+      private
+
       def generate_app_config
         terraform_app_dir = recreate_terraform_app_dir
+
+        generate_provider_configs(terraform_app_dir)
 
         templates.each do |template|
           generator = TerraformConfig::Generator.new(config: config, template: template)
           File.write(terraform_app_dir.join(generator.filename), generator.tf_config.to_tf, mode: "a+")
         rescue TerraformConfig::Generator::InvalidTemplateError => e
           Shell.warn(e.message)
+        rescue StandardError => e
+          Shell.warn("Failed to generate config file from '#{template['kind']}' template: #{e.message}")
         end
+      end
+
+      def generate_provider_configs(terraform_app_dir)
+        generate_required_providers(terraform_app_dir)
+        generate_providers(terraform_app_dir)
+      rescue StandardError => e
+        Shell.abort("Failed to generate provider config files: #{e.message}")
+      end
+
+      def generate_required_providers(terraform_app_dir)
+        required_cpln_provider = TerraformConfig::RequiredProvider.new(
+          name: "cpln",
+          org: config.org,
+          source: "controlplane-com/cpln",
+          version: "~> 1.0"
+        )
+
+        File.write(terraform_app_dir.join("required_providers.tf"), required_cpln_provider.to_tf)
+      end
+
+      def generate_providers(terraform_app_dir)
+        cpln_provider = TerraformConfig::Provider.new(name: "cpln", org: config.org)
+        File.write(terraform_app_dir.join("providers.tf"), cpln_provider.to_tf)
       end
 
       def recreate_terraform_app_dir

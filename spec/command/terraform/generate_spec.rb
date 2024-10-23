@@ -24,12 +24,32 @@ describe Command::Terraform::Generate do
     FileUtils.rm_rf GENERATOR_PLAYGROUND_PATH
   end
 
-  it "generates terraform config files", :aggregate_failures do
-    config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
+  shared_examples "generates terraform config files" do
+    specify do
+      all_config_paths.each { |path| expect(path).not_to exist }
 
-    expect(result[:status]).to eq(0)
+      expect(result[:status]).to eq(ExitCode::SUCCESS)
+      expect(result[:stderr]).to err_msg ? include(err_msg) : be_empty
 
-    expect(config_file_paths).to all(exist)
+      expect(expected_config_paths).to all(exist)
+      (all_config_paths - expected_config_paths).each { |path| expect(path).not_to exist }
+    end
+  end
+
+  shared_examples "does not generate any terraform config files" do |err_msg|
+    it "fails with an error" do
+      all_config_paths.each { |path| expect(path).not_to exist }
+
+      expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+      expect(result[:stderr]).to include(err_msg)
+
+      all_config_paths.each { |path| expect(path).not_to exist }
+    end
+  end
+
+  it_behaves_like "generates terraform config files" do
+    let(:expected_config_paths) { all_config_paths }
+    let(:err_msg) { "Unsupported template kind: workload" }
   end
 
   context "when templates folder is empty" do
@@ -39,13 +59,9 @@ describe Command::Terraform::Generate do
       allow_any_instance_of(TemplateParser).to receive(:template_dir).and_return(template_dir) # rubocop:disable RSpec/AnyInstance
     end
 
-    it "generates only common config files" do
-      config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
-
-      expect(result[:stderr]).to include("No templates found in #{template_dir}")
-
-      expect(common_config_files).to all(exist)
-      app_config_files.each { |config_file_path| expect(config_file_path).not_to exist }
+    it_behaves_like "generates terraform config files" do
+      let(:expected_config_paths) { provider_config_paths }
+      let(:err_msg) { "No templates found in #{template_dir}" }
     end
   end
 
@@ -54,25 +70,17 @@ describe Command::Terraform::Generate do
       allow_any_instance_of(TemplateParser).to receive(:parse).and_raise("error") # rubocop:disable RSpec/AnyInstance
     end
 
-    it "generates only common config files" do
-      config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
-
-      expect(result[:stderr]).to include("Error parsing templates: error")
-
-      expect(common_config_files).to all(exist)
-      app_config_files.each { |config_file_path| expect(config_file_path).not_to exist }
+    it_behaves_like "generates terraform config files" do
+      let(:expected_config_paths) { provider_config_paths }
+      let(:err_msg) { "Error parsing templates: error" }
     end
   end
 
   context "when --dir option is outside of project dir" do
     let(:options) { ["-a", app, "--dir", GEM_TEMP_PATH.join("path-outside-of-project").to_s] }
 
-    it "aborts command execution" do
-      expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
-      expect(result[:stderr]).to include(
-        "Directory to save terraform configuration files cannot be outside of current directory"
-      )
-    end
+    it_behaves_like "does not generate any terraform config files",
+                    "Directory to save terraform configuration files cannot be outside of current directory"
   end
 
   context "when terraform config directory creation fails" do
@@ -80,9 +88,31 @@ describe Command::Terraform::Generate do
       allow(FileUtils).to receive(:mkdir_p).and_raise("error")
     end
 
-    it "aborts command execution" do
-      expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
-      expect(result[:stderr]).to include("error")
+    it_behaves_like "does not generate any terraform config files", "Invalid directory: error"
+  end
+
+  context "when required provider config generation fails" do
+    let(:required_provider_config_stub) { instance_double(TerraformConfig::RequiredProvider) }
+
+    before do
+      allow(TerraformConfig::RequiredProvider).to receive(:new).and_return(required_provider_config_stub)
+      allow(required_provider_config_stub).to receive(:to_tf).and_raise("error")
+    end
+
+    it_behaves_like "does not generate any terraform config files", "Failed to generate provider config files"
+  end
+
+  context "when terraform config from template generation fails" do
+    let(:gvc_config_stub) { instance_double(TerraformConfig::Gvc) }
+
+    before do
+      allow(TerraformConfig::Gvc).to receive(:new).and_return(gvc_config_stub)
+      allow(gvc_config_stub).to receive(:to_tf).and_raise("error")
+    end
+
+    it_behaves_like "generates terraform config files" do
+      let(:expected_config_paths) { all_config_paths - [config_path("gvc.tf")] }
+      let(:err_msg) { "Failed to generate config file from 'gvc' template: error" }
     end
   end
 
@@ -93,28 +123,25 @@ describe Command::Terraform::Generate do
       )
     end
 
-    it "generates common config files and warns about invalid template" do
-      config_file_paths.each { |config_file_path| expect(config_file_path).not_to exist }
-
-      expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to include("Invalid template: error message")
-
-      expect(common_config_files).to all(exist)
-      app_config_files.each { |config_file_path| expect(config_file_path).not_to exist }
+    it_behaves_like "generates terraform config files" do
+      let(:expected_config_paths) { provider_config_paths }
+      let(:err_msg) { "Invalid template: error message" }
     end
   end
 
-  def config_file_paths
-    common_config_files + app_config_files
+  def all_config_paths
+    provider_config_paths + template_config_paths
   end
 
-  def common_config_files
-    [TERRAFORM_CONFIG_DIR_PATH.join("providers.tf")]
+  def provider_config_paths
+    %w[required_providers.tf providers.tf].map { |filename| config_path(filename) }
   end
 
-  def app_config_files
-    %w[gvc.tf identities.tf secrets.tf policies.tf volumesets.tf].map do |config_file_path|
-      TERRAFORM_CONFIG_DIR_PATH.join(app, config_file_path)
-    end
+  def template_config_paths
+    %w[gvc.tf identities.tf secrets.tf policies.tf volumesets.tf].map { |filename| config_path(filename) }
+  end
+
+  def config_path(name)
+    TERRAFORM_CONFIG_DIR_PATH.join(app, name)
   end
 end
