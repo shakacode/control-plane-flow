@@ -4,7 +4,7 @@ module TerraformConfig
   class Provider < Base
     attr_reader :name, :options
 
-    def initialize(name, **options)
+    def initialize(name:, **options)
       super()
 
       @name = name

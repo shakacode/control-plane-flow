@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe TerraformConfig::Provider do
-  let(:config) { described_class.new(name, **options) }
+  let(:config) { described_class.new(name: name, **options) }
 
   describe "#to_tf" do
     subject(:generated) { config.to_tf }

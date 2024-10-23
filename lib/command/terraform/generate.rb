@@ -48,7 +48,8 @@ module Command
 
       def generate_required_providers(terraform_app_dir)
         required_cpln_provider = TerraformConfig::RequiredProvider.new(
-          "cpln",
+          name: "cpln",
+          org: config.org,
           source: "controlplane-com/cpln",
           version: "~> 1.0"
         )
@@ -57,7 +58,7 @@ module Command
       end
 
       def generate_providers(terraform_app_dir)
-        cpln_provider = TerraformConfig::Provider.new("cpln", org: config.org)
+        cpln_provider = TerraformConfig::Provider.new(name: "cpln", org: config.org)
         File.write(terraform_app_dir.join("providers.tf"), cpln_provider.to_tf)
       end
 
