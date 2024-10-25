@@ -14,10 +14,6 @@ module TerraformConfig
 
     def to_tf
       block :terraform do
-        block :cloud do
-          argument :organization, org
-        end
-
         block :required_providers do
           argument name, options
         end

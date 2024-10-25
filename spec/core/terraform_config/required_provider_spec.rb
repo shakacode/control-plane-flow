@@ -17,9 +17,6 @@ describe TerraformConfig::RequiredProvider do
         expect(generated).to eq(
           <<~EXPECTED
             terraform {
-              cloud {
-                organization = "test-org"
-              }
               required_providers {
                 cpln = {
                   source = "controlplane-com/cpln"

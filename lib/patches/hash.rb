@@ -15,6 +15,15 @@ class Hash
     end
   end
 
+  def crush
+    crushed = each_with_object({}) do |(key, value), hash|
+      crushed_value = value.crush
+      hash[key] = crushed_value unless crushed_value.nil?
+    end
+
+    crushed unless crushed.empty?
+  end
+
   private
 
   # Copied from Rails

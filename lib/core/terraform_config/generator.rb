@@ -1,8 +1,20 @@
 # frozen_string_literal: true
 
 module TerraformConfig
-  class Generator
-    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset].freeze
+  class Generator # rubocop:disable Metrics/ClassLength
+    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload].freeze
+    WORKLOAD_SPEC_KEYS = %i[
+      type
+      containers
+      default_options
+      local_options
+      rollout_options
+      security_options
+      load_balancer
+      firewall_config
+      support_dynamic_tags
+      job
+    ].freeze
 
     class InvalidTemplateError < ArgumentError; end
 
@@ -14,14 +26,8 @@ module TerraformConfig
       validate_template_kind!
     end
 
-    def filename
-      return "gvc.tf" if kind == "gvc"
-
-      "#{kind.pluralize}.tf"
-    end
-
-    def tf_config
-      config_class.new(**config_params)
+    def tf_configs
+      tf_config.locals.merge(filename => tf_config)
     end
 
     private
@@ -30,6 +36,21 @@ module TerraformConfig
       return if SUPPORTED_TEMPLATE_KINDS.include?(kind)
 
       raise InvalidTemplateError, "Unsupported template kind: #{kind}"
+    end
+
+    def filename
+      case kind
+      when "gvc"
+        "gvc.tf"
+      when "workload"
+        "#{template[:name]}.tf"
+      else
+        "#{kind.pluralize}.tf"
+      end
+    end
+
+    def tf_config
+      config_class.new(**config_params)
     end
 
     def config_class
@@ -83,6 +104,29 @@ module TerraformConfig
       template.slice(:name, :description, :tags).merge(gvc: gvc).merge(specs)
     end
 
+    def workload_config_params
+      template
+        .slice(:name, :description, :tags)
+        .merge(gvc: gvc, identity: workload_identity)
+        .merge(workload_spec_params)
+    end
+
+    def workload_spec_params # rubocop:disable Metrics/MethodLength
+      WORKLOAD_SPEC_KEYS.to_h do |key|
+        arg_name =
+          case key
+          when :default_options then :options
+          when :firewall_config then :firewall_spec
+          else key
+          end
+
+        value = template.dig(:spec, key)
+        value.merge!(location: value[:location].split("/").last) if value && key == :local_options
+
+        [arg_name, value]
+      end
+    end
+
     # GVC name matches application name
     def gvc
       "cpln_gvc.#{config.app}.name"
@@ -106,9 +150,16 @@ module TerraformConfig
 
     def policy_bindings
       template[:bindings]&.map do |data|
-        principal_links = data.delete(:principal_links)&.map { |link| link.delete_prefix("//") }
+        principal_links = data[:principal_links]&.map { |link| link.delete_prefix("//") }
         data.merge(principal_links: principal_links)
       end
+    end
+
+    def workload_identity
+      identity_link = template.dig(:spec, :identity_link)
+      return if identity_link.nil?
+
+      "cpln_identity.#{identity_link.split('/').last}"
     end
 
     def kind

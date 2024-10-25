@@ -70,4 +70,43 @@ describe Hash do
       end
     end
   end
+
+  describe "#crush" do
+    it "returns nil when all values are nil" do
+      expect({ a: nil, b: nil }.crush).to be_nil
+    end
+
+    it "removes nil values from the hash" do
+      expect({ a: 1, b: nil, c: 3 }.crush).to eq({ a: 1, c: 3 })
+    end
+
+    it "crushes nested hashes" do
+      nested_hash = { a: { b: nil, c: 2 }, d: 4 }
+      expect(nested_hash.crush).to eq({ a: { c: 2 }, d: 4 })
+    end
+
+    it "handles non-hash values" do
+      expect({ a: 1, b: "string", c: nil }.crush).to eq({ a: 1, b: "string" })
+    end
+
+    it "returns nil for empty hash" do
+      expect({}.crush).to be_nil
+    end
+
+    it "removes nil values from an array in the hash" do
+      expect({ a: [1, nil, 3], b: nil }.crush).to eq({ a: [1, 3] })
+    end
+
+    it "crushes nested hashes within an array" do
+      expect({ a: [{ b: nil, c: 2 }, { d: nil }], e: 4 }.crush).to eq({ a: [{ c: 2 }], e: 4 })
+    end
+
+    it "handles arrays with mixed values" do
+      expect({ a: [1, nil, { b: nil, c: 3 }], d: 4 }.crush).to eq({ a: [1, { c: 3 }], d: 4 })
+    end
+
+    it "crushes array to if array has only nil values" do
+      expect({ a: [nil, nil], b: 1 }.crush).to eq({ b: 1 })
+    end
+  end
 end

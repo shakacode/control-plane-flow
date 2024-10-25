@@ -9,5 +9,9 @@ module TerraformConfig
     def to_tf
       raise NotImplementedError
     end
+
+    def locals
+      {}
+    end
   end
 end
