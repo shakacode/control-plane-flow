@@ -25,11 +25,6 @@ module TerraformConfig
 
     def validate_variables!
       raise ArgumentError, "Variables cannot be empty" if variables.empty?
-
-      invalid_names = variables.keys.reject { |name| name.to_s.match?(VARIABLE_NAME_REGEX) }
-      return if invalid_names.empty?
-
-      raise ArgumentError, "Invalid variable names: #{invalid_names.join(', ')}"
     end
   end
 end

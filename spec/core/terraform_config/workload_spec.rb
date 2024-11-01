@@ -424,7 +424,7 @@ describe TerraformConfig::Workload do
             rails_envs = {
               RACK_ENV = "production"
               RAILS_ENV = "production"
-              SECRET_KEY_BASE = "SECRET_VALUE"
+              SECRET_KEY_BASE = "TEST_SECRET_KEY_BASE"
             }
           }
         EXPECTED
@@ -436,7 +436,7 @@ describe TerraformConfig::Workload do
         <<~EXPECTED
           locals {
             postgres_envs = {
-              POSTGRES_PASSWORD = "FAKE_PASSWORD"
+              POSTGRES_PASSWORD = "TEST_DB_PASSWORD"
               TZ = "UTC"
             }
           }
@@ -457,7 +457,7 @@ describe TerraformConfig::Workload do
       command: "/bin/bash",
       cpu: "500m",
       env: [
-        { name: "POSTGRES_PASSWORD", value: "FAKE_PASSWORD" },
+        { name: "POSTGRES_PASSWORD", value: "TEST_DB_PASSWORD" },
         { name: "TZ", value: "UTC" }
       ],
       image: "ubuntu/postgres:14-22.04_beta",
@@ -511,7 +511,7 @@ describe TerraformConfig::Workload do
       env: [
         { name: "RACK_ENV", value: "production" },
         { name: "RAILS_ENV", value: "production" },
-        { name: "SECRET_KEY_BASE", value: "SECRET_VALUE" }
+        { name: "SECRET_KEY_BASE", value: "TEST_SECRET_KEY_BASE" }
       ],
       image: "/org/org-name/image/rails:7",
       inherit_env: false,
