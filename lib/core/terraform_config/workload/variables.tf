@@ -192,7 +192,7 @@ variable "rollout_options" {
 
 variable "security_options" {
   type = object({
-    filesystem_group_id = optional(number)
+    file_system_group_id = optional(number)
   })
   default = null
 }

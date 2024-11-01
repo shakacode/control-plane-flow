@@ -39,5 +39,19 @@ RSpec.describe Array do
     it "returns an array with non-nil values from mixed types" do
       expect([1, nil, { a: 2 }, [], { b: nil }].crush).to eq([1, { a: 2 }])
     end
+
+    it "handles deeply nested structures" do
+      input = [
+        { a: [1, { b: 2 }] },
+        { c: [nil, { d: nil }] },
+        { e: [3, { f: 4 }] }
+      ]
+
+      expected = [
+        { a: [1, { b: 2 }] },
+        { e: [3, { f: 4 }] }
+      ]
+      expect(input.crush).to eq(expected)
+    end
   end
 end

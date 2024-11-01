@@ -2,7 +2,7 @@
 
 class Array
   def crush
-    crushed = map(&:crush).compact
+    crushed = map { |el| el.respond_to?(:crush) ? el.crush : el }.compact
     crushed unless crushed.empty?
   end
 end

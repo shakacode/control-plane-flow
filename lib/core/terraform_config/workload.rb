@@ -9,8 +9,8 @@ module TerraformConfig
 
     OPTIONS_KEYS = %i[autoscaling capacity_ai suspend timeout_seconds].freeze
     LOCAL_OPTIONS_KEYS = (OPTIONS_KEYS + %i[location]).freeze
-    ROLLOUT_OPTIONS_KEYS = %i[max_surge_replicas min_ready_seconds].freeze
-    SECURITY_OPTIONS_KEYS = %i[filesystem_group_id].freeze
+    ROLLOUT_OPTIONS_KEYS = %i[min_ready_seconds max_unavailable_replicas max_surge_replicas scaling_policy].freeze
+    SECURITY_OPTIONS_KEYS = %i[file_system_group_id].freeze
     LOAD_BALANCER_KEYS = %i[direct geo_location].freeze
     FIREWALL_SPEC_KEYS = %i[internal external].freeze
     VOLUME_KEYS = %i[uri path].freeze
@@ -101,7 +101,7 @@ module TerraformConfig
         post_start: container.dig(:lifecycle, :post_start, :exec, :command),
         pre_stop: container.dig(:lifecycle, :pre_stop, :exec, :command),
         inherit_env: container.fetch(:inherit_env, nil),
-        envs: "local.#{container_name}_envs",
+        envs: ("local.#{container_name}_envs" if container[:env]),
         ports: container.fetch(:ports, nil),
         readiness_probe: container.fetch(:readiness_probe, nil)&.slice(*LIVENESS_PROBE_KEYS),
         liveness_probe: container.fetch(:liveness_probe, nil)&.slice(*LIVENESS_PROBE_KEYS),

@@ -508,7 +508,7 @@ describe TerraformConfig::Generator do
         scaling_policy: "Parallel"
       )
 
-      expect(main_tf_config.security_options).to eq(filesystem_group_id: 1)
+      expect(main_tf_config.security_options).to eq(file_system_group_id: 1)
       expect(main_tf_config.load_balancer).to eq(
         direct: {
           enabled: true,

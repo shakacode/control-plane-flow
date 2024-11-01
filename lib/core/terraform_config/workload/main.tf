@@ -25,7 +25,7 @@ resource "cpln_workload" "workload" {
       memory = container.value.memory
 
       dynamic "lifecycle" {
-        for_each = container.value.post_start_command != null || container.value.post_start_command != null ? [1] : []
+        for_each = container.value.post_start_command != null || container.value.pre_stop_command != null ? [1] : []
         content {
           dynamic "post_start" {
             for_each = container.value.post_start_command != null ? [1] : []
@@ -224,7 +224,7 @@ resource "cpln_workload" "workload" {
     for_each = var.security_options != null ? [var.security_options] : []
     iterator = security_options
     content {
-      file_system_group_id = security_options.value.filesystem_group_id
+      file_system_group_id = security_options.value.file_system_group_id
     }
   }
 

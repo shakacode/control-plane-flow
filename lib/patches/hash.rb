@@ -17,7 +17,7 @@ class Hash
 
   def crush
     crushed = each_with_object({}) do |(key, value), hash|
-      crushed_value = value.crush
+      crushed_value = value.respond_to?(:crush) ? value.crush : value
       hash[key] = crushed_value unless crushed_value.nil?
     end
 

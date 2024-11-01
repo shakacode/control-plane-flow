@@ -50,7 +50,7 @@ module TerraformConfig
     end
 
     def tf_config
-      config_class.new(**config_params)
+      @tf_config ||= config_class.new(**config_params)
     end
 
     def config_class
@@ -121,7 +121,15 @@ module TerraformConfig
           end
 
         value = template.dig(:spec, key)
-        value.merge!(location: value[:location].split("/").last) if value && key == :local_options
+
+        if value
+          case key
+          when :local_options
+            value[:location] = value.delete(:location).split("/").last
+          when :security_options
+            value[:file_system_group_id] = value.delete(:filesystem_group_id)
+          end
+        end
 
         [arg_name, value]
       end
@@ -150,7 +158,7 @@ module TerraformConfig
 
     def policy_bindings
       template[:bindings]&.map do |data|
-        principal_links = data[:principal_links]&.map { |link| link.delete_prefix("//") }
+        principal_links = data.delete(:principal_links)&.map { |link| link.delete_prefix("//") }
         data.merge(principal_links: principal_links)
       end
     end

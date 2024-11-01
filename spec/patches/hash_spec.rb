@@ -105,7 +105,7 @@ describe Hash do
       expect({ a: [1, nil, { b: nil, c: 3 }], d: 4 }.crush).to eq({ a: [1, { c: 3 }], d: 4 })
     end
 
-    it "crushes array to if array has only nil values" do
+    it "removes array if it contains only nil values" do
       expect({ a: [nil, nil], b: 1 }.crush).to eq({ b: 1 })
     end
   end

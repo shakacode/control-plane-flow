@@ -5,6 +5,43 @@ require "spec_helper"
 describe TerraformConfig::LocalVariable do
   let(:config) { described_class.new(**variables) }
 
+  describe "#initialize" do
+    context "when variables are empty" do
+      let(:variables) { {} }
+
+      it "raises an ArgumentError" do
+        expect { config }.to raise_error(ArgumentError, "Variables cannot be empty")
+      end
+    end
+
+    context "when variable names are invalid" do
+      let(:variables) do
+        {
+          valid_var: 1,
+          "invalid-var" => 2, # Invalid due to hyphen
+          another_invalid_var: 3
+        }
+      end
+
+      it "raises an ArgumentError with invalid names" do
+        expect { config }.to raise_error(ArgumentError, /Invalid variable names: invalid-var/)
+      end
+    end
+
+    context "when variable names are valid" do
+      let(:variables) do
+        {
+          valid_var: 1,
+          another_valid_var: 2
+        }
+      end
+
+      it "initializes without error" do
+        expect { config }.not_to raise_error
+      end
+    end
+  end
+
   describe "#to_tf" do
     subject(:generated) { config.to_tf }
 
