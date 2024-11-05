@@ -10,7 +10,7 @@ cpflow terraform generate
 
 This command will create Terraform configurations for each application defined in `controlplane.yml`, utilizing templates from the `templates` folder.
 
-Each time this command is invoked, Terraform configurations will be recreated. You can continue working with CPLN configuration files in YAML format and simply transform them to Terraform format at any time.
+Each time this command is invoked, Terraform configurations will be recreated, terraform lock file will be preserved. You can continue working with CPLN configuration files in YAML format and simply transform them to Terraform format at any time.
 
 ### Project Structure
 
@@ -23,8 +23,8 @@ Given the project structure below:
 │   ├── postgres.yml -- workload config
 │   └── rails.yml -- workload config
 ├── controlplane.yml -- configs for overall application
-├── Dockerfile
-└── entrypoint.sh
+├── Dockerfile -- Docker configuration for the application
+└── entrypoint.sh -- Entry point script for the application
 ```
 
 Invoking `cpflow terraform generate` will generate a new `terraform` folder with subfolders containing Terraform configurations for each application described in `controlplane.yml`:
@@ -52,12 +52,40 @@ Invoking `cpflow terraform generate` will generate a new `terraform` folder with
 │   │   ├── rails_envs.tf -- ENV variables for Rails workload in HCL
 │   │   ├── providers.tf -- Providers config in HCL
 │   │   └── required_providers.tf -- Required providers config in HCL
+│   ├── workload/ -- Terraform configurations for workload module
+│   │   ├── main.tf -- Main config for workload resource in HCL
+│   │   └── variables.tf -- Variables used to create config for workload resource in HCL
 ├── controlplane.yml -- configs for overall application
-├── Dockerfile
-└── entrypoint.sh
+├── Dockerfile -- Docker configuration for the application
+└── entrypoint.sh -- Entry point script for the application
 ```
 
 ### Terraform Configurations from CPLN Templates
+
+#### Providers
+
+Terraform provider configurations are controlled via `required_providers.tf` and `providers.tf`:
+
+- **`required_providers.tf`**
+
+```terraform
+terraform {
+  required_providers {
+    cpln = {
+      source = "controlplane-com/cpln"
+      version = "~> 1.0"
+    }
+  }
+}
+```
+
+- **`providers.tf`**
+
+```terraform
+provider "cpln" {
+  org = "org-name-example"
+}
+```
 
 #### GVC
 
@@ -150,15 +178,12 @@ CPLN template in YAML format
 kind: secret
 name: aws
 description: aws
-tags:
-  tag1: AKIAIOSFODNN7EXAMPLE
-  tag2: arn:awskey
 type: aws
 data:
-  accessKey: AKIAIOSFODNN7EXAMPLE
-  externalId: '123'
+  accessKey: 'AccessKeyExample'
+  externalId: 'ExternalIdExample'
   roleArn: arn:awskey
-  secretKey: '123'
+  secretKey: 'SecretKeyExample'
 ```
 
 Will transform to Terraform config:
@@ -167,15 +192,11 @@ Will transform to Terraform config:
 resource "cpln_secret" "aws" {
   name = "aws"
   description = "aws"
-  tags = {
-    tag1 = "AKIAIOSFODNN7EXAMPLE"
-    tag2 = "arn:awskey"
-  }
   aws {
-    secret_key = "123"
-    access_key = "AKIAIOSFODNN7EXAMPLE"
+    secret_key = "SecretKeyExample"
+    access_key = "AccessKeyExample"
     role_arn = "arn:awskey"
-    external_id = "123"
+    external_id = "ExternalIdExample"
   }
 }
 ```
@@ -190,8 +211,8 @@ tags:
   tag1: tag-val
 type: azure-connector
 data:
-  code: '123'
-  url: https://sdfsfs.com
+  code: 'CodeExample'
+  url: https://example.com
 ```
 
 Will transform to Terraform config:
@@ -204,8 +225,8 @@ resource "cpln_secret" "azure-connector" {
     tag1 = "tag-val"
   }
   azure_connector {
-    url = "https://sdfsfs.com"
-    code = "123"
+    url = "https://example.com"
+    code = "CodeExample"
   }
 }
 ```
@@ -231,7 +252,7 @@ resource "cpln_secret" "azure-sdk-secret" {
 }
 ```
 
-**For `dictionary` secret**
+**For `dictionary` secret:**
 
 ```yaml
 kind: secret
@@ -240,7 +261,7 @@ description: dictionary
 tags: {}
 type: dictionary
 data:
-  sdfdsf: '2222'
+  example: 'value'
 ```
 
 Will transform to Terraform config:
@@ -252,7 +273,7 @@ resource "cpln_secret" "dictionary" {
   tags = {
   }
   dictionary = {
-    sdfdsf = "2222"
+    example = "value"
   }
 }
 ```
@@ -355,3 +376,104 @@ resource "cpln_volume_set" "postgres-poc-vs" {
   }
 }
 ```
+
+#### Workload
+
+CPLN template in YAML format:
+
+```yaml
+kind: workload
+name: rails
+spec:
+  type: standard
+  containers:
+    - name: rails
+      cpu: 300m
+      env:
+        - name: LOG_LEVEL
+          value: debug
+      inheritEnv: true
+      image: {{APP_IMAGE_LINK}}
+      memory: 512Mi
+      ports:
+        - number: 3000
+          protocol: http
+  defaultOptions:
+    autoscaling:
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    external:
+      # Default to allow public access to Rails server
+      inboundAllowCIDR:
+        - 0.0.0.0/0
+      # Could configure outbound for more security
+      outboundAllowCIDR:
+        - 0.0.0.0/0
+```
+
+Will be transformed to Terraform configs:
+
+- **`rails.tf`**
+
+```terraform
+module "rails" {
+  source = "../workload"
+  type = "standard"
+  name = "rails"
+  gvc = cpln_gvc.my-app-production.name
+  containers = {
+    rails: {
+      image: "/org/shakacode-demo/image/my-app-production:rails",
+      cpu: "300m",
+      memory: "512Mi",
+      inherit_env: true,
+      envs: local.rails_envs,
+      ports: [
+        {
+          number: 3000,
+          protocol: "http"
+        }
+      ]
+    }
+  }
+  options = {
+    autoscaling: {
+      max_scale: 1
+    }
+    capacity_ai: false
+  }
+  firewall_spec = {
+    external: {
+      inbound_allow_cidr: [
+        "0.0.0.0/0"
+      ],
+      outbound_allow_cidr: [
+        "0.0.0.0/0"
+      ]
+    }
+  }
+}
+```
+
+Notice `source: ../workload` line - there is common `workload` module which is used for generating Terraform configs from workload templates:
+```
+workload/
+├── main.tf -- Configurable workload resource in HCL
+├── variables.tf -- Variables used to configure workload resource above
+```
+
+- **`rails_envs.tf`**
+
+```terraform
+locals {
+  rails_envs = {
+    LOG_LEVEL = "debug"
+  }
+}
+```
+
+### References
+
+- [Control Plane Terraform Provider](https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs)
+- [Terraform Provider Plugin](https://shakadocs.controlplane.com/terraform/installation#terraform-provider-plugin)
