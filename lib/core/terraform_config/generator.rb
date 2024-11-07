@@ -2,7 +2,7 @@
 
 module TerraformConfig
   class Generator # rubocop:disable Metrics/ClassLength
-    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload].freeze
+    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload agent].freeze
     WORKLOAD_SPEC_KEYS = %i[
       type
       containers
@@ -102,6 +102,10 @@ module TerraformConfig
       ].to_h { |key| [key, template.dig(:spec, key)] }
 
       template.slice(:name, :description, :tags).merge(gvc: gvc).merge(specs)
+    end
+
+    def agent_config_params
+      template.slice(:name, :description, :tags)
     end
 
     def workload_config_params
