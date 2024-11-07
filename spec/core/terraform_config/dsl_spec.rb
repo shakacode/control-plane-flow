@@ -128,7 +128,7 @@ describe TerraformConfig::Dsl do
   context "when argument's value is an expression" do
     subject(:generated) do
       block :test do
-        argument :local_var, "locals.local_var"
+        argument :local_var, "local.local_var"
         argument :input_var, "var.input_var"
         argument :non_expression_var, "non_expression_value"
       end
@@ -138,9 +138,56 @@ describe TerraformConfig::Dsl do
       expect(generated).to eq(
         <<~EXPECTED
           test {
-            local_var = locals.local_var
+            local_var = local.local_var
             input_var = var.input_var
             non_expression_var = "non_expression_value"
+          }
+        EXPECTED
+      )
+    end
+  end
+
+  context "with optional arguments" do
+    subject(:generated) do
+      block :optional_test do
+        argument :optional_arg, nil, optional: true
+        argument :required_arg, "value"
+      end
+    end
+
+    it "generates correct config without optional argument" do
+      expect(generated).to eq(
+        <<~EXPECTED
+          optional_test {
+            required_arg = "value"
+          }
+        EXPECTED
+      )
+    end
+  end
+
+  context "with raw hash argument" do
+    subject(:generated) do
+      block :raw_hash_test do
+        argument :raw_hash_argument,
+                 {
+                   non_expression_var: "non_expression_value",
+                   input_var: "var.input_var",
+                   local_var: "local.local_var"
+                 },
+                 raw: true
+      end
+    end
+
+    it "generates correct config with raw hash argument" do
+      expect(generated).to eq(
+        <<~EXPECTED
+          raw_hash_test {
+            raw_hash_argument = {
+              non_expression_var: "non_expression_value"
+              input_var: var.input_var
+              local_var: local.local_var
+            }
           }
         EXPECTED
       )

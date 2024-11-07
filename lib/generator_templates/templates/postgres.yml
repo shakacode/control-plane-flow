@@ -133,7 +133,7 @@ spec:
           value: cpln://secret/postgres-poc-credentials.password
         - name: POSTGRES_USER #The name of the default user
           value: cpln://secret/postgres-poc-credentials.username
-      name: stateful
+      name: postgres
       image: postgres:15
       command: /bin/bash
       args:

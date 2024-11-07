@@ -50,8 +50,16 @@ describe TerraformConfig::Generator do
       }
     end
 
-    it "generates correct terraform config and filename for it", :aggregate_failures do
-      tf_config = generator.tf_config
+    it "generates correct terraform configs", :aggregate_failures do
+      expected_filename = "gvc.tf"
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(1)
+
+      filenames = tf_configs.keys
+      expect(filenames).to contain_exactly(expected_filename)
+
+      tf_config = tf_configs[expected_filename]
       expect(tf_config).to be_an_instance_of(TerraformConfig::Gvc)
 
       expect(tf_config.name).to eq(config.app)
@@ -69,9 +77,6 @@ describe TerraformConfig::Generator do
         }
       )
       expect(tf_config.load_balancer).to eq({ dedicated: true, trusted_proxies: 1 })
-
-      tf_filename = generator.filename
-      expect(tf_filename).to eq("gvc.tf")
     end
   end
 
@@ -85,16 +90,21 @@ describe TerraformConfig::Generator do
       }
     end
 
-    it "generates correct terraform config and filename for it", :aggregate_failures do
-      tf_config = generator.tf_config
+    it "generates correct terraform configs", :aggregate_failures do
+      expected_filename = "identities.tf"
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(1)
+
+      filenames = tf_configs.keys
+      expect(filenames).to contain_exactly(expected_filename)
+
+      tf_config = tf_configs[expected_filename]
       expect(tf_config).to be_an_instance_of(TerraformConfig::Identity)
 
       expect(tf_config.name).to eq("identity-name")
       expect(tf_config.description).to eq("description")
       expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
-
-      tf_filename = generator.filename
-      expect(tf_filename).to eq("identities.tf")
     end
   end
 
@@ -111,15 +121,20 @@ describe TerraformConfig::Generator do
     end
 
     it "generates correct terraform config and filename for it", :aggregate_failures do
-      tf_config = generator.tf_config
+      expected_filename = "secrets.tf"
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(1)
+
+      filenames = tf_configs.keys
+      expect(filenames).to contain_exactly(expected_filename)
+
+      tf_config = tf_configs[expected_filename]
       expect(tf_config).to be_an_instance_of(TerraformConfig::Secret)
 
       expect(tf_config.name).to eq("secret-name")
       expect(tf_config.description).to eq("description")
       expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
-
-      tf_filename = generator.filename
-      expect(tf_filename).to eq("secrets.tf")
     end
   end
 
@@ -149,8 +164,16 @@ describe TerraformConfig::Generator do
       }
     end
 
-    it "generates correct terraform config and filename for it", :aggregate_failures do
-      tf_config = generator.tf_config
+    it "generates correct terraform configs", :aggregate_failures do
+      expected_filename = "policies.tf"
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(1)
+
+      filenames = tf_configs.keys
+      expect(filenames).to contain_exactly(expected_filename)
+
+      tf_config = tf_configs[expected_filename]
       expect(tf_config).to be_an_instance_of(TerraformConfig::Policy)
 
       expect(tf_config.name).to eq("policy-name")
@@ -169,9 +192,6 @@ describe TerraformConfig::Generator do
           principal_links: %w[user/fake-user@fake-email.com]
         }
       )
-
-      tf_filename = generator.filename
-      expect(tf_filename).to eq("policies.tf")
     end
   end
 
@@ -202,7 +222,15 @@ describe TerraformConfig::Generator do
     end
 
     it "generates correct terraform config and filename for it", :aggregate_failures do
-      tf_config = generator.tf_config
+      expected_filename = "volumesets.tf"
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(1)
+
+      filenames = tf_configs.keys
+      expect(filenames).to contain_exactly(expected_filename)
+
+      tf_config = tf_configs[expected_filename]
       expect(tf_config).to be_an_instance_of(TerraformConfig::VolumeSet)
 
       expect(tf_config.name).to eq("volume-set-name")
@@ -222,9 +250,285 @@ describe TerraformConfig::Generator do
         min_free_percentage: 20,
         scaling_factor: 1.5
       )
+    end
+  end
 
-      tf_filename = generator.filename
-      expect(tf_filename).to eq("volumesets.tf")
+  context "when template's kind is workload" do
+    let(:template) do
+      {
+        "kind" => "workload",
+        "name" => "main",
+        "description" => "main workload description",
+        "tags" => {
+          "tag1" => "tag1_value",
+          "tag2" => "tag2_value"
+        },
+        "spec" => {
+          "type" => "standard",
+          "containers" => [
+            {
+              "name" => "rails",
+              "cpu" => "500m",
+              "env" => [
+                { "name" => "RACK_ENV", "value" => "production" },
+                { "name" => "RAILS_ENV", "value" => "production" },
+                { "name" => "SECRET_KEY_BASE", "value" => "SECRET_VALUE" }
+              ],
+              "image" => "/org/org-name/image/rails:7",
+              "inheritEnv" => false,
+              "memory" => "512Mi",
+              "ports" => [{ "number" => 3000, "protocol" => "http" }]
+            },
+            {
+              "name" => "redis",
+              "cpu" => "500m",
+              "image" => "redis",
+              "inheritEnv" => true,
+              "memory" => "512Mi"
+            },
+            {
+              "name" => "postgres",
+              "args" => [
+                "-c",
+                "cat /usr/local/bin/cpln-entrypoint.sh >> ./cpln-entrypoint.sh && " \
+                "chmod u+x ./cpln-entrypoint.sh && " \
+                "./cpln-entrypoint.sh postgres"
+              ],
+              "command" => "/bin/bash",
+              "cpu" => "500m",
+              "env" => [
+                { "name" => "POSTGRES_PASSWORD", "value" => "FAKE_PASSWORD" },
+                { "name" => "TZ", "value" => "UTC" }
+              ],
+              "image" => "ubuntu/postgres:14-22.04_beta",
+              "livenessProbe" => {
+                "failureThreshold" => 1,
+                "initialDelaySeconds" => 10,
+                "periodSeconds" => 10,
+                "successThreshold" => 1,
+                "tcpSocket" => { "port" => 5432 },
+                "timeoutSeconds" => 1
+              },
+              "readinessProbe" => {
+                "failureThreshold" => 1,
+                "initialDelaySeconds" => 10,
+                "periodSeconds" => 10,
+                "successThreshold" => 1,
+                "tcpSocket" => { "port" => 5432 },
+                "timeoutSeconds" => 1
+              },
+              "volumes" => [
+                {
+                  "path" => "/var/lib/postgresql/data",
+                  "recoveryPolicy" => "retain",
+                  "uri" => "cpln://volumeset/postgres-poc-vs"
+                },
+                {
+                  "path" => "/usr/local/bin/cpln-entrypoint.sh",
+                  "recoveryPolicy" => "retain",
+                  "uri" => "cpln://secret/postgres-poc-entrypoint-script"
+                }
+              ],
+              "inheritEnv" => false,
+              "memory" => "512Mi"
+            }
+          ],
+          "defaultOptions" => {
+            "autoscaling" => {
+              "maxConcurrency" => 0,
+              "maxScale" => 1,
+              "metric" => "cpu",
+              "metricPercentile" => 25,
+              "minScale" => 1,
+              "scaleToZeroDelay" => 300,
+              "target" => 95
+            },
+            "capacityAI" => false,
+            "debug" => false,
+            "suspend" => true,
+            "timeoutSeconds" => 5
+          },
+          "localOptions" => {
+            "location" => "//location/aws-us-west-2",
+            "autoscaling" => {
+              "maxConcurrency" => 1,
+              "maxScale" => 1,
+              "metric" => "disabled",
+              "scaleToZeroDelay" => 100,
+              "target" => 85
+            },
+            "capacityAI" => true,
+            "debug" => true,
+            "suspend" => false,
+            "timeoutSeconds" => 15
+          },
+          "securityOptions" => {
+            "filesystemGroupId" => 1
+          },
+          "rolloutOptions" => {
+            "minReadySeconds" => 15,
+            "maxUnavailableReplicas" => "10",
+            "maxSurgeReplicas" => "20",
+            "scalingPolicy" => "Parallel"
+          },
+          "firewallConfig" => {
+            "external" => {
+              "inboundAllowCIDR" => ["0.0.0.0/0"],
+              "outboundAllowCIDR" => [],
+              "outboundAllowHostname" => [],
+              "outboundAllowPort" => [
+                {
+                  "protocol" => "tcp",
+                  "number" => 80
+                }
+              ]
+            },
+            "internal" => {
+              "inboundAllowType" => "same-gvc",
+              "inboundAllowWorkload" => []
+            }
+          },
+          "identityLink" => "//gvc/gvc-name/identity/identity-name",
+          "supportDynamicTags" => true,
+          "loadBalancer" => {
+            "direct" => {
+              "enabled" => true,
+              "ports" => [
+                {
+                  "externalPort" => 8080,
+                  "protocol" => "tcp",
+                  "scheme" => "https",
+                  "containerPort" => 443
+                },
+                {
+                  "externalPort" => 443,
+                  "protocol" => "udp",
+                  "scheme" => "http"
+                }
+              ]
+            },
+            "geoLocation" => {
+              "enabled" => true,
+              "headers" => {
+                "asn" => "asn",
+                "city" => "city",
+                "country" => "country",
+                "region" => "region"
+              }
+            }
+          }
+        }
+      }
+    end
+
+    it "generates correct terraform configs", :aggregate_failures do
+      expected_filenames = %w[main.tf rails_envs.tf postgres_envs.tf]
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(3)
+
+      filenames = tf_configs.keys
+      expect(filenames).to match_array(expected_filenames)
+
+      rails_envs = tf_configs["rails_envs.tf"]
+      expect(rails_envs).to be_an_instance_of(TerraformConfig::LocalVariable)
+      expect(rails_envs.variables).to eq(
+        rails_envs: {
+          "RACK_ENV" => "production",
+          "RAILS_ENV" => "production",
+          "SECRET_KEY_BASE" => "SECRET_VALUE"
+        }
+      )
+
+      postgres_envs = tf_configs["postgres_envs.tf"]
+      expect(postgres_envs).to be_an_instance_of(TerraformConfig::LocalVariable)
+      expect(postgres_envs.variables).to eq(
+        postgres_envs: {
+          "POSTGRES_PASSWORD" => "FAKE_PASSWORD",
+          "TZ" => "UTC"
+        }
+      )
+
+      main_tf_config = tf_configs["main.tf"]
+      expect(main_tf_config).to be_an_instance_of(TerraformConfig::Workload)
+      expect(main_tf_config.name).to eq("main")
+      expect(main_tf_config.description).to eq("main workload description")
+      expect(main_tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
+
+      expect(main_tf_config.support_dynamic_tags).to be(true)
+      expect(main_tf_config.firewall_spec).to eq(
+        external: {
+          inbound_allow_cidr: ["0.0.0.0/0"],
+          outbound_allow_cidr: [],
+          outbound_allow_hostname: [],
+          outbound_allow_port: [{ protocol: "tcp", number: 80 }]
+        },
+        internal: {
+          inbound_allow_type: "same-gvc",
+          inbound_allow_workload: []
+        }
+      )
+
+      expect(main_tf_config.identity).to eq("cpln_identity.identity-name")
+      expect(main_tf_config.options).to eq(
+        autoscaling: {
+          max_concurrency: 0,
+          max_scale: 1,
+          metric: "cpu",
+          metric_percentile: 25,
+          min_scale: 1,
+          scale_to_zero_delay: 300,
+          target: 95
+        },
+        capacity_ai: false,
+        debug: false,
+        suspend: true,
+        timeout_seconds: 5
+      )
+
+      expect(main_tf_config.local_options).to eq(
+        location: "aws-us-west-2",
+        autoscaling: {
+          max_concurrency: 1,
+          max_scale: 1,
+          metric: "disabled",
+          scale_to_zero_delay: 100,
+          target: 85
+        },
+        capacity_ai: true,
+        debug: true,
+        suspend: false,
+        timeout_seconds: 15
+      )
+
+      expect(main_tf_config.rollout_options).to eq(
+        min_ready_seconds: 15,
+        max_unavailable_replicas: "10",
+        max_surge_replicas: "20",
+        scaling_policy: "Parallel"
+      )
+
+      expect(main_tf_config.security_options).to eq(file_system_group_id: 1)
+      expect(main_tf_config.load_balancer).to eq(
+        direct: {
+          enabled: true,
+          ports: [
+            { external_port: 8080, protocol: "tcp", scheme: "https", container_port: 443 },
+            { external_port: 443, protocol: "udp", scheme: "http" }
+          ]
+        },
+        geo_location: {
+          enabled: true,
+          headers: {
+            asn: "asn",
+            city: "city",
+            country: "country",
+            region: "region"
+          }
+        }
+      )
+
+      expect(main_tf_config.job).to be_nil
     end
   end
 end

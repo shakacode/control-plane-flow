@@ -4,7 +4,7 @@ module TerraformConfig
   module Dsl
     extend Forwardable
 
-    REFERENCE_PATTERN = /^(var|locals|cpln_\w+)\./.freeze
+    EXPRESSION_PATTERN = /(var|local|cpln_\w+)\./.freeze
 
     def_delegators :current_context, :put, :output
 
@@ -19,12 +19,13 @@ module TerraformConfig
       output.unindent
     end
 
-    def argument(name, value, optional: false)
+    def argument(name, value, optional: false, raw: false)
       return if value.nil? && optional
 
       content =
         if value.is_a?(Hash)
-          "{\n#{value.map { |n, v| "#{n} = #{tf_value(v)}" }.join("\n").indent(2)}\n}\n"
+          operator = raw ? ": " : " = "
+          "{\n#{value.map { |n, v| "#{n}#{operator}#{tf_value(v)}" }.join("\n").indent(2)}\n}\n"
         else
           "#{tf_value(value)}\n"
         end
@@ -34,18 +35,34 @@ module TerraformConfig
 
     private
 
-    def tf_value(value, heredoc_delimiter: "EOF", multiline_indent: 2)
+    def tf_value(value)
       value = value.to_s if value.is_a?(Symbol)
 
-      return value unless value.is_a?(String)
+      case value
+      when String
+        tf_string_value(value)
+      when Hash
+        tf_hash_value(value)
+      else
+        value
+      end
+    end
+
+    def tf_string_value(value)
       return value if expression?(value)
       return "\"#{value}\"" unless value.include?("\n")
 
-      "#{heredoc_delimiter}\n#{value.indent(multiline_indent)}\n#{heredoc_delimiter}"
+      "EOF\n#{value.indent(2)}\nEOF"
+    end
+
+    def tf_hash_value(value)
+      JSON.pretty_generate(value.crush)
+          .gsub(/"(\w+)":/) { "#{::Regexp.last_match(1)}:" } # remove quotes from keys
+          .gsub(/("#{EXPRESSION_PATTERN}.*")/) { ::Regexp.last_match(1)[1...-1] } # remove quotes from expression values
     end
 
     def expression?(value)
-      value.match?(REFERENCE_PATTERN)
+      value.match?(/^#{EXPRESSION_PATTERN}/)
     end
 
     def block_declaration(name, labels)
