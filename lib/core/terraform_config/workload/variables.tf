@@ -133,10 +133,8 @@ variable "gvc" {
   type = string
 }
 
-variable "identity" {
-  type = object({
-    self_link = string
-  })
+variable "identity_link" {
+  type = string
   default = null
 }
 

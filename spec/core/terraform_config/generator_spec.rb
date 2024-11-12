@@ -469,7 +469,7 @@ describe TerraformConfig::Generator do
         }
       )
 
-      expect(main_tf_config.identity).to eq("cpln_identity.identity-name")
+      expect(main_tf_config.identity_link).to eq("//gvc/gvc-name/identity/identity-name")
       expect(main_tf_config.options).to eq(
         autoscaling: {
           max_concurrency: 0,

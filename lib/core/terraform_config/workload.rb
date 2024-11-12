@@ -21,7 +21,7 @@ module TerraformConfig
     ].freeze
 
     attr_reader :type, :name, :gvc, :containers,
-                :description, :tags, :support_dynamic_tags, :firewall_spec, :identity,
+                :description, :tags, :support_dynamic_tags, :firewall_spec, :identity_link,
                 :options, :local_options, :rollout_options, :security_options, :load_balancer, :job
 
     def initialize( # rubocop:disable Metrics/ParameterLists, Metrics/MethodLength
@@ -33,7 +33,7 @@ module TerraformConfig
       tags: nil,
       support_dynamic_tags: false,
       firewall_spec: nil,
-      identity: nil,
+      identity_link: nil,
       options: nil,
       local_options: nil,
       rollout_options: nil,
@@ -52,7 +52,7 @@ module TerraformConfig
 
       @containers = containers
       @firewall_spec = firewall_spec
-      @identity = identity
+      @identity_link = identity_link
 
       @options = options
       @local_options = local_options
@@ -71,7 +71,7 @@ module TerraformConfig
         argument :type, type
         argument :name, name
         argument :gvc, gvc
-        argument :identity, identity, optional: true
+        argument :identity_link, identity_link, optional: true
         argument :support_dynamic_tags, support_dynamic_tags, optional: true
 
         RAW_ARGS.each { |arg_name| argument arg_name, send(:"#{arg_name}_arg"), raw: true, optional: true }
