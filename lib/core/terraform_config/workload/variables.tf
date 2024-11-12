@@ -153,7 +153,7 @@ variable "load_balancer" {
   type = object({
     direct = optional(
       object({
-        enabled = number
+        enabled = bool
         port = optional(
           list(
             object({
