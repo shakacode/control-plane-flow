@@ -1,0 +1,30 @@
+kind: workload
+name: postgres
+spec:
+  type: standard
+  containers:
+    - name: postgres
+      cpu: 500m
+      env:
+        - name: POSTGRES_USER
+          value: "user"
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        - name: POSTGRES_DB
+          value: "rails_app"
+      inheritEnv: true
+      image: "postgres:latest"
+      memory: 1Gi
+      ports:
+        - number: 5432
+          protocol: tcp
+  defaultOptions:
+    autoscaling:
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    external:
+      inboundAllowCIDR:
+        - 0.0.0.0/0
+      outboundAllowCIDR:
+        - 0.0.0.0/0

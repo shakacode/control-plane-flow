@@ -1,0 +1,29 @@
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
+aliases:
+  common: &common
+    cpln_org: my-org-staging
+    default_location: aws-us-east-2
+    setup_app_templates:
+      - app
+      - postgres
+      - rails
+    one_off_workload: rails
+    app_workloads:
+      - rails
+    additional_workloads:
+      - postgres
+apps:
+  rails-app-staging:
+    <<: *common
+    hooks:
+      post_creation: bundle exec rake db:prepare
+      pre_deletion: bundle exec rake db:drop
+
+  rails-app-production:
+    <<: *common
+    allow_org_override_by_env: false
+    allow_app_override_by_env: false
+    cpln_org: my-org-production
+    upstream: rails-app-staging

@@ -1,0 +1,26 @@
+kind: workload
+name: rails
+spec:
+  type: standard
+  containers:
+    - name: rails
+      cpu: 300m
+      env:
+        - name: LOG_LEVEL
+          value: debug
+      inheritEnv: true
+      image: "org-name/rails:latest"
+      memory: 512Mi
+      ports:
+        - number: 3000
+          protocol: http
+  defaultOptions:
+    autoscaling:
+      maxScale: 1
+    capacityAI: false
+  firewallConfig:
+    external:
+      inboundAllowCIDR:
+        - 0.0.0.0/0
+      outboundAllowCIDR:
+        - 0.0.0.0/0

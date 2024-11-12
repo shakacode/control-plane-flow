@@ -1,0 +1,39 @@
+kind: gvc
+name: {{APP_NAME}}
+description: Global Virtual Cloud for Rails Application
+spec:
+  env:
+    - name: DATABASE_URL
+      value: "postgres://user:password@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}"
+    - name: RAILS_ENV
+      value: production
+    - name: RAILS_SERVE_STATIC_FILES
+      value: "true"
+  staticPlacement:
+    locationLinks:
+      - {{APP_LOCATION_LINK}}
+  pullSecretLinks:
+    - "/org/org-name/secret/rails-app-secret"
+  loadBalancer:
+    dedicated: true
+    trustedProxies: 0
+
+---
+
+kind: identity
+name: rails-app-identity
+description: Identity for Rails Application
+tags:
+  environment: production
+
+---
+
+kind: secret
+name: rails-app-secret
+description: Secret for Rails Application
+type: aws
+data:
+  accessKey: 'AccessKeyExample'
+  secretKey: 'SecretKeyExample'
+  region: 'us-west-2'
+

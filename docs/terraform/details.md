@@ -1,65 +1,3 @@
-# Terraform
-
-### Overview
-
-You can manage your CPLN configuration through `cpflow` commands and later invoke the generation of Terraform configuration files by running:
-
-```sh
-cpflow terraform generate
-```
-
-This command will create Terraform configurations for each application defined in `controlplane.yml`, utilizing templates from the `templates` folder.
-
-Each time this command is invoked, Terraform configurations will be recreated, terraform lock file will be preserved. You can continue working with CPLN configuration files in YAML format and simply transform them to Terraform format at any time.
-
-### Project Structure
-
-Given the project structure below:
-
-```
-.controlplane/
-├── templates/
-│   ├── app.yml -- GVC config
-│   ├── postgres.yml -- workload config
-│   └── rails.yml -- workload config
-├── controlplane.yml -- configs for overall application
-├── Dockerfile -- Docker configuration for the application
-└── entrypoint.sh -- Entry point script for the application
-```
-
-Invoking `cpflow terraform generate` will generate a new `terraform` folder with subfolders containing Terraform configurations for each application described in `controlplane.yml`:
-
-```
-.controlplane/
-├── templates/
-│   ├── app.yml -- GVC config
-│   ├── postgres.yml -- workload config
-│   └── rails.yml -- workload config
-├── terraform/
-│   ├── staging/ -- Terraform configurations for staging environment
-│   │   ├── gvc.tf -- GVC config in HCL
-│   │   ├── postgres.tf -- Postgres workload config in HCL
-│   │   ├── postgres_envs.tf -- ENV variables for Postgres workload in HCL
-│   │   ├── rails.tf -- Rails workload config in HCL
-│   │   ├── rails_envs.tf -- ENV variables for Rails workload in HCL
-│   │   ├── providers.tf -- Providers config in HCL
-│   │   └── required_providers.tf -- Required providers config in HCL
-│   ├── production/ -- Terraform configurations for production environment
-│   │   ├── gvc.tf -- GVC config in HCL
-│   │   ├── postgres.tf -- Postgres workload config in HCL
-│   │   ├── postgres_envs.tf -- ENV variables for Postgres workload in HCL
-│   │   ├── rails.tf -- Rails workload config in HCL
-│   │   ├── rails_envs.tf -- ENV variables for Rails workload in HCL
-│   │   ├── providers.tf -- Providers config in HCL
-│   │   └── required_providers.tf -- Required providers config in HCL
-│   ├── workload/ -- Terraform configurations for workload module
-│   │   ├── main.tf -- Main config for workload resource in HCL
-│   │   └── variables.tf -- Variables used to create config for workload resource in HCL
-├── controlplane.yml -- configs for overall application
-├── Dockerfile -- Docker configuration for the application
-└── entrypoint.sh -- Entry point script for the application
-```
-
 ### Terraform Configurations from CPLN Templates
 
 #### Providers
@@ -87,7 +25,7 @@ provider "cpln" {
 }
 ```
 
-#### GVC
+#### GVC (Global Virtual Cloud)
 
 CPLN template in YAML format:
 
@@ -456,7 +394,7 @@ module "rails" {
 }
 ```
 
-Notice `source: ../workload` line - there is common `workload` module which is used for generating Terraform configs from workload templates:
+Notice the `source: ../workload` line - there is a common `workload` module which is used for generating Terraform configs from workload templates:
 ```
 workload/
 ├── main.tf -- Configurable workload resource in HCL
@@ -476,4 +414,3 @@ locals {
 ### References
 
 - [Control Plane Terraform Provider](https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs)
-- [Terraform Provider Plugin](https://shakadocs.controlplane.com/terraform/installation#terraform-provider-plugin)
