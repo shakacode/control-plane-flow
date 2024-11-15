@@ -32,7 +32,7 @@ module Command
       private
 
       def run_terraform_init
-        result = Shell.cmd("terraform init", capture_stderr: true)
+        result = Shell.cmd("terraform", "init", capture_stderr: true)
 
         if result[:success]
           Shell.info(result[:output])
@@ -42,7 +42,7 @@ module Command
       end
 
       def run_terraform_import(address, id)
-        result = Shell.cmd("terraform import #{address} #{id}", capture_stderr: true)
+        result = Shell.cmd("terraform", "import", address, id, capture_stderr: true)
         Shell.info(result[:output])
       end
 

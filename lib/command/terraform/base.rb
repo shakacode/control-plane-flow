@@ -2,7 +2,7 @@
 
 module Command
   module Terraform
-    class Base < Base
+    class Base < Command::Base
       private
 
       def templates

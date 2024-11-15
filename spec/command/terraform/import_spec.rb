@@ -73,7 +73,7 @@ describe Command::Terraform::Import do
     end
 
     def stub_terraform_init_with(success, output)
-      allow(Shell).to receive(:cmd).with("terraform init", capture_stderr: true).and_return(
+      allow(Shell).to receive(:cmd).with("terraform", "init", capture_stderr: true).and_return(
         success: success, output: output
       )
     end
@@ -104,9 +104,13 @@ describe Command::Terraform::Import do
   end
 
   describe "#run_terraform_import" do
-    subject(:terraform_import) { import_command.send(:run_terraform_import, "resource_address", "resource_id") }
+    subject(:terraform_import) { import_command.send(:run_terraform_import, resource_address, resource_id) }
+
+    let(:resource_address) { "resource_address" }
+    let(:resource_id) { "resource_id" }
 
     before do
+      allow(Shell).to receive(:cmd).and_call_original
       allow(Shell).to receive(:info)
       allow(Shell).to receive(:abort)
     end
@@ -135,9 +139,25 @@ describe Command::Terraform::Import do
       end
     end
 
+    context "with special characters in resource address and resource id" do
+      let(:resource_address) { "cpln_gvc.test-app;rm -rf /" }
+      let(:resource_id) { "test-app;rm -rf /" }
+
+      it "is protected from shell injection" do
+        terraform_import
+
+        expect(Shell).to have_received(:cmd).with(
+          "terraform", "import", resource_address, "test-app;rm -rf /",
+          capture_stderr: true
+        )
+
+        expect(Shell).to have_received(:info).with(/Invalid character/)
+      end
+    end
+
     def stub_terraform_import_with(success, output)
       allow(Shell).to receive(:cmd)
-        .with("terraform import resource_address resource_id", capture_stderr: true)
+        .with("terraform", "import", resource_address, resource_id, capture_stderr: true)
         .and_return(success: success, output: output)
     end
   end
