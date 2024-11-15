@@ -452,6 +452,14 @@ cpflow setup-app -a $APP_NAME
 cpflow terraform generate
 ```
 
+### `terraform import`
+
+- Imports terraform resources from the generated configuration files.
+
+```sh
+cpflow terraform import
+```
+
 ### `version`
 
 - Displays the current version of the CLI

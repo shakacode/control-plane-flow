@@ -5,6 +5,9 @@ require "spec_helper"
 describe TerraformConfig::Policy do
   let(:config) { described_class.new(**base_options.merge(extra_options)) }
 
+  let(:base_options) { { name: "policy-name" } }
+  let(:extra_options) { {} }
+
   describe "#to_tf" do
     subject(:generated) { config.to_tf }
 
@@ -176,5 +179,13 @@ describe TerraformConfig::Policy do
         expect { generated }.to raise_error(ArgumentError, "`gvc` is required for `identity` target kind")
       end
     end
+  end
+
+  it_behaves_like "importable terraform resource"
+
+  describe "#reference" do
+    subject { config.reference }
+
+    it { is_expected.to eq("cpln_policy.policy-name") }
   end
 end

@@ -182,4 +182,12 @@ describe TerraformConfig::VolumeSet do
       end
     end
   end
+
+  it_behaves_like "importable terraform resource"
+
+  describe "#reference" do
+    subject { config.reference }
+
+    it { is_expected.to eq("cpln_volume_set.test-volume-set") }
+  end
 end
