@@ -32,6 +32,7 @@ Suppose that you have CPLN configurations in YAML format for a Rails application
 │   ├── postgres.yml -- Workload config for PostgreSQL
 │   └── rails.yml -- Workload config for Rails
 └── controlplane.yml -- Configs for overall application
+```
 
 - **`controlplane.yml`**
 ```yaml
@@ -386,6 +387,20 @@ To deploy your application, follow these steps:
    ```sh
    terraform apply
    ```
+
+## Importing Existing Infrastructure
+
+In addition to generating Terraform configurations, you can also import existing infrastructure into Terraform management using the `cpflow terraform import` command. This is useful when you have resources that were created outside of Terraform and you want to manage them using Terraform going forward.
+
+### Usage
+
+To import existing resources, run the following command:
+
+```sh
+cpflow terraform import
+```
+
+This command will import resources defined in your `controlplane.yml` and `templates` folder into the Terraform state.
 
 ## References
 
