@@ -24,6 +24,7 @@ TEMPLATE_CONFIG_PATHS = %w[
   maintenance_envs
   maintenance-with-external-image
   audit_contexts
+  agents
 ].freeze
 
 describe Command::Terraform::Generate do
