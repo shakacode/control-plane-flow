@@ -2,7 +2,7 @@ resource "cpln_workload" "workload" {
   type = var.type
 
   gvc = var.gvc
-  identity_link = var.identity != null ? var.identity.self_link : null
+  identity_link = var.identity_link
 
   name = var.name
   description = var.description
@@ -19,6 +19,7 @@ resource "cpln_workload" "workload" {
       args = container.value.args
       command = container.value.command
       env = container.value.envs
+      inherit_env = container.value.inherit_env
       image = container.value.image
 
       cpu = container.value.cpu

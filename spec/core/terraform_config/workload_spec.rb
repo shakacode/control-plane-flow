@@ -9,7 +9,7 @@ describe TerraformConfig::Workload do
       description: "main workload description",
       tags: { tag1: "tag1_value", tag2: "tag2_value" },
       gvc: "cpln_gvc.app-name.name",
-      identity: "cpln_identity.identity-name",
+      identity_link: "//gvc/gvc-name/identity/app-identity",
       type: type,
       support_dynamic_tags: true,
       containers: containers,
@@ -35,7 +35,7 @@ describe TerraformConfig::Workload do
               type = "standard"
               name = "main"
               gvc = cpln_gvc.app-name.name
-              identity = cpln_identity.identity-name
+              identity_link = "//gvc/gvc-name/identity/app-identity"
               support_dynamic_tags = true
               containers = {
                 rails: {
