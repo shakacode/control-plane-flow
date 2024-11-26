@@ -19,6 +19,7 @@ resource "cpln_workload" "workload" {
       args = container.value.args
       command = container.value.command
       env = container.value.envs
+      inherit_env = container.value.inherit_env
       image = container.value.image
 
       cpu = container.value.cpu
