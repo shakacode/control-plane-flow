@@ -253,6 +253,34 @@ describe TerraformConfig::Generator do
     end
   end
 
+  context "when template's kind is auditctx" do
+    let(:template) do
+      {
+        "kind" => "auditctx",
+        "name" => "audit-context-name",
+        "description" => "audit context description",
+        "tags" => { "tag1" => "tag1_value", "tag2" => "tag2_value" }
+      }
+    end
+
+    it "generates correct terraform config and filename for it", :aggregate_failures do
+      expected_filename = "audit_contexts.tf"
+
+      tf_configs = generator.tf_configs
+      expect(tf_configs.count).to eq(1)
+
+      filenames = tf_configs.keys
+      expect(filenames).to contain_exactly(expected_filename)
+
+      tf_config = tf_configs[expected_filename]
+      expect(tf_config).to be_an_instance_of(TerraformConfig::AuditContext)
+
+      expect(tf_config.name).to eq("audit-context-name")
+      expect(tf_config.description).to eq("audit context description")
+      expect(tf_config.tags).to eq(tag1: "tag1_value", tag2: "tag2_value")
+    end
+  end
+
   context "when template's kind is workload" do
     let(:template) do
       {

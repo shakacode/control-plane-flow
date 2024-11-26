@@ -23,6 +23,7 @@ TEMPLATE_CONFIG_PATHS = %w[
   maintenance
   maintenance_envs
   maintenance-with-external-image
+  audit_contexts
   agents
 ].freeze
 
