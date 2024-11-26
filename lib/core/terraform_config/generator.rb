@@ -2,7 +2,7 @@
 
 module TerraformConfig
   class Generator # rubocop:disable Metrics/ClassLength
-    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload].freeze
+    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload auditctx agent].freeze
     WORKLOAD_SPEC_KEYS = %i[
       type
       containers
@@ -45,6 +45,8 @@ module TerraformConfig
         "gvc.tf"
       when "workload"
         "#{template[:name]}.tf"
+      when "auditctx"
+        "audit_contexts.tf"
       else
         "#{kind.pluralize}.tf"
       end
@@ -55,8 +57,11 @@ module TerraformConfig
     end
 
     def config_class
-      if kind == "volumeset"
+      case kind
+      when "volumeset"
         TerraformConfig::VolumeSet
+      when "auditctx"
+        TerraformConfig::AuditContext
       else
         TerraformConfig.const_get(kind.capitalize)
       end
@@ -103,6 +108,14 @@ module TerraformConfig
       ].to_h { |key| [key, template.dig(:spec, key)] }
 
       template.slice(:name, :description, :tags).merge(gvc: gvc).merge(specs)
+    end
+
+    def auditctx_config_params
+      template.slice(:name, :description, :tags)
+    end
+
+    def agent_config_params
+      template.slice(:name, :description, :tags)
     end
 
     def workload_config_params
