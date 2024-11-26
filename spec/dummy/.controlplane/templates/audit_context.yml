@@ -1,0 +1,5 @@
+kind: auditctx
+name: audit-context-name
+description: audit context description
+tags:
+  tag1: value1
