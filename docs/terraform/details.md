@@ -6,7 +6,7 @@ Terraform provider configurations are controlled via `required_providers.tf` and
 
 - **`required_providers.tf`**
 
-```terraform
+```hcl
 terraform {
   required_providers {
     cpln = {
@@ -19,7 +19,7 @@ terraform {
 
 - **`providers.tf`**
 
-```terraform
+```hcl
 provider "cpln" {
   org = "org-name-example"
 }
@@ -57,7 +57,7 @@ spec:
 
 Will transform to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_gvc" "app-name" {
   name = "app-name"
   description = "app-description"
@@ -95,7 +95,7 @@ tags:
 
 Will transform to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_identity" "postgres-poc-identity" {
   name = "postgres-poc-identity"
   description = "postgres-poc-identity"
@@ -126,7 +126,7 @@ data:
 
 Will transform to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_secret" "aws" {
   name = "aws"
   description = "aws"
@@ -155,7 +155,7 @@ data:
 
 Will transform to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_secret" "azure-connector" {
   name = "azure-connector"
   description = "azure_connector"
@@ -182,7 +182,7 @@ data: >-
 
 Will transform to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_secret" "azure-sdk-secret" {
   name = "azure-sdk-secret"
   description = "azure-sdk-secret"
@@ -204,7 +204,7 @@ data:
 
 Will transform to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_secret" "dictionary" {
   name = "dictionary"
   description = "dictionary"
@@ -249,7 +249,7 @@ bindings:
 
 Will be transformed to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_policy" "policy-name" {
   name = "policy-name"
   description = "policy description"
@@ -295,7 +295,7 @@ spec:
 
 Will be transformed to Terraform config:
 
-```terraform
+```hcl
 resource "cpln_volume_set" "postgres-poc-vs" {
   gvc = cpln_gvc.app-name.name
   name = "postgres-poc-vs"
@@ -342,10 +342,8 @@ spec:
     capacityAI: false
   firewallConfig:
     external:
-      # Default to allow public access to Rails server
       inboundAllowCIDR:
         - 0.0.0.0/0
-      # Could configure outbound for more security
       outboundAllowCIDR:
         - 0.0.0.0/0
 ```
@@ -354,7 +352,7 @@ Will be transformed to Terraform configs:
 
 - **`rails.tf`**
 
-```terraform
+```hcl
 module "rails" {
   source = "../workload"
   type = "standard"
@@ -398,12 +396,13 @@ Notice the `source: ../workload` line - there is a common `workload` module whic
 ```
 workload/
 ├── main.tf -- Configurable workload resource in HCL
+├── required_providers.tf -- Required providers for Terraform in HCL
 ├── variables.tf -- Variables used to configure workload resource above
 ```
 
 - **`rails_envs.tf`**
 
-```terraform
+```hcl
 locals {
   rails_envs = {
     LOG_LEVEL = "debug"

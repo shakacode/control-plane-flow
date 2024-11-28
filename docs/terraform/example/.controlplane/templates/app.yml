@@ -36,4 +36,3 @@ data:
   accessKey: 'AccessKeyExample'
   secretKey: 'SecretKeyExample'
   region: 'us-west-2'
-
