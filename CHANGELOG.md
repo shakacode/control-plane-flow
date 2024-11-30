@@ -20,6 +20,8 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Fixed potential infinite loop that could occur for a command if one of the execution steps fails and gets stuck. [PR 217](https://github.com/shakacode/control-plane-flow/pull/217) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
+- Fixed issue where app cannot be deleted because one of the workloads has a volumeset in-use. [PR 245](https://github.com/shakacode/control-plane-flow/pull/245) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+
 ## [4.0.0] - 2024-08-21
 
 ### Fixed
