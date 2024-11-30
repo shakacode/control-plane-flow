@@ -106,7 +106,7 @@ module Command
     def delete_volumesets
       @volumesets.each do |volumeset|
         step("Deleting volumeset '#{volumeset['name']}' from app '#{config.app}'") do
-          # If the volumeset is attached to a workloads, we need to delete the workloads first
+          # If the volumeset is attached to workloads, we need to delete the workloads first
           workloads = volumeset.dig("status", "workloadLinks")&.map { |workload_link| workload_link.split("/").last }
           workloads&.each { |workload| cp.delete_workload(workload) }
 
