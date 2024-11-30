@@ -33,7 +33,7 @@ describe TerraformConfig::Gvc do
             }
             domain = "app.example.com"
             locations = ["aws-us-east-1", "aws-us-east-2"]
-            pull_secrets = ["cpln_secret.docker.name"]
+            pull_secrets = [cpln_secret.docker.name]
             env = {
               var1 = "value"
               var2 = 1

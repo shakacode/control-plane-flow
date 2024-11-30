@@ -30,6 +30,9 @@ module TerraformConfig
           "#{tf_value(value)}\n"
         end
 
+      # remove quotes from expression values
+      content = content.gsub(/("#{EXPRESSION_PATTERN}.*")/) { ::Regexp.last_match(1)[1...-1] }
+
       put("#{name} = #{content}", indent: 2)
     end
 
@@ -58,7 +61,6 @@ module TerraformConfig
     def tf_hash_value(value)
       JSON.pretty_generate(value.crush)
           .gsub(/"(\w+)":/) { "#{::Regexp.last_match(1)}:" } # remove quotes from keys
-          .gsub(/("#{EXPRESSION_PATTERN}.*")/) { ::Regexp.last_match(1)[1...-1] } # remove quotes from expression values
     end
 
     def expression?(value)

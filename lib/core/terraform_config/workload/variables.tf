@@ -133,10 +133,8 @@ variable "gvc" {
   type = string
 }
 
-variable "identity" {
-  type = object({
-    self_link = string
-  })
+variable "identity_link" {
+  type = string
   default = null
 }
 
@@ -155,7 +153,7 @@ variable "load_balancer" {
   type = object({
     direct = optional(
       object({
-        enabled = number
+        enabled = bool
         port = optional(
           list(
             object({

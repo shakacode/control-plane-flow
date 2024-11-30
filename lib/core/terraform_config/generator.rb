@@ -2,10 +2,11 @@
 
 module TerraformConfig
   class Generator # rubocop:disable Metrics/ClassLength
-    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload].freeze
+    SUPPORTED_TEMPLATE_KINDS = %w[gvc secret identity policy volumeset workload auditctx agent].freeze
     WORKLOAD_SPEC_KEYS = %i[
       type
       containers
+      identity_link
       default_options
       local_options
       rollout_options
@@ -44,6 +45,8 @@ module TerraformConfig
         "gvc.tf"
       when "workload"
         "#{template[:name]}.tf"
+      when "auditctx"
+        "audit_contexts.tf"
       else
         "#{kind.pluralize}.tf"
       end
@@ -54,8 +57,11 @@ module TerraformConfig
     end
 
     def config_class
-      if kind == "volumeset"
+      case kind
+      when "volumeset"
         TerraformConfig::VolumeSet
+      when "auditctx"
+        TerraformConfig::AuditContext
       else
         TerraformConfig.const_get(kind.capitalize)
       end
@@ -104,10 +110,18 @@ module TerraformConfig
       template.slice(:name, :description, :tags).merge(gvc: gvc).merge(specs)
     end
 
+    def auditctx_config_params
+      template.slice(:name, :description, :tags)
+    end
+
+    def agent_config_params
+      template.slice(:name, :description, :tags)
+    end
+
     def workload_config_params
       template
         .slice(:name, :description, :tags)
-        .merge(gvc: gvc, identity: workload_identity)
+        .merge(gvc: gvc)
         .merge(workload_spec_params)
     end
 
@@ -161,13 +175,6 @@ module TerraformConfig
         principal_links = data.delete(:principal_links)&.map { |link| link.delete_prefix("//") }
         data.merge(principal_links: principal_links)
       end
-    end
-
-    def workload_identity
-      identity_link = template.dig(:spec, :identity_link)
-      return if identity_link.nil?
-
-      "cpln_identity.#{identity_link.split('/').last}"
     end
 
     def kind

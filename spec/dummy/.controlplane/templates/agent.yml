@@ -1,0 +1,5 @@
+kind: agent
+name: agent-name
+description: agent description
+tags:
+  tag1: value1
