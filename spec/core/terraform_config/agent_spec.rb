@@ -32,11 +32,5 @@ describe TerraformConfig::Agent do
     end
   end
 
-  it_behaves_like "importable terraform resource"
-
-  describe "#reference" do
-    subject { config.reference }
-
-    it { is_expected.to eq("cpln_agent.agent-name") }
-  end
+  it_behaves_like "importable terraform resource", reference: "cpln_agent.agent-name"
 end

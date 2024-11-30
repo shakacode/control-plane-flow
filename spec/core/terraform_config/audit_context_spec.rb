@@ -32,11 +32,5 @@ describe TerraformConfig::AuditContext do
     end
   end
 
-  it_behaves_like "importable terraform resource"
-
-  describe "#reference" do
-    subject { config.reference }
-
-    it { is_expected.to eq("cpln_audit_context.audit-context-name") }
-  end
+  it_behaves_like "importable terraform resource", reference: "cpln_audit_context.audit-context-name"
 end

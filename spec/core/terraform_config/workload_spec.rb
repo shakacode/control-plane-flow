@@ -445,13 +445,7 @@ describe TerraformConfig::Workload do
     end
   end
 
-  it_behaves_like "importable terraform resource"
-
-  describe "#reference" do
-    subject { config.reference }
-
-    it { is_expected.to eq("module.main.cpln_workload.workload") }
-  end
+  it_behaves_like "importable terraform resource", reference: "module.main.cpln_workload.workload"
 
   def postgres_container # rubocop:disable Metrics/MethodLength
     {

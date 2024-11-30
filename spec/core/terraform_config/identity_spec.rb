@@ -34,11 +34,5 @@ describe TerraformConfig::Identity do
     end
   end
 
-  it_behaves_like "importable terraform resource"
-
-  describe "#reference" do
-    subject { config.reference }
-
-    it { is_expected.to eq("cpln_identity.identity-name") }
-  end
+  it_behaves_like "importable terraform resource", reference: "cpln_identity.identity-name"
 end

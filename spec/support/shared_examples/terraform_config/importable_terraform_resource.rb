@@ -14,10 +14,16 @@ RSpec.shared_examples_for "unimportable terraform resource" do
   end
 end
 
-RSpec.shared_examples_for "importable terraform resource" do
+RSpec.shared_examples_for "importable terraform resource" do |reference:|
   describe "#importable?" do
     subject { config.importable? }
 
     it { is_expected.to be(true) }
+  end
+
+  describe "#reference" do
+    subject { config.reference }
+
+    it { is_expected.to eq(reference) }
   end
 end
