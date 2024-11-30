@@ -5,16 +5,16 @@ require "spec_helper"
 describe TerraformConfig::AuditContext do
   let(:config) { described_class.new(**options) }
 
+  let(:options) do
+    {
+      name: "audit-context-name",
+      description: "audit context description",
+      tags: { "tag1" => "true", "tag2" => "value" }
+    }
+  end
+
   describe "#to_tf" do
     subject(:generated) { config.to_tf }
-
-    let(:options) do
-      {
-        name: "audit-context-name",
-        description: "audit context description",
-        tags: { "tag1" => "true", "tag2" => "value" }
-      }
-    end
 
     it "generates correct config" do
       expect(generated).to eq(
@@ -30,5 +30,13 @@ describe TerraformConfig::AuditContext do
         EXPECTED
       )
     end
+  end
+
+  it_behaves_like "importable terraform resource"
+
+  describe "#reference" do
+    subject { config.reference }
+
+    it { is_expected.to eq("cpln_audit_context.audit-context-name") }
   end
 end

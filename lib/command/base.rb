@@ -45,12 +45,12 @@ module Command
       @config = config
     end
 
-    def self.all_commands # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
+    def self.all_commands # rubocop:disable Metrics/MethodLength
       Dir["#{__dir__}/**/*.rb"].each_with_object({}) do |file, result|
         content = File.read(file)
 
-        classname = content.match(/^\s+class (\w+) < (?:.*Base)(?:$| .*$)/)&.captures&.first
-        next if classname.nil? || classname == "Base"
+        classname = content.match(/^\s+class (?!Base\b)(\w+) < (?:.*(?!Command::)Base)(?:$| .*$)/)&.captures&.first
+        next unless classname
 
         namespaces = content.scan(/^\s+module (\w+)/).flatten
         full_classname = [*namespaces, classname].join("::").prepend("::")

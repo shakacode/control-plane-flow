@@ -11,7 +11,7 @@ module Command
       ].freeze
       DESCRIPTION = "Imports terraform resources"
       LONG_DESCRIPTION = <<~DESC
-        - Imports terraform resources from the generated configuration files.
+        - Imports terraform resources from the generated configuration files
       DESC
       WITH_INFO_HEADER = false
 
@@ -62,7 +62,9 @@ module Command
 
       def resource_id(tf_config)
         case tf_config
-        when TerraformConfig::Gvc, TerraformConfig::Policy, TerraformConfig::Secret
+        when TerraformConfig::Gvc, TerraformConfig::Policy,
+             TerraformConfig::Secret, TerraformConfig::Agent,
+             TerraformConfig::AuditContext
           tf_config.name
         else
           "#{config.app}:#{tf_config.name}"

@@ -454,7 +454,7 @@ cpflow terraform generate
 
 ### `terraform import`
 
-- Imports terraform resources from the generated configuration files.
+- Imports terraform resources from the generated configuration files
 
 ```sh
 cpflow terraform import

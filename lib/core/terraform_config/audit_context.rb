@@ -12,6 +12,14 @@ module TerraformConfig
       @tags = tags
     end
 
+    def importable?
+      true
+    end
+
+    def reference
+      "cpln_audit_context.#{name}"
+    end
+
     def to_tf
       block :resource, :cpln_audit_context, name do
         argument :name, name
