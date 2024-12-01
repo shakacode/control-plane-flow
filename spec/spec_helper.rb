@@ -130,6 +130,7 @@ RSpec.configure do |config|
   config.include CommandHelpers
   config.include DateTimeHelpers
   config.include StubENV
+  config.include VerifiedDouble
 
   config.verbose_retry = true
   config.display_try_failure_messages = true

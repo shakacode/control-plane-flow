@@ -41,6 +41,14 @@ module TerraformConfig
       @bindings = bindings&.map { |data| data.deep_underscore_keys.deep_symbolize_keys }
     end
 
+    def importable?
+      true
+    end
+
+    def reference
+      "cpln_policy.#{name}"
+    end
+
     def to_tf
       block :resource, :cpln_policy, name do
         argument :name, name

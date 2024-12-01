@@ -182,4 +182,6 @@ describe TerraformConfig::VolumeSet do
       end
     end
   end
+
+  it_behaves_like "importable terraform resource", reference: "cpln_volume_set.test-volume-set"
 end

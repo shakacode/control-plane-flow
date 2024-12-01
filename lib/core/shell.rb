@@ -5,10 +5,6 @@ class Shell
     attr_reader :tmp_stderr, :verbose
   end
 
-  def self.shell
-    @shell ||= Thor::Shell::Color.new
-  end
-
   def self.use_tmp_stderr
     @tmp_stderr = Tempfile.create
 
@@ -33,6 +29,10 @@ class Shell
 
   def self.confirm(message)
     shell.yes?("#{message} (y/N)")
+  end
+
+  def self.info(message)
+    shell.say(message)
   end
 
   def self.warn(message)
@@ -97,4 +97,9 @@ class Shell
       exit(ExitCode::INTERRUPT)
     end
   end
+
+  def self.shell
+    @shell ||= Thor::Shell::Color.new
+  end
+  private_class_method :shell
 end

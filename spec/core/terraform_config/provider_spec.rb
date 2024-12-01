@@ -5,12 +5,12 @@ require "spec_helper"
 describe TerraformConfig::Provider do
   let(:config) { described_class.new(name: name, **options) }
 
-  describe "#to_tf" do
-    subject(:generated) { config.to_tf }
+  context "when provider is cpln" do
+    let(:name) { "cpln" }
+    let(:options) { { org: "test-org" } }
 
-    context "when provider is cpln" do
-      let(:name) { "cpln" }
-      let(:options) { { org: "test-org" } }
+    describe "#to_tf" do
+      subject(:generated) { config.to_tf }
 
       it "generates correct config" do
         expect(generated).to eq(
@@ -22,5 +22,7 @@ describe TerraformConfig::Provider do
         )
       end
     end
+
+    it_behaves_like "unimportable terraform resource"
   end
 end

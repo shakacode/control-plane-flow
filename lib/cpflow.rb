@@ -17,6 +17,7 @@ require_relative "constants/exit_code"
 
 # We need to require base before all commands, since the commands inherit from it
 require_relative "command/base"
+require_relative "command/terraform/base"
 # We need to require base terraform config before all commands, since the terraform configs inherit from it
 require_relative "core/terraform_config/base"
 

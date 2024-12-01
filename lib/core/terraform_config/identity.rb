@@ -13,6 +13,14 @@ module TerraformConfig
       @tags = tags
     end
 
+    def importable?
+      true
+    end
+
+    def reference
+      "cpln_identity.#{name}"
+    end
+
     def to_tf
       block :resource, :cpln_identity, name do
         argument :gvc, gvc

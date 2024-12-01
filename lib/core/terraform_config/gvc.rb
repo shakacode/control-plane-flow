@@ -26,6 +26,14 @@ module TerraformConfig
       @load_balancer = load_balancer&.deep_underscore_keys&.deep_symbolize_keys
     end
 
+    def importable?
+      true
+    end
+
+    def reference
+      "cpln_gvc.#{name}"
+    end
+
     def to_tf
       block :resource, :cpln_gvc, name do
         argument :name, name

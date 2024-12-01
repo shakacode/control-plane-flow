@@ -445,6 +445,8 @@ describe TerraformConfig::Workload do
     end
   end
 
+  it_behaves_like "importable terraform resource", reference: "module.main.cpln_workload.workload"
+
   def postgres_container # rubocop:disable Metrics/MethodLength
     {
       name: "postgres",

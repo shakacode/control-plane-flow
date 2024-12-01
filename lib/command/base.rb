@@ -49,7 +49,7 @@ module Command
       Dir["#{__dir__}/**/*.rb"].each_with_object({}) do |file, result|
         content = File.read(file)
 
-        classname = content.match(/^\s+class (\w+) < (?:.*Base)(?:$| .*$)/)&.captures&.first
+        classname = content.match(/^\s+class (?!Base\b)(\w+) < (?:.*(?!Command::)Base)(?:$| .*$)/)&.captures&.first
         next unless classname
 
         namespaces = content.scan(/^\s+module (\w+)/).flatten

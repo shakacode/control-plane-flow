@@ -26,6 +26,14 @@ module TerraformConfig
       @data = prepare_data(type: type, data: data)
     end
 
+    def importable?
+      true
+    end
+
+    def reference
+      "cpln_secret.#{name}"
+    end
+
     def to_tf
       block :resource, :cpln_secret, name do
         argument :name, name

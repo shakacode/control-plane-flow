@@ -5,16 +5,16 @@ require "spec_helper"
 describe TerraformConfig::Agent do
   let(:config) { described_class.new(**options) }
 
+  let(:options) do
+    {
+      name: "agent-name",
+      description: "agent description",
+      tags: { "tag1" => "true", "tag2" => "value" }
+    }
+  end
+
   describe "#to_tf" do
     subject(:generated) { config.to_tf }
-
-    let(:options) do
-      {
-        name: "agent-name",
-        description: "agent description",
-        tags: { "tag1" => "true", "tag2" => "value" }
-      }
-    end
 
     it "generates correct config" do
       expect(generated).to eq(
@@ -31,4 +31,6 @@ describe TerraformConfig::Agent do
       )
     end
   end
+
+  it_behaves_like "importable terraform resource", reference: "cpln_agent.agent-name"
 end

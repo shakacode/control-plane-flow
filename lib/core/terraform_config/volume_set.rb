@@ -38,6 +38,14 @@ module TerraformConfig
       validate_attributes!
     end
 
+    def importable?
+      true
+    end
+
+    def reference
+      "cpln_volume_set.#{name}"
+    end
+
     def to_tf
       block :resource, :cpln_volume_set, name do
         base_arguments_tf

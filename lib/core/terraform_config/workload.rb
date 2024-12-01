@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module TerraformConfig
-  class Workload < Base
+  class Workload < Base # rubocop:disable Metrics/ClassLength
     RAW_ARGS = %i[
       containers options local_options rollout_options security_options
       firewall_spec load_balancer job
@@ -62,6 +62,14 @@ module TerraformConfig
       @load_balancer = load_balancer
       @support_dynamic_tags = support_dynamic_tags
       @job = job
+    end
+
+    def importable?
+      true
+    end
+
+    def reference
+      "module.#{name}.cpln_workload.workload"
     end
 
     def to_tf

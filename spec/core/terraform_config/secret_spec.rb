@@ -13,6 +13,14 @@ describe TerraformConfig::Secret do
     }
   end
 
+  let(:type) { "dictionary" }
+  let(:data) do
+    {
+      "key1" => "value1",
+      "key2" => "value2"
+    }
+  end
+
   describe "#to_tf" do
     subject(:generated) { config.to_tf }
 
@@ -410,4 +418,6 @@ describe TerraformConfig::Secret do
       end
     end
   end
+
+  it_behaves_like "importable terraform resource", reference: "cpln_secret.some-secret"
 end
