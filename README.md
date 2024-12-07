@@ -54,9 +54,9 @@ Additionally, the documentation includes numerous examples and practical tips fo
 11. [CLI Commands Reference](#cli-commands-reference)
 12. [Mapping of Heroku Commands to `cpflow` and `cpln`](#mapping-of-heroku-commands-to-cpflow-and-cpln)
 13. [Examples](#examples)
-14. [Migrating Postgres Database from Heroku Infrastructure](/docs/postgres.md)
-15. [Migrating Redis Database from Heroku Infrastructure](/docs/redis.md)
-16. [Tips](/docs/tips.md)
+14. [Migrating Postgres Database from Heroku Infrastructure](https://github.com/shakacode/control-plane-flow/docs/postgres.md)
+15. [Migrating Redis Database from Heroku Infrastructure](https://github.com/shakacode/control-plane-flow/docs/redis.md)
+16. [Tips](https://github.com/shakacode/control-plane-flow/docs/tips.md)
 
 ## Key Features
 
@@ -137,7 +137,7 @@ The `cpln` CLI is the Control Plane CLI.
 
 ## Steps to Migrate
 
-Click [here](/docs/migrating.md) to see the steps to migrate.
+Click [here](https://github.com/shakacode/control-plane-flow/docs/migrating.md) to see the steps to migrate.
 
 ## Configuration Files
 
@@ -513,7 +513,7 @@ Then to view the logs of the cron workload, you can run `cpflow logs -a my-app -
 
 ## CLI Commands Reference
 
-Click [here](/docs/commands.md) to see the commands.
+Click [here](https://github.com/shakacode/control-plane-flow/docs/commands.md) to see the commands.
 
 You can also run the following command:
 
