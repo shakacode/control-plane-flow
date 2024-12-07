@@ -503,7 +503,7 @@ spec:
       image: "/org/APP_ORG/image/APP_IMAGE"
 ```
 
-A complete example can be found at [templates/daily-task.yml](templates/daily-task.yml), optimized for Control Plane and
+A complete example can be found at [templates/daily-task.yml](https://github.com/shakacode/control-plane-flow/templates/daily-task.yml), optimized for Control Plane and
 suitable for development purposes.
 
 You can create the cron workload by adding the template for it to the `.controlplane/templates/` directory and running
