@@ -17,7 +17,7 @@ You can continue working with CPLN configuration files in YAML format and start 
 
 ## Usage
 
-Let's take a look at how to deploy a [simple Rails application](example/.controlplane/controlplane.yml) on CPLN using Terraform:
+Let's take a look at how to deploy a [simple Rails application](https://github.com/shakacode/control-plane-flow/tree/main/docs/terraform/example/.controlplane/controlplane.yml) on CPLN using Terraform:
 
 ```
 .controlplane/
@@ -97,7 +97,7 @@ Preparations are complete, and now we can use Terraform commands directly to dep
    terraform apply
    ```
 
-You can visit [Details](details.md) to learn more about how CPLN templates in YAML format are transformed to Terraform configurations.
+You can visit [Details](https://github.com/shakacode/control-plane-flow/tree/main/docs/terraform/details.md) to learn more about how CPLN templates in YAML format are transformed to Terraform configurations.
 
 ## References
 
