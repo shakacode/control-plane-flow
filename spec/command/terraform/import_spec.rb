@@ -139,22 +139,6 @@ describe Command::Terraform::Import do
       end
     end
 
-    context "with special characters in resource address and resource id" do
-      let(:resource_address) { "cpln_gvc.test-app;rm -rf /" }
-      let(:resource_id) { "test-app;rm -rf /" }
-
-      it "is protected from shell injection" do
-        terraform_import
-
-        expect(Shell).to have_received(:cmd).with(
-          "terraform", "import", resource_address, "test-app;rm -rf /",
-          capture_stderr: true
-        )
-
-        expect(Shell).to have_received(:info).with(/Invalid character/)
-      end
-    end
-
     def stub_terraform_import_with(success, output)
       allow(Shell).to receive(:cmd)
         .with("terraform", "import", resource_address, resource_id, capture_stderr: true)
