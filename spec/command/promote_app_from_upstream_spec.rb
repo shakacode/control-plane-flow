@@ -30,6 +30,7 @@ describe Command::PromoteAppFromUpstream do
       expect(result[:stderr]).to match(%r{Pulling image from '.+?/#{upstream_app}:1'})
       expect(result[:stderr]).to match(%r{Pushing image to '.+?/#{app}:1'})
       expect(result[:stderr]).not_to include("Running release script")
+      expect(result[:stderr]).to match(/Deploying image '#{app}:1@sha256:[a-fA-F0-9]{64}'/)
       expect(result[:stderr]).to match(%r{rails: https://rails-.+?.cpln.app})
     end
   end
@@ -64,6 +65,7 @@ describe Command::PromoteAppFromUpstream do
       expect(result[:stderr]).to match(%r{Pushing image to '.+?/#{app}:1'})
       expect(result[:stderr]).to include("Running release script")
       expect(result[:stderr]).to include("Failed to run release script")
+      expect(result[:stderr]).not_to include("Deploying image")
       expect(result[:stderr]).not_to match(%r{rails: https://rails-.+?.cpln.app})
     end
   end
@@ -98,6 +100,7 @@ describe Command::PromoteAppFromUpstream do
       expect(result[:stderr]).to match(%r{Pushing image to '.+?/#{app}:1'})
       expect(result[:stderr]).to include("Running release script")
       expect(result[:stderr]).to include("Finished running release script")
+      expect(result[:stderr]).to match(/Deploying image '#{app}:1@sha256:[a-fA-F0-9]{64}'/)
       expect(result[:stderr]).to match(%r{rails: https://rails-.+?.cpln.app})
     end
   end

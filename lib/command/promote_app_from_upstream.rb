@@ -32,7 +32,7 @@ module Command
     def deploy_image
       args = []
       args.push("--run-release-phase") if config.current[:release_script]
-      run_cpflow_command("deploy-image", "-a", config.app, *args)
+      run_cpflow_command("deploy-image", "-a", config.app, "--use-digest-ref", *args)
     end
   end
 end

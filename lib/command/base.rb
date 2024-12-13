@@ -442,6 +442,17 @@ module Command
         }
       }
     end
+
+    def self.use_digest_ref_option(required: false)
+      {
+        name: :use_digest_ref,
+        params: {
+          desc: "Uses the image's digest (SHA256 value) for referencing the Docker image",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options

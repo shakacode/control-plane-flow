@@ -22,6 +22,10 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Fixed issue where app cannot be deleted because one of the workloads has a volumeset in-use. [PR 245](https://github.com/shakacode/control-plane-flow/pull/245) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
+### Changed
+
+- Providing digest (SHA256 value) for image link on promotion from upstream. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+
 ## [4.0.0] - 2024-08-21
 
 ### Fixed
