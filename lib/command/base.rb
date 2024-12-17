@@ -442,6 +442,17 @@ module Command
         }
       }
     end
+
+    def self.docker_context_option
+      {
+        name: :docker_context,
+        params: {
+          desc: "Path to the docker build context directory",
+          type: :string,
+          required: false
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options
