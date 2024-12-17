@@ -5,7 +5,8 @@ module Command
     NAME = "build-image"
     OPTIONS = [
       app_option(required: true),
-      commit_option
+      commit_option,
+      docker_context_option
     ].freeze
     ACCEPTS_EXTRA_OPTIONS = true
     DESCRIPTION = "Builds and pushes the image to Control Plane"
@@ -34,9 +35,12 @@ module Command
       build_args = []
       build_args.push("GIT_COMMIT=#{commit}") if commit
 
+      docker_context = config.options[:docker_context] || config.app_dir
+
       cp.image_build(image_url, dockerfile: dockerfile,
                                 docker_args: config.args,
-                                build_args: build_args)
+                                build_args: build_args,
+                                docker_context: docker_context)
 
       push_path = "/org/#{config.org}/image/#{image_name}"
 
