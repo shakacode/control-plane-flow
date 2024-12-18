@@ -47,11 +47,11 @@ describe Command::DeployImage do
     end
   end
 
-  context "with --use-digest-ref option" do
+  context "with --use-digest-image-ref option" do
     let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
 
     it "deploys latest image with digest reference", :slow do
-      result = run_cpflow_command("deploy-image", "-a", app, "--use-digest-ref")
+      result = run_cpflow_command("deploy-image", "-a", app, "--use-digest-image-ref")
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-fA-F0-9]{64}'/)

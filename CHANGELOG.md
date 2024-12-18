@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Added
+
+- Added `use-digest-image-ref` (also configurable through `use_digest_image_ref` in `controlplane.yml`) option to `deploy-image` and `promote-app-from-upstream` commands. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+
 ## [4.1.0] - 2024-12-17
 
 ### Fixed
@@ -27,10 +31,6 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Added `--docker-context` option to `build-image` command. [PR 250](https://github.com/shakacode/control-plane-flow/pull/250) by [Sergey Tarasov](https://github.com/dzirtusss).
 
-
-### Changed
-
-- Providing digest (SHA256 value) for image link on promotion from upstream. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
 ## [4.0.0] - 2024-08-21
 

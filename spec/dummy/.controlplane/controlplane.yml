@@ -133,6 +133,13 @@ apps:
     upstream: dummy-test-upstream
     release_script: release-invalid.sh
 
+  dummy-test-use-digest-image-ref-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    upstream: dummy-test-upstream
+    use_digest_image_ref: true
+
   dummy-test-external-maintenance-image-{GLOBAL_IDENTIFIER}:
     <<: *common
 

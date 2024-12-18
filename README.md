@@ -316,6 +316,9 @@ apps:
     # This is relative to the `.controlplane/` directory.
     release_script: release_script
 
+    # Used by the `cpflow deploy-image` and `cpflow promote-app-from-upstream` commands to include Docker image's digest (SHA256 value) in its reference.
+    use_digest_image_ref: true
+
     # default_domain is used for commands that require a domain
     # including `maintenance`, `maintenance:on`, `maintenance:off`.
     default_domain: domain.com
