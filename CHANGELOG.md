@@ -17,6 +17,7 @@ _Please add entries here for your pull requests that have not yet been released.
 ### Added
 
 - Added the GitHub Actions flow generator and readiness checks for staging, review-app, and production-promotion workflows. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
+- Added `use-digest-image-ref` (also configurable through `use_digest_image_ref` in `controlplane.yml`) option to `deploy-image` and `promote-app-from-upstream` commands. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
 ### Breaking Changes
 
@@ -51,10 +52,6 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Added `--docker-context` option to `build-image` command. [PR 250](https://github.com/shakacode/control-plane-flow/pull/250) by [Sergey Tarasov](https://github.com/dzirtusss).
 
-
-### Changed
-
-- Providing digest (SHA256 value) for image link on promotion from upstream. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
 ## [4.0.0] - 2024-08-21
 

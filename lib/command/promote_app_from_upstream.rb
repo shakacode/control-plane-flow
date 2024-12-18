@@ -5,7 +5,8 @@ module Command
     NAME = "promote-app-from-upstream"
     OPTIONS = [
       app_option(required: true),
-      upstream_token_option(required: true)
+      upstream_token_option(required: true),
+      use_digest_image_ref_option
     ].freeze
     DESCRIPTION = "Copies the latest image from upstream, runs a release script (optional), and deploys the image"
     LONG_DESCRIPTION = <<~DESC
@@ -15,6 +16,7 @@ module Command
         - Runs `cpflow deploy-image` to deploy the image
         - If `.controlplane/controlplane.yml` includes the `release_script`, `cpflow deploy-image` will use the `--run-release-phase` option
         - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
+        - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest
     DESC
 
     def call
@@ -32,7 +34,8 @@ module Command
     def deploy_image
       args = []
       args.push("--run-release-phase") if config.current[:release_script]
-      run_cpflow_command("deploy-image", "-a", config.app, "--use-digest-ref", *args)
+      args.push("--use-digest-image-ref") if config.use_digest_image_ref?
+      run_cpflow_command("deploy-image", "-a", config.app, *args)
     end
   end
 end

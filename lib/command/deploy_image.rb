@@ -8,7 +8,7 @@ module Command
     OPTIONS = [
       app_option(required: true),
       run_release_phase_option,
-      use_digest_ref_option
+      use_digest_image_ref_option
     ].freeze
     DESCRIPTION = "Deploys the latest image to app workloads, and runs a release script (optional)"
     LONG_DESCRIPTION = <<~DESC
@@ -16,6 +16,7 @@ module Command
       - Runs a release script before deploying if `release_script` is specified in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
       - The release script is run in the context of `cpflow run` with the latest image
       - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
+      - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest
     DESC
 
     def call # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
@@ -31,7 +32,7 @@ module Command
               "Use `cpflow build-image` first."
       end
 
-      image = "#{image_details['name']}@#{image_details['digest']}" if config.options[:use_digest_ref]
+      image = "#{image_details['name']}@#{image_details['digest']}" if config.use_digest_image_ref?
 
       config[:app_workloads].each do |workload|
         workload_data = cp.fetch_workload!(workload)
