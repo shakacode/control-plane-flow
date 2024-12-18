@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "resolv"
+
 module Command
   class DeployImage < Base
     NAME = "deploy-image"

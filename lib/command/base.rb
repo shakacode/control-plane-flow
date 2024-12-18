@@ -443,6 +443,17 @@ module Command
       }
     end
 
+    def self.docker_context_option
+      {
+        name: :docker_context,
+        params: {
+          desc: "Path to the docker build context directory",
+          type: :string,
+          required: false
+        }
+      }
+    end
+
     def self.use_digest_ref_option(required: false)
       {
         name: :use_digest_ref,

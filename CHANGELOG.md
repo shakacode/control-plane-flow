@@ -14,13 +14,19 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+## [4.1.0] - 2024-12-17
+
 ### Fixed
 
 - Fixed issue where `run` command fails when runner workload has ENV but original workload does not. [PR 227](https://github.com/shakacode/control-plane-flow/pull/227) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
-
 - Fixed potential infinite loop that could occur for a command if one of the execution steps fails and gets stuck. [PR 217](https://github.com/shakacode/control-plane-flow/pull/217) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
-
 - Fixed issue where app cannot be deleted because one of the workloads has a volumeset in-use. [PR 245](https://github.com/shakacode/control-plane-flow/pull/245) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+- Fixed `resolv` may be not properly required [PR 250](https://github.com/shakacode/control-plane-flow/pull/250) by [Sergey Tarasov](https://github.com/dzirtusss).
+
+### Added
+
+- Added `--docker-context` option to `build-image` command. [PR 250](https://github.com/shakacode/control-plane-flow/pull/250) by [Sergey Tarasov](https://github.com/dzirtusss).
+
 
 ### Changed
 
@@ -274,7 +280,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/shakacode/control-plane-flow/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/shakacode/control-plane-flow/compare/v2.2.4...v3.0.0
