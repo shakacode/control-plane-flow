@@ -54,9 +54,9 @@ Additionally, the documentation includes numerous examples and practical tips fo
 11. [CLI Commands Reference](#cli-commands-reference)
 12. [Mapping of Heroku Commands to `cpflow` and `cpln`](#mapping-of-heroku-commands-to-cpflow-and-cpln)
 13. [Examples](#examples)
-14. [Migrating Postgres Database from Heroku Infrastructure](/docs/postgres.md)
-15. [Migrating Redis Database from Heroku Infrastructure](/docs/redis.md)
-16. [Tips](/docs/tips.md)
+14. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
+15. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)
+16. [Tips](https://www.shakacode.com/control-plane-flow/docs/tips/)
 
 ## Key Features
 
@@ -137,7 +137,7 @@ The `cpln` CLI is the Control Plane CLI.
 
 ## Steps to Migrate
 
-Click [here](/docs/migrating.md) to see the steps to migrate.
+Click [here](https://www.shakacode.com/control-plane-flow/docs/migrating/) to see the steps to migrate.
 
 ## Configuration Files
 
@@ -479,7 +479,7 @@ development purposes.
 
 ## Scheduled Jobs
 
-Control Plane supports scheduled jobs via [cron workloads](https://shakadocs.controlplane.com/reference/workload#cron).
+Control Plane supports scheduled jobs via [cron workloads](https://docs.controlplane.com/reference/workload/types#cron).
 
 Here's a partial example of a template for a cron workload, using the app image:
 
@@ -503,7 +503,7 @@ spec:
       image: "/org/APP_ORG/image/APP_IMAGE"
 ```
 
-A complete example can be found at [templates/daily-task.yml](templates/daily-task.yml), optimized for Control Plane and
+A complete example can be found at [templates/daily-task.yml](https://github.com/shakacode/control-plane-flow/blob/main/templates/daily-task.yml), optimized for Control Plane and
 suitable for development purposes.
 
 You can create the cron workload by adding the template for it to the `.controlplane/templates/` directory and running
@@ -513,7 +513,7 @@ Then to view the logs of the cron workload, you can run `cpflow logs -a my-app -
 
 ## CLI Commands Reference
 
-Click [here](/docs/commands.md) to see the commands.
+Click [here](https://www.shakacode.com/control-plane-flow/docs/commands/) to see the commands.
 
 You can also run the following command:
 
