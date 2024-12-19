@@ -145,6 +145,10 @@ class Config # rubocop:disable Metrics/ClassLength
                                 end&.last
   end
 
+  def use_digest_image_ref?
+    current&.dig(:use_digest_image_ref) || options[:use_digest_image_ref]
+  end
+
   private
 
   def ensure_current_config!
