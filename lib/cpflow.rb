@@ -175,6 +175,7 @@ module Cpflow
 
     @commands_with_required_options = []
     @commands_with_extra_options = []
+    cli_package_name = @package_name
 
     ::Command::Base.common_options.each do |option|
       params = process_option_params(option[:params])
@@ -214,6 +215,7 @@ module Cpflow
       klass = subcommand_name ? klass_for(subcommand_name) : self
 
       klass.class_eval do
+        package_name(cli_package_name) if subcommand_name
         desc(usage, description, hide: hide)
         long_desc(long_description)
 
