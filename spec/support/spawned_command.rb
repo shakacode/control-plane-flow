@@ -15,26 +15,13 @@ class SpawnedCommand
     @pid = pid
   end
 
-  def read_full_output
-    LogHelpers.write_section_separator_to_log
-
-    full_output = ""
-    output.each do |line|
-      full_output += line
-
-      LogHelpers.write_line_to_log(line)
-    end
-
-    full_output
-  rescue Errno::EIO
-    full_output
-  end
-
   def wait_for(regex, timeout: DEFAULT_TIMEOUT)
     result = nil
     output.expect(regex, timeout) do |matches|
       result = matches&.first
     end
+
+    LogHelpers.write_line_to_log(result)
 
     raise "Timed out waiting for #{regex.inspect} after #{timeout} seconds" if result.nil?
 

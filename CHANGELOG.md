@@ -14,15 +14,42 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
-## [3.0.1] - 2024-06-25
-### Fixed
-- Moved development dependencies to Gemfile and updated many of them. [PR 208](https://github.com/shakacode/control-plane-flow/pull/208) by [justin808](https://github.com/justin808).
+## [4.1.0] - 2024-12-17
 
-## [3.0.0] - 2024-06-20
+### Fixed
+
+- Fixed issue where `run` command fails when runner workload has ENV but original workload does not. [PR 227](https://github.com/shakacode/control-plane-flow/pull/227) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed potential infinite loop that could occur for a command if one of the execution steps fails and gets stuck. [PR 217](https://github.com/shakacode/control-plane-flow/pull/217) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+- Fixed issue where app cannot be deleted because one of the workloads has a volumeset in-use. [PR 245](https://github.com/shakacode/control-plane-flow/pull/245) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+- Fixed `resolv` may be not properly required [PR 250](https://github.com/shakacode/control-plane-flow/pull/250) by [Sergey Tarasov](https://github.com/dzirtusss).
+
+### Added
+
+- Added `--docker-context` option to `build-image` command. [PR 250](https://github.com/shakacode/control-plane-flow/pull/250) by [Sergey Tarasov](https://github.com/dzirtusss).
+
+
+## [4.0.0] - 2024-08-21
+
+### Fixed
+
+- Fixed issue where common options are not forwarded to other commands. [PR 207](https://github.com/shakacode/control-plane-flow/pull/207) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+- Fixed BYOK endpoint. [PR 209](https://github.com/shakacode/control-plane-flow/pull/209) by [Sergey Tarasov](https://github.com/dzirtusss).
+- Fixed issue where `generate` command fails if no project config exists. [PR 219](https://github.com/shakacode/control-plane-flow/pull/219) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+- Bumped min `cpln` version to `3.1.0` and fixed `cpln workload exec` calls. [PR 226](https://github.com/shakacode/control-plane-flow/pull/226) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
+## [3.0.1] - 2024-06-26
+
+### Fixed
+
+- Moved development dependencies to Gemfile and updated many of them. [PR 208](https://github.com/shakacode/control-plane-flow/pull/208) by [Justin Gordon](https://github.com/justin808).
+
+## [3.0.0] - 2024-06-21
+
 First release of `cpflow`.
 
-## [2.2.4] - 2024-06-20
-Deprecate `cpl` CLI. New gem is `cpflow`
+## [2.2.4] - 2024-06-21
+
+Deprecated `cpl` gem. New gem is `cpflow`.
 
 ## [2.2.1] - 2024-06-17
 
@@ -67,17 +94,17 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 - Specific validations are now run before commands, and the command will exit with a non-zero code if any validation fails. Can be disabled by setting `DISABLE_VALIDATIONS` env var to `true`. [PR 185](https://github.com/shakacode/control-plane-flow/pull/185) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Deprecated the `--skip-secret-access-binding` option in favor of `--skip-secrets-setup`. This can also now be configured through `skip_secrets_setup` in `controlplane.yml` [PR 190](https://github.com/shakacode/control-plane-flow/pull/190) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
-## [2.0.2] - 2024-05-17
+## [2.0.2] - 2024-05-18
 
 - Fixed issue with improper handling of job statuses. Fixed issue with interactive magic string showing and exit code. [PR 177](https://github.com/shakacode/control-plane-flow/pull/177) by [Sergey Tarasov](https://github.com/dzirtusss).
 
-## [2.0.1] - 2024-05-15
+## [2.0.1] - 2024-05-16
 
 ### Fixed
 
 - Fixed issue where `cleanup-stale-apps` command fails to delete apps with volumesets. [PR 175](https://github.com/shakacode/control-plane-flow/pull/175) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
-## [2.0.0] - 2024-05-14
+## [2.0.0] - 2024-05-15
 
 ### BREAKING CHANGES
 
@@ -107,7 +134,7 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 - `deploy-image` command now raises an error if image does not exist. [PR 153](https://github.com/shakacode/control-plane-flow/pull/153) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - `delete` command now unbinds identity from policy (if bound) when deleting app. [PR 170](https://github.com/shakacode/control-plane-flow/pull/170) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
-## [1.4.0] - 2024-03-20
+## [1.4.0] - 2024-03-21
 
 ### Added
 
@@ -144,12 +171,12 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 - `info` command now lists workloads in the same order as `controlplane.yml`. [PR 139](https://github.com/shakacode/control-plane-flow/pull/139) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Improved domain workload matching for `maintenance`, `maintenance:on` and `maintenance:off` commands (instead of matching only by workload, it now matches by org + app + workload, which is more accurate). [PR 140](https://github.com/shakacode/control-plane-flow/pull/140) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
-## [1.2.0] - 2024-01-03
+## [1.2.0] - 2024-01-04
 
 ### Fixed
 
 - Fixed issue where `info` command does not respect `CPLN_ORG` env var. [PR 88](https://github.com/shakacode/control-plane-flow/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
-- Fixed issues with running `cpflow --version` and `cpflow --help` where no configuration file exists. [PR 100](https://github.com/shakacode/control-plane-flow/pull/100) by [Mostafa Ahangarha](https://github.com/ahangarha).
+- Fixed issues with running `cpflow --version` and `cpflow --help` where no configuration file exists. [PR 109](https://github.com/shakacode/control-plane-flow/pull/109) by [Mostafa Ahangarha](https://github.com/ahangarha).
 - Fixed issue where `delete` command fails to delete apps with volumesets. [PR 123](https://github.com/shakacode/control-plane-flow/pull/123) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
 ### Added
@@ -160,19 +187,19 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 - Added option to only use `CPLN_ORG` and `CPLN_APP` env vars if `allow_org_override_by_env` and `allow_app_override_by_env` configs are set to `true` in `controlplane.yml`. [PR 109](https://github.com/shakacode/control-plane-flow/pull/109) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Added `CPLN_LOCATION` env variable and `--location` option for `apply-template`, `ps`, `run`, `run:detached`. [PR 105](https://github.com/shakacode/control-plane-flow/pull/105) by [Mostafa Ahangarha](https://github.com/ahangarha).
 - Added `generate` command for creating basic Control Plane configuration directory. [PR 116](https://github.com/shakacode/control-plane-flow/pull/116) by [Mostafa Ahangarhga](https://github.com/ahangarha).
-- Added `--trace` option to all commands for more detailed logs. [PR 124](https://github.com/shakacode/control-plane-flow/pull/124) by [justin808](https://github.com/justin808)
-- Added better error message to check the org name in case of a 403 error. [PR 124](https://github.com/justin808) by [justin808](https://github.com/justin808)
+- Added `--trace` option to all commands for more detailed logs. [PR 124](https://github.com/shakacode/control-plane-flow/pull/124) by [Justin Gordon](https://github.com/justin808).
+- Added better error message to check the org name in case of a 403 error. [PR 124](https://github.com/shakacode/control-plane-flow/pull/124) by [Justin Gordon](https://github.com/justin808).
 
 ### Changed
 
 - `--org` option now takes precedence over `CPLN_ORG` env var, which takes precedence over `cpln_org` from `controlplane.yml`. [PR 88](https://github.com/shakacode/control-plane-flow/pull/88) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Renamed `setup` config into `setup_app_templates`. [PR 112](https://github.com/shakacode/control-plane-flow/pull/112) by [Mostafa Ahangarha](https://github.com/ahangarha).
 
-## [1.1.2] - 2023-10-17
+## [1.1.2] - 2023-10-25
 
 ### Fixed
 
-- Fixed failed build on MacOS by adding platform flag and fixed multiple files in yaml document for template. [PR 81](https://github.com/shakacode/control-plane-flow/pull/81) by [justin808](https://github.com/justin808).
+- Fixed failed build on MacOS by adding platform flag and fixed multiple files in yaml document for template. [PR 81](https://github.com/shakacode/control-plane-flow/pull/81) by [Justin Gordon](https://github.com/justin808).
 
 ### Added
 
@@ -184,7 +211,7 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 
 - Calling `cpflow` with no command now shows the help menu. [PR 83](https://github.com/shakacode/control-plane-flow/pull/83) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
-## [1.1.1] - 2023-09-23
+## [1.1.1] - 2023-09-21
 
 ### Fixed
 
@@ -208,7 +235,7 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 - Renamed `cleanup-old-images` command to `cleanup-images`. [PR 72](https://github.com/shakacode/control-plane-flow/pull/72) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 - Renamed `old_image_retention_days` config to `image_retention_days`. [PR 72](https://github.com/shakacode/control-plane-flow/pull/72) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
 
-## [1.0.4] - 2023-07-21
+## [1.0.4] - 2023-07-24
 
 ### Fixed
 
@@ -247,9 +274,11 @@ Deprecate `cpl` CLI. New gem is `cpflow`
 
 ## [1.0.0] - 2023-05-29
 
-- Initial release
+First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...v4.1.0
+[4.0.0]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/shakacode/control-plane-flow/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/shakacode/control-plane-flow/compare/v2.2.4...v3.0.0
 [2.2.4]: https://github.com/shakacode/control-plane-flow/compare/v2.2.1...v2.2.4

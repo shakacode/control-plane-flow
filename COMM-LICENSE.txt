@@ -1,0 +1,9 @@
+Control Plane Flow - Commercial Licensing
+
+Control Plane Flow is currently licensed under the GNU Lesser General Public License v3.0, which allows for broad use, including integration with proprietary software, as long as modifications to Control Plane Flow itself are open-sourced.
+
+While there are no current commercial license offerings, ShakaCode LLC reserves the right to offer commercial licenses or additional options in the future. This may include support packages, premium features, or alternative licensing terms.
+
+For any inquiries or expressions of interest in potential commercial licensing, please reach out to ShakaCode LLC at justin@shakacode.com.
+
+You can find the full terms of the GNU Lesser General Public License v3.0 at <http://www.gnu.org/licenses/lgpl-3.0.html>.

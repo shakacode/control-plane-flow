@@ -70,16 +70,9 @@ describe Command::Delete do
       run_cpflow_command!("build-image", "-a", app)
     end
 
-    after do
-      run_cpflow_command!("delete", "-a", app, "--yes")
-    end
-
     it "deletes app with volumesets and images", :slow do
-      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      result = run_cpflow_command("delete", "-a", app)
-
-      expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting volumeset 'detached-volume' from app '#{app}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app}'[.]+? done!/)
@@ -157,11 +150,8 @@ describe Command::Delete do
     end
 
     it "does not unbind identity from policy" do
-      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      result = run_cpflow_command("delete", "-a", app)
-
-      expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
       expect(result[:stderr]).not_to include("Unbinding identity from policy")
@@ -176,11 +166,8 @@ describe Command::Delete do
     end
 
     it "does not unbind identity from policy" do
-      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      result = run_cpflow_command("delete", "-a", app)
-
-      expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
       expect(result[:stderr]).not_to include("Unbinding identity from policy")
@@ -195,11 +182,8 @@ describe Command::Delete do
     end
 
     it "does not unbind identity from policy" do
-      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      result = run_cpflow_command("delete", "-a", app)
-
-      expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
       expect(result[:stderr]).not_to include("Unbinding identity from policy")
@@ -214,11 +198,8 @@ describe Command::Delete do
     end
 
     it "unbinds identity from policy" do
-      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      result = run_cpflow_command("delete", "-a", app)
-
-      expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
       expect(result[:stderr]).to match(/Unbinding identity from policy for app '#{app}'[.]+? done!/)
@@ -238,14 +219,11 @@ describe Command::Delete do
     end
 
     it "fails to run hook", :slow do
-      result = nil
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      spawn_cpflow_command("delete", "-a", app, "--yes") do |it|
-        result = it.read_full_output
-      end
-
-      expect(result).to include("Running pre-deletion hook")
-      expect(result).to include("Failed to run pre-deletion hook")
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Running pre-deletion hook")
+      expect(result[:stderr]).to include("Failed to run pre-deletion hook")
     end
   end
 
@@ -258,14 +236,11 @@ describe Command::Delete do
     end
 
     it "successfully runs hook", :slow do
-      result = nil
+      result = run_cpflow_command("delete", "-a", app, "--yes")
 
-      spawn_cpflow_command("delete", "-a", app, "--yes") do |it|
-        result = it.read_full_output
-      end
-
-      expect(result).to include("Running pre-deletion hook")
-      expect(result).to include("Finished running pre-deletion hook")
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("Running pre-deletion hook")
+      expect(result[:stderr]).to include("Finished running pre-deletion hook")
     end
   end
 
@@ -277,11 +252,8 @@ describe Command::Delete do
     end
 
     it "does not run hook" do
-      allow(Shell).to receive(:confirm).with(include(app)).and_return(true)
+      result = run_cpflow_command("delete", "-a", app, "--yes", "--skip-pre-deletion-hook")
 
-      result = run_cpflow_command("delete", "-a", app, "--skip-pre-deletion-hook")
-
-      expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Running pre-deletion hook")
     end

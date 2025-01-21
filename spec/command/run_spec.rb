@@ -89,44 +89,35 @@ describe Command::Run do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
       it "clones workload and runs provided command with success", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls") do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).not_to include("Updating runner workload")
-        expect(result).to include("Gemfile")
-        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).not_to include("Updating runner workload")
+        expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
 
       it "clones workload and runs provided command with failure", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "nonexistent")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "nonexistent") do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).not_to include("Gemfile")
-        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] failed")
+        expect(result[:status]).not_to eq(0)
+        expect(result[:stderr]).not_to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] failed")
       end
 
       it "waits for job to finish", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "sleep 10; ls")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "'sleep 10; ls'") do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to include("Gemfile")
-        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] active")
-        expect(result).to include("[#{Shell.color('JOB STATUS', :red)}] successful")
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] active")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
 
     context "when not specifying image" do
       let!(:app) { dummy_test_app }
-      let!(:cmd) { "'echo $CPLN_IMAGE'" }
+      let!(:cmd) { "echo $CPLN_IMAGE" }
 
       before do
         run_cpflow_command!("apply-template", "app", "rails", "-a", app)
@@ -140,69 +131,52 @@ describe Command::Run do
       end
 
       it "clones workload and runs with exact same image as original workload after running with latest image", :slow do
-        result1 = nil
-        result2 = nil
+        result1 = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd)
+        result2 = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd)
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
-          result1 = it.read_full_output
-        end
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
-          result2 = it.read_full_output
-        end
-
-        expect(result1).to match(%r{/org/.+?/image/#{app}:2})
-        expect(result2).to match(%r{/org/.+?/image/#{app}:1})
+        expect(result1[:status]).to eq(0)
+        expect(result2[:status]).to eq(0)
+        expect(result1[:stderr]).to match(%r{/org/.+?/image/#{app}:2})
+        expect(result2[:stderr]).to match(%r{/org/.+?/image/#{app}:1})
       end
     end
 
     context "when specifying image" do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-      let!(:cmd) { "'echo $CPLN_IMAGE'" }
+      let!(:cmd) { "echo $CPLN_IMAGE" }
 
       it "clones workload and runs with latest image", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd)
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd) do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to match(%r{/org/.+?/image/#{app}:2})
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to match(%r{/org/.+?/image/#{app}:2})
       end
 
       it "clones workload and runs with specific image", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "#{app}:1", "--", cmd)
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "#{app}:1", "--", cmd) do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to match(%r{/org/.+?/image/#{app}:1})
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to match(%r{/org/.+?/image/#{app}:1})
       end
     end
 
     context "when specifying token" do
       let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-      let!(:cmd) { "'if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi'" }
+      let!(:cmd) { "if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi" }
 
       it "clones workload and runs with remote token", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd)
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd) do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to include("REMOTE")
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("REMOTE")
       end
 
       it "clones workload and runs with local token", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd)
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd) do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to include("LOCAL")
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("LOCAL")
       end
     end
 
@@ -220,13 +194,10 @@ describe Command::Run do
       end
 
       it "clones workload and times out before finishing", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "sleep 100; ls")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "'sleep 100; ls'") do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).not_to include("Gemfile")
+        expect(result[:status]).not_to eq(0)
+        expect(result[:stderr]).not_to include("Gemfile")
       end
     end
 
@@ -234,14 +205,11 @@ describe Command::Run do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
       it "prints commands to log and stop the job", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--detached", "--", "ls")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--detached", "--", "ls") do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to include("cpflow logs")
-        expect(result).to include("cpflow ps:stop")
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("cpflow logs")
+        expect(result[:stderr]).to include("cpflow ps:stop")
       end
     end
 
@@ -257,14 +225,11 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
-          result = it.read_full_output
-        end
-
-        expect(result).to include("Updating runner workload")
-        expect(result).to include("Gemfile")
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("Updating runner workload")
+        expect(result[:stderr]).to include("Gemfile")
       end
     end
 
@@ -280,14 +245,33 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = nil
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls") do |it|
-          result = it.read_full_output
-        end
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("Updating runner workload")
+        expect(result[:stderr]).to include("Gemfile")
+      end
+    end
 
-        expect(result).to include("Updating runner workload")
-        expect(result).to include("Gemfile")
+    context "when runner workload has ENV but original workload does not" do
+      let!(:app) { dummy_test_app }
+
+      before do
+        run_cpflow_command!("apply-template", "app", "rails", "rails-runner-with-different-env", "-a", app)
+        run_cpflow_command!("build-image", "-a", app)
+        run_cpflow_command!("deploy-image", "-a", app)
+      end
+
+      after do
+        run_cpflow_command!("delete", "-a", app, "--yes")
+      end
+
+      it "updates runner workload", :slow do
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("Updating runner workload")
+        expect(result[:stderr]).to include("Gemfile")
       end
     end
   end

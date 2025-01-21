@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    cpflow (3.0.1)
+    cpflow (4.1.0)
       dotenv (~> 2.8.1)
       jwt (~> 2.8.1)
       psych (~> 5.1.0)

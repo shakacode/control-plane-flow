@@ -69,6 +69,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     File.delete(@@tmp_config_file.path)
 
     @@tmp_config_file = nil # rubocop:disable Style/ClassVars
+
     ENV["CONFIG_FILE_PATH"] = nil
   end
 
@@ -190,19 +191,30 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     run_cpflow_command(*args, raise_errors: true)
   end
 
-  def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true)
+  def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true) # rubocop:disable Metrics/MethodLength
     cmd = ""
     cmd += "stty rows #{stty_rows} && " if stty_rows
     cmd += "stty cols #{stty_cols} && " if stty_cols
     cmd += "#{cpflow_executable_with_simplecov} #{args.join(' ')}"
 
     LogHelpers.write_command_to_log(cmd)
+    LogHelpers.write_section_separator_to_log
 
     PTY.spawn(cmd) do |output, input, pid|
       yield(SpawnedCommand.new(output, input, pid))
     ensure
       Process.wait(pid) if wait_for_process
     end
+  end
+
+  def suppress_output
+    original_stderr = replace_stderr
+    original_stdout = replace_stdout
+
+    yield
+  ensure
+    restore_stderr(original_stderr)
+    restore_stdout(original_stdout)
   end
 
   def replace_stderr

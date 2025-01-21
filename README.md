@@ -1,9 +1,9 @@
 # The power of Kubernetes with the ease of Heroku!
 
-<meta name="author" content="Justin Gordon and Sergey Tarasov">
-<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpflow to make it easier.">
-<meta name="copyright" content="ShakaCode, 2023">
-<meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure">
+<meta name="author" content="Justin Gordon and Sergey Tarasov" />
+<meta name="description" content="Instructions on how to migrate from Heroku to Control Plane and a CLI called cpflow to make it easier." />
+<meta name="copyright" content="ShakaCode, 2023" />
+<meta name="keywords" content="Control Plane, Heroku, Kubernetes, K8, Infrastructure" />
 <meta name="google-site-verification" content="dIV4nMplcYl6YOKOaZMqgvdKXhLJ4cdYY6pS6e_YrPU" />
 
 [![RSpec](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml/badge.svg)](https://github.com/shakacode/control-plane-flow/actions/workflows/rspec.yml)
@@ -12,7 +12,9 @@
 [![Gem](https://badge.fury.io/rb/cpflow.svg)](https://badge.fury.io/rb/cpflow)
 
 
-Enable the [Heroku Flow](https://www.heroku.com/flow) deployment model with [Control Plane](https://shakacode.controlplane.com) using the `cpflow` gem.
+Leverage the power of Kubernetes with the ease of Heroku! The `cpflow` gem enables simple CI configuration for Heroku-style "review apps," staging deployments, and seamless promotion from staging to production. This is similar to the the [Heroku Flow](https://www.heroku.com/flow) deployment model.
+
+Follow the "convention over configuration" philosophy to streamline your deployment workflows and reduce complexity.
 
 ----
 
@@ -20,8 +22,8 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane)
-If you would like to see the simple YAML configuration and setup,
+Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane), which includes simple YAML configurations and setup for `cpflow`.
+
 Also, check [how the `cpflow` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
@@ -33,11 +35,11 @@ Control Plane's `cpln` CLI.
 Heroku provides a UX and CLI that enables easy publishing of Ruby on Rails and other apps. This ease of use comes via
 many "Heroku" abstractions and naming conventions.
 
-Control Plane, on the other hand, gives you access to raw cloud computing power. However, you need to know precisely how
-to use it.
+Control Plane provides access to raw cloud computing power but lacks the simple abstractions of Heroku. The `cpflow` CLI bridges this gap, delivering a streamlined and familiar experience for developers.
 
-To simplify migration to and usage of Control Plane for Heroku users, this repository provides a **concept mapping** and
-a **helper CLI** based on templates to save lots of day-to-day typing (and human errors).
+While this repository simplifies migration from Heroku, the `cpflow` CLI is versatile and can be used for new applications as well. It follows a **concept mapping** and **helper CLI** approach to streamline deployment workflows and minimize manual effort.
+
+Additionally, the documentation includes numerous examples and practical tips for teams transitioning from Heroku to Kubernetes, helping them make the most of Control Plane's advanced features.
 
 1. [Key Features](#key-features)
 2. [Concept Mapping](#concept-mapping)
@@ -52,14 +54,15 @@ a **helper CLI** based on templates to save lots of day-to-day typing (and human
 11. [CLI Commands Reference](#cli-commands-reference)
 12. [Mapping of Heroku Commands to `cpflow` and `cpln`](#mapping-of-heroku-commands-to-cpflow-and-cpln)
 13. [Examples](#examples)
-14. [Migrating Postgres Database from Heroku Infrastructure](/docs/postgres.md)
-15. [Migrating Redis Database from Heroku Infrastructure](/docs/redis.md)
-16. [Tips](/docs/tips.md)
+14. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
+15. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)
+16. [Tips](https://www.shakacode.com/control-plane-flow/docs/tips/)
 
 ## Key Features
 
-- A `cpflow` command to complement the default Control Plane `cpln` command with "Heroku style scripting." The Ruby source
-  can serve as inspiration for your own scripts.
+- The `cpflow` CLI complements the Control Plane `cpln` CLI, enabling "Heroku-style scripting" for review apps, staging, and production environments.
+- Extensive Heroku-to-Control Plane migration examples included in the documentation.
+- Convention-driven configuration to simplify workflows and reduce custom scripting requirements.
 - Easy to understand Heroku to Control Plane conventions in setup and naming.
 - **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane.
 - Automatic sequential release tagging for Docker images.
@@ -134,7 +137,7 @@ The `cpln` CLI is the Control Plane CLI.
 
 ## Steps to Migrate
 
-Click [here](/docs/migrating.md) to see the steps to migrate.
+Click [here](https://www.shakacode.com/control-plane-flow/docs/migrating/) to see the steps to migrate.
 
 ## Configuration Files
 
@@ -476,7 +479,7 @@ development purposes.
 
 ## Scheduled Jobs
 
-Control Plane supports scheduled jobs via [cron workloads](https://shakadocs.controlplane.com/reference/workload#cron).
+Control Plane supports scheduled jobs via [cron workloads](https://shakadocs.controlplane.com/reference/workload/types#cron).
 
 Here's a partial example of a template for a cron workload, using the app image:
 
@@ -500,7 +503,7 @@ spec:
       image: "/org/APP_ORG/image/APP_IMAGE"
 ```
 
-A complete example can be found at [templates/daily-task.yml](templates/daily-task.yml), optimized for Control Plane and
+A complete example can be found at [templates/daily-task.yml](https://github.com/shakacode/control-plane-flow/blob/main/templates/daily-task.yml), optimized for Control Plane and
 suitable for development purposes.
 
 You can create the cron workload by adding the template for it to the `.controlplane/templates/` directory and running
@@ -510,7 +513,7 @@ Then to view the logs of the cron workload, you can run `cpflow logs -a my-app -
 
 ## CLI Commands Reference
 
-Click [here](/docs/commands.md) to see the commands.
+Click [here](https://www.shakacode.com/control-plane-flow/docs/commands/) to see the commands.
 
 You can also run the following command:
 

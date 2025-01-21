@@ -90,7 +90,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.query_images(org: a_org, gvc: a_gvc, gvc_op_type: gvc_op)
   end
 
-  def image_build(image, dockerfile:, docker_args: [], build_args: [])
+  def image_build(image, dockerfile:, docker_context:, docker_args: [], build_args: [])
     # https://docs.controlplane.com/guides/push-image#step-2
     # Might need to use `docker buildx build` if compatiblitity issues arise
     cmd = "docker build --platform=linux/amd64 -t #{image} -f #{dockerfile}"
@@ -98,7 +98,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     cmd += " #{docker_args.join(' ')}" if docker_args.any?
     build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
-    cmd += " #{config.app_dir}"
+    cmd += " #{docker_context}"
 
     perform!(cmd)
   end
@@ -277,7 +277,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_exec(workload, replica, location:, container: nil, command: nil)
-    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location}"
+    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location} -it"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
     perform!(cmd, output_mode: :all)

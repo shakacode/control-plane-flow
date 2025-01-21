@@ -455,6 +455,17 @@ module Command
       }
     end
 
+    def self.docker_context_option
+      {
+        name: :docker_context,
+        params: {
+          desc: "Path to the docker build context directory",
+          type: :string,
+          required: false
+        }
+      }
+    end
+
     def self.dir_option(required: false)
       {
         name: :dir,
@@ -466,7 +477,6 @@ module Command
         }
       }
     end
-
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options
@@ -490,45 +500,50 @@ module Command
       $stderr
     end
 
-    def step_error(error, abort_on_error: true)
-      message = error.message
-      if abort_on_error
-        progress.puts(" #{Shell.color('failed!', :red)}\n\n")
-        Shell.abort(message)
-      else
-        Shell.write_to_tmp_stderr(message)
-      end
-    end
-
-    def step_finish(success)
+    def step_finish(success, abort_on_error: true)
       if success
         progress.puts(" #{Shell.color('done!', :green)}")
       else
         progress.puts(" #{Shell.color('failed!', :red)}\n\n#{Shell.read_from_tmp_stderr}\n\n")
+        exit(ExitCode::ERROR_DEFAULT) if abort_on_error
       end
     end
 
-    def step(message, abort_on_error: true, retry_on_failure: false) # rubocop:disable Metrics/MethodLength
+    def step(message, abort_on_error: true, retry_on_failure: false, max_retry_count: 1000, wait: 1, &block) # rubocop:disable Metrics/MethodLength
       progress.print("#{message}...")
 
       Shell.use_tmp_stderr do
         success = false
 
         begin
-          if retry_on_failure
-            until (success = yield)
-              progress.print(".")
-              Kernel.sleep(1)
+          success =
+            if retry_on_failure
+              with_retry(max_retry_count: max_retry_count, wait: wait, &block)
+            else
+              yield
             end
-          else
-            success = yield
-          end
         rescue RuntimeError => e
-          step_error(e, abort_on_error: abort_on_error)
+          Shell.write_to_tmp_stderr(e.message)
         end
 
-        step_finish(success)
+        step_finish(success, abort_on_error: abort_on_error)
       end
+    end
+
+    def with_retry(max_retry_count:, wait:)
+      retry_count = 0
+      success = false
+
+      while !success && retry_count <= max_retry_count
+        success = yield
+        break if success
+
+        progress.print(".")
+        Kernel.sleep(wait)
+        retry_count += 1
+      end
+
+      success
     end
 
     def cp
