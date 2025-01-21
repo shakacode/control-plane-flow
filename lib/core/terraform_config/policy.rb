@@ -141,7 +141,7 @@ module TerraformConfig
     end
 
     def validate_term!(term)
-      return unless (%i[property rel tag] & term.keys).count > 1
+      return if (%i[property rel tag] & term.keys).count == 1
 
       raise ArgumentError,
             "Each term in `target_query.spec.terms` must contain exactly one of the following attributes: " \

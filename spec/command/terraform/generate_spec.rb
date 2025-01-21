@@ -82,7 +82,9 @@ describe Command::Terraform::Generate do
     let(:template_dir) { "non-existing-folder" }
 
     before do
-      allow_any_instance_of(TemplateParser).to receive(:template_dir).and_return(template_dir) # rubocop:disable RSpec/AnyInstance
+      template_parser = instance_double(TemplateParser)
+      allow(TemplateParser).to receive(:new).and_return(template_parser)
+      allow(template_parser).to receive(:template_dir).and_return(template_dir)
     end
 
     it_behaves_like "generates terraform config files" do

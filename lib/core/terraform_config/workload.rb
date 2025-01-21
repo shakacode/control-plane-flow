@@ -109,7 +109,7 @@ module TerraformConfig
         post_start: container.dig(:lifecycle, :post_start, :exec, :command),
         pre_stop: container.dig(:lifecycle, :pre_stop, :exec, :command),
         inherit_env: container.fetch(:inherit_env, nil),
-        envs: ("local.#{container_name}_envs" if container[:env]),
+        envs: ("local.#{container_name}_envs" if container[:env]&.any?),
         ports: container.fetch(:ports, nil),
         readiness_probe: container.fetch(:readiness_probe, nil)&.slice(*LIVENESS_PROBE_KEYS),
         liveness_probe: container.fetch(:liveness_probe, nil)&.slice(*LIVENESS_PROBE_KEYS),

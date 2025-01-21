@@ -55,8 +55,8 @@ module TerraformConfig
     end
 
     def validate_required_data_keys!(type:, data:)
-      required = REQUIRED_DATA_KEYS[type]
-      missing_keys = required - data.keys
+      required_keys = REQUIRED_DATA_KEYS[type] || []
+      missing_keys = required_keys - data.keys
       raise ArgumentError, "Missing required data keys for #{type}: #{missing_keys.join(', ')}" if missing_keys.any?
     end
 
