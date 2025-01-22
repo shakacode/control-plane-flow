@@ -479,7 +479,7 @@ development purposes.
 
 ## Scheduled Jobs
 
-Control Plane supports scheduled jobs via [cron workloads](https://docs.controlplane.com/reference/workload/types#cron).
+Control Plane supports scheduled jobs via [cron workloads](https://shakadocs.controlplane.com/reference/workload/types#cron).
 
 Here's a partial example of a template for a cron workload, using the app image:
 

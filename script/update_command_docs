@@ -12,12 +12,16 @@ commands.keys.sort.each do |command_key|
   next if command_class::HIDE
 
   name = command_class::NAME
-  usage = command_class::USAGE.empty? ? name : command_class::USAGE
+  subcommand_name = command_class::SUBCOMMAND_NAME
+
+  full_command = [subcommand_name, name].compact.join(" ")
+
+  usage = command_class::USAGE.empty? ? full_command : command_class::USAGE
   options = command_class::OPTIONS
   long_description = command_class::LONG_DESCRIPTION
   examples = command_class::EXAMPLES
 
-  command_str = "### `#{name}`\n\n"
+  command_str = "### `#{full_command}`\n\n"
   command_str += "#{long_description.strip}\n\n"
 
   if examples.empty?

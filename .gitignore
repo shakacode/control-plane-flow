@@ -16,3 +16,7 @@
 
 /spec.log
 /spec/dummy/.controlplane/controlplane*-tmp-*.yml
+
+# Generated configs
+/terraform/
+/.controlplane/

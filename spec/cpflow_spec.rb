@@ -19,4 +19,22 @@ describe Cpflow do
       expect(result[:stderr]).to include("No value provided for option --#{option[:name].to_s.tr('_', '-')}")
     end
   end
+
+  it "handles subcommands correctly" do
+    result = run_cpflow_command("--help")
+
+    expect(result[:status]).to eq(0)
+
+    # Temporary solution, will be fixed with https://github.com/rails/thor/issues/742
+    basename = Cpflow::Cli.send(:basename)
+
+    Cpflow::Cli.subcommand_names.each do |subcommand|
+      expect(result[:stdout]).to include("#{basename} #{subcommand}")
+
+      subcommand_result = run_cpflow_command(subcommand, "--help")
+
+      expect(subcommand_result[:status]).to eq(0)
+      expect(subcommand_result[:stdout]).to include("#{basename} #{subcommand} help [COMMAND]")
+    end
+  end
 end
