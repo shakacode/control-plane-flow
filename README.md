@@ -37,7 +37,7 @@ many "Heroku" abstractions and naming conventions.
 
 Control Plane provides access to raw cloud computing power but lacks the simple abstractions of Heroku. The `cpflow` CLI bridges this gap, delivering a streamlined and familiar experience for developers.
 
-While this repository simplifies migration from Heroku, the `cpflow` CLI is versatile and can be used for new applications as well. It follows a **concept mapping** and **helper CLI** approach to streamline deployment workflows and minimize manual effort.
+While this repository simplifies migration from Heroku, the `cpflow` CLI is versatile and can be used for any applications. This document contains **concept mapping** and **helper CLI** approach to streamline deployment workflows and minimize manual effort.
 
 Additionally, the documentation includes numerous examples and practical tips for teams transitioning from Heroku to Kubernetes, helping them make the most of Control Plane's advanced features.
 
@@ -82,7 +82,7 @@ On Control Plane, we can map a Heroku app to a GVC (Global Virtual Cloud). Such 
 be anything that can run as a container.
 
 | Heroku           | Control Plane                               |
-| ---------------- | ------------------------------------------- |
+|------------------|---------------------------------------------|
 | _app_            | _GVC_ (Global Virtual Cloud)                |
 | _dyno_           | _workload_                                  |
 | _add-on_         | either a _workload_ or an external resource |
@@ -105,7 +105,12 @@ For the typical Rails app, this means:
 | in-memory db    | `redis`, `memcached` | add-on        | external provider or can be set up for development/testing with Docker image (lacks persistence between restarts) |
 | others          | `mailtrap`           | add-on        | external provider or can be set up for development/testing with Docker image (lacks persistence between restarts) |
 
-## Installation
+## Migration Strategy
+See this doc for [detailed migration steps](./docs/migrating-heroku-to-control-plane) from Heroku to Control Plane. Even if you are coming from a platform other than Heroku, you can still benefit from the migration steps.
+
+## System Prerequisites
+
+_Note, if you want to use Terraform with cpflow, you will start the same way below._
 
 1. Ensure your [Control Plane](https://shakacode.controlplane.com/) account is set up. Set up an `organization` `<your-org>` for testing in that account and modify the value for `aliases.common.cpln_org` in `.controlplane/controlplane.yml`, or you can also set it with the `CPLN_ORG` environment variable. If you need an organization, please [contact Shakacode](mailto:controlplane@shakacode.com).
 
@@ -130,14 +135,10 @@ npm update -g @controlplane/cli
 
 6. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
 
-7. You can use [this Dockerfile](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/Dockerfile) as an example for your project. Ensure that you have Docker running.
+7. You will need a production-ready Dockerfile. If you're using Rails, consider the default one that ships with Rails 8. You can use [this Dockerfile](https://github.com/shakacode/rails-v8-kamal-v2-terraform-gcp-tutorial/blob/master/Dockerfile) as an example for your project. Ensure that you have Docker running.
 
 **Note:** Do not confuse the `cpflow` CLI with the `cpln` CLI. The `cpflow` CLI is the Control Plane Flow playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
-
-## Steps to Migrate
-
-Click [here](https://www.shakacode.com/control-plane-flow/docs/migrating/) to see the steps to migrate.
 
 ## Configuration Files
 
@@ -331,7 +332,9 @@ apps:
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 
-This example should closely match the below example.
+You can use this repository as a reference for setting up your own project.
+
+This example should closely match the instructions example.
 
 Suppose your app is called `tutorial-app`. You can run the following commands.
 
