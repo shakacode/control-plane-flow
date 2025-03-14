@@ -20,3 +20,5 @@
 # Generated configs
 /terraform/
 /.controlplane/
+
+.qodo
