@@ -274,7 +274,7 @@ module Command
     def wait_for_replica_for_job
       step("Waiting for replica to start, which runs job '#{job}'", retry_on_failure: true) do
         result = cp.fetch_workload_replicas(runner_workload, location: location)
-        @replica = result["items"].find { |item| item.include?(job) }
+        @replica = result&.dig("items")&.find { |item| item.include?(job) }
 
         replica || false
       end

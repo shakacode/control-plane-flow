@@ -75,7 +75,8 @@ module Command
 
       step("Waiting for replica '#{replica}' to not be ready", retry_on_failure: true) do
         result = cp.fetch_workload_replicas(workload, location: config.location)
-        !result["items"].include?(replica)
+        items = result&.dig("items")
+        items && !items.include?(replica)
       end
     end
   end
