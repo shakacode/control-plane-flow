@@ -192,7 +192,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def fetch_workload_replicas(workload, location:)
-    cmd = "cpln workload replica get #{workload} #{gvc_org} --location #{location} -o yaml"
+    cmd = "cpln workload replica get #{workload} #{gvc_org} --location #{location} -o yaml 2> /dev/null"
     perform_yaml(cmd)
   end
 
@@ -213,8 +213,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def workload_deployments_ready?(workload, location:, expected_status:)
-    deployed_replicas = fetch_workload_replicas(workload, location: location)["items"].length
+  def workload_deployments_ready?(workload, location:, expected_status:) # rubocop:disable Metrics/CyclomaticComplexity
+    deployed_replicas = fetch_workload_replicas(workload, location: location)&.dig("items")&.length || 0
     return deployed_replicas.zero? if expected_status == false
 
     deployments = fetch_workload_deployments(workload)["items"]
