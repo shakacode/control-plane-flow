@@ -14,6 +14,9 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+## [4.1.1] - 2025-03-14
+
+
 ### Fixed
 
 - Fixed issue where `ps`, `ps:start`, `ps:stop`, `ps:wait`, and `run` commands fail when trying to fetch replicas with CPLN CLI. [PR 254](https://github.com/shakacode/control-plane-flow/pull/254) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
@@ -280,7 +283,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...HEAD
+[4.1.1]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/shakacode/control-plane-flow/compare/v3.0.0...v3.0.1
