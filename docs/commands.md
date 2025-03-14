@@ -354,13 +354,17 @@ cpflow ps:stop -a $APP_NAME -w $WORKLOAD_NAME -r $REPLICA_NAME
 ### `ps:wait`
 
 - Waits for workloads in app to be ready after re-deployment
+- Use Unix timeout command to set a maximum wait time (e.g., `timeout 300 cpflow ps:wait ...`)
 
 ```sh
 # Waits for all workloads in app.
 cpflow ps:wait -a $APP_NAME
 
 # Waits for a specific workload in app.
-cpflow ps:swait -a $APP_NAME -w $WORKLOAD_NAME
+cpflow ps:wait -a $APP_NAME -w $WORKLOAD_NAME
+
+# Waits for all workloads with a 5-minute timeout.
+timeout 300 cpflow ps:wait -a $APP_NAME
 ```
 
 ### `run`
