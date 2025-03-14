@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Fixed
+
+- Fixed issue where `ps`, `ps:start`, `ps:stop`, `ps:wait`, and `run` commands fail when trying to fetch replicas with CPLN CLI. [PR 254](https://github.com/shakacode/control-plane-flow/pull/254) by [Rafael Gomes](https://github.com/rafaelgomesxyz).
+
 ## [4.1.0] - 2024-12-17
 
 ### Fixed
