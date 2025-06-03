@@ -51,6 +51,7 @@ module Cpflow
 
     def self.start(*args)
       ENV["CPLN_SKIP_UPDATE_CHECK"] = "true"
+      ENV["NODE_NO_WARNINGS"] = "1"
 
       check_cpln_version
       check_cpflow_version
