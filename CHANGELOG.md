@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Fixed
+
+- Fixed issue where `run` command could hang indefinitely when updating runner workload. [PR 260](https://github.com/shakacode/control-plane-flow/pull/260) by [Sergey Tarasov](https://github.com/dzirtusss).
+
 ## [4.1.1] - 2025-03-14
 
 
