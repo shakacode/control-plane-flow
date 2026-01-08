@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Changed
+
+- Redact sensitive data (Authorization headers, tokens) from `--trace` output. [PR 261](https://github.com/shakacode/control-plane-flow/pull/261) by [Sergey Tarasov](https://github.com/dzirtusss).
+
 ## [4.1.1] - 2025-03-14
 
 
