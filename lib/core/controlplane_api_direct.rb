@@ -1,5 +1,27 @@
 # frozen_string_literal: true
 
+class RedactedDebugOutput
+  SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
+  HEADER_REGEX = /^([A-Za-z\-]+): (.+)$/.freeze
+
+  def <<(msg)
+    $stdout << redact(msg)
+  end
+
+  private
+
+  def redact(msg)
+    msg.lines.map { |line| redact_line(line) }.join
+  end
+
+  def redact_line(line)
+    match = line.match(HEADER_REGEX)
+    return line.gsub(/[\w\-._]{50,}/, "[REDACTED]") unless match
+
+    SAFE_HEADERS.any? { |h| h.casecmp(match[1]).zero? } ? line : "#{match[1]}: [REDACTED]\n"
+  end
+end
+
 class ControlplaneApiDirect
   API_METHODS = {
     get: Net::HTTP::Get,
@@ -37,7 +59,7 @@ class ControlplaneApiDirect
 
     http = Net::HTTP.new(uri.hostname, uri.port)
     http.use_ssl = uri.scheme == "https"
-    http.set_debug_output($stdout) if trace
+    http.set_debug_output(RedactedDebugOutput.new) if trace
 
     response = http.start { |ht| ht.request(request) }
 
