@@ -15,10 +15,10 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = ">= 2.7.0"
 
-  spec.add_dependency "dotenv",   "~> 2.8.1"
-  spec.add_dependency "jwt",      "~> 2.8.1"
-  spec.add_dependency "psych",    "~> 5.1.0"
-  spec.add_dependency "thor",     "~> 1.2.1"
+  spec.add_dependency "dotenv",   "~> 3.1"
+  spec.add_dependency "jwt",      "~> 3.1"
+  spec.add_dependency "psych",    "~> 5.2"
+  spec.add_dependency "thor",     "~> 1.4"
 
   spec.files = `git ls-files -z`.split("\x0").reject do |file|
     file.match(%r{^(coverage|pkg|spec|tmp)/})
