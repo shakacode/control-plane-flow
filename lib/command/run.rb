@@ -97,7 +97,7 @@ module Command
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
                 :default_image, :default_cpu, :default_memory, :job_timeout, :job_history_limit,
-                :container, :expected_deployed_version, :job, :replica, :command
+                :container, :job, :replica, :command
 
     def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       @interactive = config.options[:interactive] || interactive_command?
@@ -126,10 +126,7 @@ module Command
       end
 
       create_runner_workload if cp.fetch_workload(runner_workload).nil?
-      wait_for_runner_workload_deploy
       update_runner_workload
-      wait_for_runner_workload_update if expected_deployed_version
-
       start_job
       wait_for_replica_for_job
 
@@ -191,7 +188,7 @@ module Command
         }
 
         # Create runner workload
-        cp.apply_hash("kind" => "workload", "name" => runner_workload, "spec" => spec)
+        cp.apply_hash({ "kind" => "workload", "name" => runner_workload, "spec" => spec }, wait: true)
       end
     end
 
@@ -242,21 +239,7 @@ module Command
       return unless should_update
 
       step("Updating runner workload '#{runner_workload}'") do
-        # Update runner workload
-        @expected_deployed_version = (cp.cron_workload_deployed_version(runner_workload) || 0) + 1
-        cp.apply_hash("kind" => "workload", "name" => runner_workload, "spec" => spec)
-      end
-    end
-
-    def wait_for_runner_workload_deploy
-      step("Waiting for runner workload '#{runner_workload}' to be deployed", retry_on_failure: true) do
-        !cp.cron_workload_deployed_version(runner_workload).nil?
-      end
-    end
-
-    def wait_for_runner_workload_update
-      step("Waiting for runner workload '#{runner_workload}' to be updated", retry_on_failure: true) do
-        (cp.cron_workload_deployed_version(runner_workload) || 0) >= expected_deployed_version
+        cp.apply_hash({ "kind" => "workload", "name" => runner_workload, "spec" => spec }, wait: true)
       end
     end
 
