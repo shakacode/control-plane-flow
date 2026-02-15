@@ -37,7 +37,7 @@ many "Heroku" abstractions and naming conventions.
 
 Control Plane provides access to raw cloud computing power but lacks the simple abstractions of Heroku. The `cpflow` CLI bridges this gap, delivering a streamlined and familiar experience for developers.
 
-While this repository simplifies migration from Heroku, the `cpflow` CLI is versatile and can be used for any applications. This document contains **concept mapping** and **helper CLI** approach to streamline deployment workflows and minimize manual effort.
+While this repository simplifies migration from Heroku, the `cpflow` CLI is versatile and can be used for any application. This document contains **concept mapping** and **helper CLI** approach to streamline deployment workflows and minimize manual effort.
 
 Additionally, the documentation includes numerous examples and practical tips for teams transitioning from Heroku to Kubernetes, helping them make the most of Control Plane's advanced features.
 
@@ -106,7 +106,7 @@ For the typical Rails app, this means:
 | others          | `mailtrap`           | add-on        | external provider or can be set up for development/testing with Docker image (lacks persistence between restarts) |
 
 ## Migration Strategy
-See this doc for [detailed migration steps](./docs/migrating-heroku-to-control-plane) from Heroku to Control Plane. Even if you are coming from a platform other than Heroku, you can still benefit from the migration steps.
+See this doc for [detailed migration steps](./docs/migrating-heroku-to-control-plane.md) from Heroku to Control Plane. Even if you are coming from a platform other than Heroku, you can still benefit from the migration steps.
 
 ## System Prerequisites
 
@@ -334,7 +334,7 @@ For a live example, see the [react-webpack-rails-tutorial](https://github.com/sh
 
 You can use this repository as a reference for setting up your own project.
 
-This example should closely match the instructions example.
+This example should closely match the below example.
 
 Suppose your app is called `tutorial-app`. You can run the following commands.
 

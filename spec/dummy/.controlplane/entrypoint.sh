@@ -22,7 +22,8 @@ wait_for_services()
 wait_for_services
 
 # If running the rails server then create or migrate existing database
-# TODO: Why are migrations (db:prepare) not done in the release script?
+# Note: db:prepare is also run in release.sh during deployment. This ensures
+# the database is ready even if release script wasn't executed (e.g., in development).
 if [ "${1}" = "./bin/rails" ] && [ "${2}" = "server" ]; then
   echo "Preparing database..."
   ./bin/rails db:prepare

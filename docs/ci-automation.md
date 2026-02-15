@@ -2,7 +2,7 @@
 
 ## Setting up Tokens for CI Automation
 
-The examples uses Github Actions as an example. The same applies to Circle CI and other similar CI/CD tools.
+This example uses Github Actions. The same applies to Circle CI and other similar CI/CD tools.
 
 1. Ensure that you have two orgs:
   1. `company-staging` (for staging deployments, developers have access)
@@ -25,9 +25,4 @@ The examples uses Github Actions as an example. The same applies to Circle CI an
   1. `STAGING_APP_NAME` - the name of the app in Control Plane for staging, which is the GVC name, like `app-name-staging`
   2. `PRODUCTION_APP_NAME` - the name of the app in Control Plane for production, which is the GVC name, like `app-name-production`
   3. `REVIEW_APP_PREFIX` - the prefix for the review apps in Control Plane. The Review apps are named `$REVIEW_APP_PREFIX-pr-$PR_NUMBER`
-5. All in all, you should have 7 secrets set in your Github repository
-
-
-
-3. Go to the Control Plane UI for your organization's staging org
-3. and make a new service account
+5. All in all, you should have 2 secrets and 5 variables set in your Github repository
