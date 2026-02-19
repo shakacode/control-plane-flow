@@ -404,11 +404,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   # apply
-  def apply_template(data) # rubocop:disable Metrics/MethodLength
+  def apply_template(data, wait: false) # rubocop:disable Metrics/MethodLength, Metrics/PerceivedComplexity
     Tempfile.create do |f|
       f.write(data)
       f.rewind
       cmd = "cpln apply #{gvc_org} --file #{f.path}"
+      cmd += " --ready" if wait && ENV.fetch("DISABLE_APPLY_READY", nil).nil?
       if Shell.tmp_stderr
         cmd += " 2> #{Shell.tmp_stderr.path}" if Shell.should_hide_output?
 
@@ -429,8 +430,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def apply_hash(data)
-    apply_template(data.to_yaml)
+  def apply_hash(data, wait: false)
+    apply_template(data.to_yaml, wait: wait)
   end
 
   def parse_apply_result(result) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
