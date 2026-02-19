@@ -25,7 +25,7 @@ class Config # rubocop:disable Metrics/ClassLength
     return unless trace_mode
 
     ControlplaneApiDirect.trace = trace_mode
-    Shell.warn("Trace mode is enabled, this will print sensitive information to the console.")
+    Shell.warn("Trace mode is enabled. Sensitive data is redacted, but please review output before sharing.")
   end
 
   def org
