@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+mapfile -t files < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "No Ruby files to lint."
+    exit 0
+fi
+
+echo "Running RuboCop lint on changed Ruby files:"
+printf "  %s\n" "${files[@]}"
+
+if ! bundle exec rubocop --force-exclusion --display-cop-names -- "${files[@]}"; then
+    echo ""
+    echo "RuboCop lint failed."
+    echo "Try: bundle exec rubocop -A --force-exclusion -- ${files[*]}"
+    echo "Skip hooks only if necessary: git commit --no-verify"
+    exit 1
+fi
+
+echo "Ruby lint complete."

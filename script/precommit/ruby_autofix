@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+mapfile -t files < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "No Ruby files to auto-fix."
+    exit 0
+fi
+
+echo "Running RuboCop auto-fix on changed Ruby files:"
+printf "  %s\n" "${files[@]}"
+
+bundle exec rubocop -A --force-exclusion -- "${files[@]}"
+
+# Keep the index in sync with auto-corrections.
+git add -- "${files[@]}"
+
+echo "Ruby auto-fix complete."

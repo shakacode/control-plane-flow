@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+pattern="${2:-.*}"
+base_ref="${3:-origin/main}"
+
+case "$context" in
+    staged)
+        git diff --cached --name-only --diff-filter=ACMR | grep -E "$pattern" || true
+        ;;
+    all-changed)
+        (
+            git diff --cached --name-only --diff-filter=ACMR
+            git diff --name-only --diff-filter=ACMR
+            git ls-files --others --exclude-standard
+        ) | sort -u | grep -E "$pattern" || true
+        ;;
+    branch)
+        if ! git rev-parse --verify --quiet "$base_ref" >/dev/null; then
+            echo "Error: ${base_ref} not found. Run: git fetch origin main" >&2
+            exit 1
+        fi
+        git diff --name-only --diff-filter=ACMR "$base_ref"...HEAD | grep -E "$pattern" || true
+        ;;
+    *)
+        echo "Usage: $0 {staged|all-changed|branch} [pattern] [base_ref]" >&2
+        exit 1
+        ;;
+esac

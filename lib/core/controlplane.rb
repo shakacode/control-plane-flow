@@ -321,7 +321,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # domain
 
   def find_domain_route(data)
-    port = data["spec"]["ports"].find { |current_port| current_port["number"] == 80 || current_port["number"] == 443 }
+    port = data["spec"]["ports"].find { |current_port| [80, 443].include?(current_port["number"]) }
     return nil if port.nil? || port["routes"].nil?
 
     route = port["routes"].find { |current_route| current_route["prefix"] == "/" }

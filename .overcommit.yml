@@ -1,14 +1,52 @@
 PreCommit:
+  RubyAutoFix:
+    enabled: true
+    required_executable: "./script/precommit/ruby_autofix"
+    command: ["./script/precommit/ruby_autofix", "staged"]
+    requires_files: true
+    include:
+      - "**/*.rb"
+      - "**/*.rake"
+      - "**/*.ru"
+
+  TrailingNewlines:
+    enabled: true
+    required_executable: "./script/precommit/check_trailing_newlines"
+    command: ["./script/precommit/check_trailing_newlines", "staged"]
+    requires_files: true
+    include:
+      - "**/*"
+
   ValidateLinks:
     enabled: true
-    command: ["bash", "./script/check_cpln_links"]
+    required_executable: "./script/precommit/check_cpln_links"
+    command: ["./script/precommit/check_cpln_links", "staged"]
+    requires_files: true
+    include:
+      - "**/*.md"
+
   CommandDocs:
     enabled: true
-    command: ["bundle", "exec", "rake", "check_command_docs"]
+    required_executable: "./script/precommit/check_command_docs"
+    command: ["./script/precommit/check_command_docs", "staged"]
+    requires_files: true
+    include:
+      - "lib/command/**/*.rb"
+      - "docs/commands.md"
+      - "script/update_command_docs"
+      - "script/check_command_docs"
+      - "Rakefile"
+
   RuboCop:
     enabled: true
     on_warn: fail
-    command: ["bundle", "exec", "rubocop"]
+    required_executable: "./script/precommit/ruby_lint"
+    command: ["./script/precommit/ruby_lint", "staged"]
+    requires_files: true
+    include:
+      - "**/*.rb"
+      - "**/*.rake"
+      - "**/*.ru"
 
 # PrePush:
 #   RSpec:

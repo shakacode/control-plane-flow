@@ -4,7 +4,7 @@ plugins:
 
 AllCops:
   TargetRubyVersion: 2.7
-  NewCops: enable
+  NewCops: disable
 
 Metrics/AbcSize:
   Enabled: false

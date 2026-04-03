@@ -2,7 +2,7 @@
 
 class RedactedDebugOutput
   SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
-  HEADER_REGEX = /^([A-Za-z\-]+): (.+)$/.freeze
+  HEADER_REGEX = /^([A-Za-z-]+): (.+)$/.freeze
 
   def <<(msg)
     $stdout << redact(msg)

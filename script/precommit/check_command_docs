@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+pattern='^(lib/command/.*\.rb|docs/commands\.md|script/update_command_docs|script/check_command_docs|Rakefile)$'
+mapfile -t relevant_files < <(./script/precommit/get_changed_files "$context" "$pattern")
+
+if [ "${#relevant_files[@]}" -eq 0 ]; then
+    echo "No command-doc related files changed; skipping command docs check."
+    exit 0
+fi
+
+echo "Running command docs consistency check."
+bundle exec rake check_command_docs

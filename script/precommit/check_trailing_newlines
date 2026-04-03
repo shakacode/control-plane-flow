@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+mapfile -t files < <(./script/precommit/get_changed_files "$context" '.*')
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "No files to check for trailing newlines."
+    exit 0
+fi
+
+updated_files=()
+for file in "${files[@]}"; do
+    [ -f "$file" ] || continue
+    [ -s "$file" ] || continue
+
+    # Skip binary files.
+    if ! grep -Iq . "$file"; then
+        continue
+    fi
+
+    if ! tail -c 1 "$file" | grep -q '^$'; then
+        echo "Adding trailing newline: $file"
+        printf '\n' >> "$file"
+        updated_files+=("$file")
+    fi
+done
+
+if [ "${#updated_files[@]}" -gt 0 ]; then
+    git add -- "${updated_files[@]}"
+fi
+
+echo "Trailing newline check complete."
