@@ -6,23 +6,35 @@ context="${1:-staged}"
 pattern="${2:-.*}"
 base_ref="${3:-origin/main}"
 
+# Filter lines matching pattern. Exit 0 on no matches (grep exit 1),
+# but propagate real errors (exit >= 2).
+filter_matches() {
+    grep -E -- "$pattern" || {
+        local status=$?
+        if [ "$status" -eq 1 ]; then
+            return 0
+        fi
+        return "$status"
+    }
+}
+
 case "$context" in
     staged)
-        git diff --cached --name-only --diff-filter=ACMR | grep -E "$pattern" || true
+        git diff --cached --name-only --diff-filter=ACMR | filter_matches
         ;;
     all-changed)
         (
             git diff --cached --name-only --diff-filter=ACMR
             git diff --name-only --diff-filter=ACMR
             git ls-files --others --exclude-standard
-        ) | sort -u | grep -E "$pattern" || true
+        ) | sort -u | filter_matches
         ;;
     branch)
         if ! git rev-parse --verify --quiet "$base_ref" >/dev/null; then
-            echo "Error: ${base_ref} not found. Run: git fetch origin main" >&2
+            echo "Error: ${base_ref} not found. Run: git fetch ${base_ref}" >&2
             exit 1
         fi
-        git diff --name-only --diff-filter=ACMR "$base_ref"...HEAD | grep -E "$pattern" || true
+        git diff --name-only --diff-filter=ACMR "$base_ref"...HEAD | filter_matches
         ;;
     *)
         echo "Usage: $0 {staged|all-changed|branch} [pattern] [base_ref]" >&2

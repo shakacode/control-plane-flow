@@ -3,7 +3,10 @@
 set -euo pipefail
 
 context="${1:-staged}"
-mapfile -t markdown_files < <(./script/precommit/get_changed_files "$context" '\.md$')
+markdown_files=()
+while IFS= read -r f; do
+    markdown_files+=("$f")
+done < <(./script/precommit/get_changed_files "$context" '\.md$')
 
 if [ "${#markdown_files[@]}" -eq 0 ]; then
     echo "No markdown files changed; skipping Control Plane link check."

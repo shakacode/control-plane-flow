@@ -4,7 +4,10 @@ set -euo pipefail
 
 context="${1:-staged}"
 pattern='^(lib/command/.*\.rb|docs/commands\.md|script/update_command_docs|script/check_command_docs|Rakefile)$'
-mapfile -t relevant_files < <(./script/precommit/get_changed_files "$context" "$pattern")
+relevant_files=()
+while IFS= read -r f; do
+    relevant_files+=("$f")
+done < <(./script/precommit/get_changed_files "$context" "$pattern")
 
 if [ "${#relevant_files[@]}" -eq 0 ]; then
     echo "No command-doc related files changed; skipping command docs check."

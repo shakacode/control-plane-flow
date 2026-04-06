@@ -3,7 +3,10 @@
 set -euo pipefail
 
 context="${1:-staged}"
-mapfile -t files < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
+files=()
+while IFS= read -r f; do
+    files+=("$f")
+done < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
 
 if [ "${#files[@]}" -eq 0 ]; then
     echo "No Ruby files to auto-fix."
@@ -13,9 +16,22 @@ fi
 echo "Running RuboCop auto-fix on changed Ruby files:"
 printf "  %s\n" "${files[@]}"
 
+# Stash unstaged changes so auto-fix only touches what was staged.
+# This preserves partial staging (git add -p).
+has_stash=false
+if ! git diff --quiet -- "${files[@]}"; then
+    git stash push --keep-index --quiet -m "precommit: ruby_autofix unstaged changes"
+    has_stash=true
+fi
+
 bundle exec rubocop -A --force-exclusion -- "${files[@]}"
 
-# Keep the index in sync with auto-corrections.
+# Re-stage the auto-corrected files.
 git add -- "${files[@]}"
+
+# Restore unstaged changes.
+if [ "$has_stash" = true ]; then
+    git stash pop --quiet
+fi
 
 echo "Ruby auto-fix complete."

@@ -3,7 +3,10 @@
 set -euo pipefail
 
 context="${1:-staged}"
-mapfile -t files < <(./script/precommit/get_changed_files "$context" '.*')
+files=()
+while IFS= read -r f; do
+    files+=("$f")
+done < <(./script/precommit/get_changed_files "$context" '.*')
 
 if [ "${#files[@]}" -eq 0 ]; then
     echo "No files to check for trailing newlines."
@@ -28,7 +31,19 @@ for file in "${files[@]}"; do
 done
 
 if [ "${#updated_files[@]}" -gt 0 ]; then
+    # Stash unstaged changes so we only stage the newline fix, preserving
+    # partial staging (git add -p).
+    has_stash=false
+    if ! git diff --quiet -- "${updated_files[@]}"; then
+        git stash push --keep-index --quiet -m "precommit: trailing newlines unstaged changes"
+        has_stash=true
+    fi
+
     git add -- "${updated_files[@]}"
+
+    if [ "$has_stash" = true ]; then
+        git stash pop --quiet
+    fi
 fi
 
 echo "Trailing newline check complete."

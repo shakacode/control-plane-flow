@@ -3,7 +3,10 @@
 set -euo pipefail
 
 context="${1:-staged}"
-mapfile -t files < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
+files=()
+while IFS= read -r f; do
+    files+=("$f")
+done < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
 
 if [ "${#files[@]}" -eq 0 ]; then
     echo "No Ruby files to lint."
