@@ -13,7 +13,8 @@ if [ "${#files[@]}" -eq 0 ]; then
     exit 0
 fi
 
-updated_files=()
+# Identify files that need a trailing newline.
+needs_fix=()
 for file in "${files[@]}"; do
     [ -f "$file" ] || continue
     [ -s "$file" ] || continue
@@ -24,26 +25,27 @@ for file in "${files[@]}"; do
     fi
 
     if ! tail -c 1 "$file" | grep -q '^$'; then
-        echo "Adding trailing newline: $file"
-        printf '\n' >> "$file"
-        updated_files+=("$file")
+        needs_fix+=("$file")
     fi
 done
 
-if [ "${#updated_files[@]}" -gt 0 ]; then
-    # Stash unstaged changes so we only stage the newline fix, preserving
-    # partial staging (git add -p).
+if [ "${#needs_fix[@]}" -gt 0 ]; then
+    # Stash unstaged changes BEFORE modifying files so --keep-index preserves
+    # the working tree state and our modifications are not undone.
     has_stash=false
-    if ! git diff --quiet -- "${updated_files[@]}"; then
+    if ! git diff --quiet -- "${needs_fix[@]}"; then
         git stash push --keep-index --quiet -m "precommit: trailing newlines unstaged changes"
         has_stash=true
     fi
 
-    git add -- "${updated_files[@]}"
+    trap 'if [ "$has_stash" = true ]; then git stash pop --quiet; fi' EXIT
 
-    if [ "$has_stash" = true ]; then
-        git stash pop --quiet
-    fi
+    for file in "${needs_fix[@]}"; do
+        echo "Adding trailing newline: $file"
+        printf '\n' >> "$file"
+    done
+
+    git add -- "${needs_fix[@]}"
 fi
 
 echo "Trailing newline check complete."

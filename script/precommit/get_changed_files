@@ -31,7 +31,13 @@ case "$context" in
         ;;
     branch)
         if ! git rev-parse --verify --quiet "$base_ref" >/dev/null; then
-            echo "Error: ${base_ref} not found. Run: git fetch ${base_ref}" >&2
+            fetch_hint="git fetch --all --prune"
+            if [[ "$base_ref" == */* ]]; then
+                remote="${base_ref%%/*}"
+                ref="${base_ref#*/}"
+                fetch_hint="git fetch ${remote} ${ref}"
+            fi
+            echo "Error: ${base_ref} not found. Run: ${fetch_hint}" >&2
             exit 1
         fi
         git diff --name-only --diff-filter=ACMR "$base_ref"...HEAD | filter_matches

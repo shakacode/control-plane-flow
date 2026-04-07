@@ -24,14 +24,11 @@ if ! git diff --quiet -- "${files[@]}"; then
     has_stash=true
 fi
 
+trap 'if [ "$has_stash" = true ]; then git stash pop --quiet; fi' EXIT
+
 bundle exec rubocop -A --force-exclusion -- "${files[@]}"
 
 # Re-stage the auto-corrected files.
 git add -- "${files[@]}"
-
-# Restore unstaged changes.
-if [ "$has_stash" = true ]; then
-    git stash pop --quiet
-fi
 
 echo "Ruby auto-fix complete."

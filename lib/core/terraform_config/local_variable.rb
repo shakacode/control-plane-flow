@@ -2,7 +2,7 @@
 
 module TerraformConfig
   class LocalVariable < Base
-    VARIABLE_NAME_REGEX = /\A[a-zA-Z][a-zA-Z0-9_]*\z/.freeze
+    VARIABLE_NAME_REGEX = /\A[a-zA-Z][a-zA-Z0-9_]*\z/
 
     attr_reader :variables
 
