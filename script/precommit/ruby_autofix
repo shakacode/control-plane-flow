@@ -24,7 +24,15 @@ if ! git diff --quiet -- "${files[@]}"; then
     has_stash=true
 fi
 
-trap 'if [ "$has_stash" = true ]; then git stash pop --quiet; fi' EXIT
+restore_stash() {
+    if [ "$has_stash" = true ]; then
+        if ! git stash pop; then
+            echo "Warning: Could not restore unstaged changes from stash. Run 'git stash pop' manually to recover." >&2
+        fi
+    fi
+}
+
+trap restore_stash EXIT
 
 bundle exec rubocop -A --force-exclusion -- "${files[@]}"
 

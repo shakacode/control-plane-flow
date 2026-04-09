@@ -24,7 +24,7 @@ for file in "${files[@]}"; do
         continue
     fi
 
-    if ! tail -c 1 "$file" | grep -q '^$'; then
+    if [ -n "$(tail -c 1 "$file")" ]; then
         needs_fix+=("$file")
     fi
 done
@@ -38,7 +38,15 @@ if [ "${#needs_fix[@]}" -gt 0 ]; then
         has_stash=true
     fi
 
-    trap 'if [ "$has_stash" = true ]; then git stash pop --quiet; fi' EXIT
+    restore_stash() {
+        if [ "$has_stash" = true ]; then
+            if ! git stash pop; then
+                echo "Warning: Could not restore unstaged changes from stash. Run 'git stash pop' manually to recover." >&2
+            fi
+        fi
+    }
+
+    trap restore_stash EXIT
 
     for file in "${needs_fix[@]}"; do
         echo "Adding trailing newline: $file"
