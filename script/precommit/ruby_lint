@@ -19,7 +19,9 @@ printf "  %s\n" "${files[@]}"
 if ! bundle exec rubocop --force-exclusion --display-cop-names -- "${files[@]}"; then
     echo ""
     echo "RuboCop lint failed."
-    echo "Try: bundle exec rubocop -A --force-exclusion -- ${files[*]}"
+    rubocop_autofix_hint=""
+    printf -v rubocop_autofix_hint "%q " "${files[@]}"
+    echo "Try: bundle exec rubocop -A --force-exclusion -- ${rubocop_autofix_hint% }"
     echo "Skip hooks only if necessary: git commit --no-verify"
     exit 1
 fi
