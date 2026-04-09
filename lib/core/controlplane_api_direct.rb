@@ -111,7 +111,7 @@ class ControlplaneApiDirect
   def should_refresh_api_token?
     return false unless api_token[:comes_from_profile]
 
-    payload, = JWT.decode(api_token[:token], nil, false)
+    payload, = JWT.decode(api_token[:token], nil, false, algorithms: [])
     difference_in_seconds = payload["exp"] - Time.now.to_i
 
     difference_in_seconds <= API_TOKEN_EXPIRY_SECONDS

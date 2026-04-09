@@ -3,7 +3,7 @@
 set -euo pipefail
 
 context="${1:-staged}"
-pattern='^(lib/command/.*\.rb|docs/commands\.md|script/update_command_docs|script/check_command_docs|Rakefile)$'
+pattern='^(lib/command/.*\.rb|docs/commands\.md|script/update_command_docs|script/check_command_docs|script/precommit/check_command_docs|Rakefile)$'
 relevant_files=()
 changed_files_output="$(./script/precommit/get_changed_files "$context" "$pattern")" || {
     echo "Error: failed to determine command-doc related files." >&2

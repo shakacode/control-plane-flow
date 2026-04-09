@@ -21,14 +21,19 @@ fi
 needs_fix=()
 for file in "${files[@]}"; do
     [ -f "$file" ] || continue
-    [ -s "$file" ] || continue
 
-    # Skip binary files.
-    if ! grep -Iq . "$file"; then
+    # Skip binary files based on staged content.
+    if ! git cat-file blob ":$file" 2>/dev/null | grep -Iq .; then
         continue
     fi
 
-    if [ -n "$(tail -c 1 "$file")" ]; then
+    # Inspect staged content so partial staging is handled correctly.
+    staged_last_byte=""
+    if ! staged_last_byte="$(git cat-file blob ":$file" 2>/dev/null | tail -c 1)"; then
+        continue
+    fi
+
+    if [ -n "$staged_last_byte" ]; then
         needs_fix+=("$file")
     fi
 done

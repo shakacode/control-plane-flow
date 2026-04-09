@@ -1,6 +1,7 @@
 PreCommit:
   RubyAutoFix:
     enabled: true
+    parallelize: false
     required_executable: "./script/precommit/ruby_autofix"
     command: ["./script/precommit/ruby_autofix", "staged"]
     requires_files: true
@@ -11,6 +12,7 @@ PreCommit:
 
   TrailingNewlines:
     enabled: true
+    parallelize: false
     required_executable: "./script/precommit/check_trailing_newlines"
     command: ["./script/precommit/check_trailing_newlines", "staged"]
     requires_files: true
