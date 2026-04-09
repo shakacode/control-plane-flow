@@ -4,9 +4,13 @@ set -euo pipefail
 
 context="${1:-staged}"
 markdown_files=()
+changed_files_output="$(./script/precommit/get_changed_files "$context" '\.md$')" || {
+    echo "Error: failed to determine changed markdown files." >&2
+    exit 1
+}
 while IFS= read -r f; do
-    markdown_files+=("$f")
-done < <(./script/precommit/get_changed_files "$context" '\.md$')
+    [ -n "$f" ] && markdown_files+=("$f")
+done <<< "$changed_files_output"
 
 if [ "${#markdown_files[@]}" -eq 0 ]; then
     echo "No markdown files changed; skipping Control Plane link check."

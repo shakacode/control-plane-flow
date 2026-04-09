@@ -4,9 +4,13 @@ set -euo pipefail
 
 context="${1:-staged}"
 files=()
+changed_files_output="$(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')" || {
+    echo "Error: failed to determine changed Ruby files." >&2
+    exit 1
+}
 while IFS= read -r f; do
-    files+=("$f")
-done < <(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')
+    [ -n "$f" ] && files+=("$f")
+done <<< "$changed_files_output"
 
 if [ "${#files[@]}" -eq 0 ]; then
     echo "No Ruby files to lint."

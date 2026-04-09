@@ -4,9 +4,13 @@ set -euo pipefail
 
 context="${1:-staged}"
 files=()
+changed_files_output="$(./script/precommit/get_changed_files "$context" '.*')" || {
+    echo "Error: failed to determine changed files." >&2
+    exit 1
+}
 while IFS= read -r f; do
-    files+=("$f")
-done < <(./script/precommit/get_changed_files "$context" '.*')
+    [ -n "$f" ] && files+=("$f")
+done <<< "$changed_files_output"
 
 if [ "${#files[@]}" -eq 0 ]; then
     echo "No files to check for trailing newlines."
