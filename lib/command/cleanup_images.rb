@@ -26,7 +26,7 @@ module Command
 
       progress.puts("Images to delete:")
       images_to_delete.each do |image|
-        created = Shell.color((image[:created]).to_s, :red)
+        created = Shell.color(image[:created].to_s, :red)
         reason = Shell.color(image[:reason], :red)
         progress.puts("  - #{image[:name]} (#{created} - #{reason})")
       end

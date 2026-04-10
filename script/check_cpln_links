@@ -1,31 +1,45 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 bad_links=("controlplane.com/shakacode" "https://docs.controlplane.com")
 proper_links=("shakacode.controlplane.com" "https://shakadocs.controlplane.com")
 
-bold=$(tput bold)
-normal=$(tput sgr0)
+bold=$(tput bold 2>/dev/null || true)
+normal=$(tput sgr0 2>/dev/null || true)
+
+files=()
+if [ "$#" -gt 0 ]; then
+    for file in "$@"; do
+        if [[ "$file" == *.md ]] && [ -f "$file" ]; then
+            files+=("$file")
+        fi
+    done
+else
+    while IFS= read -r file; do
+        files+=("$file")
+    done < <(git ls-files -- '*.md' ':!:script/check_cpln_links')
+fi
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "No markdown files to validate."
+    exit 0
+fi
 
 exit_status=0
 accumulated_results=""
 seen_bad_links_indexes=()
 
 for ((idx = 0; idx < ${#bad_links[@]}; idx++)); do
-    results=$(git grep \
-        --recursive \
+    if results=$(git grep \
         --line-number \
         --fixed-strings \
         --break \
         --heading \
         --color=always -- \
         "${bad_links[idx]}" \
-        ':!script/check_cpln_links' '*.md')
-
-    # Line would become really unwieldly if everything was mushed into the
-    # conditional, so let's ignore this check here.
-    # shellcheck disable=SC2181
-    if [ $? -eq 0 ]; then
-        accumulated_results+="$results"
+        -- "${files[@]}"); then
+        accumulated_results+="$results"$'\n'
         seen_bad_links_indexes+=("$idx")
         exit_status=1
     fi

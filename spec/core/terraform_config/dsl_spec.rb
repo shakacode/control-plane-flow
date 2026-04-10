@@ -7,7 +7,7 @@ describe TerraformConfig::Dsl do
 
   context "with simple config" do
     subject(:generated) do
-      block :block_name do # rubocop:disable Lint/EmptyBlock
+      block :block_name do
       end
     end
 
@@ -23,7 +23,7 @@ describe TerraformConfig::Dsl do
 
   context "when block has arguments" do
     subject(:generated) do
-      block :block_name, :label1, "label2" do # rubocop:disable Lint/EmptyBlock
+      block :block_name, :label1, "label2" do
       end
     end
 
@@ -42,7 +42,7 @@ describe TerraformConfig::Dsl do
       block :a do
         block :b do
           block :c do
-            block :d do # rubocop:disable Lint/EmptyBlock
+            block :d do
             end
           end
         end

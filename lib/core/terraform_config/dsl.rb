@@ -4,7 +4,7 @@ module TerraformConfig
   module Dsl
     extend Forwardable
 
-    EXPRESSION_PATTERN = /(var|local|cpln_\w+)\./.freeze
+    EXPRESSION_PATTERN = /(var|local|cpln_\w+)\./
 
     def_delegators :current_context, :put, :output
 

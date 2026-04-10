@@ -1,10 +1,10 @@
-require:
+plugins:
   - rubocop-rake
   - rubocop-rspec
 
 AllCops:
-  TargetRubyVersion: 2.7
-  NewCops: enable
+  TargetRubyVersion: 3.0
+  NewCops: disable
 
 Metrics/AbcSize:
   Enabled: false

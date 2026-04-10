@@ -2,7 +2,7 @@
 
 class RedactedDebugOutput
   SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
-  HEADER_REGEX = /^([A-Za-z\-]+): (.+)$/.freeze
+  HEADER_REGEX = /^([A-Za-z-]+): (.+)$/
 
   def <<(msg)
     $stdout << redact(msg)
@@ -37,7 +37,7 @@ class ControlplaneApiDirect
   #  /^[\w\-._]{1134}$/ # 'cpln profile token' format
   # ).freeze
 
-  API_TOKEN_REGEX = /^[\w\-._]+$/.freeze
+  API_TOKEN_REGEX = /^[\w\-._]+$/
   API_TOKEN_EXPIRY_SECONDS = 300
 
   class << self
@@ -111,7 +111,7 @@ class ControlplaneApiDirect
   def should_refresh_api_token?
     return false unless api_token[:comes_from_profile]
 
-    payload, = JWT.decode(api_token[:token], nil, false)
+    payload, = JWT.decode(api_token[:token], nil, false, algorithms: [])
     difference_in_seconds = payload["exp"] - Time.now.to_i
 
     difference_in_seconds <= API_TOKEN_EXPIRY_SECONDS

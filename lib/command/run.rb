@@ -48,7 +48,7 @@ module Command
       - By default, the job is stopped if it takes longer than 6 hours to finish
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
     DESC
-    EXAMPLES = <<~EX
+    EXAMPLES = <<~EX.freeze
       ```sh
       # Opens shell (bash by default).
       cpflow run -a $APP_NAME

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+files=()
+changed_files_output="$(./script/precommit/get_changed_files "$context" '.*')" || {
+    echo "Error: failed to determine changed files." >&2
+    exit 1
+}
+while IFS= read -r f; do
+    [ -n "$f" ] && files+=("$f")
+done <<< "$changed_files_output"
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "No files to check for trailing newlines."
+    exit 0
+fi
+
+# Identify files that need a trailing newline.
+needs_fix=()
+for file in "${files[@]}"; do
+    [ -f "$file" ] || continue
+
+    # Skip binary files based on staged content.
+    if ! git cat-file blob ":$file" 2>/dev/null | grep -Iq .; then
+        continue
+    fi
+
+    # Inspect staged content so partial staging is handled correctly.
+    staged_last_byte=""
+    if ! staged_last_byte="$(git cat-file blob ":$file" 2>/dev/null | tail -c 1)"; then
+        continue
+    fi
+
+    if [ -n "$staged_last_byte" ]; then
+        needs_fix+=("$file")
+    fi
+done
+
+if [ "${#needs_fix[@]}" -gt 0 ]; then
+    # Stash unstaged changes BEFORE modifying files so --keep-index preserves
+    # the working tree state and our modifications are not undone.
+    has_stash=false
+    if ! git diff --quiet -- "${needs_fix[@]}"; then
+        git stash push --keep-index --quiet -m "precommit: trailing newlines unstaged changes"
+        has_stash=true
+    fi
+
+    restore_stash() {
+        if [ "$has_stash" = true ]; then
+            if ! git stash pop; then
+                echo "Warning: Could not restore unstaged changes from stash. Run 'git stash pop' manually to recover." >&2
+            fi
+        fi
+    }
+
+    trap restore_stash EXIT
+
+    for file in "${needs_fix[@]}"; do
+        echo "Adding trailing newline: $file"
+        printf '\n' >> "$file"
+    done
+
+    git add -- "${needs_fix[@]}"
+fi
+
+echo "Trailing newline check complete."

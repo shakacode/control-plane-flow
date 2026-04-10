@@ -1,3 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
+
 bundle exec rake update_command_docs
-git diff --exit-code || exit 1
+git diff --exit-code -- docs/commands.md

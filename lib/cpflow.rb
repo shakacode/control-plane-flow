@@ -126,7 +126,7 @@ module Cpflow
     end
 
     # Needed to be able to use "run" as a command
-    def self.is_thor_reserved_word?(word, type) # rubocop:disable Naming/PredicateName
+    def self.is_thor_reserved_word?(word, type) # rubocop:disable Naming/PredicatePrefix
       return false if word == "run"
 
       super

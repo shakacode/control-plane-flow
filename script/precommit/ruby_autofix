@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+context="${1:-staged}"
+files=()
+changed_files_output="$(./script/precommit/get_changed_files "$context" '\.(rb|rake|ru)$')" || {
+    echo "Error: failed to determine changed Ruby files." >&2
+    exit 1
+}
+while IFS= read -r f; do
+    [ -n "$f" ] && files+=("$f")
+done <<< "$changed_files_output"
+
+if [ "${#files[@]}" -eq 0 ]; then
+    echo "No Ruby files to auto-fix."
+    exit 0
+fi
+
+echo "Running RuboCop auto-fix on changed Ruby files:"
+printf "  %s\n" "${files[@]}"
+
+# Stash unstaged changes so auto-fix only touches what was staged.
+# This preserves partial staging (git add -p).
+has_stash=false
+if ! git diff --quiet -- "${files[@]}"; then
+    git stash push --keep-index --quiet -m "precommit: ruby_autofix unstaged changes"
+    has_stash=true
+fi
+
+restore_stash() {
+    if [ "$has_stash" = true ]; then
+        if ! git stash pop; then
+            echo "Warning: Could not restore unstaged changes from stash. Run 'git stash pop' manually to recover." >&2
+        fi
+    fi
+}
+
+trap restore_stash EXIT
+
+rubocop_exit=0
+bundle exec rubocop -A --force-exclusion -- "${files[@]}" || rubocop_exit=$?
+
+# Re-stage auto-corrected files regardless of rubocop exit code so fixable
+# changes are not lost when non-fixable offenses still fail the hook.
+git add -- "${files[@]}"
+
+if [ "$rubocop_exit" -ne 0 ]; then
+    exit "$rubocop_exit"
+fi
+
+echo "Ruby auto-fix complete."
