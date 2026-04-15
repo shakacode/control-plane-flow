@@ -50,6 +50,8 @@ deployable application rather than a partial sample:
   package versions
 - the repo does not depend on unpublished or inaccessible package versions unless
   the deployment flow also provisions the credentials needed to fetch them
+- the repo is not just a historical generator snapshot pinned to an obsolete
+  Ruby or Bundler toolchain with no validated production build path
 - the app has its real runtime scaffold checked in, for example a complete Rails
   app with the boot files needed to run `bin/rails` and `bin/dev`
 - the production Dockerfile can build the app's assets and any SSR or renderer
@@ -244,10 +246,14 @@ In practice, porting the flow into a demo app usually means:
 
 ## AI Playbook
 
-If you want an AI agent to apply this flow to another project, this prompt is the intended starting point:
+If you want an AI agent to apply this flow to another project, start with the
+standalone [AI rollout prompt](./ai-github-flow-prompt.md). It captures the
+exact wording, hard stop conditions, and definition of done for this workflow.
+
+Short version:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished or inaccessible from CI, stop and report the blocker instead of generating workflow files. If `.controlplane/` is missing, run `cpflow generate`. Treat the generated app names as the repo-name default and rename them only if the project needs a different prefix. Then run `cpflow generate-github-actions`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, or `pnpm`, and make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. If `config/database.yml` shows SQLite in production, confirm that the generated scaffold uses persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`; otherwise keep the default Postgres workload. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
+Set up Control Plane GitHub Flow for this repo. First verify that the repo is deployable from a clean clone, with published package versions and a production Dockerfile that can really build the app. Stop and report blockers for unpublished packages, inaccessible private dependencies, legacy toolchains, or missing production build paths instead of generating workflows blindly. Then run `cpflow generate` if `.controlplane/` is missing, run `cpflow generate-github-actions`, adapt the generated scaffold to the real workloads, document the required GitHub secrets and variables, validate the real build path locally, push the branch, and check the GitHub Actions results.
 ```
 
 Expand that prompt with app-specific requirements before editing files:
