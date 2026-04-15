@@ -241,11 +241,12 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     yaml_block&.match?(/^\s*<<:\s*\*default\b/)
   end
 
-  def rubygems_version_available?(name, version)
-    versions = fetch_rubygems_versions(name)
+  def rubygems_requirement_available?(dependency)
+    versions = fetch_rubygems_versions(dependency[:name])
     return nil unless versions
 
-    versions.include?(version)
+    requirement = dependency[:requirement]
+    versions.any? { |version| requirement.satisfied_by?(Gem::Version.new(version)) }
   end
 
   def npm_version_available?(name, version)
@@ -349,6 +350,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     {
       name: dependency.name,
       exact_version: exact_gem_version(dependency),
+      requirement: dependency.requirement,
       source_type: gem_source_type(dependency.source)
     }
   end
@@ -393,7 +395,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
       missing_prefix: "Direct Ruby gem versions not available on RubyGems",
       unknown_prefix: "Could not verify some exact-pinned Ruby gems against RubyGems",
       success_noun: "direct Ruby gem",
-      availability_proc: method(:rubygems_dependency_available?),
+      availability_proc: method(:rubygems_requirement_available?),
       registry_name: "RubyGems"
     )
   end
@@ -412,10 +414,6 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   def build_registry_check(**attributes)
     RegistryCheck.new(**attributes)
-  end
-
-  def rubygems_dependency_available?(dependency)
-    rubygems_version_available?(dependency[:name], dependency[:exact_version])
   end
 
   def npm_dependency_available?(dependency)

@@ -88,6 +88,23 @@ describe GithubFlowReadinessService do
     )
   end
 
+  it "treats exact Ruby gem pins without patch segments as available when RubyGems normalizes them" do
+    File.write(playground.join("Gemfile"), <<~GEMFILE)
+      source "https://rubygems.org"
+      gem "react_on_rails", "= 16.6"
+      gem "shakapacker", "= 10.0"
+    GEMFILE
+
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.6.0"])
+    allow(service).to receive(:fetch_rubygems_versions).with("shakapacker").and_return(["10.0.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    expect(service.blockers?).to be(false)
+    expect(service.results.map(&:message)).to include(
+      "Checked 2 exact-pinned direct Ruby gems; all appear available on RubyGems."
+    )
+  end
+
   it "reports legacy toolchains and unavailable direct pins as blockers" do
     File.write(playground.join(".ruby-version"), "2.5.1\n")
     File.write(playground.join("Gemfile"), <<~GEMFILE)
