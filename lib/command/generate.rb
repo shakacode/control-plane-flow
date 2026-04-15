@@ -64,7 +64,8 @@ module Command
     def template_variables
       {
         "__APP_PREFIX__" => inferred_app_prefix,
-        "__RUBY_VERSION__" => inferred_ruby_version
+        "__RUBY_VERSION__" => inferred_ruby_version,
+        "__ASSET_PRECOMPILE_HOOK_RUN__" => asset_precompile_hook_run
       }
     end
 
@@ -86,6 +87,13 @@ module Command
 
     def sqlite_project?
       @sqlite_project ||= sqlite_database_in_production?
+    end
+
+    def asset_precompile_hook_run
+      command = normalized_asset_precompile_hook_command
+      return "" unless command
+
+      "RUN #{command}\n\n"
     end
 
     def ruby_version_from_ruby_version_file
@@ -150,6 +158,33 @@ module Command
     def inherits_default_config?(yaml_block)
       yaml_block&.match?(/^\s*<<:\s*\*default\b/)
     end
+
+    def normalized_asset_precompile_hook_command
+      command = shakapacker_precompile_hook || react_on_rails_auto_bundle_hook
+      return unless command
+
+      command.start_with?("rake ") ? "bundle exec #{command}" : command
+    end
+
+    def shakapacker_precompile_hook
+      return unless File.file?("config/shakapacker.yml")
+
+      config = File.read("config/shakapacker.yml")
+      match = config.match(/^\s*precompile_hook:\s*["']?(.+?)["']?\s*$/)
+      match && match[1]
+    end
+
+    def react_on_rails_auto_bundle_hook
+      return unless react_on_rails_auto_load_bundle?
+
+      "bundle exec rake react_on_rails:generate_packs"
+    end
+
+    def react_on_rails_auto_load_bundle?
+      return false unless File.file?("config/initializers/react_on_rails.rb")
+
+      File.read("config/initializers/react_on_rails.rb").match?(/config\.auto_load_bundle\s*=\s*true\b/)
+    end
   end
 
   class Generate < Base
@@ -159,6 +194,7 @@ module Command
       Creates base Control Plane config and template files for a Rails project:
       - infers the app prefix from the current directory and wires staging, review, and production entries
       - infers the Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`
+      - preserves repo-defined asset precompile hooks, including React on Rails auto bundle generation
       - detects SQLite in `config/database.yml` and generates persistent `db` and `storage` volume templates instead of the default Postgres workload
     DESC
     EXAMPLES = <<~EX

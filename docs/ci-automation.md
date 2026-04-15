@@ -51,7 +51,9 @@ The second command writes namespaced files so they can coexist with an app's exi
 
 `cpflow generate` also infers the app prefix from the repo directory, infers the
 Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's
-`Gemfile`, and switches to persistent SQLite `db` and `storage` templates when
+`Gemfile`, preserves repo-defined frontend precompile hooks such as Shakapacker
+`precompile_hook` commands or React on Rails auto bundle generation, and
+switches to persistent SQLite `db` and `storage` templates when
 `config/database.yml` shows SQLite in production.
 
 ## Repo Readiness Checklist
@@ -71,6 +73,8 @@ deployable application rather than a partial sample:
   rollout decision before using this one-app-per-repo flow
 - the production Dockerfile can build the app's assets and any SSR or renderer
   bundles that production needs
+- any repo-defined frontend codegen or precompile hooks are preserved before
+  `rails assets:precompile`
 - the runtime workloads, release command, and required secrets are known well
   enough to model in `.controlplane/`
 
@@ -253,14 +257,15 @@ In practice, porting the flow into a demo app usually means:
 3. Generate the `cpflow-*` GitHub Actions files.
 4. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
 5. Keep Node available in the final app image whenever Rails asset compilation or SSR depends on ExecJS or frontend package managers at build or runtime.
-6. For SQLite-backed apps, confirm that the generated scaffold switched to persistent `db` and `storage` volumes, mounted them into the main workload, and added a release script that runs `rails db:prepare`.
-7. Confirm that the generated Dockerfile is using a Ruby base image compatible with the app's declared Ruby requirement.
-8. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
-9. Make sure the repo variables and secrets line up with those app names.
-10. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
-11. If the Dockerfile pulls private dependencies over SSH, configure `DOCKER_BUILD_SSH_KEY`, add `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the host is not GitHub.com, and validate that the image can build with `RUN --mount=type=ssh`.
-12. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
-13. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
+6. Preserve repo-defined frontend precompile hooks, such as Shakapacker `precompile_hook` commands or React on Rails `config.auto_load_bundle = true`, before `rails assets:precompile`.
+7. For SQLite-backed apps, confirm that the generated scaffold switched to persistent `db` and `storage` volumes, mounted them into the main workload, and added a release script that runs `rails db:prepare`.
+8. Confirm that the generated Dockerfile is using a Ruby base image compatible with the app's declared Ruby requirement.
+9. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
+10. Make sure the repo variables and secrets line up with those app names.
+11. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
+12. If the Dockerfile pulls private dependencies over SSH, configure `DOCKER_BUILD_SSH_KEY`, add `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the host is not GitHub.com, and validate that the image can build with `RUN --mount=type=ssh`.
+13. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
+14. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
 
 ## AI Playbook
 
@@ -283,6 +288,7 @@ Expand that prompt with app-specific requirements before editing files:
 - stop and report a scope decision when the repo is a monorepo or contains multiple deployable apps without an already-decided single flow target
 - inspect the production Dockerfile and make sure it can build the app's assets in CI
 - make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement
+- preserve repo-defined frontend precompile hooks, such as Shakapacker `precompile_hook` commands or React on Rails `config.auto_load_bundle = true`
 - keep Node available in the final image if Rails or SSR depends on ExecJS, Yarn, or `pnpm` after the main `npm install` layer
 - if `config/database.yml` shows SQLite in production, confirm that `cpflow generate` emitted persistent `db` and `storage` volumes plus a `rails db:prepare` release script; otherwise keep the default Postgres workload
 - inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` plus `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the build uses `RUN --mount=type=ssh` against non-GitHub hosts

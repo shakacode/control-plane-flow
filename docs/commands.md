@@ -180,6 +180,7 @@ if [ cpflow exists -a $APP_NAME ]; ...
 Creates base Control Plane config and template files for a Rails project:
 - infers the app prefix from the current directory and wires staging, review, and production entries
 - infers the Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`
+- preserves repo-defined asset precompile hooks, including React on Rails auto bundle generation
 - detects SQLite in `config/database.yml` and generates persistent `db` and `storage` volume templates instead of the default Postgres workload
 
 ```sh

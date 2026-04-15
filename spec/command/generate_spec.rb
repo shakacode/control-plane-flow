@@ -108,6 +108,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(dockerfile_content).to include("yarn install --immutable || yarn install --frozen-lockfile")
         expect(dockerfile_content).to include("corepack pnpm install --frozen-lockfile")
         expect(dockerfile_content).to include("npm ci")
+        expect(dockerfile_content).not_to include("react_on_rails:generate_packs")
         expect(app_template_content).to include("RAILS_LOG_TO_STDOUT")
         expect(app_template_content).to include("SECRET_KEY_BASE")
         expect(rails_template_content).to include("minScale: 1")
@@ -205,6 +206,48 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-storage")
         expect(release_script_path.read).to include("mkdir -p db storage")
+      end
+    end
+  end
+
+  context "when shakapacker config defines a precompile hook" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/shakapacker.yml").write(<<~YAML)
+        default: &default
+          precompile_hook: "rake react_on_rails:generate_packs"
+      YAML
+    end
+
+    it "runs the hook before assets precompile in the generated Dockerfile" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        dockerfile_content = dockerfile_path.read
+
+        expect(dockerfile_content).to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(
+          dockerfile_content.index("RUN bundle exec rake react_on_rails:generate_packs")
+        ).to be < dockerfile_content.index("RUN rails assets:precompile")
+      end
+    end
+  end
+
+  context "when React on Rails auto bundle generation is enabled" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config/initializers"))
+      GENERATOR_PLAYGROUND_PATH.join("config/initializers/react_on_rails.rb").write(<<~RUBY)
+        ReactOnRails.configure do |config|
+          config.auto_load_bundle = true
+        end
+      RUBY
+    end
+
+    it "adds the React on Rails pack generation step before assets precompile" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(dockerfile_path.read).to include("RUN bundle exec rake react_on_rails:generate_packs")
       end
     end
   end

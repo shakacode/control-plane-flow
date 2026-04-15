@@ -22,7 +22,7 @@ Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-r
 
 If `.controlplane/` is missing, run `cpflow generate`. Treat the generated app names as the repo-name default and rename them only if the project needs a different prefix. Then run `cpflow generate-github-actions`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets and variables that must be configured.
 
-Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, `pnpm`, or npm after the main install layer. Make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. If `config/database.yml` shows SQLite in production, confirm that the generated scaffold uses persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`; otherwise keep the default Postgres workload. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY`, optionally set `DOCKER_BUILD_SSH_KNOWN_HOSTS` for non-GitHub SSH hosts, and add any needed `DOCKER_BUILD_EXTRA_ARGS`.
+Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, `pnpm`, or npm after the main install layer. Make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. Preserve repo-defined frontend build hooks: if `config/shakapacker.yml` defines a `precompile_hook`, or React on Rails enables `config.auto_load_bundle = true`, confirm the generated Dockerfile runs that codegen step before `rails assets:precompile`. If `config/database.yml` shows SQLite in production, confirm that the generated scaffold uses persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`; otherwise keep the default Postgres workload. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY`, optionally set `DOCKER_BUILD_SSH_KNOWN_HOSTS` for non-GitHub SSH hosts, and add any needed `DOCKER_BUILD_EXTRA_ARGS`.
 
 Run the real local validations you can: Docker build if feasible, repo tests or smoke checks, YAML validation, and any CI-equivalent build steps. Push the branch and check the GitHub Actions results. Only stop early for a real external blocker or a product decision that changes scope.
 ```
@@ -48,7 +48,7 @@ The rollout is done when all of the following are true:
 - review apps are opt-in, staging auto-deploys from one branch, and production promotion is manual
 - required GitHub secrets and variables are documented for the repo
 - the production image build path is validated for the real app
-- repo-specific runtime concerns are handled, such as SQLite volumes, sidekiq workloads, SSR runtime Node access, or private dependency fetches
+- repo-specific runtime concerns are handled, such as SQLite volumes, sidekiq workloads, SSR runtime Node access, React on Rails pack generation hooks, or private dependency fetches
 - the branch is pushed and the relevant GitHub checks are either green or blocked only by an external system failure
 
 ## React on Rails Notes

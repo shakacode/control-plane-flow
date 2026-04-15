@@ -29,6 +29,8 @@ describe Command::AiGithubFlowPrompt, :enable_validations, :without_config_file 
       expect(result[:stdout]).to include("cpflow generate-github-actions")
       expect(result[:stdout]).to include("monorepo without an already-decided single app boundary")
       expect(result[:stdout]).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
+      expect(result[:stdout]).to include("config/shakapacker.yml")
+      expect(result[:stdout]).to include("config.auto_load_bundle = true")
       expect(result[:stdout]).to include("Only stop early for a real external blocker")
       expect(result[:stderr]).to be_empty
     end

@@ -56,6 +56,7 @@ ENV RAILS_ENV=production
 # compiling assets requires any value for ENV of SECRET_KEY_BASE
 ENV SECRET_KEY_BASE=NOT_USED_NON_BLANK
 
+__ASSET_PRECOMPILE_HOOK_RUN__
 RUN rails assets:precompile
 
 # add entrypoint
