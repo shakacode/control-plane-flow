@@ -142,7 +142,7 @@ The action will start an SSH agent, add the key, and pass `--ssh default` to `cp
 
 `cpflow-review-app-help.yml`
 
-- Posts a quick reference when a pull request opens.
+- Posts a quick reference when a pull request opens, including on fork-based PRs.
 
 `cpflow-help-command.yml`
 
@@ -154,22 +154,27 @@ The action will start an SSH agent, add the key, and pass `--ssh default` to `cp
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
+- Accepts `/deploy-review-app` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
+- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets.
 
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `/delete-review-app`.
 - Also deletes it automatically when the pull request closes.
+- Accepts `/delete-review-app` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
 
 `cpflow-deploy-staging.yml`
 
 - Builds and deploys the staging app on pushes to `STAGING_APP_BRANCH`.
 - Falls back to `main` or `master` when `STAGING_APP_BRANCH` is unset.
+- Fails fast when required staging repo settings are missing instead of surfacing opaque `cpflow` errors.
 
 `cpflow-promote-staging-to-production.yml`
 
 - Manually promotes the staging artifact to production with a confirmation input.
 - Verifies that production has the env var names staging expects.
-- Runs a health check and attempts a rollback of every container image in `PRIMARY_WORKLOAD` if the new production image does not come up healthy.
+- Runs a health check against `PRIMARY_WORKLOAD`.
+- Attempts a rollback of every configured application workload if the new production image does not come up healthy.
 - Creates a GitHub release after a successful promotion.
 
 `cpflow-cleanup-stale-review-apps.yml`
@@ -205,6 +210,7 @@ In practice, porting the flow into a demo app usually means:
 6. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
 7. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
 8. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, or extra Docker build flags.
+9. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
 
 ## AI Playbook
 

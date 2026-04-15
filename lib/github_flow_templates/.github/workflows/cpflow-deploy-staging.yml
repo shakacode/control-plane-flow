@@ -17,7 +17,7 @@ env:
   STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH }}
 
 concurrency:
-  group: cpflow-deploy-staging
+  group: cpflow-deploy-staging-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -26,6 +26,21 @@ jobs:
     outputs:
       is_deployable: ${{ steps.check-branch.outputs.is_deployable }}
     steps:
+      - name: Validate required secrets and variables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=()
+          [[ -n "${{ secrets.CPLN_TOKEN_STAGING }}" ]] || missing+=("secret:CPLN_TOKEN_STAGING")
+          [[ -n "${{ vars.CPLN_ORG_STAGING }}" ]] || missing+=("variable:CPLN_ORG_STAGING")
+          [[ -n "${{ vars.STAGING_APP_NAME }}" ]] || missing+=("variable:STAGING_APP_NAME")
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            printf 'Missing required GitHub configuration:\n- %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
       - name: Check whether this branch should deploy staging
         id: check-branch
         shell: bash

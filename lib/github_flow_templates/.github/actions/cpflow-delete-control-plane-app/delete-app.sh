@@ -15,9 +15,20 @@ if [[ "$APP_NAME" != "${expected_prefix}"* ]]; then
 fi
 
 echo "🔍 Checking if application exists: $APP_NAME"
-if ! cpflow exists -a "$APP_NAME" --org "$CPLN_ORG"; then
-  echo "⚠️ Application does not exist: $APP_NAME"
-  exit 0
+exists_output=""
+if ! exists_output="$(cpflow exists -a "$APP_NAME" --org "$CPLN_ORG" 2>&1)"; then
+  if [[ -z "$exists_output" ]]; then
+    echo "⚠️ Application does not exist: $APP_NAME"
+    exit 0
+  fi
+
+  echo "❌ ERROR: failed to determine whether application exists: $APP_NAME" >&2
+  printf '%s\n' "$exists_output" >&2
+  exit 1
+fi
+
+if [[ -n "$exists_output" ]]; then
+  printf '%s\n' "$exists_output"
 fi
 
 echo "🗑️ Deleting application: $APP_NAME"

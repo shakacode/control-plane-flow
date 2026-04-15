@@ -43,6 +43,18 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve production app workloads
+        id: workloads
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          workloads="$(
+            ruby -e 'require "yaml"; app = ARGV.fetch(0); data = YAML.load_file(".controlplane/controlplane.yml", aliases: true); app_config = data.fetch("apps").fetch(app); workloads = Array(app_config["app_workloads"]); workloads = ["rails"] if workloads.empty?; puts workloads.join(",")' "${{ vars.PRODUCTION_APP_NAME }}"
+          )"
+
+          echo "names=${workloads}" >> "$GITHUB_OUTPUT"
+
       - name: Setup production environment
         uses: ./.github/actions/cpflow-setup-environment
         with:
@@ -85,17 +97,50 @@ jobs:
         run: |
           set -euo pipefail
 
-          workload_name="${PRIMARY_WORKLOAD:-rails}"
-          workload_json="$(cpln workload get "${workload_name}" --gvc "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json)"
-          current_image="$(echo "${workload_json}" | jq -r '.spec.containers[0].image')"
-          current_images="$(echo "${workload_json}" | jq -c '.spec.containers | map(.image)')"
-          current_version="$(echo "${workload_json}" | jq -r '.version')"
+          selected_workload="${PRIMARY_WORKLOAD:-}"
+          selected_image=""
+          selected_version=""
+          first_image=""
+          first_version=""
+          rollback_state='{}'
+
+          while IFS= read -r workload_name; do
+            [[ -n "${workload_name}" ]] || continue
+
+            workload_json="$(cpln workload get "${workload_name}" --gvc "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json)"
+            workload_image="$(echo "${workload_json}" | jq -r '.spec.containers[0].image')"
+            workload_images="$(echo "${workload_json}" | jq -c '.spec.containers | map(.image)')"
+            workload_version="$(echo "${workload_json}" | jq -r '.version')"
+
+            if [[ -z "${first_image}" ]]; then
+              first_image="${workload_image}"
+              first_version="${workload_version}"
+            fi
+
+            if [[ -n "${selected_workload}" && "${workload_name}" == "${selected_workload}" ]]; then
+              selected_image="${workload_image}"
+              selected_version="${workload_version}"
+            fi
+
+            rollback_state="$(
+              jq -c \
+                --arg workload "${workload_name}" \
+                --arg image "${workload_image}" \
+                --arg version "${workload_version}" \
+                --argjson images "${workload_images}" \
+                '. + {($workload): {image: $image, version: $version, images: $images}}' \
+                <<< "${rollback_state}"
+            )"
+          done < <(tr ',' '\n' <<< "${{ steps.workloads.outputs.names }}")
+
+          current_image="${selected_image:-${first_image}}"
+          current_version="${selected_version:-${first_version}}"
 
           echo "current_image=${current_image}" >> "$GITHUB_OUTPUT"
           echo "current_version=${current_version}" >> "$GITHUB_OUTPUT"
           {
-            echo "current_images<<EOF"
-            echo "${current_images}"
+            echo "rollback_state<<EOF"
+            echo "${rollback_state}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -142,24 +187,25 @@ jobs:
           exit 1
 
       - name: Roll back on failure
-        if: failure() && steps.capture-current.outputs.current_image != ''
+        if: failure() && steps.capture-current.outputs.rollback_state != ''
         env:
-          PREVIOUS_IMAGES: ${{ steps.capture-current.outputs.current_images }}
+          ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
         shell: bash
         run: |
           set -euo pipefail
 
-          workload_name="${PRIMARY_WORKLOAD:-rails}"
-          rollback_args=()
+          while IFS=$'\t' read -r workload_name previous_images; do
+            rollback_args=()
 
-          while IFS=$'\t' read -r index image; do
-            rollback_args+=(--set "spec.containers[${index}].image=${image}")
-          done < <(echo "${PREVIOUS_IMAGES}" | jq -r 'to_entries[] | "\(.key)\t\(.value)"')
+            while IFS=$'\t' read -r index image; do
+              rollback_args+=(--set "spec.containers[${index}].image=${image}")
+            done < <(echo "${previous_images}" | jq -r 'to_entries[] | "\(.key)\t\(.value)"')
 
-          cpln workload update "${workload_name}" \
-            --gvc "${{ vars.PRODUCTION_APP_NAME }}" \
-            --org "${{ vars.CPLN_ORG_PRODUCTION }}" \
-            "${rollback_args[@]}"
+            cpln workload update "${workload_name}" \
+              --gvc "${{ vars.PRODUCTION_APP_NAME }}" \
+              --org "${{ vars.CPLN_ORG_PRODUCTION }}" \
+              "${rollback_args[@]}"
+          done < <(echo "${ROLLBACK_STATE}" | jq -r 'to_entries[] | "\(.key)\t\(.value.images | @json)"')
 
       - name: Create GitHub release
         if: success() && steps.health-check.outputs.healthy == 'true'

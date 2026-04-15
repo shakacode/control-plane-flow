@@ -59,8 +59,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(build_action_path.read).to include('docker_build_args+=("--ssh default")')
         expect(review_app_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
         expect(review_app_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+        expect(review_app_workflow_path.read).to include("github.event.comment.author_association")
+        expect(review_app_workflow_path.read).to include("Review app deploys are skipped for fork pull requests.")
         expect(staging_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
         expect(staging_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+        expect(staging_workflow_path.read).to include("cpflow-deploy-staging-${{ github.ref_name }}")
+        expect(staging_workflow_path.read).to include("variable:STAGING_APP_NAME")
       end
     end
   end
