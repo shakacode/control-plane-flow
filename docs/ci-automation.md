@@ -36,8 +36,10 @@ The second command writes namespaced files so they can coexist with an app's exi
 - `.github/workflows/cpflow-promote-staging-to-production.yml`
 - `.github/workflows/cpflow-cleanup-stale-review-apps.yml`
 
-`cpflow generate` also infers the Docker base Ruby version from `.ruby-version`,
-`.tool-versions`, or the app's `Gemfile` when those files are present.
+`cpflow generate` also infers the app prefix from the repo directory, infers the
+Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's
+`Gemfile`, and switches to persistent SQLite `db` and `storage` templates when
+`config/database.yml` shows SQLite in production.
 
 ## Repo Readiness Checklist
 
@@ -231,7 +233,7 @@ In practice, porting the flow into a demo app usually means:
 3. Generate the `cpflow-*` GitHub Actions files.
 4. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
 5. Keep Node available in the final app image whenever Rails asset compilation or SSR depends on ExecJS or frontend package managers at build or runtime.
-6. For SQLite-backed apps, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes, mount them into the main workload, and run `rails db:prepare` from the release script.
+6. For SQLite-backed apps, confirm that the generated scaffold switched to persistent `db` and `storage` volumes, mounted them into the main workload, and added a release script that runs `rails db:prepare`.
 7. Confirm that the generated Dockerfile is using a Ruby base image compatible with the app's declared Ruby requirement.
 8. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
 9. Make sure the repo variables and secrets line up with those app names.
@@ -245,7 +247,7 @@ In practice, porting the flow into a demo app usually means:
 If you want an AI agent to apply this flow to another project, this prompt is the intended starting point:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished or inaccessible from CI, stop and report the blocker instead of generating workflow files. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, or `pnpm`, and make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. If the app uses SQLite in production, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
+Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished or inaccessible from CI, stop and report the blocker instead of generating workflow files. If `.controlplane/` is missing, run `cpflow generate`. Treat the generated app names as the repo-name default and rename them only if the project needs a different prefix. Then run `cpflow generate-github-actions`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, or `pnpm`, and make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. If `config/database.yml` shows SQLite in production, confirm that the generated scaffold uses persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`; otherwise keep the default Postgres workload. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
 ```
 
 Expand that prompt with app-specific requirements before editing files:
@@ -254,7 +256,7 @@ Expand that prompt with app-specific requirements before editing files:
 - inspect the production Dockerfile and make sure it can build the app's assets in CI
 - make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement
 - keep Node available in the final image if Rails or SSR depends on ExecJS, Yarn, or `pnpm` after the main `npm install` layer
-- for SQLite apps, add persistent `db` and `storage` volumes and run `rails db:prepare` from the release phase instead of keeping the default Postgres template
+- if `config/database.yml` shows SQLite in production, confirm that `cpflow generate` emitted persistent `db` and `storage` volumes plus a `rails db:prepare` release script; otherwise keep the default Postgres workload
 - inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` when the build uses `RUN --mount=type=ssh`
 - add extra `app_workloads` and template files for any runtime sidecars, workers, or renderer processes
 - make sure any sidecar process exposed to sibling workloads binds to `0.0.0.0` instead of container-local `localhost`

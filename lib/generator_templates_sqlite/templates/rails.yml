@@ -1,5 +1,3 @@
-# Template setup of Rails server workload, roughly corresponding to Heroku dyno
-# type within Procfile.
 kind: workload
 name: rails
 spec:
@@ -13,6 +11,13 @@ spec:
       ports:
         - number: 3000
           protocol: http
+      volumes:
+        - path: /app/db
+          recoveryPolicy: retain
+          uri: cpln://volumeset/app-db
+        - path: /app/storage
+          recoveryPolicy: retain
+          uri: cpln://volumeset/app-storage
   defaultOptions:
     autoscaling:
       minScale: 1

@@ -1,10 +1,7 @@
-# Template setup of the GVC, roughly corresponding to a Heroku app
 kind: gvc
 name: {{APP_NAME}}
 spec:
   env:
-    - name: DATABASE_URL
-      value: 'postgres://the_user:the_password@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}'
     - name: RAILS_ENV
       value: production
     - name: RAILS_LOG_TO_STDOUT

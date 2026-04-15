@@ -165,10 +165,13 @@ if [ cpflow exists -a $APP_NAME ]; ...
 
 ### `generate`
 
-Creates base Control Plane config and template files
+Creates base Control Plane config and template files for a Rails project:
+- infers the app prefix from the current directory and wires staging, review, and production entries
+- infers the Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`
+- detects SQLite in `config/database.yml` and generates persistent `db` and `storage` volume templates instead of the default Postgres workload
 
 ```sh
-# Creates .controlplane directory with Control Plane config and other templates
+# Creates .controlplane directory with Control Plane config and starter templates
 cpflow generate
 ```
 

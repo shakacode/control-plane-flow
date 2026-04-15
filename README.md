@@ -22,7 +22,7 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. The generated `.controlplane/Dockerfile` now copies Node.js into the app image, infers the base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`, and auto-installs `npm`, Yarn, or `pnpm` dependencies when `package.json` is present, but it is still only a starting point. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup, including the React on Rails rollout checklist and the AI playbook prompt for applying this flow to another repo.
+To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. `cpflow generate` now infers the app prefix from the repo directory, infers the base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`, auto-installs `npm`, Yarn, or `pnpm` dependencies when `package.json` is present, and switches to persistent `db` and `storage` volume templates when `config/database.yml` shows SQLite in production. The generated scaffold is still only a starting point. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup, including the React on Rails rollout checklist and the AI playbook prompt for applying this flow to another repo.
 
 For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
@@ -149,20 +149,22 @@ The `cpflow` gem is based on several configuration files within a `/.controlplan
 .controlplane/
 ├─ templates/
 │  ├─ app.yml
-│  ├─ postgres.yml
+│  ├─ postgres.yml or db.yml + storage.yml
 │  ├─ rails.yml
 ├─ controlplane.yml
 ├─ Dockerfile
 ├─ entrypoint.sh
+├─ release_script.sh
 ```
 
-1. `controlplane.yml` describes the overall application. Be sure to have `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
+1. `controlplane.yml` describes the overall application. The generated version includes staging, review, and production entries named from the repo directory, plus `setup_app_templates` and `release_script` defaults. Be sure to update `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
 2. `Dockerfile` builds the production application. The generated example includes Node.js, package-manager auto-detection (`npm`, Yarn, or `pnpm`), and a Ruby base-image hint derived from `.ruby-version`, `.tool-versions`, or the app's `Gemfile` so Rails apps with frontend assets can precompile from a clean clone. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
-3. `templates` directory contains the templates for the various workloads, such as `rails.yml` and `postgres.yml`.
-4. `templates/app.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
-5. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/app.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
-6. For other workloads (like lines in a Heroku `Procfile`), you create additional template files. For example, you can base a `templates/sidekiq.yml` on the `templates/rails.yml` file.
-7. You can have other files in the `templates` directory, such as `redis.yml` and `postgres.yml`, which could setup Redis and Postgres for a testing application.
+3. `release_script.sh` is the generated release-phase entrypoint used by `cpflow deploy-image --run-release-phase` and `cpflow promote-app-from-upstream --run-release-phase`.
+4. `templates` directory contains the templates for the various workloads, such as `rails.yml` and either `postgres.yml` or the SQLite `db.yml` and `storage.yml` pair.
+5. `templates/app.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
+6. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/app.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
+7. For other workloads (like lines in a Heroku `Procfile`), you create additional template files. For example, you can base a `templates/sidekiq.yml` on the `templates/rails.yml` file.
+8. You can have other files in the `templates` directory, such as `redis.yml`, `postgres.yml`, or SQLite-backed `db.yml` and `storage.yml`, depending on the application runtime.
 
 Here's a complete example of all supported config keys explained for the `controlplane.yml` file:
 
@@ -341,7 +343,7 @@ cpflow generate
 cpflow generate-github-actions
 ```
 
-Then update `.controlplane/controlplane.yml` so the app defines staging, review, and production entries, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies. For Rails apps that keep SQLite in production, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`. Also confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement.
+Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app.
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 
