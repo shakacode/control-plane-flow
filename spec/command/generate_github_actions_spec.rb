@@ -87,6 +87,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           "Skipping delete status comment update because no comment id was created."
         )
         expect(help_workflow_path.read).to include("github.event.comment.author_association")
+        expect(help_workflow_path.read).to include("DOCKER_BUILD_EXTRA_ARGS")
+        expect(help_workflow_path.read).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
         expect(staging_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
         expect(staging_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
         expect(staging_workflow_path.read).to include(
