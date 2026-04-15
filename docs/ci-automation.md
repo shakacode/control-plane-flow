@@ -152,7 +152,7 @@ Configure these repository variables:
 - `REVIEW_APP_PREFIX`: review-app prefix, for example `my-app-review`
 - `STAGING_APP_BRANCH`: optional branch that auto-deploys staging; defaults to `main` or `master` if unset
 - `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
-- `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited `docker build` flags passed through to `cpflow build-image`, for example build args, secrets, or extra mounts
+- `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited single `docker build` tokens passed through to `cpflow build-image`, for example `--build-arg=FOO=bar` or `--secret=id=npmrc,src=.npmrc`
 - `DOCKER_BUILD_SSH_KNOWN_HOSTS`: optional multi-line `known_hosts` content used with `DOCKER_BUILD_SSH_KEY` when the build needs SSH access to hosts other than GitHub.com
 
 Recommended org layout:
@@ -183,10 +183,10 @@ For example, a repo that installs private dependencies from GitHub during Docker
 ```text
 DOCKER_BUILD_SSH_KEY=<private deploy key secret>
 DOCKER_BUILD_SSH_KNOWN_HOSTS=git.example.com ssh-ed25519 AAAA...
-DOCKER_BUILD_EXTRA_ARGS=--build-arg BUNDLE_WITHOUT=development:test
+DOCKER_BUILD_EXTRA_ARGS=--build-arg=BUNDLE_WITHOUT=development:test
 ```
 
-The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh default` before relying on CI.
+The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh=default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh=default` before relying on CI.
 
 ## Generated Workflow Behavior
 

@@ -69,7 +69,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(build_action_path.read).to include("docker_build_extra_args:")
         expect(build_action_path.read).to include("docker_build_ssh_key:")
         expect(build_action_path.read).to include("docker_build_ssh_known_hosts:")
-        expect(build_action_path.read).to include('docker_build_args+=("--ssh" "default")')
+        expect(build_action_path.read).to include("--build-arg=FOO=bar")
+        expect(build_action_path.read).to include('docker_build_args+=("--ssh=default")')
+        expect(build_action_path.read).to include(
+          "docker_build_extra_args entries must be single docker-build tokens."
+        )
         expect(build_action_path.read).not_to include("ssh-keyscan")
         expect(build_action_path.read).to include("github.com ssh-ed25519")
         expect(review_app_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
