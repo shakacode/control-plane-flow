@@ -13,12 +13,27 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     Dir.chdir(original_working_dir)
   end
 
+  def build_action_path
+    playground.join(".github/actions/cpflow-build-docker-image/action.yml")
+  end
+
+  def review_app_workflow_path
+    playground.join(".github/workflows/cpflow-deploy-review-app.yml")
+  end
+
+  def staging_workflow_path
+    playground.join(".github/workflows/cpflow-deploy-staging.yml")
+  end
+
+  def setup_action_path
+    playground.join(".github/actions/cpflow-setup-environment/action.yml")
+  end
+
+  def delete_app_script_path
+    playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
+  end
+
   let(:playground) { Pathname.new(Dir.mktmpdir("cpflow-github-actions")) }
-  let(:build_action_path) { playground.join(".github/actions/cpflow-build-docker-image/action.yml") }
-  let(:review_app_workflow_path) { playground.join(".github/workflows/cpflow-deploy-review-app.yml") }
-  let(:staging_workflow_path) { playground.join(".github/workflows/cpflow-deploy-staging.yml") }
-  let(:setup_action_path) { playground.join(".github/actions/cpflow-setup-environment/action.yml") }
-  let(:delete_app_script_path) { playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh") }
 
   after do
     FileUtils.remove_entry(playground.to_s) if playground.exist?
