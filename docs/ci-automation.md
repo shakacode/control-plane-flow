@@ -36,6 +36,25 @@ The second command writes namespaced files so they can coexist with an app's exi
 - `.github/workflows/cpflow-promote-staging-to-production.yml`
 - `.github/workflows/cpflow-cleanup-stale-review-apps.yml`
 
+## Repo Readiness Checklist
+
+Before generating this flow, confirm that the target repository is already a
+deployable application rather than a partial sample:
+
+- the repo can be cloned and installed from scratch with published gem and npm
+  package versions
+- the app has its real runtime scaffold checked in, for example a complete Rails
+  app with the boot files needed to run `bin/rails` and `bin/dev`
+- the production Dockerfile can build the app's assets and any SSR or renderer
+  bundles that production needs
+- the runtime workloads, release command, and required secrets are known well
+  enough to model in `.controlplane/`
+
+If any of those fail, stop and fix the application first. Do not merge
+`cpflow-*` workflows into a repository that is not yet runnable from a clean
+clone, because the result will be a misleading "deployment flow" for an app that
+still cannot build or boot.
+
 ## Required `.controlplane/controlplane.yml` Structure
 
 The generated workflows assume that `.controlplane/controlplane.yml` defines:
@@ -202,26 +221,28 @@ This flow is a good fit for the React on Rails demo apps because they already fo
 
 In practice, porting the flow into a demo app usually means:
 
-1. Generate `.controlplane/` if the app does not have it yet.
-2. Generate the `cpflow-*` GitHub Actions files.
-3. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
-4. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
-5. Make sure the repo variables and secrets line up with those app names.
-6. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
-7. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
-8. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, or extra Docker build flags.
-9. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
+1. Confirm the repo passes the readiness checklist above.
+2. Generate `.controlplane/` if the app does not have it yet.
+3. Generate the `cpflow-*` GitHub Actions files.
+4. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
+5. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
+6. Make sure the repo variables and secrets line up with those app names.
+7. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
+8. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
+9. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, or extra Docker build flags.
+10. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
 
 ## AI Playbook
 
 If you want an AI agent to apply this flow to another project, this prompt is the intended starting point:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
+Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any of that is missing, stop and report the blocker instead of generating workflow files. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
 ```
 
 Expand that prompt with app-specific requirements before editing files:
 
+- verify the repo is a real deployable app, not a partial code sample or a demo pinned to unpublished package versions
 - inspect the production Dockerfile and make sure it can build the app's assets in CI
 - inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` when the build uses `RUN --mount=type=ssh`
 - add extra `app_workloads` and template files for any runtime sidecars, workers, or renderer processes

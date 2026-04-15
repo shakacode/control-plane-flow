@@ -22,7 +22,7 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-To bootstrap a new project, run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. Then adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup.
+To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup.
 
 For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
