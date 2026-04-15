@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 
+require_relative "generator_helpers"
+
 module Command
   class GithubActionsGenerator < Thor::Group
     include Thor::Actions
+    include GeneratorHelpers
 
     def copy_files
-      directory("github_flow_templates", ".", verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true")
-      substitute_template_variables(".github")
-      make_shell_scripts_executable(".github")
+      copy_template_files(generated_files)
+      substitute_template_variables(generated_files)
+      make_shell_scripts_executable(generated_files)
     end
 
     def self.source_root
@@ -16,18 +19,17 @@ module Command
 
     private
 
-    def substitute_template_variables(root_path)
-      Dir.glob(File.join(root_path, "**/*")).each do |path|
-        next unless File.file?(path)
+    def copy_template_files(relative_paths)
+      relative_paths.each do |relative_path|
+        empty_directory(File.dirname(relative_path), verbose: false)
+        copy_file(
+          File.join("github_flow_templates", relative_path),
+          relative_path,
+          force: true,
+          verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
+        )
 
-        contents = File.read(path)
-        updated_contents = template_variables.reduce(contents) do |memo, (placeholder, value)|
-          memo.gsub(placeholder, value)
-        end
-
-        next if updated_contents == contents
-
-        File.write(path, updated_contents)
+        relative_path
       end
     end
 
@@ -37,12 +39,8 @@ module Command
       }
     end
 
-    def make_shell_scripts_executable(root_path)
-      Dir.glob(File.join(root_path, "**/*.sh")).each do |path|
-        next unless File.file?(path)
-
-        FileUtils.chmod(0o755, path)
-      end
+    def generated_files
+      GenerateGithubActions::GENERATED_FILES
     end
   end
 
@@ -93,7 +91,7 @@ module Command
     private
 
     def existing_files
-      GENERATED_FILES.select { |path| File.exist?(path) }
+      @existing_files ||= GENERATED_FILES.select { |path| File.exist?(path) }
     end
   end
 end

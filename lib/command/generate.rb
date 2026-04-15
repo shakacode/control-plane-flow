@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
+require_relative "generator_helpers"
+
 module Command
   class Generator < Thor::Group # rubocop:disable Metrics/ClassLength
     include Thor::Actions
+    include GeneratorHelpers
 
     BASE_TEMPLATE_FILES = %w[
       Dockerfile
@@ -26,10 +29,10 @@ module Command
     DEFAULT_RUBY_VERSION = "3.1.2"
 
     def copy_files
-      copy_template_files("generator_templates", base_template_files)
-      copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
-      substitute_template_variables(".controlplane")
-      make_shell_scripts_executable(".controlplane")
+      generated_paths = copy_template_files("generator_templates", base_template_files)
+      generated_paths += copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
+      substitute_template_variables(generated_paths)
+      make_shell_scripts_executable(generated_paths)
     end
 
     def self.source_root
@@ -39,35 +42,23 @@ module Command
     private
 
     def copy_template_files(root_dir, relative_paths)
-      relative_paths.each do |relative_path|
-        destination_path = File.join(".controlplane", relative_path)
-        empty_directory(File.dirname(destination_path), verbose: false)
-        copy_file(
-          File.join(root_dir, relative_path),
-          destination_path,
-          force: true,
-          verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
-        )
-      end
+      relative_paths.map { |relative_path| copy_template_file(root_dir, relative_path) }
+    end
+
+    def copy_template_file(root_dir, relative_path)
+      destination_path = File.join(".controlplane", relative_path)
+      empty_directory(File.dirname(destination_path), verbose: false)
+      copy_file(
+        File.join(root_dir, relative_path),
+        destination_path,
+        force: true,
+        verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
+      )
+      destination_path
     end
 
     def base_template_files
       sqlite_project? ? BASE_TEMPLATE_FILES : BASE_TEMPLATE_FILES + POSTGRES_TEMPLATE_FILES
-    end
-
-    def substitute_template_variables(root_path)
-      Dir.glob(File.join(root_path, "**/*")).each do |path|
-        next unless File.file?(path)
-
-        contents = File.read(path)
-        updated_contents = template_variables.reduce(contents) do |memo, (placeholder, value)|
-          memo.gsub(placeholder, value)
-        end
-
-        next if updated_contents == contents
-
-        File.write(path, updated_contents)
-      end
     end
 
     def template_variables
@@ -158,14 +149,6 @@ module Command
 
     def inherits_default_config?(yaml_block)
       yaml_block&.match?(/^\s*<<:\s*\*default\b/)
-    end
-
-    def make_shell_scripts_executable(root_path)
-      Dir.glob(File.join(root_path, "**/*.sh")).each do |path|
-        next unless File.file?(path)
-
-        FileUtils.chmod(0o755, path)
-      end
     end
   end
 

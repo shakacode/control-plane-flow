@@ -42,11 +42,11 @@ runs:
 
     - name: Setup Control Plane profile and registry login
       shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+        ORG: ${{ inputs.org }}
       run: |
         set -euo pipefail
-
-        TOKEN="${{ inputs.token }}"
-        ORG="${{ inputs.org }}"
 
         if [[ -z "$TOKEN" ]]; then
           echo "Error: Control Plane token not provided" >&2
