@@ -3,9 +3,6 @@
 module Command
   class GithubActionsGenerator < Thor::Group
     include Thor::Actions
-    TEMPLATE_VARIABLES = {
-      "__CPFLOW_VERSION__" => Cpflow::VERSION
-    }.freeze
 
     def copy_files
       directory("github_flow_templates", ".", verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true")
@@ -24,7 +21,7 @@ module Command
         next unless File.file?(path)
 
         contents = File.read(path)
-        updated_contents = TEMPLATE_VARIABLES.reduce(contents) do |memo, (placeholder, value)|
+        updated_contents = template_variables.reduce(contents) do |memo, (placeholder, value)|
           memo.gsub(placeholder, value)
         end
 
@@ -32,6 +29,12 @@ module Command
 
         File.write(path, updated_contents)
       end
+    end
+
+    def template_variables
+      {
+        "__CPFLOW_VERSION__" => ::Cpflow::VERSION
+      }
     end
 
     def make_shell_scripts_executable(root_path)
