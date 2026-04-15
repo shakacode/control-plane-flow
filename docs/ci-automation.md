@@ -15,6 +15,9 @@ The goal is to bring the Heroku Flow model into any `cpflow` project:
 Run these commands from the project root:
 
 ```sh
+# Check the repo for common rollout blockers before generating files
+cpflow github-flow-readiness
+
 # Print the current AI rollout prompt for this repo, if you want to hand it to an agent
 cpflow ai-github-flow-prompt
 
@@ -27,6 +30,10 @@ cpflow generate-github-actions
 
 These local bootstrap commands do not require `cpln` to be installed yet. Install and
 log into the Control Plane CLI before any command that talks to the real platform.
+`cpflow github-flow-readiness` is the fastest gate: it exits non-zero when the repo is
+missing a production Dockerfile, missing Rails runtime files, pinned to a legacy
+Ruby or Bundler toolchain, or depends on exact-pinned gem or npm versions that do
+not appear to exist in the public registries.
 
 The second command writes namespaced files so they can coexist with an app's existing CI:
 
@@ -252,16 +259,17 @@ In practice, porting the flow into a demo app usually means:
 
 ## AI Playbook
 
-If you want an AI agent to apply this flow to another project, start with the
-standalone [AI rollout prompt](./ai-github-flow-prompt.md). It captures the
-exact wording, hard stop conditions, and definition of done for this workflow.
-You can also run `cpflow ai-github-flow-prompt` from inside the target repo to
-print the current prompt with that repo's default app prefix already filled in.
+If you want an AI agent to apply this flow to another project, start with
+`cpflow github-flow-readiness`, then use the standalone
+[AI rollout prompt](./ai-github-flow-prompt.md). It captures the exact wording,
+hard stop conditions, and definition of done for this workflow. You can also
+run `cpflow ai-github-flow-prompt` from inside the target repo to print the
+current prompt with that repo's default app prefix already filled in.
 
 Short version:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. First verify that the repo is deployable from a clean clone, with published package versions and a production Dockerfile that can really build the app. Stop and report blockers for unpublished packages, inaccessible private dependencies, legacy toolchains, or missing production build paths instead of generating workflows blindly. Then run `cpflow generate` if `.controlplane/` is missing, run `cpflow generate-github-actions`, adapt the generated scaffold to the real workloads, document the required GitHub secrets and variables, validate the real build path locally, push the branch, and check the GitHub Actions results.
+Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-readiness` and stop on any reported blockers. The repo must be deployable from a clean clone, with published package versions and a production Dockerfile that can really build the app. Stop and report blockers for unpublished packages, inaccessible private dependencies, legacy toolchains, or missing production build paths instead of generating workflows blindly. Then run `cpflow generate` if `.controlplane/` is missing, run `cpflow generate-github-actions`, adapt the generated scaffold to the real workloads, document the required GitHub secrets and variables, validate the real build path locally, push the branch, and check the GitHub Actions results.
 ```
 
 Expand that prompt with app-specific requirements before editing files:

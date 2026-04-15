@@ -11,12 +11,14 @@ cpflow ai-github-flow-prompt
 ```
 
 That local-only command works even before `cpln` is installed and fills in the
-repo-name default app prefix for the current checkout.
+repo-name default app prefix for the current checkout. You can also run
+`cpflow github-flow-readiness` first to check the same blocker categories the
+prompt tells the agent to stop on.
 
 ## Recommended Prompt
 
 ```text
-Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished, inaccessible from CI, or requires credentials that are not already modeled in the repo or GitHub settings, stop and report the blocker instead of generating workflow files. If the repo is a legacy sample pinned to an obsolete Ruby or Bundler toolchain, or it does not even have a production Dockerfile yet, stop and report that as a prerequisite instead of forcing the rollout.
+Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-readiness` and stop on any reported blockers. The repo must be deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished, inaccessible from CI, or requires credentials that are not already modeled in the repo or GitHub settings, stop and report the blocker instead of generating workflow files. If the repo is a legacy sample pinned to an obsolete Ruby or Bundler toolchain, or it does not even have a production Dockerfile yet, stop and report that as a prerequisite instead of forcing the rollout.
 
 If `.controlplane/` is missing, run `cpflow generate`. Treat the generated app names as the repo-name default and rename them only if the project needs a different prefix. Then run `cpflow generate-github-actions`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets and variables that must be configured.
 

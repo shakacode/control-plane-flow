@@ -200,6 +200,19 @@ Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
 cpflow generate-github-actions
 ```
 
+### `github-flow-readiness`
+
+Checks the current repository for common rollout blockers before adding the Control Plane GitHub flow:
+- Rails runtime scaffold present
+- modern Ruby and Bundler toolchain
+- installable exact-pinned direct gem and npm package versions
+- production Dockerfile presence and SQLite production hints
+
+```sh
+# Checks the current repo for common rollout blockers
+cpflow github-flow-readiness
+```
+
 ### `info`
 
 - Displays the diff between defined/available apps/workloads (apps equal GVCs)

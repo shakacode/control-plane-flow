@@ -24,6 +24,7 @@ describe Command::AiGithubFlowPrompt, :enable_validations, :without_config_file 
       result = run_cpflow_command(described_class::NAME)
 
       expect(result[:status]).to eq(0)
+      expect(result[:stdout]).to include("cpflow github-flow-readiness")
       expect(result[:stdout]).to include("repo-name default (`sample-project`)")
       expect(result[:stdout]).to include("cpflow generate-github-actions")
       expect(result[:stdout]).to include("Only stop early for a real external blocker")
