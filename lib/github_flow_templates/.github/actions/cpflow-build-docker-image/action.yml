@@ -14,6 +14,12 @@ inputs:
   pr_number:
     description: Pull request number for status messaging
     required: false
+  docker_build_extra_args:
+    description: Optional newline-delimited extra arguments passed through to docker build
+    required: false
+  docker_build_ssh_key:
+    description: Optional private SSH key used for Docker builds that fetch private dependencies with RUN --mount=type=ssh
+    required: false
 
 outputs:
   image_tag:
@@ -30,12 +36,34 @@ runs:
         set -euo pipefail
 
         PR_INFO=""
+        docker_build_args=()
+
         if [[ -n "${{ inputs.pr_number }}" ]]; then
           PR_INFO=" for PR #${{ inputs.pr_number }}"
         fi
 
+        if [[ -n "${{ inputs.docker_build_extra_args }}" ]]; then
+          while IFS= read -r arg; do
+            arg="${arg%$'\r'}"
+            [[ -n "${arg}" ]] || continue
+            docker_build_args+=("${arg}")
+          done <<< "${{ inputs.docker_build_extra_args }}"
+        fi
+
+        if [[ -n "${{ inputs.docker_build_ssh_key }}" ]]; then
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          eval "$(ssh-agent -s)"
+          trap 'ssh-agent -k >/dev/null' EXIT
+          ssh-add - <<< "${{ inputs.docker_build_ssh_key }}"
+          docker_build_args+=("--ssh default")
+        fi
+
         echo "🏗️ Building Docker image${PR_INFO} (commit ${{ inputs.commit }})..."
-        cpflow build-image -a "${{ inputs.app_name }}" --commit="${{ inputs.commit }}" --org="${{ inputs.org }}"
+        cpflow build-image -a "${{ inputs.app_name }}" --commit="${{ inputs.commit }}" --org="${{ inputs.org }}" "${docker_build_args[@]}"
 
         image_tag="${{ inputs.org }}/${{ inputs.app_name }}:${{ inputs.commit }}"
         echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"

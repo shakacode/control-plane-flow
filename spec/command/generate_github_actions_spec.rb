@@ -14,7 +14,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
   end
 
   let(:playground) { Pathname.new(Dir.mktmpdir("cpflow-github-actions")) }
+  let(:build_action_path) { playground.join(".github/actions/cpflow-build-docker-image/action.yml") }
   let(:review_app_workflow_path) { playground.join(".github/workflows/cpflow-deploy-review-app.yml") }
+  let(:staging_workflow_path) { playground.join(".github/workflows/cpflow-deploy-staging.yml") }
   let(:setup_action_path) { playground.join(".github/actions/cpflow-setup-environment/action.yml") }
   let(:delete_app_script_path) { playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh") }
 
@@ -26,15 +28,24 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "generates the reusable workflow and action files" do
       inside_dir(playground) do
         expect(review_app_workflow_path).not_to exist
+        expect(build_action_path).not_to exist
         expect(setup_action_path).not_to exist
 
         Cpflow::Cli.start([described_class::NAME])
 
         expect(review_app_workflow_path).to exist
+        expect(build_action_path).to exist
         expect(setup_action_path).to exist
         expect(delete_app_script_path).to exist
         expect(delete_app_script_path).to be_executable
         expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
+        expect(build_action_path.read).to include("docker_build_extra_args:")
+        expect(build_action_path.read).to include("docker_build_ssh_key:")
+        expect(build_action_path.read).to include('docker_build_args+=("--ssh default")')
+        expect(review_app_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
+        expect(review_app_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+        expect(staging_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
+        expect(staging_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
       end
     end
   end

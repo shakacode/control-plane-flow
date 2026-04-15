@@ -245,6 +245,8 @@ jobs:
           org: ${{ vars.CPLN_ORG_STAGING }}
           commit: ${{ env.PR_SHA }}
           pr_number: ${{ env.PR_NUMBER }}
+          docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}
+          docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}
 
       - name: Update PR comment with deploy status
         if: steps.config.outputs.ready == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')

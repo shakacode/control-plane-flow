@@ -105,11 +105,38 @@ Configure these repository variables:
 - `REVIEW_APP_PREFIX`: review-app prefix, for example `my-app-review`
 - `STAGING_APP_BRANCH`: optional branch that auto-deploys staging; defaults to `main` or `master` if unset
 - `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
+- `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited `docker build` flags passed through to `cpflow build-image`, for example build args, secrets, or extra mounts
 
 Recommended org layout:
 
 - keep review apps and staging in a staging org that developers can access
 - keep production in a separate org with tighter access controls
+
+Optional repository secret for private dependency builds:
+
+- `DOCKER_BUILD_SSH_KEY`: private SSH key used when the Dockerfile needs `RUN --mount=type=ssh` to fetch private GitHub dependencies during image build
+
+## Docker Builds with Private Dependencies
+
+Some apps need extra Docker build configuration before the generated workflows are turnkey. Common examples are:
+
+- `pnpm`, `npm`, `yarn`, or Bundler dependencies pulled from private GitHub repositories
+- Dockerfiles that already use `RUN --mount=type=ssh`
+- builds that need extra `--build-arg`, `--secret`, or related `docker build` flags
+
+The generated `cpflow-build-docker-image` action supports this without hardcoding app-specific logic:
+
+- set `DOCKER_BUILD_SSH_KEY` if the Docker build needs SSH access to GitHub
+- set `DOCKER_BUILD_EXTRA_ARGS` when you need extra `docker build` flags
+
+For example, a repo that installs private dependencies from GitHub during Docker build can set:
+
+```text
+DOCKER_BUILD_SSH_KEY=<private deploy key secret>
+DOCKER_BUILD_EXTRA_ARGS=--build-arg BUNDLE_WITHOUT=development:test
+```
+
+The action will start an SSH agent, add the key, and pass `--ssh default` to `cpflow build-image`. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh default` before relying on CI.
 
 ## Generated Workflow Behavior
 
@@ -176,22 +203,24 @@ In practice, porting the flow into a demo app usually means:
 4. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
 5. Make sure the repo variables and secrets line up with those app names.
 6. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
-7. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, or multiple processes.
+7. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
+8. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, or extra Docker build flags.
 
 ## AI Playbook
 
 If you want an AI agent to apply this flow to another project, this prompt is the intended starting point:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows.
+Set up Control Plane GitHub Flow for this repo. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
 ```
 
 Expand that prompt with app-specific requirements before editing files:
 
 - inspect the production Dockerfile and make sure it can build the app's assets in CI
+- inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` when the build uses `RUN --mount=type=ssh`
 - add extra `app_workloads` and template files for any runtime sidecars, workers, or renderer processes
 - make sure any sidecar process exposed to sibling workloads binds to `0.0.0.0` instead of container-local `localhost`
 - make sure sidecar caches or bundle directories live in writable paths for the runtime user, such as `tmp/`, instead of root-owned image paths
-- keep workflow files generic and put app names, org names, and branch names in repository `vars` and `secrets`
+- keep workflow files generic and put app names, org names, branch names, and Docker build knobs in repository `vars` and `secrets`
 
 When the agent applies this to a project, it should avoid hardcoding app names or org names into the workflow files. Those belong in repository `vars` and `secrets`.
