@@ -33,6 +33,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     playground.join(".github/workflows/cpflow-help-command.yml")
   end
 
+  def promote_workflow_path
+    playground.join(".github/workflows/cpflow-promote-staging-to-production.yml")
+  end
+
   def setup_action_path
     playground.join(".github/actions/cpflow-setup-environment/action.yml")
   end
@@ -64,18 +68,37 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
         expect(build_action_path.read).to include("docker_build_extra_args:")
         expect(build_action_path.read).to include("docker_build_ssh_key:")
+        expect(build_action_path.read).to include("docker_build_ssh_known_hosts:")
         expect(build_action_path.read).to include('docker_build_args+=("--ssh" "default")')
+        expect(build_action_path.read).not_to include("ssh-keyscan")
+        expect(build_action_path.read).to include("github.com ssh-ed25519")
         expect(review_app_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
         expect(review_app_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+        expect(review_app_workflow_path.read).to include(
+          "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
+        )
         expect(review_app_workflow_path.read).to include("github.event.comment.author_association")
         expect(review_app_workflow_path.read).to include("Review app deploys are skipped for fork pull requests.")
+        expect(review_app_workflow_path.read).to include(
+          "Skipping PR comment update because no comment id was created."
+        )
         expect(delete_review_workflow_path.read).to include("concurrency:")
+        expect(delete_review_workflow_path.read).to include(
+          "Skipping delete status comment update because no comment id was created."
+        )
         expect(help_workflow_path.read).to include("github.event.comment.author_association")
         expect(staging_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
         expect(staging_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+        expect(staging_workflow_path.read).to include(
+          "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
+        )
         expect(staging_workflow_path.read).to include("GitHub does not allow repository vars in branch filters")
         expect(staging_workflow_path.read).to include("cpflow-deploy-staging-${{ github.ref_name }}")
         expect(staging_workflow_path.read).to include("variable:STAGING_APP_NAME")
+        expect(promote_workflow_path.read).to include(
+          "failure() && steps.capture-current.outputs.rollback_state != '{}'"
+        )
+        expect(delete_app_script_path.read).to include("⚠️ Application does not exist")
       end
     end
 

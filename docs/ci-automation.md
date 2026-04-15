@@ -67,6 +67,8 @@ deployable application rather than a partial sample:
   Ruby or Bundler toolchain with no validated production build path
 - the app has its real runtime scaffold checked in, for example a complete Rails
   app with the boot files needed to run `bin/rails` and `bin/dev`
+- the repo root maps to one deployable app; multi-app monorepos need a separate
+  rollout decision before using this one-app-per-repo flow
 - the production Dockerfile can build the app's assets and any SSR or renderer
   bundles that production needs
 - the runtime workloads, release command, and required secrets are known well
@@ -147,6 +149,7 @@ Configure these repository variables:
 - `STAGING_APP_BRANCH`: optional branch that auto-deploys staging; defaults to `main` or `master` if unset
 - `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
 - `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited `docker build` flags passed through to `cpflow build-image`, for example build args, secrets, or extra mounts
+- `DOCKER_BUILD_SSH_KNOWN_HOSTS`: optional multi-line `known_hosts` content used with `DOCKER_BUILD_SSH_KEY` when the build needs SSH access to hosts other than GitHub.com
 
 Recommended org layout:
 
@@ -168,16 +171,18 @@ Some apps need extra Docker build configuration before the generated workflows a
 The generated `cpflow-build-docker-image` action supports this without hardcoding app-specific logic:
 
 - set `DOCKER_BUILD_SSH_KEY` if the Docker build needs SSH access to GitHub
+- optionally set `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the SSH build host is not GitHub.com or you need custom host entries
 - set `DOCKER_BUILD_EXTRA_ARGS` when you need extra `docker build` flags
 
 For example, a repo that installs private dependencies from GitHub during Docker build can set:
 
 ```text
 DOCKER_BUILD_SSH_KEY=<private deploy key secret>
+DOCKER_BUILD_SSH_KNOWN_HOSTS=git.example.com ssh-ed25519 AAAA...
 DOCKER_BUILD_EXTRA_ARGS=--build-arg BUNDLE_WITHOUT=development:test
 ```
 
-The action will start an SSH agent, add the key, and pass `--ssh default` to `cpflow build-image`. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh default` before relying on CI.
+The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh default` before relying on CI.
 
 ## Generated Workflow Behavior
 
@@ -253,7 +258,7 @@ In practice, porting the flow into a demo app usually means:
 8. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
 9. Make sure the repo variables and secrets line up with those app names.
 10. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
-11. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
+11. If the Dockerfile pulls private dependencies over SSH, configure `DOCKER_BUILD_SSH_KEY`, add `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the host is not GitHub.com, and validate that the image can build with `RUN --mount=type=ssh`.
 12. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
 13. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
 
@@ -275,11 +280,12 @@ Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-r
 Expand that prompt with app-specific requirements before editing files:
 
 - verify the repo is a real deployable app, not a partial code sample or a demo pinned to unpublished package versions
+- stop and report a scope decision when the repo is a monorepo or contains multiple deployable apps without an already-decided single flow target
 - inspect the production Dockerfile and make sure it can build the app's assets in CI
 - make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement
 - keep Node available in the final image if Rails or SSR depends on ExecJS, Yarn, or `pnpm` after the main `npm install` layer
 - if `config/database.yml` shows SQLite in production, confirm that `cpflow generate` emitted persistent `db` and `storage` volumes plus a `rails db:prepare` release script; otherwise keep the default Postgres workload
-- inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` when the build uses `RUN --mount=type=ssh`
+- inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` plus `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the build uses `RUN --mount=type=ssh` against non-GitHub hosts
 - add extra `app_workloads` and template files for any runtime sidecars, workers, or renderer processes
 - make sure any sidecar process exposed to sibling workloads binds to `0.0.0.0` instead of container-local `localhost`
 - make sure sidecar caches or bundle directories live in writable paths for the runtime user, such as `tmp/`, instead of root-owned image paths

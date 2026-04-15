@@ -94,6 +94,9 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(generated_ruby_arg).to eq("ARG RUBY_VERSION=3.1.2\n")
         expect(dockerfile_content).to include("FROM docker.io/library/node:22-bullseye-slim AS node")
         expect(dockerfile_content).to include("COPY --from=node /usr/local/ /usr/local/")
+        expect(dockerfile_content).not_to include("RUN apt-get update")
+        expect(dockerfile_content).to include("bundle config set with 'production'")
+        expect(dockerfile_content).not_to include("bundle config set with 'staging production'")
         expect(dockerfile_content).to include("exec corepack yarn \"$@\"")
         expect(dockerfile_content).to include("exec corepack pnpm \"$@\"")
         expect(dockerfile_content).to include(
@@ -109,6 +112,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(app_template_content).to include("SECRET_KEY_BASE")
         expect(rails_template_content).to include("minScale: 1")
         expect(rails_template_content).to include("timeoutSeconds: 60")
+        expect(entrypoint_path.read).to include("executing '$*'")
         expect(postgres_template_path).to exist
         expect(release_script_path.read).to include("SECRET_KEY_BASE=\"${SECRET_KEY_BASE:-precompile_placeholder}\"")
       end

@@ -27,6 +27,8 @@ describe Command::AiGithubFlowPrompt, :enable_validations, :without_config_file 
       expect(result[:stdout]).to include("cpflow github-flow-readiness")
       expect(result[:stdout]).to include("repo-name default (`sample-project`)")
       expect(result[:stdout]).to include("cpflow generate-github-actions")
+      expect(result[:stdout]).to include("monorepo without an already-decided single app boundary")
+      expect(result[:stdout]).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
       expect(result[:stdout]).to include("Only stop early for a real external blocker")
       expect(result[:stderr]).to be_empty
     end
