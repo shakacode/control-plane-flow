@@ -172,6 +172,19 @@ Creates base Control Plane config and template files
 cpflow generate
 ```
 
+### `generate-github-actions`
+
+Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
+- on-demand review apps for pull requests
+- automatic staging deploys from your main branch
+- manual promotion from staging to production
+- nightly cleanup and PR help workflows
+
+```sh
+# Creates .github/actions and .github/workflows files for the Control Plane flow
+cpflow generate-github-actions
+```
+
 ### `info`
 
 - Displays the diff between defined/available apps/workloads (apps equal GVCs)

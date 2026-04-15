@@ -22,9 +22,9 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane), which includes simple YAML configurations and setup for `cpflow`.
+To bootstrap a new project, run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. Then adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup.
 
-Also, check [how the `cpflow` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
+For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
 ---
@@ -64,6 +64,7 @@ Additionally, the documentation includes numerous examples and practical tips fo
 - Extensive Heroku-to-Control Plane migration examples included in the documentation.
 - Convention-driven configuration to simplify workflows and reduce custom scripting requirements.
 - Easy to understand Heroku to Control Plane conventions in setup and naming.
+- GitHub Actions generator for on-demand review apps, automatic staging deploys, and manual promotion to production.
 - **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane.
 - Automatic sequential release tagging for Docker images.
 - A project-aware CLI that enables working on multiple projects.
@@ -330,6 +331,18 @@ apps:
 
 ## Workflow
 
+### Bootstrap a New Repo
+
+```sh
+# Create the .controlplane/ scaffolding
+cpflow generate
+
+# Create reusable GitHub Actions for review apps, staging, and production promotion
+cpflow generate-github-actions
+```
+
+Then update `.controlplane/controlplane.yml` so the app defines staging, review, and production entries, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md).
+
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 
 You can use this repository as a reference for setting up your own project.
@@ -387,7 +400,7 @@ cpflow build-image -a tutorial-app --commit ABCD
 
 ### Real World
 
-Most companies will configure their CI system to handle the above steps. Please [contact Shakacode](mailto:controlplane@shakacode.com) for examples of how to do this.
+Most teams will automate the above steps in CI. Run `cpflow generate-github-actions` to scaffold the GitHub Actions flow, then follow [CI automation](./docs/ci-automation.md) to wire it to your `.controlplane/controlplane.yml` and repository settings.
 
 You can also join our [**Slack channel**](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE) for ShakaCode open source projects.
 

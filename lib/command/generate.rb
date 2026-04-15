@@ -6,10 +6,21 @@ module Command
 
     def copy_files
       directory("generator_templates", ".controlplane", verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true")
+      make_shell_scripts_executable(".controlplane")
     end
 
     def self.source_root
       Cpflow.root_path.join("lib")
+    end
+
+    private
+
+    def make_shell_scripts_executable(root_path)
+      Dir.glob(File.join(root_path, "**/*.sh")).each do |path|
+        next unless File.file?(path)
+
+        FileUtils.chmod(0o755, path)
+      end
     end
   end
 

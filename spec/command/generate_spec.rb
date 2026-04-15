@@ -18,6 +18,7 @@ end
 
 describe Command::Generate, :enable_validations, :without_config_file do
   let(:controlplane_config_file_path) { CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml") }
+  let(:entrypoint_path) { CONTROLPLANE_CONFIG_DIR_PATH.join("entrypoint.sh") }
 
   before do
     FileUtils.rm_r(GENERATOR_PLAYGROUND_PATH) if Dir.exist?(GENERATOR_PLAYGROUND_PATH)
@@ -36,6 +37,8 @@ describe Command::Generate, :enable_validations, :without_config_file do
         Cpflow::Cli.start([described_class::NAME])
 
         expect(controlplane_config_file_path).to exist
+        expect(entrypoint_path).to exist
+        expect(entrypoint_path).to be_executable
       end
     end
   end
