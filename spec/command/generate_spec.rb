@@ -113,6 +113,15 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(release_script_path.read).to include("SECRET_KEY_BASE=\"${SECRET_KEY_BASE:-precompile_placeholder}\"")
       end
     end
+
+    it "skips startup checks for the local-only generator command" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(Cpflow::Cli).not_to have_received(:check_cpln_version)
+        expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
+      end
+    end
   end
 
   context "when .ruby-version exists" do

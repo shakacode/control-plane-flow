@@ -3,6 +3,16 @@
 Use this file when you want an AI agent to add the reusable `cpflow` review-app,
 staging, and production-promotion flow to a repository.
 
+If `cpflow` is already installed in the target repo, you can print the current
+copy-paste version of this prompt with:
+
+```sh
+cpflow ai-github-flow-prompt
+```
+
+That local-only command works even before `cpln` is installed and fills in the
+repo-name default app prefix for the current checkout.
+
 ## Recommended Prompt
 
 ```text

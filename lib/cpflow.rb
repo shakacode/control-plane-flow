@@ -53,9 +53,8 @@ module Cpflow
       ENV["CPLN_SKIP_UPDATE_CHECK"] = "true"
       ENV["NODE_NO_WARNINGS"] = "1"
 
-      check_cpln_version
-      check_cpflow_version
       fix_help_option
+      run_startup_checks if requires_startup_checks?
 
       super
     end
@@ -119,6 +118,61 @@ module Cpflow
       (subcommand_names & ARGV).any?
     end
     private_class_method :subcommand?
+
+    def self.run_startup_checks
+      check_cpln_version
+      check_cpflow_version
+    end
+    private_class_method :run_startup_checks
+
+    def self.requires_startup_checks?(argv = ARGV)
+      return false if argv.empty?
+      return false if help_request?(argv)
+      return false if version_flag?(argv)
+
+      command_class = command_class_for_argv(argv)
+      command_class ? command_class::REQUIRES_STARTUP_CHECKS : false
+    end
+    private_class_method :requires_startup_checks?
+
+    def self.help_request?(argv)
+      help_mappings = Thor::HELP_MAPPINGS + ["help"]
+      help_mappings.include?(argv.first)
+    end
+    private_class_method :help_request?
+
+    def self.version_flag?(argv)
+      %w[--version -v].include?(argv.first)
+    end
+    private_class_method :version_flag?
+
+    def self.command_class_for_argv(argv)
+      first_arg = argv[0]
+      return if first_arg.nil?
+
+      return subcommand_class_for_argv(first_arg, argv[1]) if subcommand_names.include?(first_arg)
+
+      top_level_command_class_for(first_arg)
+    end
+    private_class_method :command_class_for_argv
+
+    def self.subcommand_class_for_argv(subcommand_name, command_name)
+      return if command_name.nil?
+
+      all_base_commands[:"#{subcommand_name}_#{command_name.tr('-', '_')}"] ||
+        all_base_commands.values.find do |command_class|
+          subcommand_name == command_class::SUBCOMMAND_NAME && command_name == command_class::NAME
+        end
+    end
+    private_class_method :subcommand_class_for_argv
+
+    def self.top_level_command_class_for(command_name)
+      all_base_commands[command_name.tr("-", "_").to_sym] ||
+        all_base_commands.values.find do |command_class|
+          command_class::SUBCOMMAND_NAME.nil? && command_name == command_class::NAME
+        end
+    end
+    private_class_method :top_level_command_class_for
 
     # Needed to silence deprecation warning
     def self.exit_on_failure?

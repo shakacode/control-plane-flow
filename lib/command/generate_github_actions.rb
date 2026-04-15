@@ -62,6 +62,7 @@ module Command
     EX
     WITH_INFO_HEADER = false
     VALIDATIONS = [].freeze
+    REQUIRES_STARTUP_CHECKS = false
 
     GENERATED_FILES = [
       ".github/actions/cpflow-build-docker-image/action.yml",

@@ -22,7 +22,7 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. `cpflow generate` now infers the app prefix from the repo directory, infers the base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`, auto-installs `npm`, Yarn, or `pnpm` dependencies when `package.json` is present, and switches to persistent `db` and `storage` volume templates when `config/database.yml` shows SQLite in production. The generated scaffold is still only a starting point. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup and [AI rollout prompt](./docs/ai-github-flow-prompt.md) for the exact prompt and stop conditions to hand to an AI agent.
+To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. `cpflow generate` now infers the app prefix from the repo directory, infers the base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`, auto-installs `npm`, Yarn, or `pnpm` dependencies when `package.json` is present, and switches to persistent `db` and `storage` volume templates when `config/database.yml` shows SQLite in production. The generated scaffold is still only a starting point. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup and [AI rollout prompt](./docs/ai-github-flow-prompt.md) for the exact prompt and stop conditions to hand to an AI agent, or run `cpflow ai-github-flow-prompt` inside the target repo to print the current copy-paste prompt with that repo's default app prefix.
 
 For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
@@ -119,7 +119,9 @@ _Note, if you want to use Terraform with cpflow, you will start the same way bel
 
 3. Install [Ruby](https://www.ruby-lang.org/en/) (required for these helpers).
 
-4. Install Control Plane CLI, and configure access ([docs here](https://shakadocs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)).
+4. Purely local bootstrap commands can run before Control Plane CLI is installed. That includes `cpflow help`, `cpflow version`, `cpflow ai-github-flow-prompt`, `cpflow generate`, `cpflow generate-github-actions`, and `cpflow terraform generate`. Install Control Plane CLI before any `cpflow` command that talks to Control Plane infrastructure.
+
+5. Install Control Plane CLI, and configure access ([docs here](https://shakadocs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)).
 
 ```sh
 # Install CLI
@@ -132,11 +134,11 @@ cpln login
 npm update -g @controlplane/cli
 ```
 
-5. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
+6. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
 
-6. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
+7. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
 
-7. You will need a production-ready Dockerfile. If you're using Rails, consider the default one that ships with Rails 8. You can use [this Dockerfile](https://github.com/shakacode/rails-v8-kamal-v2-terraform-gcp-tutorial/blob/master/Dockerfile) as an example for your project. Ensure that you have Docker running.
+8. You will need a production-ready Dockerfile. If you're using Rails, consider the default one that ships with Rails 8. You can use [this Dockerfile](https://github.com/shakacode/rails-v8-kamal-v2-terraform-gcp-tutorial/blob/master/Dockerfile) as an example for your project. Ensure that you have Docker running.
 
 **Note:** Do not confuse the `cpflow` CLI with the `cpln` CLI. The `cpflow` CLI is the Control Plane Flow playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
@@ -343,7 +345,7 @@ cpflow generate
 cpflow generate-github-actions
 ```
 
-Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, start with the [AI rollout prompt](./docs/ai-github-flow-prompt.md) rather than a vague "set up CI" request.
+Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, start with the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` in the target repo rather than giving a vague "set up CI" request.
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 

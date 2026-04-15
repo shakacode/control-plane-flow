@@ -78,6 +78,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(staging_workflow_path.read).to include("variable:STAGING_APP_NAME")
       end
     end
+
+    it "skips startup checks for the local-only GitHub Actions generator command" do
+      inside_dir(playground) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(Cpflow::Cli).not_to have_received(:check_cpln_version)
+        expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
+      end
+    end
   end
 
   context "when one of the generated files already exists" do

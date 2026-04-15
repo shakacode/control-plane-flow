@@ -40,6 +40,8 @@ module Command
     WITH_INFO_HEADER = true
     # Which validations to run before the command
     VALIDATIONS = %w[config].freeze
+    # Whether or not to run CLI startup checks such as cpln availability and update checks
+    REQUIRES_STARTUP_CHECKS = true
 
     def initialize(config)
       @config = config

@@ -14,6 +14,7 @@ module Command
         - Generates terraform configuration files based on `controlplane.yml` and `templates/` config
       DESC
       WITH_INFO_HEADER = false
+      REQUIRES_STARTUP_CHECKS = false
 
       def call
         Array(config.app || config.apps.keys).each do |app|

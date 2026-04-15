@@ -15,12 +15,18 @@ The goal is to bring the Heroku Flow model into any `cpflow` project:
 Run these commands from the project root:
 
 ```sh
+# Print the current AI rollout prompt for this repo, if you want to hand it to an agent
+cpflow ai-github-flow-prompt
+
 # Create .controlplane/ if it does not exist yet
 cpflow generate
 
 # Add reusable GitHub Actions for the Control Plane flow
 cpflow generate-github-actions
 ```
+
+These local bootstrap commands do not require `cpln` to be installed yet. Install and
+log into the Control Plane CLI before any command that talks to the real platform.
 
 The second command writes namespaced files so they can coexist with an app's existing CI:
 
@@ -249,6 +255,8 @@ In practice, porting the flow into a demo app usually means:
 If you want an AI agent to apply this flow to another project, start with the
 standalone [AI rollout prompt](./ai-github-flow-prompt.md). It captures the
 exact wording, hard stop conditions, and definition of done for this workflow.
+You can also run `cpflow ai-github-flow-prompt` from inside the target repo to
+print the current prompt with that repo's default app prefix already filled in.
 
 Short version:
 

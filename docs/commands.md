@@ -11,6 +11,18 @@ This `-a` option is used in most of the commands and will pick all other app con
 
 ## Commands
 
+### `ai-github-flow-prompt`
+
+Prints a copy-paste prompt for an AI agent to roll out the reusable Control Plane GitHub Flow:
+- verifies the repo is deployable from a clean clone before generating files
+- scaffolds `.controlplane/` and `cpflow-*` GitHub Actions files when the repo qualifies
+- stops on external blockers or product decisions instead of forcing a broken rollout
+
+```sh
+# Prints the recommended AI rollout prompt for the current repo
+cpflow ai-github-flow-prompt
+```
+
 ### `apply-template`
 
 - Applies application-specific configs from templates (e.g., for every review-app)
