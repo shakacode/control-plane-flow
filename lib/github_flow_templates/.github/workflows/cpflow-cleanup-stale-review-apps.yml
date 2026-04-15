@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cpflow-cleanup-stale-review-apps
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest

@@ -8,6 +8,9 @@ inputs:
   cpln_org:
     description: Control Plane organization name
     required: true
+  review_app_prefix:
+    description: Prefix used for review app names
+    required: true
 
 runs:
   using: composite
@@ -18,3 +21,4 @@ runs:
       env:
         APP_NAME: ${{ inputs.app_name }}
         CPLN_ORG: ${{ inputs.cpln_org }}
+        REVIEW_APP_PREFIX: ${{ inputs.review_app_prefix }}

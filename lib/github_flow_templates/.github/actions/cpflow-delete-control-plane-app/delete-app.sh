@@ -4,10 +4,13 @@ set -euo pipefail
 
 : "${APP_NAME:?APP_NAME environment variable is required}"
 : "${CPLN_ORG:?CPLN_ORG environment variable is required}"
+: "${REVIEW_APP_PREFIX:?REVIEW_APP_PREFIX environment variable is required}"
 
-if echo "$APP_NAME" | grep -iqE '(production|staging)'; then
-  echo "❌ ERROR: refusing to delete an app containing 'production' or 'staging'" >&2
+expected_prefix="${REVIEW_APP_PREFIX}-"
+if [[ "$APP_NAME" != "${expected_prefix}"* ]]; then
+  echo "❌ ERROR: refusing to delete an app outside the review app prefix" >&2
   echo "App name: $APP_NAME" >&2
+  echo "Expected prefix: ${expected_prefix}" >&2
   exit 1
 fi
 

@@ -69,8 +69,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          staging_vars="$(CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln gvc get "${{ vars.STAGING_APP_NAME }}" --org "${{ vars.CPLN_ORG_STAGING }}" -o json | jq -r '.spec.env[].name' | sort)"
-          production_vars="$(CPLN_TOKEN="${CPLN_TOKEN_PRODUCTION}" cpln gvc get "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json | jq -r '.spec.env[].name' | sort)"
+          staging_vars="$(CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln gvc get "${{ vars.STAGING_APP_NAME }}" --org "${{ vars.CPLN_ORG_STAGING }}" -o json | jq -r '.spec.env // [] | .[].name' | sort)"
+          production_vars="$(CPLN_TOKEN="${CPLN_TOKEN_PRODUCTION}" cpln gvc get "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json | jq -r '.spec.env // [] | .[].name' | sort)"
           missing_vars="$(comm -23 <(echo "${staging_vars}") <(echo "${production_vars}"))"
 
           if [[ -n "${missing_vars}" ]]; then
@@ -86,11 +86,18 @@ jobs:
           set -euo pipefail
 
           workload_name="${PRIMARY_WORKLOAD:-rails}"
-          current_image="$(cpln workload get "${workload_name}" --gvc "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json | jq -r '.spec.containers[0].image')"
-          current_version="$(cpln workload get "${workload_name}" --gvc "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json | jq -r '.version')"
+          workload_json="$(cpln workload get "${workload_name}" --gvc "${{ vars.PRODUCTION_APP_NAME }}" --org "${{ vars.CPLN_ORG_PRODUCTION }}" -o json)"
+          current_image="$(echo "${workload_json}" | jq -r '.spec.containers[0].image')"
+          current_images="$(echo "${workload_json}" | jq -c '.spec.containers | map(.image)')"
+          current_version="$(echo "${workload_json}" | jq -r '.version')"
 
           echo "current_image=${current_image}" >> "$GITHUB_OUTPUT"
           echo "current_version=${current_version}" >> "$GITHUB_OUTPUT"
+          {
+            echo "current_images<<EOF"
+            echo "${current_images}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Copy image from staging
         shell: bash
@@ -137,16 +144,22 @@ jobs:
       - name: Roll back on failure
         if: failure() && steps.capture-current.outputs.current_image != ''
         env:
-          PREVIOUS_IMAGE: ${{ steps.capture-current.outputs.current_image }}
+          PREVIOUS_IMAGES: ${{ steps.capture-current.outputs.current_images }}
         shell: bash
         run: |
           set -euo pipefail
 
           workload_name="${PRIMARY_WORKLOAD:-rails}"
+          rollback_args=()
+
+          while IFS=$'\t' read -r index image; do
+            rollback_args+=(--set "spec.containers[${index}].image=${image}")
+          done < <(echo "${PREVIOUS_IMAGES}" | jq -r 'to_entries[] | "\(.key)\t\(.value)"')
+
           cpln workload update "${workload_name}" \
             --gvc "${{ vars.PRODUCTION_APP_NAME }}" \
             --org "${{ vars.CPLN_ORG_PRODUCTION }}" \
-            --set spec.containers[0].image="${PREVIOUS_IMAGE}"
+            "${rollback_args[@]}"
 
       - name: Create GitHub release
         if: success() && steps.health-check.outputs.healthy == 'true'

@@ -34,6 +34,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(setup_action_path).to exist
         expect(delete_app_script_path).to exist
         expect(delete_app_script_path).to be_executable
+        expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
       end
     end
   end

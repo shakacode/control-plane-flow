@@ -87,6 +87,7 @@ jobs:
         with:
           app_name: ${{ env.APP_NAME }}
           cpln_org: ${{ vars.CPLN_ORG_STAGING }}
+          review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}
 
       - name: Finalize delete status
         if: always()

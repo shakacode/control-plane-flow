@@ -142,7 +142,7 @@ Recommended org layout:
 
 - Manually promotes the staging artifact to production with a confirmation input.
 - Verifies that production has the env var names staging expects.
-- Runs a health check and attempts a rollback if the new production image does not come up healthy.
+- Runs a health check and attempts a rollback of every container image in `PRIMARY_WORKLOAD` if the new production image does not come up healthy.
 - Creates a GitHub release after a successful promotion.
 
 `cpflow-cleanup-stale-review-apps.yml`
@@ -156,7 +156,7 @@ The generated workflows share these local composite actions:
 
 - `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and the `cpflow` gem, then logs into the target org
 - `cpflow-build-docker-image`: builds and pushes the app image with the desired commit SHA
-- `cpflow-delete-control-plane-app`: safely deletes temporary apps and refuses to touch names that look like staging or production
+- `cpflow-delete-control-plane-app`: safely deletes temporary apps and refuses to touch names outside the configured review-app prefix
 
 ## Applying This to React on Rails Demo Apps
 

@@ -19,7 +19,7 @@ inputs:
   cpflow_version:
     description: cpflow gem version
     required: false
-    default: "4.2.0"
+    default: "__CPFLOW_VERSION__"
 
 runs:
   using: composite
@@ -58,6 +58,13 @@ runs:
           exit 1
         fi
 
-        cpln profile create default --token "$TOKEN" --org "$ORG" >/dev/null 2>&1 || true
+        create_output=""
+        if ! create_output="$(cpln profile create default --token "$TOKEN" --org "$ORG" 2>&1)"; then
+          if ! echo "$create_output" | grep -qi "already exists"; then
+            echo "$create_output" >&2
+            exit 1
+          fi
+        fi
+
         cpln profile update default --org "$ORG" --token "$TOKEN"
         cpln image docker-login --org "$ORG"
