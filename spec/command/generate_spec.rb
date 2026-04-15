@@ -19,6 +19,7 @@ end
 describe Command::Generate, :enable_validations, :without_config_file do
   let(:controlplane_config_file_path) { CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml") }
   let(:entrypoint_path) { CONTROLPLANE_CONFIG_DIR_PATH.join("entrypoint.sh") }
+  let(:dockerfile_path) { CONTROLPLANE_CONFIG_DIR_PATH.join("Dockerfile") }
 
   before do
     FileUtils.rm_r(GENERATOR_PLAYGROUND_PATH) if Dir.exist?(GENERATOR_PLAYGROUND_PATH)
@@ -37,8 +38,24 @@ describe Command::Generate, :enable_validations, :without_config_file do
         Cpflow::Cli.start([described_class::NAME])
 
         expect(controlplane_config_file_path).to exist
+        expect(dockerfile_path).to exist
         expect(entrypoint_path).to exist
         expect(entrypoint_path).to be_executable
+
+        dockerfile_content = dockerfile_path.read
+        expect(dockerfile_content).to include("FROM docker.io/library/node:22-bullseye-slim AS node")
+        expect(dockerfile_content).to include("COPY --from=node /usr/local/ /usr/local/")
+        expect(dockerfile_content).to include("exec corepack yarn \"$@\"")
+        expect(dockerfile_content).to include("exec corepack pnpm \"$@\"")
+        expect(dockerfile_content).to include(
+          "package_manager=\"$(node -p \"require('./package.json').packageManager || ''\")\""
+        )
+        expect(dockerfile_content).to include("corepack prepare \"$package_manager\" --activate &&")
+        expect(dockerfile_content).to include("npm install -g yarn &&")
+        expect(dockerfile_content).to include("corepack yarn install --immutable")
+        expect(dockerfile_content).to include("yarn install --immutable || yarn install --frozen-lockfile")
+        expect(dockerfile_content).to include("corepack pnpm install --frozen-lockfile")
+        expect(dockerfile_content).to include("npm ci")
       end
     end
   end

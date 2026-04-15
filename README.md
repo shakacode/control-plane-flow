@@ -22,7 +22,7 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup.
+To bootstrap a new project, first verify that the repo is actually deployable from a clean clone: published package versions, a complete runtime scaffold, and a production Dockerfile that builds successfully. Then run `cpflow generate` to create the `.controlplane/` scaffolding and `cpflow generate-github-actions` to add the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion. The generated `.controlplane/Dockerfile` now copies Node.js into the app image and auto-installs `npm`, Yarn, or `pnpm` dependencies when `package.json` is present, but it is still only a starting point. After generation, adapt `.controlplane/` for app-specific workloads like Sidekiq or a Node renderer, wire any private-dependency Docker build settings, and verify that the production Docker build succeeds. See [CI automation](./docs/ci-automation.md) for the full setup, including the React on Rails rollout checklist and the AI playbook prompt for applying this flow to another repo.
 
 For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
@@ -157,7 +157,7 @@ The `cpflow` gem is based on several configuration files within a `/.controlplan
 ```
 
 1. `controlplane.yml` describes the overall application. Be sure to have `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
-2. `Dockerfile` builds the production application. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
+2. `Dockerfile` builds the production application. The generated example includes Node.js plus package-manager auto-detection (`npm`, Yarn, or `pnpm`) so Rails apps with frontend assets can precompile from a clean clone. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
 3. `templates` directory contains the templates for the various workloads, such as `rails.yml` and `postgres.yml`.
 4. `templates/app.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
 5. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/app.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
@@ -341,7 +341,7 @@ cpflow generate
 cpflow generate-github-actions
 ```
 
-Then update `.controlplane/controlplane.yml` so the app defines staging, review, and production entries, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies.
+Then update `.controlplane/controlplane.yml` so the app defines staging, review, and production entries, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies. For Rails apps that keep SQLite in production, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`.
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 
