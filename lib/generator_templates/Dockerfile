@@ -1,4 +1,4 @@
-ARG RUBY_VERSION=3.1.2
+ARG RUBY_VERSION=__RUBY_VERSION__
 
 FROM docker.io/library/node:22-bullseye-slim AS node
 FROM ruby:$RUBY_VERSION

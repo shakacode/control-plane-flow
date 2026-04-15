@@ -36,6 +36,9 @@ The second command writes namespaced files so they can coexist with an app's exi
 - `.github/workflows/cpflow-promote-staging-to-production.yml`
 - `.github/workflows/cpflow-cleanup-stale-review-apps.yml`
 
+`cpflow generate` also infers the Docker base Ruby version from `.ruby-version`,
+`.tool-versions`, or the app's `Gemfile` when those files are present.
+
 ## Repo Readiness Checklist
 
 Before generating this flow, confirm that the target repository is already a
@@ -43,6 +46,8 @@ deployable application rather than a partial sample:
 
 - the repo can be cloned and installed from scratch with published gem and npm
   package versions
+- the repo does not depend on unpublished or inaccessible package versions unless
+  the deployment flow also provisions the credentials needed to fetch them
 - the app has its real runtime scaffold checked in, for example a complete Rails
   app with the boot files needed to run `bin/rails` and `bin/dev`
 - the production Dockerfile can build the app's assets and any SSR or renderer
@@ -227,25 +232,27 @@ In practice, porting the flow into a demo app usually means:
 4. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
 5. Keep Node available in the final app image whenever Rails asset compilation or SSR depends on ExecJS or frontend package managers at build or runtime.
 6. For SQLite-backed apps, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes, mount them into the main workload, and run `rails db:prepare` from the release script.
-7. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
-8. Make sure the repo variables and secrets line up with those app names.
-9. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
-10. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
-11. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
-12. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
+7. Confirm that the generated Dockerfile is using a Ruby base image compatible with the app's declared Ruby requirement.
+8. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
+9. Make sure the repo variables and secrets line up with those app names.
+10. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
+11. If the Dockerfile pulls private dependencies from GitHub, configure `DOCKER_BUILD_SSH_KEY` and validate that the image can build with `RUN --mount=type=ssh`.
+12. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
+13. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
 
 ## AI Playbook
 
 If you want an AI agent to apply this flow to another project, this prompt is the intended starting point:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any of that is missing, stop and report the blocker instead of generating workflow files. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, or `pnpm`. If the app uses SQLite in production, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
+Set up Control Plane GitHub Flow for this repo. First verify that the repo is actually deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished or inaccessible from CI, stop and report the blocker instead of generating workflow files. If `.controlplane/` is missing, run `cpflow generate`. Then run `cpflow generate-github-actions`, update `.controlplane/controlplane.yml` so it defines `<app>-staging`, `<app>-review`, and `<app>-production`, keep review apps opt-in via `/deploy-review-app`, use `STAGING_APP_BRANCH` or the default branch for staging deploys, and list the GitHub secrets/variables that must be configured. Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, or `pnpm`, and make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. If the app uses SQLite in production, replace the generated Postgres scaffolding with persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY` and any needed `DOCKER_BUILD_EXTRA_ARGS`.
 ```
 
 Expand that prompt with app-specific requirements before editing files:
 
 - verify the repo is a real deployable app, not a partial code sample or a demo pinned to unpublished package versions
 - inspect the production Dockerfile and make sure it can build the app's assets in CI
+- make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement
 - keep Node available in the final image if Rails or SSR depends on ExecJS, Yarn, or `pnpm` after the main `npm install` layer
 - for SQLite apps, add persistent `db` and `storage` volumes and run `rails db:prepare` from the release phase instead of keeping the default Postgres template
 - inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` when the build uses `RUN --mount=type=ssh`
