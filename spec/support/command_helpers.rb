@@ -170,11 +170,15 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
     original_stderr = replace_stderr
     original_stdout = replace_stdout
+    original_argv = ARGV.dup
+    ARGV.replace(args.map(&:to_s))
 
     begin
       Cpflow::Cli.start(args)
     rescue SystemExit => e
       result[:status] = e.status
+    ensure
+      ARGV.replace(original_argv)
     end
 
     result[:stderr] = restore_stderr(original_stderr)

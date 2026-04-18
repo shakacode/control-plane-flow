@@ -16,6 +16,10 @@ env:
   HEALTH_CHECK_INTERVAL: 10
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
 
+concurrency:
+  group: cpflow-promote-staging-to-production
+  cancel-in-progress: false
+
 jobs:
   promote-to-production:
     if: github.event.inputs.confirm_promotion == 'promote'
@@ -211,6 +215,7 @@ jobs:
         if: success() && steps.health-check.outputs.healthy == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
         shell: bash
@@ -218,8 +223,8 @@ jobs:
           set -euo pipefail
 
           release_date="$(date '+%Y-%m-%d')"
-          timestamp="$(date '+%H%M')"
-          release_tag="production-${release_date}-${timestamp}"
+          timestamp="$(date '+%H%M%S')"
+          release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"
 
           gh release create "${release_tag}" \
             --title "Production Release ${release_date} ${timestamp}" \

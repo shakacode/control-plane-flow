@@ -3,6 +3,7 @@
 require "spec_helper"
 require "pathname"
 require "tmpdir"
+require "yaml"
 
 describe Command::GenerateGithubActions, :enable_validations, :without_config_file do
   def inside_dir(path)
@@ -45,6 +46,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
   end
 
+  def generated_yaml_paths
+    Dir.glob(playground.join(".github/**/*.yml")).sort
+  end
+
   let(:playground) { Pathname.new(Dir.mktmpdir("cpflow-github-actions")) }
 
   after do
@@ -74,6 +79,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(build_action_path.read).to include(
           "docker_build_extra_args entries must be single docker-build tokens."
         )
+        expect(build_action_path.read).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}"')
         expect(build_action_path.read).not_to include("ssh-keyscan")
         expect(build_action_path.read).to include("github.com ssh-ed25519")
         expect(review_app_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
@@ -101,10 +107,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(staging_workflow_path.read).to include("GitHub does not allow repository vars in branch filters")
         expect(staging_workflow_path.read).to include("cpflow-deploy-staging-${{ github.ref_name }}")
         expect(staging_workflow_path.read).to include("variable:STAGING_APP_NAME")
+        expect(promote_workflow_path.read).to include("group: cpflow-promote-staging-to-production")
+        expect(promote_workflow_path.read).to include(
+          'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
+        )
         expect(promote_workflow_path.read).to include(
           "failure() && steps.capture-current.outputs.rollback_state != '{}'"
         )
         expect(delete_app_script_path.read).to include("⚠️ Application does not exist")
+        generated_yaml_paths.each do |path|
+          expect { YAML.load_file(path, aliases: true) }.not_to raise_error
+        end
       end
     end
 

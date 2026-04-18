@@ -88,12 +88,58 @@ describe GithubFlowReadinessService do
     )
   end
 
+  it "fails when no production Dockerfile is present" do
+    File.delete(playground.join("Dockerfile"))
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    expect(service.blockers?).to be(true)
+    expect(service.results.map(&:message)).to include(
+      "No production Dockerfile found at `Dockerfile` or `.controlplane/Dockerfile`. " \
+      "Add and validate one before generating the Control Plane GitHub flow."
+    )
+  end
+
+  it "does not execute Ruby from the target Gemfile while checking readiness" do
+    sentinel_path = playground.join("gemfile-side-effect.txt")
+    File.write(playground.join("Gemfile"), <<~GEMFILE)
+      File.write("#{sentinel_path}", "executed")
+      source "https://rubygems.org"
+      gem "rails", "8.0.2.1"
+      gem "react_on_rails", "= 16.4.0"
+    GEMFILE
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    service.results
+
+    expect(sentinel_path).not_to exist
+  end
+
   it "treats exact Ruby gem pins without patch segments as available when RubyGems normalizes them" do
     File.write(playground.join("Gemfile"), <<~GEMFILE)
       source "https://rubygems.org"
       gem "react_on_rails", "= 16.6"
       gem "shakapacker", "= 10.0"
     GEMFILE
+    File.write(playground.join("Gemfile.lock"), <<~LOCKFILE)
+      GEM
+        remote: https://rubygems.org/
+        specs:
+          react_on_rails (16.6.0)
+          shakapacker (10.0.0)
+
+      DEPENDENCIES
+        react_on_rails (= 16.6)
+        shakapacker (= 10.0)
+
+      BUNDLED WITH
+         #{bundler_version}
+    LOCKFILE
 
     allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.6.0"])
     allow(service).to receive(:fetch_rubygems_versions).with("shakapacker").and_return(["10.0.0"])
@@ -159,6 +205,25 @@ describe GithubFlowReadinessService do
       gem "rails", "8.0.2.1"
       gem "private-gem", github: "org/private-gem"
     GEMFILE
+    File.write(playground.join("Gemfile.lock"), <<~LOCKFILE)
+      GIT
+        remote: https://github.com/org/private-gem.git
+        revision: 1234567890abcdef1234567890abcdef12345678
+        specs:
+          private-gem (0.1.0)
+
+      GEM
+        remote: https://rubygems.org/
+        specs:
+          rails (8.0.2.1)
+
+      DEPENDENCIES
+        private-gem!
+        rails (= 8.0.2.1)
+
+      BUNDLED WITH
+         #{bundler_version}
+    LOCKFILE
     File.write(playground.join("config/database.yml"), <<~YAML)
       default: &default
         adapter: sqlite3
@@ -172,7 +237,69 @@ describe GithubFlowReadinessService do
     allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
 
     expect(service.results.map(&:status)).to include(:warn, :info)
-    expect(service.results.map(&:message).join("\n")).to include("git/path or non-RubyGems sources")
+    expect(service.results.map(&:message).join("\n")).to include("git/path or non-public gem sources")
     expect(service.results.map(&:message).join("\n")).to include("Production database config uses SQLite")
+  end
+
+  it "warns about direct gems from non-public rubygems sources instead of checking rubygems.org" do
+    File.write(playground.join("Gemfile"), <<~GEMFILE)
+      source "https://gems.example.com"
+      gem "private-gem", "= 1.2.3"
+    GEMFILE
+    File.write(playground.join("Gemfile.lock"), <<~LOCKFILE)
+      GEM
+        remote: https://gems.example.com/
+        specs:
+          private-gem (1.2.3)
+
+      DEPENDENCIES
+        private-gem (= 1.2.3)
+
+      BUNDLED WITH
+         #{bundler_version}
+    LOCKFILE
+
+    allow(service).to receive(:fetch_rubygems_versions)
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    messages = service.results.map(&:message)
+
+    expect(service).not_to have_received(:fetch_rubygems_versions)
+    expect(messages.join("\n")).to include("git/path or non-public gem sources")
+    expect(messages).not_to include(
+      "Checked 1 exact-pinned direct Ruby gem; all appear available on RubyGems."
+    )
+  end
+
+  it "warns when package.json cannot be parsed" do
+    File.write(playground.join("package.json"), "{invalid json\n")
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+
+    expect(service.results.map(&:message)).to include(
+      "Could not parse `package.json`; exact-pinned direct npm package readiness could not be fully verified."
+    )
+  end
+
+  it "treats exact prerelease npm versions as exact pins to verify" do
+    File.write(
+      playground.join("package.json"),
+      JSON.pretty_generate(
+        {
+          name: "demo-app",
+          dependencies: {
+            "@demo/widget" => "1.2.3-beta.1"
+          }
+        }
+      )
+    )
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("@demo/widget").and_return(["1.2.3-beta.1"])
+
+    expect(service.results.map(&:message)).to include(
+      "Checked 1 exact-pinned direct npm package; all appear available on npm."
+    )
   end
 end

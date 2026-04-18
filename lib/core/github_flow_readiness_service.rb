@@ -18,6 +18,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   LEGACY_RUBY_VERSION = Gem::Version.new("3.0.0")
   LEGACY_BUNDLER_VERSION = Gem::Version.new("2.0.0")
+  PUBLIC_RUBYGEMS_REMOTE = "https://rubygems.org"
   REQUIRED_RAILS_PATHS = ["Gemfile", "config/application.rb", "config.ru"].freeze
   DOCKERFILE_PATHS = ["Dockerfile", ".controlplane/Dockerfile"].freeze
 
@@ -107,15 +108,15 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def gem_source_results
-    non_rubygems_dependencies = gem_dependencies.reject { |dependency| dependency[:source_type] == :rubygems }
-    return [] if non_rubygems_dependencies.empty?
+    non_public_dependencies = gem_dependencies.reject { |dependency| public_rubygems_dependency?(dependency) }
+    return [] if non_public_dependencies.empty?
 
-    names = non_rubygems_dependencies.map { |dependency| dependency[:name] }.sort
+    names = non_public_dependencies.map { |dependency| dependency[:name] }.sort
 
     [
       Result.new(
         status: :warn,
-        message: "Direct Ruby dependencies using git/path or non-RubyGems sources need manual review: " \
+        message: "Direct Ruby dependencies using git/path or non-public gem sources need manual review: " \
                  "#{names.map { |name| "`#{name}`" }.join(', ')}."
       )
     ]
@@ -126,6 +127,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def npm_exact_pin_result
+    return package_json_parse_error_result if package_json_parse_error?
+
     exact_pin_registry_result(npm_registry_check)
   end
 
@@ -139,6 +142,19 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     return :git if source.is_a?(Bundler::Source::Git)
 
     :other
+  end
+
+  def gem_source_remotes(source)
+    return [] unless source.respond_to?(:remotes)
+
+    Array(source.remotes).map { |remote| normalize_remote(remote) }
+  end
+
+  def public_rubygems_dependency?(dependency)
+    return false unless dependency[:source_type] == :rubygems
+
+    remotes = dependency[:source_remotes]
+    remotes.empty? || remotes.all? { |remote| remote == PUBLIC_RUBYGEMS_REMOTE }
   end
 
   def exact_npm_dependencies
@@ -318,9 +334,9 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   def missing_dockerfile_result
     Result.new(
-      status: :warn,
+      status: :fail,
       message: "No production Dockerfile found at `Dockerfile` or `.controlplane/Dockerfile`. " \
-               "`cpflow generate` can scaffold one, but you still need to validate a real production build."
+               "Add and validate one before generating the Control Plane GitHub flow."
     )
   end
 
@@ -332,26 +348,29 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def load_gem_dependencies
-    gemfile_path = root_path.join("Gemfile")
-    return [] unless gemfile_path.file?
+    lockfile_path = root_path.join("Gemfile.lock")
+    return [] unless lockfile_path.file?
 
-    parse_gem_dependencies(gemfile_path)
+    parse_gem_dependencies(lockfile_path)
   rescue StandardError
     []
   end
 
-  def parse_gem_dependencies(gemfile_path)
-    dsl = Bundler::Dsl.new
-    dsl.eval_gemfile(gemfile_path.to_s)
-    dsl.dependencies.map { |dependency| build_gem_dependency(dependency) }
+  def parse_gem_dependencies(lockfile_path)
+    parser = Bundler::LockfileParser.new(lockfile_path.read)
+    parser.dependencies.values.map do |dependency|
+      spec = parser.specs.find { |locked_spec| locked_spec.name == dependency.name }
+      build_gem_dependency(dependency, source: spec&.source)
+    end
   end
 
-  def build_gem_dependency(dependency)
+  def build_gem_dependency(dependency, source:)
     {
       name: dependency.name,
       exact_version: exact_gem_version(dependency),
       requirement: dependency.requirement,
-      source_type: gem_source_type(dependency.source)
+      source_type: gem_source_type(source),
+      source_remotes: gem_source_remotes(source)
     }
   end
 
@@ -361,17 +380,33 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   def exact_rubygems_dependencies
     gem_dependencies.select do |dependency|
-      dependency[:source_type] == :rubygems && dependency[:exact_version]
+      public_rubygems_dependency?(dependency) && dependency[:exact_version]
     end
   end
 
   def parsed_package_json
-    package_json_path = root_path.join("package.json")
-    return unless package_json_path.file?
+    return @parsed_package_json if instance_variable_defined?(:@parsed_package_json)
 
-    JSON.parse(package_json_path.read)
+    package_json_path = root_path.join("package.json")
+    @package_json_parse_error = false
+    return @parsed_package_json = nil unless package_json_path.file?
+
+    @parsed_package_json = JSON.parse(package_json_path.read)
   rescue JSON::ParserError
-    nil
+    @package_json_parse_error = true
+    @parsed_package_json = nil
+  end
+
+  def package_json_parse_error?
+    parsed_package_json
+    @package_json_parse_error
+  end
+
+  def package_json_parse_error_result
+    Result.new(
+      status: :warn,
+      message: "Could not parse `package.json`; exact-pinned direct npm package readiness could not be fully verified."
+    )
   end
 
   def collect_exact_dependencies(*dependency_sets)
@@ -385,7 +420,11 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def exact_version_string?(version)
-    version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+\z/)
+    version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\z/)
+  end
+
+  def normalize_remote(remote)
+    remote.to_s.sub(%r{/+\z}, "")
   end
 
   def rubygems_registry_check

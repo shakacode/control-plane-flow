@@ -10,6 +10,18 @@ The goal is to bring the Heroku Flow model into any `cpflow` project:
 4. Promote the already-built staging artifact to production from the Actions tab.
 5. Let a nightly workflow clean up stale review apps.
 
+## Quick Start
+
+End-to-end rollout in one view:
+
+1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
+2. `cpflow generate` — creates `.controlplane/` if missing.
+3. `cpflow generate-github-actions` — adds the `cpflow-*` composite actions and workflows.
+4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
+5. Push the branch, then comment `/deploy-review-app` on a PR to spin up a review environment.
+
+See [Bootstrap a Project](#bootstrap-a-project) for command details, [Repo Readiness Checklist](#repo-readiness-checklist) for what "ready" means, and [AI Playbook](#ai-playbook) to run the rollout through an agent.
+
 ## Bootstrap a Project
 
 Run these commands from the project root:
@@ -250,20 +262,34 @@ This flow is a good fit for the React on Rails demo apps because they already fo
 - staging should auto-follow a single branch
 - production should promote the already-tested staging image
 
-In practice, porting the flow into a demo app usually means:
+In practice, porting the flow into a demo app usually follows five phases.
+
+**Before generating:**
 
 1. Confirm the repo passes the readiness checklist above.
 2. Generate `.controlplane/` if the app does not have it yet.
 3. Generate the `cpflow-*` GitHub Actions files.
+
+**Verify the generated scaffold:**
+
 4. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
-5. Keep Node available in the final app image whenever Rails asset compilation or SSR depends on ExecJS or frontend package managers at build or runtime.
-6. Preserve repo-defined frontend precompile hooks, such as Shakapacker `precompile_hook` commands or React on Rails `config.auto_load_bundle = true`, before `rails assets:precompile`.
-7. For SQLite-backed apps, confirm that the generated scaffold switched to persistent `db` and `storage` volumes, mounted them into the main workload, and added a release script that runs `rails db:prepare`.
-8. Confirm that the generated Dockerfile is using a Ruby base image compatible with the app's declared Ruby requirement.
+5. Confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement.
+6. For SQLite-backed apps, confirm that the generated scaffold switched to persistent `db` and `storage` volumes, mounted them into the main workload, and added a release script that runs `rails db:prepare`.
+
+**Adapt for the app's runtime:**
+
+7. Keep Node available in the final app image whenever Rails asset compilation or SSR depends on ExecJS or frontend package managers at build or runtime.
+8. Preserve repo-defined frontend precompile hooks, such as Shakapacker `precompile_hook` commands or React on Rails `config.auto_load_bundle = true`, before `rails assets:precompile`.
 9. Add any additional app workloads the app needs at runtime, for example `sidekiq`, a Node renderer, or any other process type that should deploy the same application image.
-10. Make sure the repo variables and secrets line up with those app names.
-11. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
+10. Adjust `PRIMARY_WORKLOAD` only if the public workload is not named `rails`.
+
+**Wire up GitHub secrets, variables, and private builds:**
+
+11. Make sure the repo variables and secrets line up with the configured app names.
 12. If the Dockerfile pulls private dependencies over SSH, configure `DOCKER_BUILD_SSH_KEY`, add `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the host is not GitHub.com, and validate that the image can build with `RUN --mount=type=ssh`.
+
+**Validate and push:**
+
 13. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
 14. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
 
