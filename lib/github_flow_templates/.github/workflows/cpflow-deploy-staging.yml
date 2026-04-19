@@ -4,9 +4,10 @@ run-name: Deploy Control Plane staging app
 
 on:
   push:
-    # GitHub does not allow repository vars in branch filters, so this workflow listens to
-    # every branch and exits early unless the ref matches STAGING_APP_BRANCH/main/master.
-    branches: ["**"]
+    # GitHub does not allow repository vars in branch filters. Default to the common
+    # deploy branches; if STAGING_APP_BRANCH is set to something else, add it to this list
+    # after generation so the validate-branch job does not burn a runner on every push.
+    branches: ["main", "master"]
   workflow_dispatch:
 
 permissions:
@@ -110,14 +111,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          if cpflow config -a "${APP_NAME}" | grep -q "release_script:"; then
+          # Anchor to start-of-line so commented-out release_script: entries don't enable --run-release-phase.
+          if cpflow config -a "${APP_NAME}" | grep -qE '^[[:space:]]*release_script:'; then
             echo "flag=--run-release-phase" >> "$GITHUB_OUTPUT"
           else
             echo "flag=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Deploy staging image
+        env:
+          RELEASE_PHASE_FLAG: ${{ steps.release-phase.outputs.flag }}
         shell: bash
         run: |
           set -euo pipefail
-          cpflow deploy-image -a "${APP_NAME}" ${{ steps.release-phase.outputs.flag }} --org "${CPLN_ORG}" --verbose
+          cpflow deploy-image -a "${APP_NAME}" ${RELEASE_PHASE_FLAG} --org "${CPLN_ORG}" --verbose

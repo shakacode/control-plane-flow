@@ -4,7 +4,7 @@ run-name: "Deploy Review App - PR #${{ github.event.pull_request.number || githu
 
 on:
   pull_request:
-    types: [synchronize, reopened]
+    types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -33,8 +33,13 @@ env:
 
 jobs:
   deploy:
+    # Skip synchronize/opened events from fork PRs at the job level — they cannot access
+    # repository secrets anyway, so running any steps just burns billable minutes. Users
+    # can still manually deploy a fork PR via `/deploy-review-app` (gated below by
+    # author_association) or workflow_dispatch.
     if: |
-      github.event_name == 'pull_request' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
@@ -161,7 +166,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if cpflow config -a "${APP_NAME}" | grep -q "release_script:"; then
+          # Anchor to start-of-line so commented-out release_script: entries don't enable --run-release-phase.
+          if cpflow config -a "${APP_NAME}" | grep -qE '^[[:space:]]*release_script:'; then
             echo "flag=--run-release-phase" >> "$GITHUB_OUTPUT"
           else
             echo "flag=" >> "$GITHUB_OUTPUT"
@@ -315,10 +321,12 @@ jobs:
 
       - name: Deploy to Control Plane
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
+        env:
+          RELEASE_PHASE_FLAG: ${{ steps.release-phase.outputs.flag }}
         shell: bash
         run: |
           set -euo pipefail
-          cpflow deploy-image -a "${APP_NAME}" ${{ steps.release-phase.outputs.flag }} --org "${CPLN_ORG}" --verbose
+          cpflow deploy-image -a "${APP_NAME}" ${RELEASE_PHASE_FLAG} --org "${CPLN_ORG}" --verbose
 
       - name: Retrieve app URL
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')

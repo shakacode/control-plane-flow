@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "pathname"
+
 require_relative "generator_helpers"
 
 module Command
@@ -28,8 +30,6 @@ module Command
           force: true,
           verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
         )
-
-        relative_path
       end
     end
 
@@ -64,19 +64,14 @@ module Command
     VALIDATIONS = [].freeze
     REQUIRES_STARTUP_CHECKS = false
 
-    GENERATED_FILES = [
-      ".github/actions/cpflow-build-docker-image/action.yml",
-      ".github/actions/cpflow-delete-control-plane-app/action.yml",
-      ".github/actions/cpflow-delete-control-plane-app/delete-app.sh",
-      ".github/actions/cpflow-setup-environment/action.yml",
-      ".github/workflows/cpflow-cleanup-stale-review-apps.yml",
-      ".github/workflows/cpflow-delete-review-app.yml",
-      ".github/workflows/cpflow-deploy-review-app.yml",
-      ".github/workflows/cpflow-deploy-staging.yml",
-      ".github/workflows/cpflow-help-command.yml",
-      ".github/workflows/cpflow-promote-staging-to-production.yml",
-      ".github/workflows/cpflow-review-app-help.yml"
-    ].freeze
+    # Resolve template root from __dir__ rather than Cpflow.root_path because this file is
+    # loaded before `module Cpflow` finishes defining its class methods.
+    TEMPLATE_ROOT = Pathname.new(File.expand_path("../github_flow_templates", __dir__))
+    GENERATED_FILES = Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
+                         .select { |path| File.file?(path) }
+                         .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
+                         .sort
+                         .freeze
 
     def call
       if existing_files.any?

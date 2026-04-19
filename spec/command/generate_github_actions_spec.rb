@@ -57,77 +57,123 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
   end
 
   context "when the cpflow GitHub Actions files do not exist yet" do
-    it "generates the reusable workflow and action files" do
+    before do
       inside_dir(playground) do
-        expect(review_app_workflow_path).not_to exist
-        expect(build_action_path).not_to exist
-        expect(setup_action_path).not_to exist
-
         Cpflow::Cli.start([described_class::NAME])
+      end
+    end
 
-        expect(review_app_workflow_path).to exist
-        expect(build_action_path).to exist
-        expect(setup_action_path).to exist
-        expect(delete_app_script_path).to exist
-        expect(delete_app_script_path).to be_executable
-        expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
-        expect(build_action_path.read).to include("docker_build_extra_args:")
-        expect(build_action_path.read).to include("docker_build_ssh_key:")
-        expect(build_action_path.read).to include("docker_build_ssh_known_hosts:")
-        expect(build_action_path.read).to include("--build-arg=FOO=bar")
-        expect(build_action_path.read).to include('docker_build_args+=("--ssh=default")')
-        expect(build_action_path.read).to include(
-          "docker_build_extra_args entries must be single docker-build tokens."
-        )
-        expect(build_action_path.read).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}"')
-        expect(build_action_path.read).not_to include("ssh-keyscan")
-        expect(build_action_path.read).to include("github.com ssh-ed25519")
-        expect(review_app_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
-        expect(review_app_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
-        expect(review_app_workflow_path.read).to include(
-          "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
-        )
-        expect(review_app_workflow_path.read).to include("github.event.comment.author_association")
-        expect(review_app_workflow_path.read).to include("Review app deploys are skipped for fork pull requests.")
-        expect(review_app_workflow_path.read).to include(
-          "Skipping PR comment update because no comment id was created."
-        )
-        expect(delete_review_workflow_path.read).to include("concurrency:")
-        expect(delete_review_workflow_path.read).to include(
-          "Skipping delete status comment update because no comment id was created."
-        )
-        expect(help_workflow_path.read).to include("github.event.comment.author_association")
-        expect(help_workflow_path.read).to include("DOCKER_BUILD_EXTRA_ARGS")
-        expect(help_workflow_path.read).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
-        expect(staging_workflow_path.read).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
-        expect(staging_workflow_path.read).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
-        expect(staging_workflow_path.read).to include(
-          "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
-        )
-        expect(staging_workflow_path.read).to include("GitHub does not allow repository vars in branch filters")
-        expect(staging_workflow_path.read).to include("cpflow-deploy-staging-${{ github.ref_name }}")
-        expect(staging_workflow_path.read).to include("variable:STAGING_APP_NAME")
-        expect(promote_workflow_path.read).to include("group: cpflow-promote-staging-to-production")
-        expect(promote_workflow_path.read).to include(
-          'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
-        )
-        expect(promote_workflow_path.read).to include(
-          "failure() && steps.capture-current.outputs.rollback_state != '{}'"
-        )
-        expect(delete_app_script_path.read).to include("⚠️ Application does not exist")
-        generated_yaml_paths.each do |path|
-          expect { YAML.load_file(path, aliases: true) }.not_to raise_error
-        end
+    it "creates the expected workflow and action files" do
+      expect(review_app_workflow_path).to exist
+      expect(build_action_path).to exist
+      expect(setup_action_path).to exist
+      expect(delete_app_script_path).to exist
+      expect(delete_app_script_path).to be_executable
+    end
+
+    it "substitutes the cpflow version placeholder" do
+      expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
+    end
+
+    it "exposes Docker build action inputs" do
+      contents = build_action_path.read
+      expect(contents).to include("docker_build_extra_args:")
+      expect(contents).to include("docker_build_ssh_key:")
+      expect(contents).to include("docker_build_ssh_known_hosts:")
+    end
+
+    it "documents the docker_build_extra_args usage and validates tokens" do
+      contents = build_action_path.read
+      expect(contents).to include("--build-arg=FOO=bar")
+      expect(contents).to include('docker_build_args+=("--ssh=default")')
+      expect(contents).to include(
+        "docker_build_extra_args entries must be single docker-build tokens."
+      )
+    end
+
+    it "pins the default SSH known_hosts entries without ssh-keyscan" do
+      contents = build_action_path.read
+      expect(contents).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}"')
+      expect(contents).not_to include("ssh-keyscan")
+      expect(contents).to include("github.com ssh-ed25519")
+    end
+
+    it "wires Docker build inputs through the review-app workflow" do
+      contents = review_app_workflow_path.read
+      expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
+      expect(contents).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+      expect(contents).to include(
+        "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
+      )
+    end
+
+    it "gates review-app deploys by author_association and skips fork PRs" do
+      contents = review_app_workflow_path.read
+      expect(contents).to include("github.event.comment.author_association")
+      expect(contents).to include("Review app deploys are skipped for fork pull requests.")
+    end
+
+    it "handles missing PR comment ids gracefully in the review-app workflow" do
+      expect(review_app_workflow_path.read).to include(
+        "Skipping PR comment update because no comment id was created."
+      )
+    end
+
+    it "configures delete-review-app concurrency and handles missing comment ids" do
+      contents = delete_review_workflow_path.read
+      expect(contents).to include("concurrency:")
+      expect(contents).to include(
+        "Skipping delete status comment update because no comment id was created."
+      )
+    end
+
+    it "wires the help workflow author_association gate and Docker build env" do
+      contents = help_workflow_path.read
+      expect(contents).to include("github.event.comment.author_association")
+      expect(contents).to include("DOCKER_BUILD_EXTRA_ARGS")
+      expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
+    end
+
+    it "wires Docker build inputs through the staging workflow" do
+      contents = staging_workflow_path.read
+      expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
+      expect(contents).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+      expect(contents).to include(
+        "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
+      )
+    end
+
+    it "documents the branch-filter trade-off and sets staging concurrency/vars" do
+      contents = staging_workflow_path.read
+      expect(contents).to include("GitHub does not allow repository vars in branch filters")
+      expect(contents).to include("cpflow-deploy-staging-${{ github.ref_name }}")
+      expect(contents).to include("variable:STAGING_APP_NAME")
+    end
+
+    it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
+      contents = promote_workflow_path.read
+      expect(contents).to include("group: cpflow-promote-staging-to-production")
+      expect(contents).to include(
+        'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
+      )
+      expect(contents).to include(
+        "failure() && steps.capture-current.outputs.rollback_state != '{}'"
+      )
+    end
+
+    it "writes the delete-app script with the not-found guard message" do
+      expect(delete_app_script_path.read).to include("⚠️ Application does not exist")
+    end
+
+    it "produces valid YAML for every generated workflow and action file" do
+      generated_yaml_paths.each do |path|
+        expect { YAML.load_file(path, aliases: true) }.not_to raise_error
       end
     end
 
     it "skips startup checks for the local-only GitHub Actions generator command" do
-      inside_dir(playground) do
-        Cpflow::Cli.start([described_class::NAME])
-
-        expect(Cpflow::Cli).not_to have_received(:check_cpln_version)
-        expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
-      end
+      expect(Cpflow::Cli).not_to have_received(:check_cpln_version)
+      expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
     end
   end
 

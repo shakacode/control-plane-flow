@@ -18,8 +18,10 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: cpflow-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
-  cancel-in-progress: true
+  group: cpflow-delete-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+  # Deletions must not cancel each other mid-flight — a cancelled `cpln` delete can leave
+  # partial state behind. Let the in-progress deletion finish before the next run starts.
+  cancel-in-progress: false
 
 env:
   APP_NAME: ${{ vars.REVIEW_APP_PREFIX }}-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}

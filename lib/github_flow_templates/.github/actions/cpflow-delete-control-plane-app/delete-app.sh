@@ -15,6 +15,18 @@ if [[ "$APP_NAME" != "${expected_prefix}"* ]]; then
 fi
 
 echo "🔍 Checking if application exists: $APP_NAME"
+# Contract this relies on from `cpflow exists`:
+#   - Exit status 0              → app exists (stdout may contain an informational banner).
+#   - Exit status non-zero, no
+#     recognizable error tokens  → app does not exist; treat as a no-op success.
+#   - Exit status non-zero with
+#     tokens like "Double check
+#     your org", "Unknown API
+#     token format", "ERROR",
+#     "Error:", "Traceback", or
+#     "Net::"                    → a real failure; surface and exit 1.
+# Keep this list in sync if `cpflow exists` starts emitting new error patterns, or swap this
+# for a structured interface (e.g. `cpflow exists --quiet --json`) once one is available.
 exists_output=""
 if ! exists_output="$(cpflow exists -a "$APP_NAME" --org "$CPLN_ORG" 2>&1)"; then
   case "$exists_output" in

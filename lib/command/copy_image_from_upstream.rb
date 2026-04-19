@@ -5,20 +5,23 @@ module Command
     NAME = "copy-image-from-upstream"
     OPTIONS = [
       app_option(required: true),
-      upstream_token_option(required: true),
+      upstream_token_option,
       image_option
     ].freeze
     DESCRIPTION = "Copies an image (by default the latest) from a source org to the current org"
     LONG_DESCRIPTION = <<~DESC
       - Copies an image (by default the latest) from a source org to the current org
       - The source app must be specified either through the `CPLN_UPSTREAM` env var or `upstream` in the `.controlplane/controlplane.yml` file
-      - Additionally, the token for the source org must be provided through `--upstream-token` or `-t`
+      - The token for the source org must be provided through `--upstream-token`/`-t` or the `CPLN_UPSTREAM_TOKEN` env var
       - A `cpln` profile will be temporarily created to pull the image from the source org
     DESC
     EXAMPLES = <<~EX
       ```sh
       # Copies the latest image from the source org to the current org.
       cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
+
+      # Equivalent call using an env var (avoids exposing the token via the OS process table).
+      CPLN_UPSTREAM_TOKEN=$UPSTREAM_TOKEN cpflow copy-image-from-upstream -a $APP_NAME
 
       # Copies a specific image from the source org to the current org.
       cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
@@ -30,7 +33,9 @@ module Command
 
       @upstream = ENV.fetch("CPLN_UPSTREAM", nil) || config[:upstream]
       @upstream_org = ENV.fetch("CPLN_ORG_UPSTREAM", nil) || config.find_app_config(@upstream)&.dig(:cpln_org)
+      @upstream_token = config.options[:upstream_token] || ENV.fetch("CPLN_UPSTREAM_TOKEN", nil)
       ensure_upstream_org!
+      ensure_upstream_token!
 
       create_upstream_profile
       fetch_upstream_image_url
@@ -51,6 +56,12 @@ module Command
             "and CPLN_ORG_UPSTREAM env var is not set."
     end
 
+    def ensure_upstream_token!
+      return if @upstream_token
+
+      raise "Missing upstream token. Pass `--upstream-token`/`-t` or set the `CPLN_UPSTREAM_TOKEN` env var."
+    end
+
     def create_upstream_profile
       step("Creating upstream profile") do
         loop do
@@ -58,7 +69,7 @@ module Command
           break unless cp.profile_exists?(@upstream_profile)
         end
 
-        cp.profile_create(@upstream_profile, config.options[:upstream_token])
+        cp.profile_create(@upstream_profile, @upstream_token)
       end
     end
 

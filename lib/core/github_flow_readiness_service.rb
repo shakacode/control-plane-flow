@@ -2,6 +2,9 @@
 
 require "bundler"
 require "cgi"
+require "yaml"
+
+require_relative "repo_introspection"
 
 class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   Result = Struct.new(:status, :message, keyword_init: true)
@@ -201,8 +204,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def parse_ruby_version(source)
-    normalized_source = source.strip.sub(/\Aruby-/, "")
-    version = normalized_source[/\d+\.\d+(?:\.\d+)?/]
+    version = RepoIntrospection.parse_ruby_version_string(source)
     return unless version
 
     Gem::Version.new(version)
@@ -223,38 +225,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def sqlite_database_in_production?
-    file_path = root_path.join("config/database.yml")
-    return false unless file_path.file?
-
-    database_config = file_path.read
-    production_block = top_level_yaml_block(database_config, "production")
-    default_block = top_level_yaml_block(database_config, "default")
-
-    sqlite_adapter?(production_block) ||
-      (inherits_default_config?(production_block) && sqlite_adapter?(default_block))
-  end
-
-  def top_level_yaml_block(database_config, section_name)
-    lines = database_config.lines
-    start_index = lines.index { |line| line.match?(/^#{Regexp.escape(section_name)}:/) }
-    return unless start_index
-
-    block_lines = [lines[start_index]]
-    lines[(start_index + 1)..]&.each do |line|
-      break if line.match?(/^\S/)
-
-      block_lines << line
-    end
-
-    block_lines.join
-  end
-
-  def sqlite_adapter?(yaml_block)
-    yaml_block&.match?(/^\s*adapter:\s*sqlite3\b/)
-  end
-
-  def inherits_default_config?(yaml_block)
-    yaml_block&.match?(/^\s*<<:\s*\*default\b/)
+    RepoIntrospection.sqlite_database_in_production?(root_path.to_s)
   end
 
   def rubygems_requirement_available?(dependency)
@@ -274,28 +245,41 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   def fetch_rubygems_versions(name)
     @rubygems_versions ||= {}
-    @rubygems_versions[name] ||= begin
-      uri = URI("https://rubygems.org/api/v1/versions/#{CGI.escape(name)}.json")
-      response = http_get(uri)
-      return unless response.is_a?(Net::HTTPSuccess)
+    return @rubygems_versions[name] if @rubygems_versions.key?(name)
 
-      JSON.parse(response.body).map { |entry| entry["number"] }
-    rescue JSON::ParserError
-      nil
-    end
+    @rubygems_versions[name] = fetch_versions_from_rubygems(name)
   end
 
   def fetch_npm_versions(name)
     @npm_versions ||= {}
-    @npm_versions[name] ||= begin
-      uri = URI("https://registry.npmjs.org/#{CGI.escape(name)}")
-      response = http_get(uri)
-      return unless response.is_a?(Net::HTTPSuccess)
+    return @npm_versions[name] if @npm_versions.key?(name)
 
-      JSON.parse(response.body).fetch("versions", {}).keys
-    rescue JSON::ParserError
-      nil
-    end
+    @npm_versions[name] = fetch_versions_from_npm(name)
+  end
+
+  def fetch_versions_from_rubygems(name)
+    uri = URI("https://rubygems.org/api/v1/versions/#{CGI.escape(name)}.json")
+    response = http_get(uri)
+    return nil unless response.is_a?(Net::HTTPSuccess)
+
+    JSON.parse(response.body).map { |entry| entry["number"] }
+  rescue JSON::ParserError
+    nil
+  end
+
+  def fetch_versions_from_npm(name)
+    uri = URI("https://registry.npmjs.org/#{npm_package_path_segment(name)}")
+    response = http_get(uri)
+    return nil unless response.is_a?(Net::HTTPSuccess)
+
+    JSON.parse(response.body).fetch("versions", {}).keys
+  rescue JSON::ParserError
+    nil
+  end
+
+  # npm registry expects scoped packages as "@scope%2Fpkg" — leave "@" literal and only encode "/".
+  def npm_package_path_segment(name)
+    name.gsub("/", "%2F")
   end
 
   def http_get(uri)
@@ -356,6 +340,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     []
   end
 
+  # Parse Gemfile.lock via Bundler::LockfileParser rather than Bundler::Dsl#eval_gemfile.
+  # `eval_gemfile` instance_evals the user's Gemfile, which executes arbitrary Ruby. Readiness
+  # checks run against untrusted project trees, so we keep the trust boundary at "parse the
+  # lockfile only" — no Ruby from the user's repo is ever executed here.
   def parse_gem_dependencies(lockfile_path)
     parser = Bundler::LockfileParser.new(lockfile_path.read)
     parser.dependencies.values.map do |dependency|

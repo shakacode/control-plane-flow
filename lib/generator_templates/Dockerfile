@@ -1,13 +1,21 @@
 ARG RUBY_VERSION=__RUBY_VERSION__
 
-FROM docker.io/library/node:22-bullseye-slim AS node
-FROM ruby:$RUBY_VERSION
+# Node and Ruby base images share the same Debian release so that glibc, libssl, and
+# other system libraries line up between stages.
+FROM docker.io/library/node:22-bookworm-slim AS node
+FROM ruby:$RUBY_VERSION-slim-bookworm
 
 WORKDIR /app
 
 # Keep Node.js available both for asset compilation and for SSR runtimes that
-# rely on ExecJS in production.
-COPY --from=node /usr/local/ /usr/local/
+# rely on ExecJS in production. Narrowed to just what the node stage actually
+# ships under /usr/local so we don't drag in unused Debian libs from that image.
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/bin/npm /usr/local/bin/npm
+COPY --from=node /usr/local/bin/npx /usr/local/bin/npx
+COPY --from=node /usr/local/bin/corepack /usr/local/bin/corepack
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node /usr/local/include/node /usr/local/include/node
 
 # Expose Corepack-managed shims so later build steps can call yarn/pnpm
 # directly during asset precompilation hooks.
@@ -33,7 +41,7 @@ RUN if [ -f package.json ]; then \
           corepack prepare "$package_manager" --activate && \
             (corepack yarn install --immutable || corepack yarn install --frozen-lockfile); \
         else \
-          npm install -g yarn && \
+          npm install -g yarn@1.22.22 && \
             (yarn install --immutable || yarn install --frozen-lockfile); \
         fi; \
       elif [ -f pnpm-lock.yaml ]; then \
@@ -41,7 +49,7 @@ RUN if [ -f package.json ]; then \
           corepack prepare "$package_manager" --activate && \
             corepack pnpm install --frozen-lockfile; \
         else \
-          corepack prepare pnpm@latest --activate && \
+          corepack prepare pnpm@9.12.3 --activate && \
             corepack pnpm install --frozen-lockfile; \
         fi; \
       elif [ -f package-lock.json ]; then \

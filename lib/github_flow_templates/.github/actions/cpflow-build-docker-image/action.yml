@@ -46,6 +46,13 @@ runs:
       run: |
         set -euo pipefail
 
+        # Explicitly mask the SSH key value in logs. GitHub masks ${{ secrets.* }} automatically
+        # but composite-action inputs are not auto-masked, so a repo admin with ACTIONS_STEP_DEBUG
+        # enabled could otherwise see it in debug output.
+        if [[ -n "${DOCKER_BUILD_SSH_KEY}" ]]; then
+          echo "::add-mask::${DOCKER_BUILD_SSH_KEY}"
+        fi
+
         PR_INFO=""
         docker_build_args=()
 

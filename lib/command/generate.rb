@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "generator_helpers"
+require_relative "../core/repo_introspection"
 
 module Command
   class Generator < Thor::Group # rubocop:disable Metrics/ClassLength
@@ -26,7 +27,10 @@ module Command
     ].freeze
 
     DEFAULT_APP_PREFIX = "my-app"
-    DEFAULT_RUBY_VERSION = "3.1.2"
+    # Fallback Ruby version when the repo doesn't pin one via `.ruby-version`,
+    # `.tool-versions`, or the `Gemfile`. Keep this on a supported release line
+    # (https://www.ruby-lang.org/en/downloads/branches/).
+    DEFAULT_RUBY_VERSION = "3.3.6"
 
     def copy_files
       generated_paths = copy_template_files("generator_templates", base_template_files)
@@ -121,42 +125,11 @@ module Command
     end
 
     def parse_ruby_version(source)
-      normalized_source = source.strip.sub(/\Aruby-/, "")
-      normalized_source[/\d+\.\d+(?:\.\d+)?/]
+      RepoIntrospection.parse_ruby_version_string(source)
     end
 
     def sqlite_database_in_production?
-      return false unless File.file?("config/database.yml")
-
-      database_config = File.read("config/database.yml")
-      production_block = top_level_yaml_block(database_config, "production")
-      default_block = top_level_yaml_block(database_config, "default")
-
-      sqlite_adapter?(production_block) ||
-        (inherits_default_config?(production_block) && sqlite_adapter?(default_block))
-    end
-
-    def top_level_yaml_block(database_config, section_name)
-      lines = database_config.lines
-      start_index = lines.index { |line| line.match?(/^#{Regexp.escape(section_name)}:/) }
-      return unless start_index
-
-      block_lines = [lines[start_index]]
-      lines[(start_index + 1)..]&.each do |line|
-        break if line.match?(/^\S/)
-
-        block_lines << line
-      end
-
-      block_lines.join
-    end
-
-    def sqlite_adapter?(yaml_block)
-      yaml_block&.match?(/^\s*adapter:\s*sqlite3\b/)
-    end
-
-    def inherits_default_config?(yaml_block)
-      yaml_block&.match?(/^\s*<<:\s*\*default\b/)
+      RepoIntrospection.sqlite_database_in_production?(Dir.pwd)
     end
 
     def normalized_asset_precompile_hook_command
