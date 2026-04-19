@@ -105,12 +105,15 @@ cpflow config -a $APP_NAME
 
 - Copies an image (by default the latest) from a source org to the current org
 - The source app must be specified either through the `CPLN_UPSTREAM` env var or `upstream` in the `.controlplane/controlplane.yml` file
-- Additionally, the token for the source org must be provided through `--upstream-token` or `-t`
+- The token for the source org must be provided through `--upstream-token`/`-t` or the `CPLN_UPSTREAM_TOKEN` env var
 - A `cpln` profile will be temporarily created to pull the image from the source org
 
 ```sh
 # Copies the latest image from the source org to the current org.
 cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
+
+# Equivalent call using an env var (avoids exposing the token via the OS process table).
+CPLN_UPSTREAM_TOKEN=$UPSTREAM_TOKEN cpflow copy-image-from-upstream -a $APP_NAME
 
 # Copies a specific image from the source org to the current org.
 cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
