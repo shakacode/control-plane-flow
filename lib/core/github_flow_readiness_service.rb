@@ -337,7 +337,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     return [] unless lockfile_path.file?
 
     parse_gem_dependencies(lockfile_path)
-  rescue StandardError
+  rescue StandardError => e
+    warn "cpflow: failed to parse Gemfile.lock: #{e.class}: #{e.message}" if ENV["CPFLOW_DEBUG"]
     []
   end
 
@@ -387,6 +388,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def package_json_parse_error?
+    # `@package_json_parse_error` is set as a side effect of memoizing parsed_package_json;
+    # trigger it here so the flag reflects the parse result before we read it.
     parsed_package_json
     @package_json_parse_error
   end

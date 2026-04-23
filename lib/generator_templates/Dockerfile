@@ -34,6 +34,9 @@ RUN bundle config set without 'development test' && \
 COPY . ./
 
 # Install JavaScript dependencies only when the project actually has them.
+# Pin `packageManager` in package.json to take the corepack path and avoid the hardcoded
+# yarn@1.22.22 / pnpm@9.12.3 fallbacks below; those fallbacks exist for projects that
+# haven't adopted corepack and should be reviewed periodically as they will go stale.
 RUN if [ -f package.json ]; then \
       package_manager="$(node -p "require('./package.json').packageManager || ''")"; \
       if [ -f yarn.lock ]; then \

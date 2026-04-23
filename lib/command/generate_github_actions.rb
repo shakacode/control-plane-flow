@@ -67,6 +67,9 @@ module Command
     # Resolve template root from __dir__ rather than Cpflow.root_path because this file is
     # loaded before `module Cpflow` finishes defining its class methods.
     TEMPLATE_ROOT = Pathname.new(File.expand_path("../github_flow_templates", __dir__))
+    # Fail loudly on a broken install rather than silently generating zero files.
+    raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
+
     GENERATED_FILES = Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
                          .select { |path| File.file?(path) }
                          .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }

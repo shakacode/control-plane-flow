@@ -46,12 +46,14 @@ runs:
     - name: Setup Control Plane profile and registry login
       shell: bash
       env:
-        TOKEN: ${{ inputs.token }}
+        # Pass the token via CPLN_TOKEN so cpln picks it up from the environment
+        # rather than `--token`, which would leak it into /proc/<pid>/cmdline and ps output.
+        CPLN_TOKEN: ${{ inputs.token }}
         ORG: ${{ inputs.org }}
       run: |
         set -euo pipefail
 
-        if [[ -z "$TOKEN" ]]; then
+        if [[ -z "$CPLN_TOKEN" ]]; then
           echo "Error: Control Plane token not provided" >&2
           exit 1
         fi
@@ -62,12 +64,12 @@ runs:
         fi
 
         create_output=""
-        if ! create_output="$(cpln profile create default --token "$TOKEN" --org "$ORG" 2>&1)"; then
+        if ! create_output="$(cpln profile create default --org "$ORG" 2>&1)"; then
           if ! echo "$create_output" | grep -qi "already exists"; then
             echo "$create_output" >&2
             exit 1
           fi
         fi
 
-        cpln profile update default --org "$ORG" --token "$TOKEN"
+        cpln profile update default --org "$ORG"
         cpln image docker-login --org "$ORG"
