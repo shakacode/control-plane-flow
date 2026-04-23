@@ -24,16 +24,10 @@ inputs:
     description: Optional SSH known_hosts entries used with docker_build_ssh_key. Defaults to pinned GitHub.com host keys.
     required: false
 
-outputs:
-  image_tag:
-    description: Fully qualified image tag
-    value: ${{ steps.build.outputs.image_tag }}
-
 runs:
   using: composite
   steps:
     - name: Build Docker image
-      id: build
       shell: bash
       env:
         APP_NAME: ${{ inputs.app_name }}
@@ -99,7 +93,4 @@ runs:
 
         echo "🏗️ Building Docker image${PR_INFO} (commit ${COMMIT_SHA})..."
         cpflow build-image -a "${APP_NAME}" --commit="${COMMIT_SHA}" --org="${CONTROL_PLANE_ORG}" "${docker_build_args[@]}"
-
-        image_tag="${CONTROL_PLANE_ORG}/${APP_NAME}:${COMMIT_SHA}"
-        echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
         echo "✅ Docker image build successful${PR_INFO} (commit ${COMMIT_SHA})"

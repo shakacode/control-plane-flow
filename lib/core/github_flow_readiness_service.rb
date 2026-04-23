@@ -288,7 +288,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     http.open_timeout = 5
     http.read_timeout = 5
     http.get(uri.request_uri)
-  rescue StandardError
+  rescue StandardError => e
+    warn "github_flow_readiness: HTTP GET #{uri} failed: #{e.class}: #{e.message}" if ENV["CPFLOW_DEBUG"]
     nil
   end
 

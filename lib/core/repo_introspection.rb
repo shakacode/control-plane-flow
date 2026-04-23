@@ -3,11 +3,25 @@
 require "yaml"
 
 module RepoIntrospection
+  DEFAULT_APP_PREFIX = "my-app"
+
   # Pure string → version-string extractor. Strips a leading `ruby-` prefix and returns
   # the first `MAJOR.MINOR[.PATCH]` found in the source, or nil.
   def self.parse_ruby_version_string(source)
     normalized = source.strip.sub(/\Aruby-/, "")
     normalized[/\d+\.\d+(?:\.\d+)?/]
+  end
+
+  # Returns a Control Plane-safe app prefix derived from the basename of `root`:
+  # lower-cased, with non-alphanumeric runs collapsed to dashes and stripped from
+  # the ends. Falls back to DEFAULT_APP_PREFIX when the result is empty.
+  def self.inferred_app_prefix(root)
+    sanitized = File.basename(root)
+                    .downcase
+                    .gsub(/[^a-z0-9]+/, "-")
+                    .gsub(/\A-+|-+\z/, "")
+
+    sanitized.empty? ? DEFAULT_APP_PREFIX : sanitized
   end
 
   # Returns true if `config/database.yml` under `root` configures SQLite for production

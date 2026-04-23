@@ -26,7 +26,6 @@ module Command
       templates/storage.yml
     ].freeze
 
-    DEFAULT_APP_PREFIX = "my-app"
     # Fallback Ruby version when the repo doesn't pin one via `.ruby-version`,
     # `.tool-versions`, or the `Gemfile`. Keep this on a supported release line
     # (https://www.ruby-lang.org/en/downloads/branches/).
@@ -74,12 +73,7 @@ module Command
     end
 
     def inferred_app_prefix
-      sanitized_dirname = File.basename(Dir.pwd)
-                              .downcase
-                              .gsub(/[^a-z0-9]+/, "-")
-                              .gsub(/\A-+|-+\z/, "")
-
-      sanitized_dirname.empty? ? DEFAULT_APP_PREFIX : sanitized_dirname
+      RepoIntrospection.inferred_app_prefix(Dir.pwd)
     end
 
     def inferred_ruby_version

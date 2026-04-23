@@ -124,4 +124,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cpflow deploy-image -a "${APP_NAME}" ${RELEASE_PHASE_FLAG} --org "${CPLN_ORG}" --verbose
+
+          deploy_args=(-a "${APP_NAME}")
+          if [[ -n "${RELEASE_PHASE_FLAG}" ]]; then
+            deploy_args+=("${RELEASE_PHASE_FLAG}")
+          fi
+          deploy_args+=(--org "${CPLN_ORG}" --verbose)
+
+          cpflow deploy-image "${deploy_args[@]}"

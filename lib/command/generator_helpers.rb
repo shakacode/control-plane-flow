@@ -10,7 +10,8 @@ module Command
 
         contents = File.read(path)
         updated_contents = replacements.reduce(contents) do |memo, (placeholder, value)|
-          memo.gsub(placeholder, value)
+          # Block form avoids regex-style back-reference interpretation (\1, \&, \\) in `value`.
+          memo.gsub(placeholder) { value }
         end
 
         next if updated_contents == contents

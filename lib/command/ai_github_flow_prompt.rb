@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../core/repo_introspection"
+
 module Command
   class AiGithubFlowPrompt < Base
     NAME = "ai-github-flow-prompt"
@@ -39,12 +41,7 @@ module Command
     end
 
     def inferred_app_prefix
-      sanitized_dirname = File.basename(Dir.pwd)
-                              .downcase
-                              .gsub(/[^a-z0-9]+/, "-")
-                              .gsub(/\A-+|-+\z/, "")
-
-      sanitized_dirname.empty? ? "my-app" : sanitized_dirname
+      RepoIntrospection.inferred_app_prefix(Dir.pwd)
     end
   end
 end

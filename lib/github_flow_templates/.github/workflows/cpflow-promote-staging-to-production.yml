@@ -12,13 +12,15 @@ permissions:
   contents: write
 
 env:
-  # Override these by editing this file. Defaults give a ~6 minute window, which covers
-  # most Rails cold boots (asset precompile + db:migrate + workload readiness).
+  # Override these by editing this file or by setting the matching repository variable.
+  # Defaults give a ~6 minute window, which covers most Rails cold boots (asset precompile
+  # + db:migrate + workload readiness).
   HEALTH_CHECK_RETRIES: 24
   HEALTH_CHECK_INTERVAL: 15
-  # Space-separated list of HTTP statuses considered healthy. Some apps redirect / to
-  # /login (302); narrow to "200" if the app exposes a plain health endpoint.
-  HEALTH_CHECK_ACCEPTED_STATUSES: "200 301 302"
+  # Space-separated list of HTTP statuses considered healthy. Override via the
+  # HEALTH_CHECK_ACCEPTED_STATUSES repo variable (e.g. "200" for a plain /health endpoint,
+  # or "200 302 401 403" for apps that auth-gate /).
+  HEALTH_CHECK_ACCEPTED_STATUSES: ${{ vars.HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}
   ROLLBACK_READINESS_RETRIES: 24
   ROLLBACK_READINESS_INTERVAL: 15
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
@@ -54,6 +56,14 @@ jobs:
             exit 1
           fi
 
+      - name: Setup production environment
+        uses: ./.github/actions/cpflow-setup-environment
+        with:
+          token: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
+          org: ${{ vars.CPLN_ORG_PRODUCTION }}
+
+      # Runs after Setup production environment so the pinned Ruby (>= 3.1) is on PATH.
+      # YAML.load_file(..., aliases: true) is not supported on Ruby 3.0 (system Ruby on ubuntu-22.04).
       - name: Resolve production app workloads
         id: workloads
         env:
@@ -83,12 +93,6 @@ jobs:
           )"
 
           echo "names=${workloads}" >> "$GITHUB_OUTPUT"
-
-      - name: Setup production environment
-        uses: ./.github/actions/cpflow-setup-environment
-        with:
-          token: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
-          org: ${{ vars.CPLN_ORG_PRODUCTION }}
 
       - name: Detect release phase support
         id: release-phase
@@ -184,10 +188,12 @@ jobs:
 
           echo "current_image=${current_image}" >> "$GITHUB_OUTPUT"
           echo "current_version=${current_version}" >> "$GITHUB_OUTPUT"
+          # Randomize the heredoc delimiter so a stray "EOF" line inside rollback_state can't terminate it early.
+          delim="EOF_$(openssl rand -hex 8)"
           {
-            echo "rollback_state<<EOF"
+            echo "rollback_state<<${delim}"
             echo "${rollback_state}"
-            echo "EOF"
+            echo "${delim}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Copy image from staging
@@ -209,7 +215,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cpflow deploy-image -a "${PRODUCTION_APP_NAME}" ${RELEASE_PHASE_FLAG} --org "${CPLN_ORG_PRODUCTION}" --verbose
+
+          deploy_args=(-a "${PRODUCTION_APP_NAME}")
+          if [[ -n "${RELEASE_PHASE_FLAG}" ]]; then
+            deploy_args+=("${RELEASE_PHASE_FLAG}")
+          fi
+          deploy_args+=(--org "${CPLN_ORG_PRODUCTION}" --verbose)
+
+          cpflow deploy-image "${deploy_args[@]}"
 
       - name: Wait for deployment health
         id: health-check
@@ -255,7 +268,11 @@ jobs:
           CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
         shell: bash
         run: |
-          set -euo pipefail
+          # Best-effort rollback: try every workload, aggregate failures, exit non-zero at the end
+          # if any failed. A single cpln hiccup shouldn't leave other workloads mid-promotion.
+          set -uo pipefail
+
+          rollback_failures=0
 
           while IFS=$'\t' read -r workload_name previous_images; do
             rollback_args=()
@@ -264,11 +281,19 @@ jobs:
               rollback_args+=(--set "spec.containers[${index}].image=${image}")
             done < <(echo "${previous_images}" | jq -r 'to_entries[] | "\(.key)\t\(.value)"')
 
-            cpln workload update "${workload_name}" \
+            if ! cpln workload update "${workload_name}" \
               --gvc "${PRODUCTION_APP_NAME}" \
               --org "${CPLN_ORG_PRODUCTION}" \
-              "${rollback_args[@]}"
+              "${rollback_args[@]}"; then
+              echo "::warning::Rollback failed for workload '${workload_name}'; continuing with remaining workloads." >&2
+              rollback_failures=$((rollback_failures + 1))
+            fi
           done < <(echo "${ROLLBACK_STATE}" | jq -r 'to_entries[] | "\(.key)\t\(.value.images | @json)"')
+
+          if [[ "${rollback_failures}" -gt 0 ]]; then
+            echo "::error::${rollback_failures} workload(s) failed to roll back; inspect the logs above." >&2
+            exit 1
+          fi
 
       - name: Wait for rollback readiness
         if: failure() && steps.capture-current.outputs.rollback_state != '{}'
