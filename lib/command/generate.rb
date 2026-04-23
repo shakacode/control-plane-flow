@@ -61,7 +61,11 @@ module Command
     end
 
     def base_template_files
-      sqlite_project? ? BASE_TEMPLATE_FILES : BASE_TEMPLATE_FILES + POSTGRES_TEMPLATE_FILES
+      return BASE_TEMPLATE_FILES + POSTGRES_TEMPLATE_FILES unless sqlite_project?
+
+      # Exclude files that the SQLite pass rewrites to avoid copying Postgres-flavoured templates
+      # that would be immediately overwritten by generator_templates_sqlite/.
+      BASE_TEMPLATE_FILES - SQLITE_TEMPLATE_FILES
     end
 
     def template_variables

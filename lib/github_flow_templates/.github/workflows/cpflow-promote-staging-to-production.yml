@@ -261,7 +261,7 @@ jobs:
           exit 1
 
       - name: Roll back on failure
-        if: failure() && steps.capture-current.outputs.rollback_state != '{}'
+        if: failure() && steps.capture-current.outputs.rollback_state != '' && steps.capture-current.outputs.rollback_state != '{}'
         env:
           ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
@@ -296,7 +296,7 @@ jobs:
           fi
 
       - name: Wait for rollback readiness
-        if: failure() && steps.capture-current.outputs.rollback_state != '{}'
+        if: failure() && steps.capture-current.outputs.rollback_state != '' && steps.capture-current.outputs.rollback_state != '{}'
         env:
           ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}

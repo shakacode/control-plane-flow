@@ -157,7 +157,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
       expect(contents).to include(
-        "failure() && steps.capture-current.outputs.rollback_state != '{}'"
+        "failure() && steps.capture-current.outputs.rollback_state != '' && " \
+        "steps.capture-current.outputs.rollback_state != '{}'"
       )
     end
 
