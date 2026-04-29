@@ -8,14 +8,6 @@ GEM_TEMP_PATH = GEM_ROOT_PATH.join("tmp")
 GENERATOR_PLAYGROUND_PATH = GEM_TEMP_PATH.join("sample-project")
 CONTROLPLANE_CONFIG_DIR_PATH = GENERATOR_PLAYGROUND_PATH.join(".controlplane")
 
-def inside_dir(path)
-  original_working_dir = Dir.pwd
-  Dir.chdir path
-  yield if block_given?
-ensure
-  Dir.chdir original_working_dir
-end
-
 def controlplane_config_file_path
   CONTROLPLANE_CONFIG_DIR_PATH.join("controlplane.yml")
 end

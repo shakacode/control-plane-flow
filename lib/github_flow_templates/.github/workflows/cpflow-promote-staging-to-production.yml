@@ -18,9 +18,13 @@ env:
   # most Rails cold boots (asset precompile + db:migrate + workload readiness).
   HEALTH_CHECK_RETRIES: 24
   HEALTH_CHECK_INTERVAL: 15
-  # Space-separated list of HTTP statuses considered healthy. Override via the
-  # HEALTH_CHECK_ACCEPTED_STATUSES repo variable (e.g. "200" for a plain /health endpoint,
-  # or "200 302 401 403" for apps that auth-gate /).
+  # Space-separated list of HTTP statuses considered healthy. The default accepts 301/302
+  # because `curl` is invoked without `-L`, so a root `/` that redirects to a login page
+  # (common for Rails apps that auth-gate `/`) would otherwise be reported as unhealthy
+  # despite the workload itself being up. Override via the HEALTH_CHECK_ACCEPTED_STATUSES
+  # repo variable to tighten this for apps that expose a dedicated health endpoint
+  # (e.g. "200" for a plain /health, or "200 401 403" for apps that auth-gate / without
+  # redirecting).
   HEALTH_CHECK_ACCEPTED_STATUSES: ${{ vars.HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}
   ROLLBACK_READINESS_RETRIES: 24
   ROLLBACK_READINESS_INTERVAL: 15

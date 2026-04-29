@@ -220,7 +220,12 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   # Worker threads in `fetch_availability_in_parallel` may share the cache, so guard
-  # both the duplicate-fetch check and the assignment with a mutex.
+  # both the duplicate-fetch check and the assignment with a mutex. The mutex is released
+  # before `yield` so a slow HTTP request does not block other workers from reading cached
+  # entries; the trade-off is that N threads racing on a cold cache for the same name can
+  # all fire HTTP requests in parallel. That's acceptable here because the fetches are
+  # idempotent and the cache is keyed per-name, so duplicates only happen on the first
+  # parallel sweep and only for names not yet memoized.
   def fetch_with_cache(cache, name)
     cache[:mutex].synchronize do
       return cache[:store][name] if cache[:store].key?(name)

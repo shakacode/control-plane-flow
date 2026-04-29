@@ -16,12 +16,14 @@ permissions:
 env:
   APP_NAME: ${{ vars.STAGING_APP_NAME }}
   CPLN_ORG: ${{ vars.CPLN_ORG_STAGING }}
-  CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
   STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH }}
 
 concurrency:
   group: cpflow-deploy-staging-${{ github.ref_name }}
-  cancel-in-progress: true
+  # Match the review-app and delete workflows: a cancelled `cpflow deploy-image` mid-rollout
+  # can leave the staging GVC in a partially-deployed state (some workloads on the new image,
+  # others on the old). Let an in-flight deploy finish before the next push starts a new run.
+  cancel-in-progress: false
 
 jobs:
   validate-branch:

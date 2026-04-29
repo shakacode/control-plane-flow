@@ -25,8 +25,10 @@ echo "🔍 Checking if application exists: $APP_NAME"
 #     token format", "ERROR",
 #     "Error:", "Traceback", or
 #     "Net::"                    → a real failure; surface and exit 1.
-# Keep this list in sync if `cpflow exists` starts emitting new error patterns, or swap this
-# for a structured interface (e.g. `cpflow exists --quiet --json`) once one is available.
+# TODO: replace this string-matching with a structured signal once `cpflow exists` exposes one
+# (e.g. a distinct exit code for "not found" vs. API/auth errors, or `cpflow exists --json`).
+# Until then, keep this list in sync if `cpflow exists` starts emitting new error patterns —
+# any unmatched error string would otherwise be silently treated as "app not found".
 exists_output=""
 if ! exists_output="$(cpflow exists -a "$APP_NAME" --org "$CPLN_ORG" 2>&1)"; then
   case "$exists_output" in

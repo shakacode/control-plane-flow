@@ -6,14 +6,6 @@ require "tmpdir"
 require "yaml"
 
 describe Command::GenerateGithubActions, :enable_validations, :without_config_file do
-  def inside_dir(path)
-    original_working_dir = Dir.pwd
-    Dir.chdir(path)
-    yield if block_given?
-  ensure
-    Dir.chdir(original_working_dir)
-  end
-
   def build_action_path
     playground.join(".github/actions/cpflow-build-docker-image/action.yml")
   end

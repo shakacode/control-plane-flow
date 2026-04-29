@@ -5,14 +5,6 @@ require "pathname"
 require "tmpdir"
 
 describe Command::GithubFlowReadiness, :enable_validations, :without_config_file do
-  def inside_dir(path)
-    original_working_dir = Dir.pwd
-    Dir.chdir(path)
-    yield if block_given?
-  ensure
-    Dir.chdir(original_working_dir)
-  end
-
   let(:playground) { Pathname.new(Dir.mktmpdir("cpflow-github-flow-readiness")) }
 
   after do
