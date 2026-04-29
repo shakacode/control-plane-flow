@@ -22,12 +22,14 @@ permissions:
 
 concurrency:
   group: cpflow-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
-  cancel-in-progress: true
+  # Match the delete workflow: a cancelled `cpflow deploy-image` mid-rollout can leave the
+  # review app in a partially-deployed state (workload update in progress, rollout not
+  # settled). Let an in-flight deploy finish before the next push starts a new run.
+  cancel-in-progress: false
 
 env:
   APP_NAME: ${{ vars.REVIEW_APP_PREFIX }}-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   CPLN_ORG: ${{ vars.CPLN_ORG_STAGING }}
-  CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
   PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
 

@@ -12,6 +12,43 @@ module RepoIntrospection
     normalized[/\d+\.\d+(?:\.\d+)?/]
   end
 
+  # Returns the first Ruby version string the repo declares, checked in the order Bundler
+  # itself uses: `.ruby-version`, then `.tool-versions`, then `Gemfile`. Returns nil when
+  # no source declares a version. Both `Command::Generator` and `GithubFlowReadinessService`
+  # call into this so a future format change (e.g. `.tool-versions`) only updates here.
+  def self.inferred_ruby_version_string(root)
+    ruby_version_from_ruby_version_file(root) ||
+      ruby_version_from_tool_versions(root) ||
+      ruby_version_from_gemfile(root)
+  end
+
+  def self.ruby_version_from_ruby_version_file(root)
+    path = File.join(root, ".ruby-version")
+    return unless File.file?(path)
+
+    parse_ruby_version_string(File.read(path))
+  end
+
+  def self.ruby_version_from_tool_versions(root)
+    path = File.join(root, ".tool-versions")
+    return unless File.file?(path)
+
+    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
+    return unless ruby_line
+
+    parse_ruby_version_string(ruby_line.sub(/^\s*ruby\s+/, ""))
+  end
+
+  def self.ruby_version_from_gemfile(root)
+    path = File.join(root, "Gemfile")
+    return unless File.file?(path)
+
+    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
+    return unless ruby_line
+
+    parse_ruby_version_string(ruby_line.sub(/^\s*ruby\s+/, ""))
+  end
+
   # Returns a Control Plane-safe app prefix derived from the basename of `root`:
   # lower-cased, with non-alphanumeric runs collapsed to dashes and stripped from
   # the ends. Falls back to DEFAULT_APP_PREFIX when the result is empty.

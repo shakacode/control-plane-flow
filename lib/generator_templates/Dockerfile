@@ -5,6 +5,12 @@ ARG RUBY_VERSION=__RUBY_VERSION__
 FROM docker.io/library/node:22-bookworm-slim AS node
 FROM ruby:$RUBY_VERSION-slim-bookworm
 
+# Yarn Classic / pnpm fallbacks for projects that haven't adopted corepack via
+# `packageManager` in package.json. Override at build time (`--build-arg=YARN_CLASSIC_VERSION=...`)
+# rather than editing this file so regenerating the Dockerfile keeps your pin.
+ARG YARN_CLASSIC_VERSION=1.22.22
+ARG PNPM_FALLBACK_VERSION=9.12.3
+
 WORKDIR /app
 
 # Keep Node.js available both for asset compilation and for SSR runtimes that
@@ -34,9 +40,9 @@ RUN bundle config set without 'development test' && \
 COPY . ./
 
 # Install JavaScript dependencies only when the project actually has them.
-# Pin `packageManager` in package.json to take the corepack path and avoid the hardcoded
-# yarn@1.22.22 / pnpm@9.12.3 fallbacks below; those fallbacks exist for projects that
-# haven't adopted corepack and should be reviewed periodically as they will go stale.
+# Pin `packageManager` in package.json to take the corepack path and avoid the
+# YARN_CLASSIC_VERSION / PNPM_FALLBACK_VERSION fallbacks below; the fallbacks exist for
+# projects that haven't adopted corepack and should be reviewed periodically as they go stale.
 RUN if [ -f package.json ]; then \
       package_manager="$(node -p "require('./package.json').packageManager || ''")"; \
       if [ -f yarn.lock ]; then \
@@ -44,7 +50,7 @@ RUN if [ -f package.json ]; then \
           corepack prepare "$package_manager" --activate && \
             (corepack yarn install --immutable || corepack yarn install --frozen-lockfile); \
         else \
-          npm install -g yarn@1.22.22 && \
+          npm install -g "yarn@${YARN_CLASSIC_VERSION}" && \
             (yarn install --immutable || yarn install --frozen-lockfile); \
         fi; \
       elif [ -f pnpm-lock.yaml ]; then \
@@ -52,7 +58,7 @@ RUN if [ -f package.json ]; then \
           corepack prepare "$package_manager" --activate && \
             corepack pnpm install --frozen-lockfile; \
         else \
-          corepack prepare pnpm@9.12.3 --activate && \
+          corepack prepare "pnpm@${PNPM_FALLBACK_VERSION}" --activate && \
             corepack pnpm install --frozen-lockfile; \
         fi; \
       elif [ -f package-lock.json ]; then \

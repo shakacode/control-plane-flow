@@ -34,6 +34,11 @@ runs:
       if: ${{ inputs.docker_build_ssh_key != '' }}
       shell: bash
       env:
+        # Pass the key via env so the file write is a single printf call rather than a
+        # heredoc with a fixed terminator (a heredoc would silently truncate the key if
+        # any line of the key value happened to match the terminator). Scope is still
+        # this step only — the build step below does not receive DOCKER_BUILD_SSH_KEY.
+        DOCKER_BUILD_SSH_KEY: ${{ inputs.docker_build_ssh_key }}
         DOCKER_BUILD_SSH_KNOWN_HOSTS: ${{ inputs.docker_build_ssh_known_hosts }}
       run: |
         set -euo pipefail
@@ -53,12 +58,7 @@ runs:
         fi
         chmod 600 ~/.ssh/known_hosts
 
-        # Write the key via inline template interpolation. Quoted heredoc terminator
-        # prevents shell expansion; GitHub substitutes the raw value into the script body
-        # before bash sees it, and propagates masking from the originating ${{ secrets.* }}.
-        cat > ~/.ssh/cpflow_build_key <<'CPFLOW_SSH_KEY_EOF'
-        ${{ inputs.docker_build_ssh_key }}
-        CPFLOW_SSH_KEY_EOF
+        printf '%s\n' "${DOCKER_BUILD_SSH_KEY}" > ~/.ssh/cpflow_build_key
         chmod 600 ~/.ssh/cpflow_build_key
 
     - name: Build Docker image

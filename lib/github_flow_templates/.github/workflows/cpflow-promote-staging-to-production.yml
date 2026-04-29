@@ -13,8 +13,9 @@ permissions:
 
 env:
   # Override these by editing this file or by setting the matching repository variable.
-  # Defaults give a ~6 minute window, which covers most Rails cold boots (asset precompile
-  # + db:migrate + workload readiness).
+  # Worst-case wall time per attempt is HEALTH_CHECK_INTERVAL plus the curl --max-time below
+  # (10s), so the defaults give a ~10 minute window (24 × (15 + 10) = 600s) — enough for
+  # most Rails cold boots (asset precompile + db:migrate + workload readiness).
   HEALTH_CHECK_RETRIES: 24
   HEALTH_CHECK_INTERVAL: 15
   # Space-separated list of HTTP statuses considered healthy. Override via the

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "yaml"
+
 require_relative "generator_helpers"
 require_relative "../core/repo_introspection"
 
@@ -81,10 +83,7 @@ module Command
     end
 
     def inferred_ruby_version
-      ruby_version_from_ruby_version_file ||
-        ruby_version_from_tool_versions ||
-        ruby_version_from_gemfile ||
-        DEFAULT_RUBY_VERSION
+      RepoIntrospection.inferred_ruby_version_string(Dir.pwd) || DEFAULT_RUBY_VERSION
     end
 
     def sqlite_project?
@@ -96,34 +95,6 @@ module Command
       return "" unless command
 
       "RUN #{command}\n\n"
-    end
-
-    def ruby_version_from_ruby_version_file
-      return unless File.file?(".ruby-version")
-
-      parse_ruby_version(File.read(".ruby-version"))
-    end
-
-    def ruby_version_from_tool_versions
-      return unless File.file?(".tool-versions")
-
-      ruby_line = File.readlines(".tool-versions", chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
-      return unless ruby_line
-
-      parse_ruby_version(ruby_line.sub(/^\s*ruby\s+/, ""))
-    end
-
-    def ruby_version_from_gemfile
-      return unless File.file?("Gemfile")
-
-      ruby_line = File.readlines("Gemfile", chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
-      return unless ruby_line
-
-      parse_ruby_version(ruby_line.sub(/^\s*ruby\s+/, ""))
-    end
-
-    def parse_ruby_version(source)
-      RepoIntrospection.parse_ruby_version_string(source)
     end
 
     def sqlite_database_in_production?
@@ -140,9 +111,27 @@ module Command
     def shakapacker_precompile_hook
       return unless File.file?("config/shakapacker.yml")
 
-      config = File.read("config/shakapacker.yml")
-      match = config.match(/^\s*precompile_hook:\s*["']?(.+?)["']?\s*$/)
-      match && match[1]
+      # Parse rather than regex-match: Shakapacker emits an environment-keyed YAML file
+      # (the hook usually lives under `default:` or `production:`), and folded or quoted
+      # multi-line values would also defeat a single-line regex.
+      config = YAML.safe_load(File.read("config/shakapacker.yml"), aliases: true)
+      hook = extract_shakapacker_precompile_hook(config)
+      hook unless hook.nil? || hook.empty?
+    rescue Psych::SyntaxError
+      nil
+    end
+
+    SHAKAPACKER_HOOK_SCOPES = %w[production default].freeze
+    private_constant :SHAKAPACKER_HOOK_SCOPES
+
+    def extract_shakapacker_precompile_hook(config)
+      return nil unless config.is_a?(Hash)
+
+      scoped = SHAKAPACKER_HOOK_SCOPES.filter_map do |key|
+        section = config[key]
+        section["precompile_hook"] if section.is_a?(Hash) && section["precompile_hook"].is_a?(String)
+      end.first
+      scoped || (config["precompile_hook"] if config["precompile_hook"].is_a?(String))
     end
 
     def react_on_rails_auto_bundle_hook

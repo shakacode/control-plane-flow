@@ -19,11 +19,14 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     keyword_init: true
   )
 
-  LEGACY_RUBY_VERSION = Gem::Version.new("3.0.0")
+  # Oldest Ruby line still receiving security backports (ruby-lang.org/en/downloads/branches/).
+  # Bump this when the upstream branch list drops a series.
+  LEGACY_RUBY_VERSION = Gem::Version.new("3.1.0")
   LEGACY_BUNDLER_VERSION = Gem::Version.new("2.0.0")
   PUBLIC_RUBYGEMS_REMOTE = "https://rubygems.org"
-  REQUIRED_RAILS_PATHS = ["Gemfile", "config/application.rb", "config.ru"].freeze
+  REQUIRED_RAILS_PATHS = ["Gemfile", "bin/rails", "config/application.rb", "config.ru"].freeze
   DOCKERFILE_PATHS = ["Dockerfile", ".controlplane/Dockerfile"].freeze
+  REGISTRY_FETCH_THREADS = 8
 
   attr_reader :root_path
 
@@ -171,43 +174,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def inferred_ruby_version
-    ruby_version_from_ruby_version_file ||
-      ruby_version_from_tool_versions ||
-      ruby_version_from_gemfile
-  end
-
-  def ruby_version_from_ruby_version_file
-    file_path = root_path.join(".ruby-version")
-    return unless file_path.file?
-
-    parse_ruby_version(file_path.read)
-  end
-
-  def ruby_version_from_tool_versions
-    file_path = root_path.join(".tool-versions")
-    return unless file_path.file?
-
-    ruby_line = file_path.readlines(chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
-    return unless ruby_line
-
-    parse_ruby_version(ruby_line.sub(/^\s*ruby\s+/, ""))
-  end
-
-  def ruby_version_from_gemfile
-    file_path = root_path.join("Gemfile")
-    return unless file_path.file?
-
-    ruby_line = file_path.readlines(chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
-    return unless ruby_line
-
-    parse_ruby_version(ruby_line.sub(/^\s*ruby\s+/, ""))
-  end
-
-  def parse_ruby_version(source)
-    version = RepoIntrospection.parse_ruby_version_string(source)
-    return unless version
-
-    Gem::Version.new(version)
+    version_string = RepoIntrospection.inferred_ruby_version_string(root_path.to_s)
+    Gem::Version.new(version_string) if version_string
   end
 
   def lockfile_bundler_version
@@ -244,17 +212,30 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def fetch_rubygems_versions(name)
-    @rubygems_versions ||= {}
-    return @rubygems_versions[name] if @rubygems_versions.key?(name)
-
-    @rubygems_versions[name] = fetch_versions_from_rubygems(name)
+    fetch_with_cache(rubygems_versions_cache, name) { fetch_versions_from_rubygems(name) }
   end
 
   def fetch_npm_versions(name)
-    @npm_versions ||= {}
-    return @npm_versions[name] if @npm_versions.key?(name)
+    fetch_with_cache(npm_versions_cache, name) { fetch_versions_from_npm(name) }
+  end
 
-    @npm_versions[name] = fetch_versions_from_npm(name)
+  # Worker threads in `fetch_availability_in_parallel` may share the cache, so guard
+  # both the duplicate-fetch check and the assignment with a mutex.
+  def fetch_with_cache(cache, name)
+    cache[:mutex].synchronize do
+      return cache[:store][name] if cache[:store].key?(name)
+    end
+
+    value = yield
+    cache[:mutex].synchronize { cache[:store][name] = value }
+  end
+
+  def rubygems_versions_cache
+    @rubygems_versions_cache ||= { store: {}, mutex: Mutex.new }
+  end
+
+  def npm_versions_cache
+    @npm_versions_cache ||= { store: {}, mutex: Mutex.new }
   end
 
   def fetch_versions_from_rubygems(name)
@@ -463,14 +444,40 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     Result.new(status: :pass, message: registry_success_message(check))
   end
 
+  # Fan out registry lookups across a small thread pool. Each HTTP call has a 5s timeout
+  # (see `http_get`), and results are memoized per dependency name; serially this scaled
+  # linearly with dependency count, which made readiness slow for repos with many exact pins.
   def partition_dependencies(dependencies, availability_proc)
-    dependencies.each_with_object(unavailable: [], unknown: []) do |dependency, grouped_dependencies|
-      case availability_proc.call(dependency)
+    results = fetch_availability_in_parallel(dependencies, availability_proc)
+    results.each_with_object(unavailable: [], unknown: []) do |(dependency, status), grouped|
+      case status
       when false
-        grouped_dependencies[:unavailable] << dependency
+        grouped[:unavailable] << dependency
       when nil
-        grouped_dependencies[:unknown] << dependency
+        grouped[:unknown] << dependency
       end
+    end
+  end
+
+  def fetch_availability_in_parallel(dependencies, availability_proc)
+    queue = Queue.new
+    indexed = dependencies.each_with_index.to_a
+    indexed.each { |entry| queue << entry }
+    results = Array.new(dependencies.length)
+
+    workers = Array.new([REGISTRY_FETCH_THREADS, dependencies.length].min) do
+      Thread.new { drain_availability_queue(queue, availability_proc, results) }
+    end
+    workers.each(&:join)
+    results
+  end
+
+  def drain_availability_queue(queue, availability_proc, results)
+    loop do
+      dependency, index = queue.pop(true)
+      results[index] = [dependency, availability_proc.call(dependency)]
+    rescue ThreadError
+      break
     end
   end
 

@@ -11,6 +11,8 @@ describe GithubFlowReadinessService do
 
   before do
     FileUtils.mkdir_p(playground.join("config"))
+    FileUtils.mkdir_p(playground.join("bin"))
+    File.write(playground.join("bin/rails"), "#!/usr/bin/env ruby\n")
     File.write(playground.join("config/application.rb"), "# app\n")
     File.write(playground.join("config.ru"), "run Rails.application\n")
     File.write(playground.join("Dockerfile"), "FROM ruby:3.3.7\n")

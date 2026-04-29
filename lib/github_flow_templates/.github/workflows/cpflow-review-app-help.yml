@@ -1,6 +1,10 @@
 name: Show Review App Commands on PR Open
 
 on:
+  # pull_request_target is intentional: it has write permission to comment on PRs from
+  # forks, where `pull_request` would be read-only. This is safe because no PR code is
+  # checked out — the job only calls `actions/github-script` with a hardcoded message.
+  # Do not switch this to `pull_request` or add a checkout step without re-evaluating.
   pull_request_target:
     types: [opened]
 

@@ -103,7 +103,10 @@ describe Command::Generate, :enable_validations, :without_config_file do
           "package_manager=\"$(node -p \"require('./package.json').packageManager || ''\")\""
         )
         expect(dockerfile_content).to include("corepack prepare \"$package_manager\" --activate &&")
-        expect(dockerfile_content).to include("npm install -g yarn@1.22.22 &&")
+        expect(dockerfile_content).to include("ARG YARN_CLASSIC_VERSION=1.22.22")
+        expect(dockerfile_content).to include("ARG PNPM_FALLBACK_VERSION=9.12.3")
+        expect(dockerfile_content).to include('npm install -g "yarn@${YARN_CLASSIC_VERSION}"')
+        expect(dockerfile_content).to include('corepack prepare "pnpm@${PNPM_FALLBACK_VERSION}" --activate')
         expect(dockerfile_content).to include("corepack yarn install --immutable")
         expect(dockerfile_content).to include("yarn install --immutable || yarn install --frozen-lockfile")
         expect(dockerfile_content).to include("corepack pnpm install --frozen-lockfile")

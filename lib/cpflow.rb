@@ -54,7 +54,12 @@ module Cpflow
       ENV["NODE_NO_WARNINGS"] = "1"
 
       fix_help_option
-      run_startup_checks if requires_startup_checks?
+      # Thor's `start(args = ARGV.dup, ...)` accepts an explicit argv as the first
+      # positional argument. Use that when present so the startup-check decision matches
+      # the command Thor is about to dispatch (and so test invocations don't pick up
+      # rspec's ARGV by accident).
+      argv = args.first.is_a?(Array) ? args.first : ARGV
+      run_startup_checks if requires_startup_checks?(argv)
 
       super
     end
@@ -131,7 +136,10 @@ module Cpflow
       return false if version_flag?(argv)
 
       command_class = command_class_for_argv(argv)
-      command_class ? command_class::REQUIRES_STARTUP_CHECKS : false
+      # Default to true when the command name is unrecognized so a typo still gets the
+      # version check (Thor's "unknown command" error then surfaces). Pre-PR behavior
+      # was always-on; only known commands explicitly opt out.
+      command_class ? command_class::REQUIRES_STARTUP_CHECKS : true
     end
     private_class_method :requires_startup_checks?
 
