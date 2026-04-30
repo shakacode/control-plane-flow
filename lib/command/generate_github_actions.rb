@@ -9,9 +9,7 @@ module Command
     include Thor::Actions
     include GeneratorHelpers
 
-    class << self
-      attr_accessor :staging_branch
-    end
+    argument :staging_branch, type: :string, required: false
 
     def copy_files
       copy_template_files(generated_files)
@@ -50,12 +48,12 @@ module Command
     end
 
     def staging_branch_filter
-      branches = self.class.staging_branch ? [self.class.staging_branch] : %w[main master]
+      branches = staging_branch ? [staging_branch] : %w[main master]
       branches.map(&:dump).join(", ")
     end
 
     def default_staging_app_branch
-      self.class.staging_branch || ""
+      staging_branch || ""
     end
   end
 
@@ -107,10 +105,7 @@ module Command
         return
       end
 
-      GithubActionsGenerator.staging_branch = staging_branch
-      GithubActionsGenerator.start
-    ensure
-      GithubActionsGenerator.staging_branch = nil
+      GithubActionsGenerator.start([staging_branch].compact)
     end
 
     private

@@ -67,6 +67,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
     end
 
+    it "passes setup action versions through env before using them in shell commands" do
+      contents = setup_action_path.read
+
+      expect(contents).to include("CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}")
+      expect(contents).to include("CPFLOW_VERSION: ${{ inputs.cpflow_version }}")
+      expect(contents).to include('sudo npm install -g "@controlplane/cli@${CPLN_CLI_VERSION}"')
+      expect(contents).to include('gem install cpflow -v "${CPFLOW_VERSION}"')
+      expect(contents).not_to include(
+        "npm install -g @controlplane/cli@${{ inputs.cpln_cli_version }}"
+      )
+      expect(contents).not_to include("gem install cpflow -v ${{ inputs.cpflow_version }}")
+    end
+
     it "exposes Docker build action inputs" do
       contents = build_action_path.read
       expect(contents).to include("docker_build_extra_args:")
