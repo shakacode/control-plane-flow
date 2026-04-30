@@ -205,6 +205,40 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when only non-production environments use sqlite3" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        default: &default
+          adapter: sqlite3
+          pool: 5
+          timeout: 5000
+
+        production:
+          <<: *default
+          adapter: postgresql
+          database: sample_project_production
+      YAML
+    end
+
+    it "keeps the postgres-backed templates" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        controlplane_content = controlplane_config_file_path.read
+
+        expect(controlplane_content).to include("- postgres")
+        expect(controlplane_content).not_to include("- db")
+        expect(controlplane_content).not_to include("- storage")
+        expect(postgres_template_path).to exist
+        expect(db_template_path).not_to exist
+        expect(storage_template_path).not_to exist
+        expect(app_template_path.read).to include("DATABASE_URL")
+        expect(release_script_path.read).not_to include("mkdir -p db storage")
+      end
+    end
+  end
+
   context "when shakapacker config defines a precompile hook" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))

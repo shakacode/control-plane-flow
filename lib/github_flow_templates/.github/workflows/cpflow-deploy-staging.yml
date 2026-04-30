@@ -5,9 +5,10 @@ run-name: Deploy Control Plane staging app
 on:
   push:
     # GitHub does not allow repository vars in branch filters. Default to the common
-    # deploy branches; if STAGING_APP_BRANCH is set to something else, add it to this list
-    # after generation so the validate-branch job does not burn a runner on every push.
-    branches: ["main", "master"]
+    # deploy branches unless `cpflow generate-github-actions --staging-branch BRANCH`
+    # was used. If STAGING_APP_BRANCH is later changed in repository variables, keep
+    # this list in sync so pushes to that branch actually trigger the workflow.
+    branches: [__STAGING_BRANCH_FILTER__]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,7 @@ permissions:
 env:
   APP_NAME: ${{ vars.STAGING_APP_NAME }}
   CPLN_ORG: ${{ vars.CPLN_ORG_STAGING }}
-  STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH }}
+  STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH || '__DEFAULT_STAGING_APP_BRANCH__' }}
 
 concurrency:
   group: cpflow-deploy-staging-${{ github.ref_name }}

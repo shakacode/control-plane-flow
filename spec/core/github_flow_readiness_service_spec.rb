@@ -243,6 +243,24 @@ describe GithubFlowReadinessService do
     expect(service.results.map(&:message).join("\n")).to include("Production database config uses SQLite")
   end
 
+  it "does not report SQLite production when production overrides a SQLite default adapter" do
+    File.write(playground.join("config/database.yml"), <<~YAML)
+      default: &default
+        adapter: sqlite3
+
+      production:
+        <<: *default
+        adapter: postgresql
+        database: demo_app_production
+    YAML
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    expect(service.results.map(&:message).join("\n")).not_to include("Production database config uses SQLite")
+  end
+
   it "warns about direct gems from non-public rubygems sources instead of checking rubygems.org" do
     File.write(playground.join("Gemfile"), <<~GEMFILE)
       source "https://gems.example.com"

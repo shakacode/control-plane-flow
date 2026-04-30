@@ -138,6 +138,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "documents the branch-filter trade-off and sets staging concurrency/vars" do
       contents = staging_workflow_path.read
       expect(contents).to include("GitHub does not allow repository vars in branch filters")
+      expect(contents).to include('branches: ["main", "master"]')
+      expect(contents).to include("vars.STAGING_APP_BRANCH || ''")
       expect(contents).to include("cpflow-deploy-staging-${{ github.ref_name }}")
       expect(contents).to include("variable:STAGING_APP_NAME")
     end
@@ -200,6 +202,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         expect(playground.join(".github/existing.yml").read).to eq("version: __CPFLOW_VERSION__\n")
       end
+    end
+  end
+
+  context "when a custom staging branch is provided" do
+    before do
+      inside_dir(playground) do
+        Cpflow::Cli.start([described_class::NAME, "--staging-branch", "develop"])
+      end
+    end
+
+    it "bakes that branch into the staging trigger and default branch check" do
+      contents = staging_workflow_path.read
+
+      expect(contents).to include('branches: ["develop"]')
+      expect(contents).to include("vars.STAGING_APP_BRANCH || 'develop'")
     end
   end
 end

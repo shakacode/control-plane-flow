@@ -61,8 +61,9 @@ module RepoIntrospection
     sanitized.empty? ? DEFAULT_APP_PREFIX : sanitized
   end
 
-  # Returns true if `config/database.yml` under `root` configures SQLite for production
-  # (either directly or via `<<: *default`). ERB in the YAML is stubbed before parsing.
+  # Returns true if `config/database.yml` under `root` configures SQLite for production.
+  # YAML merge keys such as `<<: *default` are resolved by safe_load, so only the
+  # final production hash should be inspected.
   def self.sqlite_database_in_production?(root)
     path = File.join(root, "config/database.yml")
     return false unless File.file?(path)
@@ -73,7 +74,7 @@ module RepoIntrospection
     production = parsed["production"]
     return false unless production.is_a?(Hash)
 
-    sqlite_adapter_in_hash?(production) || sqlite_adapter_in_hash?(parsed["default"])
+    sqlite_adapter_in_hash?(production)
   end
 
   def self.safe_load_database_yml(raw_contents)

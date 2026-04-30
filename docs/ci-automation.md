@@ -38,6 +38,9 @@ cpflow generate
 
 # Add reusable GitHub Actions for the Control Plane flow
 cpflow generate-github-actions
+
+# Or, run this instead when staging should trigger from a branch other than main/master:
+cpflow generate-github-actions --staging-branch develop
 ```
 
 These local bootstrap commands do not require `cpln` to be installed yet. Install and
@@ -162,7 +165,7 @@ Configure these repository variables:
 - `STAGING_APP_NAME`: staging GVC name, for example `my-app-staging`
 - `PRODUCTION_APP_NAME`: production GVC name, for example `my-app-production`
 - `REVIEW_APP_PREFIX`: review-app prefix, for example `my-app-review`
-- `STAGING_APP_BRANCH`: optional branch that auto-deploys staging; defaults to `main` or `master` if unset
+- `STAGING_APP_BRANCH`: optional branch that auto-deploys staging. If you use a custom branch, either pass it to `cpflow generate-github-actions --staging-branch BRANCH` during generation or edit `cpflow-deploy-staging.yml` so its `on.push.branches` list includes the same branch.
 - `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
 - `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited single `docker build` tokens passed through to `cpflow build-image`, for example `--build-arg=FOO=bar` or `--secret=id=npmrc,src=.npmrc`
 - `DOCKER_BUILD_SSH_KNOWN_HOSTS`: optional multi-line `known_hosts` content used with `DOCKER_BUILD_SSH_KEY` when the build needs SSH access to hosts other than GitHub.com
@@ -227,8 +230,9 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 
 `cpflow-deploy-staging.yml`
 
-- Builds and deploys the staging app on pushes to `STAGING_APP_BRANCH`.
-- Falls back to `main` or `master` when `STAGING_APP_BRANCH` is unset.
+- Builds and deploys the staging app on pushes to the generated staging branch filter.
+- Falls back to `main` or `master` when `STAGING_APP_BRANCH` is unset and no custom branch was generated.
+- Custom staging branches must be present in the workflow's `on.push.branches` filter; repository variables alone cannot trigger a branch GitHub Actions is not listening to.
 - Fails fast when required staging repo settings are missing instead of surfacing opaque `cpflow` errors.
 
 `cpflow-promote-staging-to-production.yml`

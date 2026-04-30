@@ -318,6 +318,19 @@ module Command
       }
     end
 
+    def self.staging_branch_option(required: false)
+      {
+        name: :staging_branch,
+        params: {
+          banner: "BRANCH",
+          desc: "Branch that should auto-deploy staging; defaults to main/master",
+          type: :string,
+          required: required,
+          valid_regex: %r{\A[\w./-]+\z}
+        }
+      }
+    end
+
     def self.logs_limit_option(required: false)
       {
         name: :limit,

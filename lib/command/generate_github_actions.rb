@@ -9,6 +9,10 @@ module Command
     include Thor::Actions
     include GeneratorHelpers
 
+    class << self
+      attr_accessor :staging_branch
+    end
+
     def copy_files
       copy_template_files(generated_files)
       substitute_template_variables(generated_files)
@@ -35,17 +39,29 @@ module Command
 
     def template_variables
       {
-        "__CPFLOW_VERSION__" => ::Cpflow::VERSION
+        "__CPFLOW_VERSION__" => ::Cpflow::VERSION,
+        "__STAGING_BRANCH_FILTER__" => staging_branch_filter,
+        "__DEFAULT_STAGING_APP_BRANCH__" => default_staging_app_branch
       }
     end
 
     def generated_files
       GenerateGithubActions::GENERATED_FILES
     end
+
+    def staging_branch_filter
+      branches = self.class.staging_branch ? [self.class.staging_branch] : %w[main master]
+      branches.map(&:dump).join(", ")
+    end
+
+    def default_staging_app_branch
+      self.class.staging_branch || ""
+    end
   end
 
   class GenerateGithubActions < Base
     NAME = "generate-github-actions"
+    OPTIONS = [staging_branch_option].freeze
     DESCRIPTION = "Creates GitHub Actions templates for review apps, staging deploys, and production promotion"
     LONG_DESCRIPTION = <<~DESC
       Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
@@ -53,11 +69,18 @@ module Command
       - automatic staging deploys from your main branch
       - manual promotion from staging to production
       - nightly cleanup and PR help workflows
+
+      Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
+      other than `main` or `master`; the generator will bake that branch into the
+      GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
     DESC
     EXAMPLES = <<~EX
       ```sh
       # Creates .github/actions and .github/workflows files for the Control Plane flow
       cpflow generate-github-actions
+
+      # Creates the flow with staging deploys triggered from develop
+      cpflow generate-github-actions --staging-branch develop
       ```
     EX
     WITH_INFO_HEADER = false
@@ -84,13 +107,21 @@ module Command
         return
       end
 
+      GithubActionsGenerator.staging_branch = staging_branch
       GithubActionsGenerator.start
+    ensure
+      GithubActionsGenerator.staging_branch = nil
     end
 
     private
 
     def existing_files
       @existing_files ||= GENERATED_FILES.select { |path| File.exist?(path) }
+    end
+
+    def staging_branch
+      branch = config.options[:staging_branch].to_s.strip
+      branch.empty? ? nil : branch
     end
   end
 end

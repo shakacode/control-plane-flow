@@ -199,9 +199,16 @@ Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
 - manual promotion from staging to production
 - nightly cleanup and PR help workflows
 
+Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
+other than `main` or `master`; the generator will bake that branch into the
+GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
+
 ```sh
 # Creates .github/actions and .github/workflows files for the Control Plane flow
 cpflow generate-github-actions
+
+# Creates the flow with staging deploys triggered from develop
+cpflow generate-github-actions --staging-branch develop
 ```
 
 ### `github-flow-readiness`
