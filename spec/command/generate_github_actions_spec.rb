@@ -64,7 +64,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "substitutes the cpflow version placeholder" do
-      expect(setup_action_path.read).to include(%(default: "#{Cpflow::VERSION}"))
+      expect(setup_action_path.read).to include(%(default_cpflow_version="#{Cpflow::VERSION}"))
+    end
+
+    it "exposes overridable cpflow and cpln-cli version inputs" do
+      contents = setup_action_path.read
+      expect(contents).to include("cpln_cli_version:")
+      expect(contents).to include('default_cpln_cli_version="3.3.1"')
+      expect(staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
+      expect(staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
     end
 
     it "passes setup action versions through env before using them in shell commands" do
@@ -132,9 +140,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
-    it "wires the help workflow author_association gate and Docker build env" do
+    it "wires the help workflow author_association gate" do
       contents = help_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
+      expect(contents).to include('fs.readFileSync(".github/cpflow-help.md"')
+    end
+
+    it "documents Docker build vars in the help markdown" do
+      help_md_path = playground.join(".github/cpflow-help.md")
+      contents = help_md_path.read
       expect(contents).to include("DOCKER_BUILD_EXTRA_ARGS")
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
     end
@@ -182,6 +196,44 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "skips startup checks for the local-only GitHub Actions generator command" do
       expect(Cpflow::Cli).not_to have_received(:check_cpln_version)
       expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
+    end
+
+    # Snapshot guard: every generated file must equal its template with the documented
+    # substitutions applied. This catches drift when the generator silently mutates
+    # output (e.g. a refactor introduces an unintended transform) and forces template
+    # changes to be reviewed line-by-line in the diff rather than relying on individual
+    # `expect(...).to include(...)` assertions to remember every load-bearing line.
+    it "emits files identical to their templates with default substitutions applied" do
+      template_root = Cpflow.root_path.join("lib/github_flow_templates")
+      relative_paths = Command::GenerateGithubActions::GENERATED_FILES
+
+      expect(relative_paths).not_to be_empty
+
+      relative_paths.each do |relative_path|
+        template = template_root.join(relative_path).read
+        expected = template
+                   .gsub("__CPFLOW_VERSION__", Cpflow::VERSION)
+                   .gsub("__STAGING_BRANCH_FILTER__", %("main", "master"))
+                   .gsub("__DEFAULT_STAGING_APP_BRANCH__", "")
+        actual = playground.join(relative_path).read
+
+        expect(actual).to eq(expected), "Drift in generated #{relative_path}"
+      end
+    end
+
+    it "generates exactly the templated file set (catches accidental additions/removals)" do
+      template_root = Cpflow.root_path.join("lib/github_flow_templates")
+      expected = Dir.glob(template_root.join("**", "*").to_s, File::FNM_DOTMATCH)
+                    .select { |path| File.file?(path) }
+                    .map { |path| Pathname.new(path).relative_path_from(template_root).to_s }
+                    .sort
+
+      generated = Dir.glob(playground.join(".github/**/*").to_s, File::FNM_DOTMATCH)
+                     .select { |path| File.file?(path) }
+                     .map { |path| Pathname.new(path).relative_path_from(playground).to_s }
+                     .sort
+
+      expect(generated).to eq(expected)
     end
   end
 

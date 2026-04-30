@@ -5,9 +5,15 @@ require "cgi"
 require "yaml"
 
 require_relative "repo_introspection"
+require_relative "github_flow_readiness/checks"
 
+# Drives the readiness checks that gate `cpflow generate-github-actions`. The actual
+# checks live in `GithubFlowReadiness::Checks`; this class is the host that owns the
+# shared lockfile parser, package.json parser, HTTP version cache, and registry-check
+# helpers used across multiple checks. Add a new check by creating a class with `call`
+# under `GithubFlowReadiness::Checks` and registering it in `CHECKS`.
 class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
-  Result = Struct.new(:status, :message, keyword_init: true)
+  Result = GithubFlowReadiness::Result
   RegistryCheck = Struct.new(
     :dependencies,
     :empty_message,
@@ -19,13 +25,18 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     keyword_init: true
   )
 
-  # Oldest Ruby line still receiving security backports (ruby-lang.org/en/downloads/branches/).
-  # Bump this when the upstream branch list drops a series.
-  LEGACY_RUBY_VERSION = Gem::Version.new("3.1.0")
-  LEGACY_BUNDLER_VERSION = Gem::Version.new("2.0.0")
+  CHECKS = [
+    GithubFlowReadiness::Checks::RailsApp,
+    GithubFlowReadiness::Checks::RubyVersion,
+    GithubFlowReadiness::Checks::BundlerVersion,
+    GithubFlowReadiness::Checks::Dockerfile,
+    GithubFlowReadiness::Checks::SqliteProduction,
+    GithubFlowReadiness::Checks::GemSources,
+    GithubFlowReadiness::Checks::GemExactPins,
+    GithubFlowReadiness::Checks::NpmExactPins
+  ].freeze
+
   PUBLIC_RUBYGEMS_REMOTE = "https://rubygems.org"
-  REQUIRED_RAILS_PATHS = ["Gemfile", "bin/rails", "config/application.rb", "config.ru"].freeze
-  DOCKERFILE_PATHS = ["Dockerfile", ".controlplane/Dockerfile"].freeze
   REGISTRY_FETCH_THREADS = 8
 
   attr_reader :root_path
@@ -35,7 +46,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def results
-    @results ||= build_results
+    @results ||= CHECKS.flat_map { |klass| wrap_check_result(klass.new(self).call) }
   end
 
   def blockers?
@@ -50,110 +61,12 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     end
   end
 
-  private
-
-  def build_results
-    [
-      rails_app_result,
-      ruby_version_result,
-      bundler_version_result,
-      dockerfile_result,
-      sqlite_result,
-      *gem_source_results,
-      gem_exact_pin_result,
-      npm_exact_pin_result
-    ].compact
-  end
-
-  def rails_app_result
-    missing_paths = missing_paths_for(REQUIRED_RAILS_PATHS)
-    return rails_app_present_result if missing_paths.empty?
-
-    Result.new(status: :fail, message: "Missing Rails runtime scaffold: #{format_path_list(missing_paths)}.")
-  end
-
-  def ruby_version_result
-    toolchain_version_result(
-      version: inferred_ruby_version,
-      threshold: LEGACY_RUBY_VERSION,
-      missing_message: "Could not determine the app Ruby version.",
-      ok_message: ->(version) { "Ruby #{version} is modern enough for rollout." },
-      fail_message: lambda do |version|
-        "Ruby #{version} is legacy. Upgrade the repo toolchain before adding the GitHub flow."
-      end
-    )
-  end
-
-  def bundler_version_result
-    toolchain_version_result(
-      version: lockfile_bundler_version,
-      threshold: LEGACY_BUNDLER_VERSION,
-      missing_message: "Could not determine the Bundler version from `Gemfile.lock`.",
-      ok_message: ->(version) { "Bundler #{version} is modern enough for rollout." },
-      fail_message: lambda do |version|
-        "Bundler #{version} is legacy. Upgrade the repo toolchain before adding the GitHub flow."
-      end
-    )
-  end
-
-  def dockerfile_result
-    dockerfile_path = first_existing_path(DOCKERFILE_PATHS)
-    return dockerfile_present_result(dockerfile_path) if dockerfile_path
-
-    missing_dockerfile_result
-  end
-
-  def sqlite_result
-    return unless sqlite_database_in_production?
-
-    Result.new(
-      status: :info,
-      message: "Production database config uses SQLite. `cpflow generate` will scaffold " \
-               "persistent `db` and `storage` volumes."
-    )
-  end
-
-  def gem_source_results
-    non_public_dependencies = gem_dependencies.reject { |dependency| public_rubygems_dependency?(dependency) }
-    return [] if non_public_dependencies.empty?
-
-    names = non_public_dependencies.map { |dependency| dependency[:name] }.sort
-
-    [
-      Result.new(
-        status: :warn,
-        message: "Direct Ruby dependencies using git/path or non-public gem sources need manual review: " \
-                 "#{names.map { |name| "`#{name}`" }.join(', ')}."
-      )
-    ]
-  end
-
-  def gem_exact_pin_result
-    exact_pin_registry_result(rubygems_registry_check)
-  end
-
-  def npm_exact_pin_result
-    return package_json_parse_error_result if package_json_parse_error?
-
-    exact_pin_registry_result(npm_registry_check)
-  end
+  # ------------------------------------------------------------------
+  # Helpers exposed to check classes (and stubbed by specs).
+  # ------------------------------------------------------------------
 
   def gem_dependencies
     @gem_dependencies ||= load_gem_dependencies
-  end
-
-  def gem_source_type(source)
-    return :rubygems if source.nil? || source.is_a?(Bundler::Source::Rubygems)
-    return :path if source.is_a?(Bundler::Source::Path)
-    return :git if source.is_a?(Bundler::Source::Git)
-
-    :other
-  end
-
-  def gem_source_remotes(source)
-    return [] unless source.respond_to?(:remotes)
-
-    Array(source.remotes).map { |remote| normalize_remote(remote) }
   end
 
   def public_rubygems_dependency?(dependency)
@@ -161,16 +74,6 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
     remotes = dependency[:source_remotes]
     remotes.empty? || remotes.all? { |remote| remote == PUBLIC_RUBYGEMS_REMOTE }
-  end
-
-  def exact_npm_dependencies
-    package_json = parsed_package_json
-    return [] unless package_json
-
-    collect_exact_dependencies(
-      package_json.fetch("dependencies", {}),
-      package_json.fetch("devDependencies", {})
-    )
   end
 
   def inferred_ruby_version
@@ -196,6 +99,118 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     RepoIntrospection.sqlite_database_in_production?(root_path.to_s)
   end
 
+  def parsed_package_json
+    return @parsed_package_json if instance_variable_defined?(:@parsed_package_json)
+
+    package_json_path = root_path.join("package.json")
+    @package_json_parse_error = false
+    return @parsed_package_json = nil unless package_json_path.file?
+
+    @parsed_package_json = JSON.parse(package_json_path.read)
+  rescue JSON::ParserError
+    @package_json_parse_error = true
+    @parsed_package_json = nil
+  end
+
+  def package_json_parse_error?
+    # `@package_json_parse_error` is set as a side effect of memoizing parsed_package_json;
+    # trigger it here so the flag reflects the parse result before we read it.
+    parsed_package_json
+    @package_json_parse_error
+  end
+
+  def package_json_parse_error_result
+    Result.new(
+      status: :warn,
+      message: "Could not parse `package.json`; exact-pinned direct npm package readiness could not be fully verified."
+    )
+  end
+
+  def rubygems_registry_check
+    RegistryCheck.new(
+      dependencies: exact_rubygems_dependencies,
+      empty_message: "No exact-pinned direct Ruby gems to verify.",
+      missing_prefix: "Direct Ruby gem versions not available on RubyGems",
+      unknown_prefix: "Could not verify some exact-pinned Ruby gems against RubyGems",
+      success_noun: "direct Ruby gem",
+      availability_proc: method(:rubygems_requirement_available?),
+      registry_name: "RubyGems"
+    )
+  end
+
+  def npm_registry_check
+    RegistryCheck.new(
+      dependencies: exact_npm_dependencies,
+      empty_message: "No exact-pinned direct npm packages to verify.",
+      missing_prefix: "Direct npm package versions not available on npm",
+      unknown_prefix: "Could not verify some exact-pinned npm packages against npm",
+      success_noun: "direct npm package",
+      availability_proc: method(:npm_dependency_available?),
+      registry_name: "npm"
+    )
+  end
+
+  def exact_pin_registry_result(check)
+    return Result.new(status: :info, message: check.empty_message) if check.dependencies.empty?
+
+    grouped = partition_dependencies(check.dependencies, check.availability_proc)
+    return registry_unavailable_result(check, grouped[:unavailable]) if grouped[:unavailable].any?
+    return registry_unknown_result(check, grouped[:unknown]) if grouped[:unknown].any?
+
+    Result.new(status: :pass, message: registry_success_message(check))
+  end
+
+  # Stubbed in specs; keep public.
+  def fetch_rubygems_versions(name)
+    fetch_with_cache(rubygems_versions_cache, name) { fetch_versions_from_rubygems(name) }
+  end
+
+  # Stubbed in specs; keep public.
+  def fetch_npm_versions(name)
+    fetch_with_cache(npm_versions_cache, name) { fetch_versions_from_npm(name) }
+  end
+
+  private
+
+  # Wrap a check's return value into an array. Avoid Kernel#Array on a Result Struct,
+  # which would unpack it into [status, message] instead of wrapping it.
+  def wrap_check_result(value)
+    return [] if value.nil?
+    return value if value.is_a?(Array)
+
+    [value]
+  end
+
+  def exact_rubygems_dependencies
+    gem_dependencies.select do |dependency|
+      public_rubygems_dependency?(dependency) && dependency[:exact_version]
+    end
+  end
+
+  def exact_npm_dependencies
+    package_json = parsed_package_json
+    return [] unless package_json
+
+    collect_exact_dependencies(
+      package_json.fetch("dependencies", {}),
+      package_json.fetch("devDependencies", {})
+    )
+  end
+
+  def collect_exact_dependencies(*dependency_sets)
+    dependency_sets.flat_map { |dependencies| exact_dependency_entries(dependencies) }
+  end
+
+  def exact_dependency_entries(dependencies)
+    dependencies.filter_map do |name, version|
+      { name: name, exact_version: version } if exact_version_string?(version)
+    end
+  end
+
+  def exact_version_string?(version)
+    version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\z/)
+  end
+
   def rubygems_requirement_available?(dependency)
     versions = fetch_rubygems_versions(dependency[:name])
     return nil unless versions
@@ -204,19 +219,48 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     versions.any? { |version| requirement.satisfied_by?(Gem::Version.new(version)) }
   end
 
-  def npm_version_available?(name, version)
-    versions = fetch_npm_versions(name)
+  def npm_dependency_available?(dependency)
+    versions = fetch_npm_versions(dependency[:name])
     return nil unless versions
 
-    versions.include?(version)
+    versions.include?(dependency[:exact_version])
   end
 
-  def fetch_rubygems_versions(name)
-    fetch_with_cache(rubygems_versions_cache, name) { fetch_versions_from_rubygems(name) }
+  # Fan out registry lookups across a small thread pool. Each HTTP call has a 5s timeout
+  # (see `http_get`), and results are memoized per dependency name; serially this scaled
+  # linearly with dependency count, which made readiness slow for repos with many exact pins.
+  def partition_dependencies(dependencies, availability_proc)
+    results = fetch_availability_in_parallel(dependencies, availability_proc)
+    results.each_with_object(unavailable: [], unknown: []) do |(dependency, status), grouped|
+      case status
+      when false
+        grouped[:unavailable] << dependency
+      when nil
+        grouped[:unknown] << dependency
+      end
+    end
   end
 
-  def fetch_npm_versions(name)
-    fetch_with_cache(npm_versions_cache, name) { fetch_versions_from_npm(name) }
+  def fetch_availability_in_parallel(dependencies, availability_proc)
+    queue = Queue.new
+    indexed = dependencies.each_with_index.to_a
+    indexed.each { |entry| queue << entry }
+    results = Array.new(dependencies.length)
+
+    workers = Array.new([REGISTRY_FETCH_THREADS, dependencies.length].min) do
+      Thread.new { drain_availability_queue(queue, availability_proc, results) }
+    end
+    workers.each(&:join)
+    results
+  end
+
+  def drain_availability_queue(queue, availability_proc, results)
+    loop do
+      dependency, index = queue.pop(true)
+      results[index] = [dependency, availability_proc.call(dependency)]
+    rescue ThreadError
+      break
+    end
   end
 
   # Worker threads in `fetch_availability_in_parallel` may share the cache, so guard
@@ -279,45 +323,6 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     nil
   end
 
-  def format_dependencies(dependencies)
-    dependencies.map { |dependency| "`#{dependency[:name]}@#{dependency[:exact_version]}`" }.join(", ")
-  end
-
-  def format_path_list(paths)
-    paths.map { |path| "`#{path}`" }.join(", ")
-  end
-
-  def missing_paths_for(paths)
-    paths.reject { |relative_path| root_path.join(relative_path).file? }
-  end
-
-  def first_existing_path(paths)
-    paths.find { |relative_path| root_path.join(relative_path).file? }
-  end
-
-  def rails_app_present_result
-    Result.new(status: :pass, message: "Rails app scaffold found (#{format_path_list(REQUIRED_RAILS_PATHS)}).")
-  end
-
-  def dockerfile_present_result(dockerfile_path)
-    Result.new(status: :pass, message: "Found production Dockerfile at `#{dockerfile_path}`.")
-  end
-
-  def missing_dockerfile_result
-    Result.new(
-      status: :fail,
-      message: "No production Dockerfile found at `Dockerfile` or `.controlplane/Dockerfile`. " \
-               "Add and validate one before generating the Control Plane GitHub flow."
-    )
-  end
-
-  def toolchain_version_result(version:, threshold:, missing_message:, ok_message:, fail_message:)
-    return Result.new(status: :warn, message: missing_message) unless version
-    return Result.new(status: :pass, message: ok_message.call(version)) if version >= threshold
-
-    Result.new(status: :fail, message: fail_message.call(version))
-  end
-
   def load_gem_dependencies
     lockfile_path = root_path.join("Gemfile.lock")
     return [] unless lockfile_path.file?
@@ -354,136 +359,26 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     dependency.requirement.requirements.first.last.to_s if dependency.requirement.exact?
   end
 
-  def exact_rubygems_dependencies
-    gem_dependencies.select do |dependency|
-      public_rubygems_dependency?(dependency) && dependency[:exact_version]
-    end
+  def gem_source_type(source)
+    return :rubygems if source.nil? || source.is_a?(Bundler::Source::Rubygems)
+    return :path if source.is_a?(Bundler::Source::Path)
+    return :git if source.is_a?(Bundler::Source::Git)
+
+    :other
   end
 
-  def parsed_package_json
-    return @parsed_package_json if instance_variable_defined?(:@parsed_package_json)
+  def gem_source_remotes(source)
+    return [] unless source.respond_to?(:remotes)
 
-    package_json_path = root_path.join("package.json")
-    @package_json_parse_error = false
-    return @parsed_package_json = nil unless package_json_path.file?
-
-    @parsed_package_json = JSON.parse(package_json_path.read)
-  rescue JSON::ParserError
-    @package_json_parse_error = true
-    @parsed_package_json = nil
-  end
-
-  def package_json_parse_error?
-    # `@package_json_parse_error` is set as a side effect of memoizing parsed_package_json;
-    # trigger it here so the flag reflects the parse result before we read it.
-    parsed_package_json
-    @package_json_parse_error
-  end
-
-  def package_json_parse_error_result
-    Result.new(
-      status: :warn,
-      message: "Could not parse `package.json`; exact-pinned direct npm package readiness could not be fully verified."
-    )
-  end
-
-  def collect_exact_dependencies(*dependency_sets)
-    dependency_sets.flat_map { |dependencies| exact_dependency_entries(dependencies) }
-  end
-
-  def exact_dependency_entries(dependencies)
-    dependencies.filter_map do |name, version|
-      { name: name, exact_version: version } if exact_version_string?(version)
-    end
-  end
-
-  def exact_version_string?(version)
-    version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\z/)
+    Array(source.remotes).map { |remote| normalize_remote(remote) }
   end
 
   def normalize_remote(remote)
     remote.to_s.sub(%r{/+\z}, "")
   end
 
-  def rubygems_registry_check
-    build_registry_check(
-      dependencies: exact_rubygems_dependencies,
-      empty_message: "No exact-pinned direct Ruby gems to verify.",
-      missing_prefix: "Direct Ruby gem versions not available on RubyGems",
-      unknown_prefix: "Could not verify some exact-pinned Ruby gems against RubyGems",
-      success_noun: "direct Ruby gem",
-      availability_proc: method(:rubygems_requirement_available?),
-      registry_name: "RubyGems"
-    )
-  end
-
-  def npm_registry_check
-    build_registry_check(
-      dependencies: exact_npm_dependencies,
-      empty_message: "No exact-pinned direct npm packages to verify.",
-      missing_prefix: "Direct npm package versions not available on npm",
-      unknown_prefix: "Could not verify some exact-pinned npm packages against npm",
-      success_noun: "direct npm package",
-      availability_proc: method(:npm_dependency_available?),
-      registry_name: "npm"
-    )
-  end
-
-  def build_registry_check(**attributes)
-    RegistryCheck.new(**attributes)
-  end
-
-  def npm_dependency_available?(dependency)
-    npm_version_available?(dependency[:name], dependency[:exact_version])
-  end
-
-  def exact_pin_registry_result(check)
-    return Result.new(status: :info, message: check.empty_message) if check.dependencies.empty?
-
-    grouped_dependencies = partition_dependencies(check.dependencies, check.availability_proc)
-    unavailable_dependencies = grouped_dependencies.fetch(:unavailable)
-    unknown_dependencies = grouped_dependencies.fetch(:unknown)
-    return registry_unavailable_result(check, unavailable_dependencies) if unavailable_dependencies.any?
-    return registry_unknown_result(check, unknown_dependencies) if unknown_dependencies.any?
-
-    Result.new(status: :pass, message: registry_success_message(check))
-  end
-
-  # Fan out registry lookups across a small thread pool. Each HTTP call has a 5s timeout
-  # (see `http_get`), and results are memoized per dependency name; serially this scaled
-  # linearly with dependency count, which made readiness slow for repos with many exact pins.
-  def partition_dependencies(dependencies, availability_proc)
-    results = fetch_availability_in_parallel(dependencies, availability_proc)
-    results.each_with_object(unavailable: [], unknown: []) do |(dependency, status), grouped|
-      case status
-      when false
-        grouped[:unavailable] << dependency
-      when nil
-        grouped[:unknown] << dependency
-      end
-    end
-  end
-
-  def fetch_availability_in_parallel(dependencies, availability_proc)
-    queue = Queue.new
-    indexed = dependencies.each_with_index.to_a
-    indexed.each { |entry| queue << entry }
-    results = Array.new(dependencies.length)
-
-    workers = Array.new([REGISTRY_FETCH_THREADS, dependencies.length].min) do
-      Thread.new { drain_availability_queue(queue, availability_proc, results) }
-    end
-    workers.each(&:join)
-    results
-  end
-
-  def drain_availability_queue(queue, availability_proc, results)
-    loop do
-      dependency, index = queue.pop(true)
-      results[index] = [dependency, availability_proc.call(dependency)]
-    rescue ThreadError
-      break
-    end
+  def format_dependencies(dependencies)
+    dependencies.map { |dependency| "`#{dependency[:name]}@#{dependency[:exact_version]}`" }.join(", ")
   end
 
   def registry_success_message(check)
