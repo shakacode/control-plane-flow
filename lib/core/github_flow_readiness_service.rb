@@ -45,6 +45,9 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   def initialize(root_path: Dir.pwd)
     @root_path = Pathname.new(root_path)
+    @package_json_parse_error = false
+    @rubygems_versions_cache = build_registry_cache
+    @npm_versions_cache = build_registry_cache
   end
 
   def results
@@ -156,8 +159,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     return Result.new(status: :info, message: check.empty_message) if check.dependencies.empty?
 
     grouped = partition_dependencies(check.dependencies, check.availability_proc)
-    return registry_unavailable_result(check, grouped[:unavailable]) if grouped[:unavailable].any?
-    return registry_unknown_result(check, grouped[:unknown]) if grouped[:unknown].any?
+    results = []
+    results << registry_unavailable_result(check, grouped[:unavailable]) if grouped[:unavailable].any?
+    results << registry_unknown_result(check, grouped[:unknown]) if grouped[:unknown].any?
+    return results if results.any?
 
     Result.new(status: :pass, message: registry_success_message(check))
   end
@@ -174,6 +179,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   private
 
+  attr_reader :rubygems_versions_cache, :npm_versions_cache
+
   # Wrap a check's return value into an array. Avoid Kernel#Array on a Result Struct,
   # which would unpack it into [status, message] instead of wrapping it.
   def wrap_check_result(value)
@@ -181,6 +188,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     return value if value.is_a?(Array)
 
     [value]
+  end
+
+  def build_registry_cache
+    { store: {}, mutex: Mutex.new }
   end
 
   def exact_rubygems_dependencies
@@ -304,14 +315,6 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
     value = yield
     cache[:mutex].synchronize { cache[:store][name] = value }
-  end
-
-  def rubygems_versions_cache
-    @rubygems_versions_cache ||= { store: {}, mutex: Mutex.new }
-  end
-
-  def npm_versions_cache
-    @npm_versions_cache ||= { store: {}, mutex: Mutex.new }
   end
 
   def fetch_versions_from_rubygems(name)

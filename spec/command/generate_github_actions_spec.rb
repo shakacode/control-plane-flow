@@ -183,6 +183,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "wires the help workflow author_association gate" do
       contents = help_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
+      expect(contents).to include("contents: read")
       expect(contents).to include('fs.readFileSync(".github/cpflow-help.md"')
     end
 
@@ -206,7 +207,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = staging_workflow_path.read
       expect(contents).to include("GitHub does not allow repository vars in branch filters")
       expect(contents).to include('branches: ["main", "master"]')
-      expect(contents).to include("vars.STAGING_APP_BRANCH || ''")
+      expect(contents).to include("STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH }}")
       expect(contents).to include("cpflow-deploy-staging-${{ github.ref_name }}")
       expect(contents).to include("variable:STAGING_APP_NAME")
     end
@@ -284,7 +285,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expected = template
                    .gsub("__CPFLOW_VERSION__", Cpflow::VERSION)
                    .gsub("__STAGING_BRANCH_FILTER__", %("main", "master"))
-                   .gsub("__DEFAULT_STAGING_APP_BRANCH__", "")
+                   .gsub("__STAGING_APP_BRANCH_EXPRESSION__", "${{ vars.STAGING_APP_BRANCH }}")
         actual = playground.join(relative_path).read
 
         expect(actual).to eq(expected), "Drift in generated #{relative_path}"
@@ -369,6 +370,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "rejects invalid git branch syntax" do
       inside_dir(playground) do
         result = run_cpflow_command(described_class::NAME, "--staging-branch", "feature..bad")
+
+        expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+        expect(result[:stderr]).to include("valid git branch name")
+        expect(playground.join(".github")).not_to exist
+      end
+    end
+
+    it "rejects forbidden git ref sequences" do
+      inside_dir(playground) do
+        result = run_cpflow_command(described_class::NAME, "--staging-branch", "feature@{bad")
 
         expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
         expect(result[:stderr]).to include("valid git branch name")

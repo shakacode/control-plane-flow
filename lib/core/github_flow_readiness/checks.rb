@@ -116,7 +116,7 @@ module GithubFlowReadiness
     class GemSources < Base
       def call
         non_public = service.gem_dependencies.reject { |dep| service.public_rubygems_dependency?(dep) }
-        return [] if non_public.empty?
+        return pass("All direct Ruby gems resolve from public RubyGems sources.") if non_public.empty?
 
         names = non_public.map { |dep| dep[:name] }.sort
         warn_result(

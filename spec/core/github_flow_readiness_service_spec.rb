@@ -201,6 +201,20 @@ describe GithubFlowReadinessService do
     )
   end
 
+  it "reports both unavailable and unknown exact pins from the same registry" do
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return([])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(nil)
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    messages = service.results.map(&:message)
+
+    expect(service.blockers?).to be(true)
+    expect(messages).to include("Direct Ruby gem versions not available on RubyGems: `rails@8.0.2.1`.")
+    expect(messages).to include(
+      "Could not verify some exact-pinned Ruby gems against RubyGems: `react_on_rails@16.4.0`."
+    )
+  end
+
   it "treats Ruby 3.1 as legacy" do
     File.write(playground.join(".ruby-version"), "3.1.7\n")
 

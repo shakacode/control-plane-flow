@@ -40,7 +40,7 @@ module Command
       {
         "__CPFLOW_VERSION__" => ::Cpflow::VERSION,
         "__STAGING_BRANCH_FILTER__" => staging_branch_filter,
-        "__DEFAULT_STAGING_APP_BRANCH__" => default_staging_app_branch
+        "__STAGING_APP_BRANCH_EXPRESSION__" => staging_app_branch_expression
       }
     end
 
@@ -55,8 +55,10 @@ module Command
       branches.map(&:to_json).join(", ")
     end
 
-    def default_staging_app_branch
-      staging_branch || ""
+    def staging_app_branch_expression
+      return "${{ vars.STAGING_APP_BRANCH }}" unless staging_branch
+
+      "${{ vars.STAGING_APP_BRANCH || '#{staging_branch}' }}"
     end
   end
 
@@ -95,11 +97,11 @@ module Command
     def self.generated_files
       ensure_template_root!
 
-      @generated_files ||= Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
-                              .select { |path| File.file?(path) }
-                              .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
-                              .sort
-                              .freeze
+      Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
+         .select { |path| File.file?(path) }
+         .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
+         .sort
+         .freeze
     end
 
     def self.ensure_template_root!
