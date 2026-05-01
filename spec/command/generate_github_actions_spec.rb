@@ -92,8 +92,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}")
       expect(contents).to include("CPFLOW_VERSION: ${{ inputs.cpflow_version }}")
-      expect(contents).to include("Self-hosted runners can replace this with a user-scoped prefix")
-      expect(contents).to include('sudo npm install -g "@controlplane/cli@${CPLN_CLI_VERSION}"')
+      expect(contents).to include('npm_global_prefix="${HOME}/.npm-global"')
+      expect(contents).to include('echo "${npm_global_prefix}/bin" >> "$GITHUB_PATH"')
+      expect(contents).to include(
+        'npm install --global --prefix "${npm_global_prefix}" "@controlplane/cli@${CPLN_CLI_VERSION}"'
+      )
+      expect(contents).not_to include("sudo npm install")
       expect(contents).to include('gem install cpflow -v "${CPFLOW_VERSION}" --no-document')
       expect(contents).not_to include(
         "npm install -g @controlplane/cli@${{ inputs.cpln_cli_version }}"

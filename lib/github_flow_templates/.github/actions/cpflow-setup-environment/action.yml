@@ -52,9 +52,12 @@ runs:
         CPLN_CLI_VERSION="${CPLN_CLI_VERSION:-${default_cpln_cli_version}}"
         CPFLOW_VERSION="${CPFLOW_VERSION:-${default_cpflow_version}}"
 
-        # Generated workflows target GitHub-hosted runners, where sudo is available for
-        # global npm installs. Self-hosted runners can replace this with a user-scoped prefix.
-        sudo npm install -g "@controlplane/cli@${CPLN_CLI_VERSION}"
+        npm_global_prefix="${HOME}/.npm-global"
+        mkdir -p "${npm_global_prefix}"
+        echo "${npm_global_prefix}/bin" >> "$GITHUB_PATH"
+        export PATH="${npm_global_prefix}/bin:${PATH}"
+
+        npm install --global --prefix "${npm_global_prefix}" "@controlplane/cli@${CPLN_CLI_VERSION}"
         cpln --version
 
         gem install cpflow -v "${CPFLOW_VERSION}" --no-document
