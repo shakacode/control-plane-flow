@@ -80,7 +80,8 @@ module RepoIntrospection
   def self.safe_load_database_yml(raw_contents)
     # ERB conditionals can change YAML structure, so avoid guessing. Output-only
     # ERB is stubbed as a scalar so common Rails defaults like `pool: <%= ... %>`
-    # still parse, but control-flow ERB returns unknown.
+    # still parse, but control-flow ERB returns unknown. Callers treat unknown as
+    # non-SQLite and emit the default Postgres scaffold rather than guessing wrong.
     return nil if raw_contents.match?(/<%(?![=#])/m)
 
     stubbed = raw_contents.gsub(/<%=.*?%>/m, "__erb__").gsub(/<%#.*?%>/m, "")

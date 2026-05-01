@@ -15,39 +15,30 @@ if [[ "$APP_NAME" != "${expected_prefix}"* ]]; then
 fi
 
 echo "🔍 Checking if application exists: $APP_NAME"
-# Contract this relies on from `cpflow exists`:
-#   - Exit status 0              → app exists (stdout may contain an informational banner).
-#   - Exit status non-zero, no
-#     recognizable error tokens  → app does not exist; treat as a no-op success.
-#   - Exit status non-zero with
-#     tokens like "Double check
-#     your org", "Unknown API
-#     token format", "ERROR",
-#     "Error:", "Traceback", or
-#     "Net::"                    → a real failure; surface and exit 1.
-# TODO: replace this string-matching with a structured signal once `cpflow exists` exposes one
-# (e.g. a distinct exit code for "not found" vs. API/auth errors, or `cpflow exists --json`).
-# Until then, keep this list in sync if `cpflow exists` starts emitting new error patterns —
-# any unmatched error string would otherwise be silently treated as "app not found".
 exists_output=""
-if ! exists_output="$(cpflow exists -a "$APP_NAME" --org "$CPLN_ORG" 2>&1)"; then
-  case "$exists_output" in
-    *"Double check your org"*|*"Unknown API token format"*|*"ERROR"*|*"Error:"*|*"Traceback"*|*"Net::"*)
-      echo "❌ ERROR: failed to determine whether application exists: $APP_NAME" >&2
+set +e
+exists_output="$(cpflow exists -a "$APP_NAME" --org "$CPLN_ORG" 2>&1)"
+exists_status=$?
+set -e
+
+case "$exists_status" in
+  0)
+    ;;
+  2)
+    if [[ -n "$exists_output" ]]; then
+      printf '%s\n' "$exists_output"
+    fi
+    echo "⚠️ Application does not exist: $APP_NAME"
+    exit 0
+    ;;
+  *)
+    echo "❌ ERROR: failed to determine whether application exists: $APP_NAME" >&2
+    if [[ -n "$exists_output" ]]; then
       printf '%s\n' "$exists_output" >&2
-      exit 1
-      ;;
-  esac
-
-  if [[ -n "$exists_output" ]]; then
-    echo "❌ ERROR: cpflow exists returned an unrecognized failure while checking: $APP_NAME" >&2
-    printf '%s\n' "$exists_output" >&2
-    exit 1
-  fi
-
-  echo "⚠️ Application does not exist: $APP_NAME"
-  exit 0
-fi
+    fi
+    exit "$exists_status"
+    ;;
+esac
 
 if [[ -n "$exists_output" ]]; then
   printf '%s\n' "$exists_output"

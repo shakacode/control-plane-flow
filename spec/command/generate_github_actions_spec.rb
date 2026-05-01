@@ -197,8 +197,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         'contents: write  # Required for `gh release create` in the "Create GitHub release" step.'
       )
       expect(contents).to include("Production-only variables")
-      expect(contents).to include("Control Plane preserving container")
-      expect(contents).to include("order between those two steps")
+      expect(contents).to include("map({name, image})")
+      expect(contents).to include("Container order changed")
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
@@ -228,7 +228,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = delete_app_script_path.read
 
       expect(contents).to include("⚠️ Application does not exist")
-      expect(contents).to include("cpflow exists returned an unrecognized failure")
+      expect(contents).to include("exists_status")
+      expect(contents).to include("failed to determine whether application exists")
     end
 
     it "produces valid YAML for every generated workflow and action file" do
@@ -249,7 +250,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     # `expect(...).to include(...)` assertions to remember every load-bearing line.
     it "emits files identical to their templates with default substitutions applied" do
       template_root = Cpflow.root_path.join("lib/github_flow_templates")
-      relative_paths = Command::GenerateGithubActions::GENERATED_FILES
+      relative_paths = described_class.generated_files
 
       expect(relative_paths).not_to be_empty
 

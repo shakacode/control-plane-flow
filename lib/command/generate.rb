@@ -10,15 +10,17 @@ module Command
     include Thor::Actions
     include GeneratorHelpers
 
-    BASE_TEMPLATE_FILES = %w[
+    COMMON_TEMPLATE_FILES = %w[
       Dockerfile
-      controlplane.yml
       entrypoint.sh
-      release_script.sh
-      templates/app.yml
-      templates/rails.yml
     ].freeze
-    POSTGRES_TEMPLATE_FILES = %w[templates/postgres.yml].freeze
+    POSTGRES_TEMPLATE_FILES = %w[
+      controlplane.yml
+      templates/app.yml
+      templates/postgres.yml
+      templates/rails.yml
+      release_script.sh
+    ].freeze
     SQLITE_TEMPLATE_FILES = %w[
       controlplane.yml
       release_script.sh
@@ -63,11 +65,7 @@ module Command
     end
 
     def base_template_files
-      return BASE_TEMPLATE_FILES + POSTGRES_TEMPLATE_FILES unless sqlite_project?
-
-      # Exclude files that the SQLite pass rewrites to avoid copying Postgres-flavoured templates
-      # that would be immediately overwritten by generator_templates_sqlite/.
-      BASE_TEMPLATE_FILES - SQLITE_TEMPLATE_FILES
+      COMMON_TEMPLATE_FILES + (sqlite_project? ? [] : POSTGRES_TEMPLATE_FILES)
     end
 
     def template_variables

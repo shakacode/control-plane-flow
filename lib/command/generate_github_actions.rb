@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "pathname"
 
 require_relative "generator_helpers"
@@ -44,14 +45,14 @@ module Command
     end
 
     def generated_files
-      GenerateGithubActions::GENERATED_FILES
+      GenerateGithubActions.generated_files
     end
 
     def staging_branch_filter
       branches = staging_branch ? [staging_branch] : %w[main master]
-      # Quote each branch as a YAML flow-sequence string; `inspect` escapes the
-      # already-validated user-provided branch name before template substitution.
-      branches.map(&:inspect).join(", ")
+      # JSON string literals are valid YAML flow-sequence scalars, so this keeps
+      # the generated branch list readable while still escaping branch names.
+      branches.map(&:to_json).join(", ")
     end
 
     def default_staging_app_branch
@@ -91,18 +92,22 @@ module Command
     # loaded before `module Cpflow` finishes defining its class methods.
     TEMPLATE_ROOT = Pathname.new(File.expand_path("../github_flow_templates", __dir__))
 
-    GENERATED_FILES = if TEMPLATE_ROOT.directory?
-                        Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
-                           .select { |path| File.file?(path) }
-                           .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
-                           .sort
-                           .freeze
-                      else
-                        [].freeze
-                      end
+    def self.generated_files
+      ensure_template_root!
+
+      @generated_files ||= Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
+                              .select { |path| File.file?(path) }
+                              .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
+                              .sort
+                              .freeze
+    end
+
+    def self.ensure_template_root!
+      raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
+    end
 
     def call
-      ensure_template_root!
+      self.class.ensure_template_root!
       branch = staging_branch
 
       if existing_files.any?
@@ -118,11 +123,7 @@ module Command
     private
 
     def existing_files
-      @existing_files ||= GENERATED_FILES.select { |path| File.exist?(path) }
-    end
-
-    def ensure_template_root!
-      raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
+      @existing_files ||= self.class.generated_files.select { |path| File.exist?(path) }
     end
 
     def staging_branch
