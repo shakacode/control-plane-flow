@@ -45,6 +45,9 @@ jobs:
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
 
       - name: Remove stale review apps
+        env:
+          REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}
+          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
         shell: bash
         run: |
           set -euo pipefail

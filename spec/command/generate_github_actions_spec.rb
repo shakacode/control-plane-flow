@@ -174,6 +174,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "uses shell env vars for stale review cleanup inputs" do
       contents = cleanup_stale_review_apps_workflow_path.read
 
+      expect(contents).to include("REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}")
+      expect(contents).to include("CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}")
       expect(contents).to include('cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}"')
       expect(contents).not_to include('cpflow cleanup-stale-apps -a "${{ vars.REVIEW_APP_PREFIX }}"')
     end
