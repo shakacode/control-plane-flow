@@ -246,17 +246,27 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def fetch_availability_in_parallel(dependencies, availability_proc)
+    initialize_registry_caches
     queue = Queue.new
     indexed = dependencies.each_with_index.to_a
     indexed.each { |entry| queue << entry }
     results = Array.new(dependencies.length)
 
-    workers = Array.new([REGISTRY_FETCH_THREADS, dependencies.length].min) do
-      Thread.new { drain_availability_queue(queue, availability_proc, results) }
-    end
+    workers = build_availability_workers(queue, availability_proc, results, dependencies.length)
     wait_for_availability_workers(workers)
     fill_missing_availability_results(indexed, results)
     results
+  end
+
+  def build_availability_workers(queue, availability_proc, results, dependency_count)
+    Array.new([REGISTRY_FETCH_THREADS, dependency_count].min) do
+      Thread.new { drain_availability_queue(queue, availability_proc, results) }
+    end
+  end
+
+  def initialize_registry_caches
+    rubygems_versions_cache
+    npm_versions_cache
   end
 
   def wait_for_availability_workers(workers)
