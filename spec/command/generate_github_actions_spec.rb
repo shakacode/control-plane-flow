@@ -225,7 +225,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Could not parse rollback state")
       expect(contents).to include("Could not parse captured containers")
       expect(contents).to include("Could not build rollback image list")
-      expect(contents).to include("Container order changed")
+      expect(contents).to include("Container set changed")
+      expect(contents).to include("index($container.name)")
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )

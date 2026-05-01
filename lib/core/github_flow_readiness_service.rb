@@ -257,7 +257,6 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def fetch_availability_in_parallel(dependencies, availability_proc)
-    initialize_registry_caches
     queue = Queue.new
     indexed = dependencies.each_with_index.to_a
     indexed.each { |entry| queue << entry }
@@ -276,18 +275,14 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def initialize_registry_caches
-    rubygems_versions_cache
-    npm_versions_cache
-  end
-
   def wait_for_availability_workers(workers, result_state)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + REGISTRY_FETCH_TIMEOUT_SECONDS
     workers.each do |worker|
       remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      worker.join(remaining.positive? ? remaining : 0)
+      next if worker.join(remaining.positive? ? remaining : 0)
+
+      mark_availability_timeout(result_state)
     end
-    result_state[:mutex].synchronize { result_state[:timed_out] = true }
   end
 
   def fill_missing_availability_results(indexed, results)
@@ -307,6 +302,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   def availability_timed_out?(result_state)
     result_state[:mutex].synchronize { result_state[:timed_out] }
+  end
+
+  def mark_availability_timeout(result_state)
+    result_state[:mutex].synchronize { result_state[:timed_out] = true }
   end
 
   def write_availability_result(results, index, value, result_state)

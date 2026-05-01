@@ -6,7 +6,7 @@ module RepoIntrospection
   DEFAULT_APP_PREFIX = "my-app"
   RUBY_VERSION_DIRECTIVE_PATTERN = /^\s*ruby\s+['"\d]/
   RUBY_VERSION_DIRECTIVE_PREFIX = /^\s*ruby\s+/
-  TOOL_VERSIONS_RUBY_PREFIX = /^\s*ruby\s+/
+  TOOL_VERSIONS_RUBY_PREFIX = RUBY_VERSION_DIRECTIVE_PREFIX
 
   # Pure string → version-string extractor. Strips a leading `ruby-` prefix and returns
   # the first `MAJOR.MINOR[.PATCH]` found in the source, or nil.

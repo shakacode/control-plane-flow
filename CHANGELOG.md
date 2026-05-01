@@ -14,6 +14,10 @@ Changes since the last non-beta release.
 
 _Please add entries here for your pull requests that have not yet been released._
 
+### Breaking Changes
+
+- BREAKING CHANGE: `cpflow exists` now returns exit code 2 when the app is not found, preserving 64 for real errors so scripts can distinguish not-found from API/auth failures. Scripts that treated exit 64 as "not found" should switch to checking for exit 2. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
+
 ### Fixed
 
 - Fixed issue where `run` command could hang indefinitely when updating runner workload. [PR 260](https://github.com/shakacode/control-plane-flow/pull/260) by [Sergey Tarasov](https://github.com/dzirtusss).
@@ -21,7 +25,6 @@ _Please add entries here for your pull requests that have not yet been released.
 ### Changed
 
 - Redact sensitive data (Authorization headers, tokens) from `--trace` output. [PR 261](https://github.com/shakacode/control-plane-flow/pull/261) by [Sergey Tarasov](https://github.com/dzirtusss).
-- Changed `cpflow exists` to return exit code 2 when the app is not found, preserving 64 for real errors so scripts can distinguish not-found from API/auth failures. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
 
 ## [4.1.1] - 2025-03-14
 
