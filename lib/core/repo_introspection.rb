@@ -45,10 +45,18 @@ module RepoIntrospection
     path = File.join(root, "Gemfile")
     return unless File.file?(path)
 
-    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(RUBY_VERSION_DIRECTIVE_PATTERN) }
+    ruby_lines = File.readlines(path, chomp: true).select { |line| line.match?(RUBY_VERSION_DIRECTIVE_PREFIX) }
+    ruby_line = ruby_lines.find { |line| line.match?(RUBY_VERSION_DIRECTIVE_PATTERN) }
+    warn_dynamic_ruby_directive if ruby_lines.any? && ruby_line.nil?
     return unless ruby_line
 
     parse_ruby_version_string(ruby_line.sub(RUBY_VERSION_DIRECTIVE_PREFIX, ""))
+  end
+
+  def self.warn_dynamic_ruby_directive
+    return unless ENV["CPFLOW_DEBUG"]
+
+    warn "cpflow: Gemfile has a dynamic `ruby` directive; falling back to the default Ruby version"
   end
 
   # Returns a Control Plane-safe app prefix derived from the basename of `root`:

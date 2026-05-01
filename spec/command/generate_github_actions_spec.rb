@@ -207,6 +207,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Production-only variables")
       expect(contents).to include("map({name, image})")
       expect(contents).to include("Could not retrieve current containers")
+      expect(contents).to include("Could not parse rollback state")
+      expect(contents).to include("Could not parse captured containers")
+      expect(contents).to include("Could not build rollback image list")
       expect(contents).to include("Container order changed")
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
@@ -346,6 +349,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
         expect(result[:stderr]).to include("Invalid --staging-branch value")
+        expect(playground.join(".github")).not_to exist
+      end
+    end
+
+    it "rejects invalid git branch syntax" do
+      inside_dir(playground) do
+        result = run_cpflow_command(described_class::NAME, "--staging-branch", "feature..bad")
+
+        expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+        expect(result[:stderr]).to include("valid git branch name")
         expect(playground.join(".github")).not_to exist
       end
     end

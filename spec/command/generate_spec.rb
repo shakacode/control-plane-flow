@@ -281,6 +281,31 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when shakapacker config defines a multiline precompile hook" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/shakapacker.yml").write(<<~YAML)
+        default: &default
+          precompile_hook: |
+            rake react_on_rails:generate_packs
+            USER root
+      YAML
+    end
+
+    it "skips the hook instead of injecting additional Dockerfile instructions" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect do
+          Cpflow::Cli.start([described_class::NAME])
+        end.to output(/Skipping asset precompile hook/).to_stderr
+
+        dockerfile_content = dockerfile_path.read
+
+        expect(dockerfile_content).not_to include("RUN rake react_on_rails:generate_packs")
+        expect(dockerfile_content).not_to include("USER root")
+      end
+    end
+  end
+
   context "when React on Rails auto bundle generation is enabled" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config/initializers"))

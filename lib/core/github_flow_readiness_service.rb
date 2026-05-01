@@ -264,7 +264,6 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     workers.each do |worker|
       remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
       worker.join(remaining.positive? ? remaining : 0)
-      worker.kill if worker.alive?
     end
   end
 

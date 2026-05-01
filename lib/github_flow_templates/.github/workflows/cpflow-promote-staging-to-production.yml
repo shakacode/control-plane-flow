@@ -263,6 +263,10 @@ jobs:
           set -uo pipefail
 
           rollback_failures=0
+          if ! rollback_entries="$(echo "${ROLLBACK_STATE}" | jq -r 'to_entries[] | "\(.key)\t\(.value.containers | @json)"')"; then
+            echo "::error::Could not parse rollback state; manual recovery may be required." >&2
+            exit 1
+          fi
 
           while IFS=$'\t' read -r workload_name previous_containers; do
             rollback_args=()
@@ -271,7 +275,11 @@ jobs:
               rollback_failures=$((rollback_failures + 1))
               continue
             fi
-            previous_names="$(echo "${previous_containers}" | jq -c 'map(.name)')"
+            if ! previous_names="$(echo "${previous_containers}" | jq -c 'map(.name)')"; then
+              echo "::warning::Could not parse captured containers for workload '${workload_name}'; skipping rollback for this workload." >&2
+              rollback_failures=$((rollback_failures + 1))
+              continue
+            fi
 
             if [[ "${current_names}" != "${previous_names}" ]]; then
               echo "::error::Container order changed for workload '${workload_name}'; refusing index-based rollback." >&2
@@ -279,9 +287,15 @@ jobs:
               continue
             fi
 
+            if ! rollback_container_entries="$(echo "${previous_containers}" | jq -r 'to_entries[] | "\(.key)\t\(.value.image)"')"; then
+              echo "::warning::Could not build rollback image list for workload '${workload_name}'; skipping rollback for this workload." >&2
+              rollback_failures=$((rollback_failures + 1))
+              continue
+            fi
+
             while IFS=$'\t' read -r index image; do
               rollback_args+=(--set "spec.containers[${index}].image=${image}")
-            done < <(echo "${previous_containers}" | jq -r 'to_entries[] | "\(.key)\t\(.value.image)"')
+            done <<< "${rollback_container_entries}"
 
             if ! cpln workload update "${workload_name}" \
               --gvc "${PRODUCTION_APP_NAME}" \
@@ -290,7 +304,7 @@ jobs:
               echo "::warning::Rollback failed for workload '${workload_name}'; continuing with remaining workloads." >&2
               rollback_failures=$((rollback_failures + 1))
             fi
-          done < <(echo "${ROLLBACK_STATE}" | jq -r 'to_entries[] | "\(.key)\t\(.value.containers | @json)"')
+          done <<< "${rollback_entries}"
 
           if [[ "${rollback_failures}" -gt 0 ]]; then
             echo "::error::${rollback_failures} workload(s) failed to roll back; inspect the logs above." >&2

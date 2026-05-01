@@ -91,8 +91,16 @@ module Command
     def asset_precompile_hook_run
       command = normalized_asset_precompile_hook_command
       return "" unless command
+      return "" unless single_line_asset_precompile_hook?(command)
 
       "RUN #{command}\n\n"
+    end
+
+    def single_line_asset_precompile_hook?(command)
+      return true unless command.match?(/[\r\n]/)
+
+      Shell.warn("Skipping asset precompile hook: value must be a single line: #{command.inspect}")
+      false
     end
 
     def sqlite_database_in_production?
