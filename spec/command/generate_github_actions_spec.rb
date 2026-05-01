@@ -143,6 +143,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
     end
 
+    it "distinguishes review-app not-found from cpflow exists errors" do
+      contents = review_app_workflow_path.read
+
+      expect(contents).to include("exists_status")
+      expect(contents).to include('echo "exists=false" >> "$GITHUB_OUTPUT"')
+      expect(contents).to include("cpflow exists returned unexpected exit code")
+    end
+
     it "handles missing PR comment ids gracefully in the review-app workflow" do
       expect(review_app_workflow_path.read).to include(
         "Skipping PR comment update because no comment id was created."
@@ -198,6 +206,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
       expect(contents).to include("Production-only variables")
       expect(contents).to include("map({name, image})")
+      expect(contents).to include("Could not retrieve current containers")
       expect(contents).to include("Container order changed")
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'

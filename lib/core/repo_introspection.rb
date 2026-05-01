@@ -4,6 +4,8 @@ require "yaml"
 
 module RepoIntrospection
   DEFAULT_APP_PREFIX = "my-app"
+  RUBY_VERSION_DIRECTIVE_PATTERN = /^\s*ruby\s+['"\d]/
+  RUBY_VERSION_DIRECTIVE_PREFIX = /^\s*ruby\s+/
 
   # Pure string → version-string extractor. Strips a leading `ruby-` prefix and returns
   # the first `MAJOR.MINOR[.PATCH]` found in the source, or nil.
@@ -33,20 +35,20 @@ module RepoIntrospection
     path = File.join(root, ".tool-versions")
     return unless File.file?(path)
 
-    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
+    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(RUBY_VERSION_DIRECTIVE_PATTERN) }
     return unless ruby_line
 
-    parse_ruby_version_string(ruby_line.sub(/^\s*ruby\s+/, ""))
+    parse_ruby_version_string(ruby_line.sub(RUBY_VERSION_DIRECTIVE_PREFIX, ""))
   end
 
   def self.ruby_version_from_gemfile(root)
     path = File.join(root, "Gemfile")
     return unless File.file?(path)
 
-    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(/^\s*ruby\s+/) }
+    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(RUBY_VERSION_DIRECTIVE_PATTERN) }
     return unless ruby_line
 
-    parse_ruby_version_string(ruby_line.sub(/^\s*ruby\s+/, ""))
+    parse_ruby_version_string(ruby_line.sub(RUBY_VERSION_DIRECTIVE_PREFIX, ""))
   end
 
   # Returns a Control Plane-safe app prefix derived from the basename of `root`:

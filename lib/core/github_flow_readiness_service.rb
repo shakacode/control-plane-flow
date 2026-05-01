@@ -2,6 +2,7 @@
 
 require "bundler"
 require "cgi"
+require "net/http"
 require "yaml"
 
 require_relative "repo_introspection"

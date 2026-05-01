@@ -170,6 +170,25 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when a Gemfile contains a non-literal ruby helper before a ruby directive" do
+    before do
+      GENERATOR_PLAYGROUND_PATH.join("Gemfile").write(<<~GEMFILE)
+        source "https://rubygems.org"
+
+        ruby RUBY_VERSION
+        ruby "3.2.9"
+      GEMFILE
+    end
+
+    it "uses the literal ruby directive" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(generated_ruby_arg).to eq("ARG RUBY_VERSION=3.2.9\n")
+      end
+    end
+  end
+
   context "when production uses sqlite3" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))

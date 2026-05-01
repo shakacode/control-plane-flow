@@ -160,11 +160,33 @@ jobs:
         run: |
           set -euo pipefail
 
-          if cpflow exists -a "${APP_NAME}" --org "${CPLN_ORG}"; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          exists_output=""
+          set +e
+          exists_output="$(cpflow exists -a "${APP_NAME}" --org "${CPLN_ORG}" 2>&1)"
+          exists_status=$?
+          set -e
+
+          case "${exists_status}" in
+            0)
+              if [[ -n "${exists_output}" ]]; then
+                printf '%s\n' "${exists_output}"
+              fi
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              ;;
+            2)
+              if [[ -n "${exists_output}" ]]; then
+                printf '%s\n' "${exists_output}"
+              fi
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::cpflow exists returned unexpected exit code ${exists_status} for ${APP_NAME}" >&2
+              if [[ -n "${exists_output}" ]]; then
+                printf '%s\n' "${exists_output}" >&2
+              fi
+              exit "${exists_status}"
+              ;;
+          esac
 
       - name: Skip auto deploy until a review app is created
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && github.event_name == 'pull_request'
