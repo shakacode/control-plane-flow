@@ -13,10 +13,14 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      if cpflow exists -a $APP_NAME; then
+      cpflow exists -a "$APP_NAME"
+      status=$?
+      if [ "$status" -eq 0 ]; then
         echo "exists"
-      elif [ $? -eq 2 ]; then
+      elif [ "$status" -eq 2 ]; then
         echo "not found"
+      else
+        echo "error: cpflow exists exited $status"
       fi
       ```
     EX

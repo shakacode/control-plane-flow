@@ -262,16 +262,17 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     indexed = dependencies.each_with_index.to_a
     indexed.each { |entry| queue << entry }
     results = Array.new(dependencies.length)
+    result_state = { mutex: Mutex.new, timed_out: false }
 
-    workers = build_availability_workers(queue, availability_proc, results, dependencies.length)
-    wait_for_availability_workers(workers)
+    workers = build_availability_workers(queue, availability_proc, results, dependencies.length, result_state)
+    wait_for_availability_workers(workers, result_state)
     fill_missing_availability_results(indexed, results)
     results
   end
 
-  def build_availability_workers(queue, availability_proc, results, dependency_count)
+  def build_availability_workers(queue, availability_proc, results, dependency_count, result_state)
     Array.new([REGISTRY_FETCH_THREADS, dependency_count].min) do
-      Thread.new { drain_availability_queue(queue, availability_proc, results) }
+      Thread.new { drain_availability_queue(queue, availability_proc, results, result_state) }
     end
   end
 
@@ -280,24 +281,37 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     npm_versions_cache
   end
 
-  def wait_for_availability_workers(workers)
+  def wait_for_availability_workers(workers, result_state)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + REGISTRY_FETCH_TIMEOUT_SECONDS
     workers.each do |worker|
       remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
       worker.join(remaining.positive? ? remaining : 0)
     end
+    result_state[:mutex].synchronize { result_state[:timed_out] = true }
   end
 
   def fill_missing_availability_results(indexed, results)
     indexed.each { |dependency, index| results[index] ||= [dependency, nil] }
   end
 
-  def drain_availability_queue(queue, availability_proc, results)
+  def drain_availability_queue(queue, availability_proc, results, result_state)
     loop do
+      break if availability_timed_out?(result_state)
+
       dependency, index = queue.pop(true)
-      results[index] = [dependency, availability_proc.call(dependency)]
+      write_availability_result(results, index, [dependency, availability_proc.call(dependency)], result_state)
     rescue ThreadError
       break
+    end
+  end
+
+  def availability_timed_out?(result_state)
+    result_state[:mutex].synchronize { result_state[:timed_out] }
+  end
+
+  def write_availability_result(results, index, value, result_state)
+    result_state[:mutex].synchronize do
+      results[index] = value unless result_state[:timed_out]
     end
   end
 
@@ -338,6 +352,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   # npm registry expects scoped packages as "@scope%2Fpkg" — leave "@" literal and only encode "/".
+  # npm package names are restricted to [a-z0-9._~-@/] so no other path-unsafe chars appear.
   def npm_package_path_segment(name)
     name.gsub("/", "%2F")
   end

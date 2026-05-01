@@ -317,11 +317,13 @@ describe GithubFlowReadinessService do
       :fetch_availability_in_parallel,
       [dependency],
       proc do
-        sleep 1
+        sleep 0.05
         true
       end
     )
 
+    expect(results).to eq([[dependency, nil]])
+    sleep 0.1
     expect(results).to eq([[dependency, nil]])
   end
 
