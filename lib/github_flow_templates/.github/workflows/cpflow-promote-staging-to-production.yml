@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: write  # Required for `gh release create` in the "Create GitHub release" step.
 
 env:
   # Override these by editing this file or by setting the matching repository variable.
@@ -51,6 +51,8 @@ jobs:
 
       - name: Validate required secrets and variables
         uses: ./.github/actions/cpflow-validate-config
+        # Pass secrets via env so the composite action checks indirect shell
+        # variables instead of interpolating secret values into a run script.
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
           CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
@@ -133,7 +135,16 @@ jobs:
             exit 0
           fi
 
+          # Treat staging as the promotion source of truth: fail when a variable
+          # present in staging is missing in production. Production-only variables
+          # are allowed, but surface them so teams can spot drift.
           missing_vars="$(comm -23 <(printf '%s\n' "${staging_vars}") <(printf '%s\n' "${production_vars}"))"
+          production_only_vars="$(comm -13 <(printf '%s\n' "${staging_vars}") <(printf '%s\n' "${production_vars}"))"
+
+          if [[ -n "${production_only_vars}" ]]; then
+            echo "::warning::Production has environment variables that are not present in staging:"
+            echo "${production_only_vars}"
+          fi
 
           if [[ -n "${missing_vars}" ]]; then
             echo "::error::Production is missing environment variables that exist in staging"
@@ -163,6 +174,10 @@ jobs:
 
             workload_json="$(cpln workload get "${workload_name}" --gvc "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" -o json)"
             workload_image="$(echo "${workload_json}" | jq -r '.spec.containers[0].image')"
+            # Rollback restores images by container index because `cpln workload update --set`
+            # accepts indexed paths. Capture and rollback run in the same workflow against the
+            # unchanged workload definition, so this relies on Control Plane preserving container
+            # order between those two steps.
             workload_images="$(echo "${workload_json}" | jq -c '.spec.containers | map(.image)')"
             workload_version="$(echo "${workload_json}" | jq -r '.version')"
 

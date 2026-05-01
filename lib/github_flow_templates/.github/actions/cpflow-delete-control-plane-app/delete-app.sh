@@ -40,7 +40,9 @@ if ! exists_output="$(cpflow exists -a "$APP_NAME" --org "$CPLN_ORG" 2>&1)"; the
   esac
 
   if [[ -n "$exists_output" ]]; then
-    printf '%s\n' "$exists_output"
+    echo "❌ ERROR: cpflow exists returned an unrecognized failure while checking: $APP_NAME" >&2
+    printf '%s\n' "$exists_output" >&2
+    exit 1
   fi
 
   echo "⚠️ Application does not exist: $APP_NAME"

@@ -201,6 +201,19 @@ describe GithubFlowReadinessService do
     )
   end
 
+  it "treats Ruby 3.1 as legacy" do
+    File.write(playground.join(".ruby-version"), "3.1.7\n")
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    expect(service.blockers?).to be(true)
+    expect(service.results.map(&:message)).to include(
+      "Ruby 3.1.7 is legacy. Upgrade the repo toolchain before adding the GitHub flow."
+    )
+  end
+
   it "warns about git-sourced gems and SQLite production" do
     File.write(playground.join("Gemfile"), <<~GEMFILE)
       source "https://rubygems.org"
@@ -259,6 +272,43 @@ describe GithubFlowReadinessService do
     allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
 
     expect(service.results.map(&:message).join("\n")).not_to include("Production database config uses SQLite")
+  end
+
+  it "does not infer SQLite production from database.yml that contains ERB" do
+    File.write(playground.join("config/database.yml"), <<~YAML)
+      default: &default
+        adapter: sqlite3
+
+      production:
+        <<: *default
+        <% if ENV["USE_POSTGRES"] %>
+        adapter: postgresql
+        <% else %>
+        adapter: sqlite3
+        <% end %>
+    YAML
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    expect(service.results.map(&:message).join("\n")).not_to include("Production database config uses SQLite")
+  end
+
+  it "marks unfinished registry lookups as unknown after the wall-clock deadline" do
+    stub_const("GithubFlowReadinessService::REGISTRY_FETCH_TIMEOUT_SECONDS", 0.01)
+    dependency = { name: "slow-package", exact_version: "1.0.0" }
+
+    results = service.send(
+      :fetch_availability_in_parallel,
+      [dependency],
+      proc do
+        sleep 1
+        true
+      end
+    )
+
+    expect(results).to eq([[dependency, nil]])
   end
 
   it "warns about direct gems from non-public rubygems sources instead of checking rubygems.org" do

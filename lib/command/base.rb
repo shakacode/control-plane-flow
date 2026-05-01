@@ -325,8 +325,7 @@ module Command
           banner: "BRANCH",
           desc: "Branch that should auto-deploy staging; defaults to main/master",
           type: :string,
-          required: required,
-          valid_regex: %r{\A[\w./-]+\z}
+          required: required
         }
       }
     end

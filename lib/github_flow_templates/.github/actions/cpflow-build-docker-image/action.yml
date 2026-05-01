@@ -74,6 +74,15 @@ runs:
 
         PR_INFO=""
         docker_build_args=()
+        ssh_agent_started=false
+
+        cleanup_build_ssh() {
+          if [[ "${ssh_agent_started}" == "true" ]]; then
+            ssh-agent -k >/dev/null || true
+          fi
+          rm -f "${HOME}/.ssh/cpflow_build_key"
+        }
+        trap cleanup_build_ssh EXIT
 
         if [[ -n "${PR_NUMBER}" ]]; then
           PR_INFO=" for PR #${PR_NUMBER}"
@@ -96,7 +105,7 @@ runs:
 
         if [[ -f "${HOME}/.ssh/cpflow_build_key" ]]; then
           eval "$(ssh-agent -s)"
-          trap 'ssh-agent -k >/dev/null; rm -f "${HOME}/.ssh/cpflow_build_key"' EXIT
+          ssh_agent_started=true
           ssh-add "${HOME}/.ssh/cpflow_build_key"
           docker_build_args+=("--ssh=default")
         fi

@@ -41,6 +41,12 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      # pull_request_target is intentional: PR-close events from forks need access
+      # to staging secrets so this workflow can delete review apps and update PR
+      # comments. This checkout is safe because it does not set `ref:`; GitHub checks
+      # out the base branch's trusted workflow code, not the fork head. Do not add
+      # `ref: ${{ github.event.pull_request.head.sha }}` here without re-evaluating
+      # the trust boundary.
       - name: Checkout repository
         uses: actions/checkout@v4
 

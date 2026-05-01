@@ -49,7 +49,9 @@ module Command
 
     def staging_branch_filter
       branches = staging_branch ? [staging_branch] : %w[main master]
-      branches.map(&:dump).join(", ")
+      # Quote each branch as a YAML flow-sequence string; `inspect` escapes the
+      # already-validated user-provided branch name before template substitution.
+      branches.map(&:inspect).join(", ")
     end
 
     def default_staging_app_branch
@@ -88,16 +90,21 @@ module Command
     # Resolve template root from __dir__ rather than Cpflow.root_path because this file is
     # loaded before `module Cpflow` finishes defining its class methods.
     TEMPLATE_ROOT = Pathname.new(File.expand_path("../github_flow_templates", __dir__))
-    # Fail loudly on a broken install rather than silently generating zero files.
-    raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
 
-    GENERATED_FILES = Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
-                         .select { |path| File.file?(path) }
-                         .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
-                         .sort
-                         .freeze
+    GENERATED_FILES = if TEMPLATE_ROOT.directory?
+                        Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
+                           .select { |path| File.file?(path) }
+                           .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
+                           .sort
+                           .freeze
+                      else
+                        [].freeze
+                      end
 
     def call
+      ensure_template_root!
+      branch = staging_branch
+
       if existing_files.any?
         files = existing_files.map { |path| "- #{path}" }.join("\n")
         Shell.warn("The following files already exist:\n#{files}\n\n" \
@@ -105,7 +112,7 @@ module Command
         return
       end
 
-      GithubActionsGenerator.start([staging_branch].compact)
+      GithubActionsGenerator.start([branch].compact)
     end
 
     private
@@ -114,9 +121,22 @@ module Command
       @existing_files ||= GENERATED_FILES.select { |path| File.exist?(path) }
     end
 
+    def ensure_template_root!
+      raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
+    end
+
     def staging_branch
       branch = config.options[:staging_branch].to_s.strip
-      branch.empty? ? nil : branch
+      return nil if branch.empty?
+
+      unless branch.match?(%r{\A[a-zA-Z0-9._/-]+\z})
+        Shell.abort(
+          "Invalid --staging-branch value: #{branch.inspect}. " \
+          "Branch names may only contain alphanumerics, dots, slashes, underscores, and hyphens."
+        )
+      end
+
+      branch
     end
   end
 end

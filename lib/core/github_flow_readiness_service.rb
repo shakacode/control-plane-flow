@@ -38,6 +38,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
   PUBLIC_RUBYGEMS_REMOTE = "https://rubygems.org"
   REGISTRY_FETCH_THREADS = 8
+  REGISTRY_FETCH_TIMEOUT_SECONDS = 60
 
   attr_reader :root_path
 
@@ -227,8 +228,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   # Fan out registry lookups across a small thread pool. Each HTTP call has a 5s timeout
-  # (see `http_get`), and results are memoized per dependency name; serially this scaled
-  # linearly with dependency count, which made readiness slow for repos with many exact pins.
+  # (see `http_get`), and the join deadline below bounds cases such as DNS resolution
+  # hangs that Net::HTTP does not cover. Results are memoized per dependency name;
+  # serially this scaled linearly with dependency count, which made readiness slow for
+  # repos with many exact pins.
   def partition_dependencies(dependencies, availability_proc)
     results = fetch_availability_in_parallel(dependencies, availability_proc)
     results.each_with_object(unavailable: [], unknown: []) do |(dependency, status), grouped|
@@ -250,8 +253,22 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     workers = Array.new([REGISTRY_FETCH_THREADS, dependencies.length].min) do
       Thread.new { drain_availability_queue(queue, availability_proc, results) }
     end
-    workers.each(&:join)
+    wait_for_availability_workers(workers)
+    fill_missing_availability_results(indexed, results)
     results
+  end
+
+  def wait_for_availability_workers(workers)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + REGISTRY_FETCH_TIMEOUT_SECONDS
+    workers.each do |worker|
+      remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      worker.join(remaining.positive? ? remaining : 0)
+      worker.kill if worker.alive?
+    end
+  end
+
+  def fill_missing_availability_results(indexed, results)
+    indexed.each { |dependency, index| results[index] ||= [dependency, nil] }
   end
 
   def drain_availability_queue(queue, availability_proc, results)

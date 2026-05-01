@@ -34,6 +34,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     playground.join(".github/actions/cpflow-setup-environment/action.yml")
   end
 
+  def detect_release_action_path
+    playground.join(".github/actions/cpflow-detect-release-phase/action.yml")
+  end
+
+  def wait_for_health_action_path
+    playground.join(".github/actions/cpflow-wait-for-health/action.yml")
+  end
+
   def delete_app_script_path
     playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
   end
@@ -104,6 +112,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "registers SSH key cleanup before validating extra Docker build args" do
+      contents = build_action_path.read
+
+      expect(contents).to include("cleanup_build_ssh()")
+      expect(contents.index("trap cleanup_build_ssh EXIT")).to be < contents.index(
+        'if [[ -n "${DOCKER_BUILD_EXTRA_ARGS}" ]]'
+      )
+    end
+
     it "pins the default SSH known_hosts entries without ssh-keyscan" do
       contents = build_action_path.read
       expect(contents).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}"')
@@ -135,6 +152,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "configures delete-review-app concurrency and handles missing comment ids" do
       contents = delete_review_workflow_path.read
       expect(contents).to include("concurrency:")
+      expect(contents).to include("pull_request_target is intentional")
+      expect(contents).to include("does not set `ref:`")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
@@ -175,6 +194,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = promote_workflow_path.read
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include(
+        'contents: write  # Required for `gh release create` in the "Create GitHub release" step.'
+      )
+      expect(contents).to include("Production-only variables")
+      expect(contents).to include("Control Plane preserving container")
+      expect(contents).to include("order between those two steps")
+      expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
       expect(contents).to include(
@@ -183,8 +208,27 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "detects release phase support from controlplane.yml instead of cpflow config text" do
+      contents = detect_release_action_path.read
+
+      expect(contents).to include('YAML.load_file(".controlplane/controlplane.yml", aliases: true)')
+      expect(contents).to include("app_name.start_with?(name)")
+      expect(contents).not_to include("cpflow config")
+      expect(contents).not_to include("grep -qE")
+    end
+
+    it "reports a missing primary workload before polling health" do
+      contents = wait_for_health_action_path.read
+
+      expect(contents).to include("Workload '${CPFLOW_WORKLOAD_NAME}' not found")
+      expect(contents).to include("Set PRIMARY_WORKLOAD to the correct workload name.")
+    end
+
     it "writes the delete-app script with the not-found guard message" do
-      expect(delete_app_script_path.read).to include("⚠️ Application does not exist")
+      contents = delete_app_script_path.read
+
+      expect(contents).to include("⚠️ Application does not exist")
+      expect(contents).to include("cpflow exists returned an unrecognized failure")
     end
 
     it "produces valid YAML for every generated workflow and action file" do
@@ -282,6 +326,18 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include('branches: ["develop"]')
       expect(contents).to include("vars.STAGING_APP_BRANCH || 'develop'")
+    end
+  end
+
+  context "when a custom staging branch has unsafe characters" do
+    it "aborts before generating files" do
+      inside_dir(playground) do
+        result = run_cpflow_command(described_class::NAME, "--staging-branch", "develop bad")
+
+        expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+        expect(result[:stderr]).to include("Invalid --staging-branch value")
+        expect(playground.join(".github")).not_to exist
+      end
     end
   end
 end

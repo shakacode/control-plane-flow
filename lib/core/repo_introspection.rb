@@ -78,7 +78,12 @@ module RepoIntrospection
   end
 
   def self.safe_load_database_yml(raw_contents)
-    stubbed = raw_contents.gsub(/<%=.*?%>/m, "__erb__").gsub(/<%.*?%>/m, "")
+    # ERB conditionals can change YAML structure, so avoid guessing. Output-only
+    # ERB is stubbed as a scalar so common Rails defaults like `pool: <%= ... %>`
+    # still parse, but control-flow ERB returns unknown.
+    return nil if raw_contents.match?(/<%(?![=#])/m)
+
+    stubbed = raw_contents.gsub(/<%=.*?%>/m, "__erb__").gsub(/<%#.*?%>/m, "")
     YAML.safe_load(stubbed, aliases: true, permitted_classes: [Symbol])
   rescue Psych::SyntaxError
     nil

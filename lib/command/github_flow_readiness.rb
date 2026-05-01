@@ -25,11 +25,11 @@ module Command
       service = GithubFlowReadinessService.new
 
       service.results.each do |result|
-        puts "[#{result.status.to_s.upcase}] #{result.message}"
+        Shell.info("[#{result.status.to_s.upcase}] #{result.message}")
       end
 
-      puts
-      puts service.summary
+      Shell.info("")
+      Shell.info(service.summary)
 
       exit(ExitCode::ERROR_DEFAULT) if service.blockers?
     end
