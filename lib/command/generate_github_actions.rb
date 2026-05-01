@@ -60,6 +60,8 @@ module Command
     def staging_app_branch_expression
       return "${{ vars.STAGING_APP_BRANCH }}" unless staging_branch
 
+      # `valid_staging_branch?` excludes quotes, so this single-quoted GitHub
+      # expression literal cannot be broken by the generated branch name.
       "${{ vars.STAGING_APP_BRANCH || '#{staging_branch}' }}"
     end
   end

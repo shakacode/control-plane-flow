@@ -45,4 +45,14 @@ describe Cpflow do
     expect(Cpflow::Cli).not_to have_received(:check_cpln_version)
     expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
   end
+
+  it "skips startup checks for local-only GitHub flow commands" do
+    %w[
+      generate-github-actions
+      github-flow-readiness
+      ai-github-flow-prompt
+    ].each do |command_name|
+      expect(Cpflow::Cli.send(:requires_startup_checks?, [command_name])).to be(false)
+    end
+  end
 end

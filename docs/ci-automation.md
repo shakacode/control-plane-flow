@@ -71,6 +71,11 @@ Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's
 switches to persistent SQLite `db` and `storage` templates when
 `config/database.yml` shows SQLite in production.
 
+`cpflow github-flow-readiness` checks public RubyGems and npm registry metadata
+for exact-pinned direct dependencies. In air-gapped or egress-restricted
+environments those checks may report `unknown` instead of failing hard; confirm
+the deployment runner has the package access your app needs before rollout.
+
 ## Repo Readiness Checklist
 
 Before generating this flow, confirm that the target repository is already a

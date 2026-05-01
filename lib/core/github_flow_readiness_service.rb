@@ -281,6 +281,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
       remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
       next if worker.join(remaining.positive? ? remaining : 0)
 
+      # Timed-out workers are not killed; their in-flight HTTP calls have their own
+      # short timeouts and then exit before writing any more results.
       mark_availability_timeout(result_state)
     end
   end
