@@ -33,7 +33,7 @@ module Command
     # Fallback Ruby version when the repo doesn't pin one via `.ruby-version`,
     # `.tool-versions`, or the `Gemfile`. Keep this on a supported release line
     # (https://www.ruby-lang.org/en/downloads/branches/).
-    DEFAULT_RUBY_VERSION = "3.3.6"
+    DEFAULT_RUBY_VERSION = "3.3"
 
     def copy_files
       generated_paths = copy_template_files("generator_templates", base_template_files)
@@ -85,7 +85,9 @@ module Command
     end
 
     def sqlite_project?
-      @sqlite_project ||= sqlite_database_in_production?
+      return @sqlite_project if instance_variable_defined?(:@sqlite_project)
+
+      @sqlite_project = sqlite_database_in_production?
     end
 
     def asset_precompile_hook_run

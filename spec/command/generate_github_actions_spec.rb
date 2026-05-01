@@ -22,6 +22,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     playground.join(".github/workflows/cpflow-delete-review-app.yml")
   end
 
+  def cleanup_stale_review_apps_workflow_path
+    playground.join(".github/workflows/cpflow-cleanup-stale-review-apps.yml")
+  end
+
   def help_workflow_path
     playground.join(".github/workflows/cpflow-help-command.yml")
   end
@@ -165,6 +169,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
+    end
+
+    it "uses shell env vars for stale review cleanup inputs" do
+      contents = cleanup_stale_review_apps_workflow_path.read
+
+      expect(contents).to include('cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}"')
+      expect(contents).not_to include('cpflow cleanup-stale-apps -a "${{ vars.REVIEW_APP_PREFIX }}"')
     end
 
     it "wires the help workflow author_association gate" do
