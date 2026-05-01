@@ -150,6 +150,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = review_app_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
+      expect(contents).to include("Review app deploys from fork pull requests require a branch")
+      expect(contents).to include('echo "allowed=false" >> "$GITHUB_OUTPUT"')
     end
 
     it "distinguishes review-app not-found from cpflow exists errors" do
@@ -254,6 +256,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("Workload '${CPFLOW_WORKLOAD_NAME}' not found")
       expect(contents).to include("Set PRIMARY_WORKLOAD to the correct workload name.")
+      expect(contents).to include("has no endpoint yet; waiting for one to be assigned")
     end
 
     it "writes the delete-app script with the not-found guard message" do
@@ -350,15 +353,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
   context "when a custom staging branch is provided" do
     before do
       inside_dir(playground) do
-        Cpflow::Cli.start([described_class::NAME, "--staging-branch", "develop"])
+        Cpflow::Cli.start([described_class::NAME, "--staging-branch", "release@2025"])
       end
     end
 
     it "bakes that branch into the staging trigger and default branch check" do
       contents = staging_workflow_path.read
 
-      expect(contents).to include('branches: ["develop"]')
-      expect(contents).to include("vars.STAGING_APP_BRANCH || 'develop'")
+      expect(contents).to include('branches: ["release@2025"]')
+      expect(contents).to include("vars.STAGING_APP_BRANCH || 'release@2025'")
     end
   end
 

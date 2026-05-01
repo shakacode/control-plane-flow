@@ -79,6 +79,8 @@ runs:
                 exit 0
               fi
             done
+          else
+            echo "Workload '${CPFLOW_WORKLOAD_NAME}' has no endpoint yet; waiting for one to be assigned."
           fi
 
           if [[ "${attempt}" -lt "${CPFLOW_MAX_RETRIES}" ]]; then

@@ -128,7 +128,16 @@ jobs:
             exit 0
           fi
 
-          echo "Review app deploys from fork pull requests are not allowed because this workflow uses repository secrets." >&2
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "Review app deploys from fork pull requests require a branch in ${GITHUB_REPOSITORY}."
+              echo "This workflow builds Docker images with repository secrets, so comment-triggered deploys only run for branches in the base repository."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Review app deploys from fork pull requests are not allowed for workflow_dispatch because this workflow uses repository secrets." >&2
           exit 1
 
       - name: Checkout PR commit

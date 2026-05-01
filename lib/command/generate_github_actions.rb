@@ -135,7 +135,7 @@ module Command
       unless valid_staging_branch?(branch)
         Shell.abort(
           "Invalid --staging-branch value: #{branch.inspect}. " \
-          "Use a valid git branch name containing only alphanumerics, dots, slashes, underscores, and hyphens."
+          "Use a valid git branch name containing only alphanumerics, dots, slashes, underscores, hyphens, and @."
         )
       end
 
@@ -143,7 +143,7 @@ module Command
     end
 
     def valid_staging_branch?(branch)
-      return false unless branch.match?(%r{\A[a-zA-Z0-9._/-]+\z})
+      return false unless branch.match?(%r{\A[a-zA-Z0-9._/@-]+\z})
 
       valid_git_branch_shape?(branch) && valid_git_branch_components?(branch)
     end
@@ -151,6 +151,7 @@ module Command
     def valid_git_branch_shape?(branch)
       return false if branch.start_with?("-", "/", ".")
       return false if branch.end_with?("/", ".")
+      return false if branch.include?("@{")
 
       !branch.include?("..")
     end
