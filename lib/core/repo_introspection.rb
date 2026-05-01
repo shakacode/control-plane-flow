@@ -6,6 +6,7 @@ module RepoIntrospection
   DEFAULT_APP_PREFIX = "my-app"
   RUBY_VERSION_DIRECTIVE_PATTERN = /^\s*ruby\s+['"\d]/
   RUBY_VERSION_DIRECTIVE_PREFIX = /^\s*ruby\s+/
+  # Same token prefix as a Gemfile `ruby` directive; also works for `.tool-versions`.
   TOOL_VERSIONS_RUBY_PREFIX = RUBY_VERSION_DIRECTIVE_PREFIX
 
   # Pure string → version-string extractor. Strips a leading `ruby-` prefix and returns
@@ -91,8 +92,9 @@ module RepoIntrospection
   def self.safe_load_database_yml(raw_contents)
     # ERB conditionals can change YAML structure, so avoid guessing. Output-only
     # ERB is stubbed as a scalar so common Rails defaults like `pool: <%= ... %>`
-    # still parse, but control-flow ERB returns unknown. `<%- ... %>` is treated
-    # as control-flow Ruby, not output. Callers treat unknown as non-SQLite and
+    # still parse, but control-flow ERB returns unknown. `<%- ... %>` is a
+    # whitespace-trimming code tag, not an output tag, so treat it as unknown too.
+    # Callers treat unknown as non-SQLite and
     # emit the default Postgres scaffold rather than guessing wrong.
     return nil if raw_contents.match?(/<%(?![=#])/m)
 

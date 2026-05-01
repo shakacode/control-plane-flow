@@ -45,6 +45,8 @@ module Command
     end
 
     def generated_files
+      # Keep file discovery centralized on the command class so existence checks and
+      # Thor's template copy list cannot drift.
       GenerateGithubActions.generated_files
     end
 

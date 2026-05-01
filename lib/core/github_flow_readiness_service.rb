@@ -346,12 +346,14 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     return nil unless response.is_a?(Net::HTTPSuccess)
 
     JSON.parse(response.body).fetch("versions", {}).keys
-  rescue JSON::ParserError
+  rescue JSON::ParserError, URI::InvalidURIError
     nil
   end
 
-  # npm registry expects scoped packages as "@scope%2Fpkg" — leave "@" literal and only encode "/".
-  # npm package names are restricted to [a-z0-9._~-@/] so no other path-unsafe chars appear.
+  # npm registry expects scoped packages as "@scope%2Fpkg". Exact dependency names
+  # should already be package names, but bad package.json input can still contain
+  # path-unsafe characters; URI construction errors are treated as unknown registry
+  # availability by the caller.
   def npm_package_path_segment(name)
     name.gsub("/", "%2F")
   end

@@ -388,4 +388,8 @@ describe GithubFlowReadinessService do
       "Checked 1 exact-pinned direct npm package; all appear available on npm."
     )
   end
+
+  it "treats invalid npm package registry URLs as unknown availability" do
+    expect(service.send(:fetch_versions_from_npm, "bad package")).to be_nil
+  end
 end

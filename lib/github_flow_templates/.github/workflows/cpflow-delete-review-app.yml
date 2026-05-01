@@ -61,6 +61,7 @@ jobs:
             secret:CPLN_TOKEN_STAGING
             variable:CPLN_ORG_STAGING
             variable:REVIEW_APP_PREFIX
+          pull_request_friendly: "true"
 
       - name: Setup environment
         uses: ./.github/actions/cpflow-setup-environment

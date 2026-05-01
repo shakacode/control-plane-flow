@@ -171,6 +171,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "configures delete-review-app concurrency and handles missing comment ids" do
       contents = delete_review_workflow_path.read
       expect(contents).to include("concurrency:")
+      expect(contents).to include('pull_request_friendly: "true"')
       expect(contents).to include("pull_request_target is intentional")
       expect(contents).to include("does not set `ref:`")
       expect(contents).to include(
@@ -249,6 +250,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("app_name.start_with?(name)")
       expect(contents).not_to include("cpflow config")
       expect(contents).not_to include("grep -qE")
+    end
+
+    it "makes pull_request_target config validation skip cleanly when setup is incomplete" do
+      contents = playground.join(".github/actions/cpflow-validate-config/action.yml").read
+
+      expect(contents).to include('pull_request_target"')
+      expect(contents).to include('echo "ready=false" >> "$GITHUB_OUTPUT"')
     end
 
     it "reports a missing primary workload before polling health" do
