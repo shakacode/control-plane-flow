@@ -29,6 +29,13 @@ inputs:
 
 runs:
   using: composite
+  # Third-party actions are pinned to floating major tags (`@v4`, `@v1`, `@v7`) rather than
+  # immutable SHAs. SHA pinning is GitHub's stronger security recommendation, but for
+  # generated templates that ship into many downstream repositories floating tags are
+  # easier for users to keep current and Dependabot/Renovate already cover the SHA-pinning
+  # workflow for repositories that opt in. Repositories with stricter supply-chain
+  # requirements should replace each `uses: actions/...@vN` with the corresponding
+  # immutable commit SHA.
   steps:
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1

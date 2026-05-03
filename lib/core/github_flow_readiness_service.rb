@@ -320,9 +320,12 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   # both the duplicate-fetch check and the assignment with a mutex. The mutex is released
   # before `yield` so a slow HTTP request does not block other workers from reading cached
   # entries; the trade-off is that N threads racing on a cold cache for the same name can
-  # all fire HTTP requests in parallel. That's acceptable here because the fetches are
-  # idempotent and the cache is keyed per-name, so duplicates only happen on the first
-  # parallel sweep and only for names not yet memoized.
+  # all fire HTTP requests in parallel. The duplicate-fetch window is bounded:
+  # the queue assigns each (dependency, index) entry to exactly one worker, so a name
+  # only races when two workers happen to look up the same `name` from different
+  # dependencies. At most REGISTRY_FETCH_THREADS duplicate requests can fire per cold
+  # name on the first parallel sweep — acceptable because the fetches are idempotent and
+  # the public registries (rubygems.org, registry.npmjs.org) are designed to absorb that.
   def fetch_with_cache(cache, name)
     cache[:mutex].synchronize do
       return cache[:store][name] if cache[:store].key?(name)
