@@ -328,25 +328,56 @@ jobs:
 
           mapfile -t workloads < <(echo "${ROLLBACK_STATE}" | jq -r 'keys[]')
 
+          # Poll workloads in parallel so the worst-case wall time during a
+          # production incident is `retries × interval` rather than scaling
+          # linearly with the number of workloads. Each per-workload retry
+          # loop runs in a backgrounded subshell that writes its final state
+          # to a status file; the parent waits for all of them before
+          # aggregating warnings, keeping output ordered and deterministic.
+          status_dir="$(mktemp -d)"
+          trap 'rm -rf "${status_dir}"' EXIT
+
+          pids=()
           for workload_name in "${workloads[@]}"; do
             [[ -n "${workload_name}" ]] || continue
 
-            echo "Waiting for rollback of workload '${workload_name}' to become ready..."
-            ready=false
+            echo "Polling rollback readiness for workload '${workload_name}'..."
+            (
+              set -euo pipefail
+              ready=false
+              for attempt in $(seq 1 "${ROLLBACK_READINESS_RETRIES}"); do
+                deployment_ready="$(cpln workload get "${workload_name}" --gvc "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" -o json | jq -r '.status.ready // false')"
+                if [[ "${deployment_ready}" == "true" ]]; then
+                  ready=true
+                  break
+                fi
 
-            for attempt in $(seq 1 "${ROLLBACK_READINESS_RETRIES}"); do
-              deployment_ready="$(cpln workload get "${workload_name}" --gvc "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" -o json | jq -r '.status.ready // false')"
-              if [[ "${deployment_ready}" == "true" ]]; then
-                ready=true
-                break
+                if [[ "${attempt}" -lt "${ROLLBACK_READINESS_RETRIES}" ]]; then
+                  sleep "${ROLLBACK_READINESS_INTERVAL}"
+                fi
+              done
+
+              if [[ "${ready}" == "true" ]]; then
+                printf 'ready\n' > "${status_dir}/${workload_name}"
+              else
+                printf 'not_ready\n' > "${status_dir}/${workload_name}"
               fi
+            ) &
+            pids+=("$!")
+          done
 
-              if [[ "${attempt}" -lt "${ROLLBACK_READINESS_RETRIES}" ]]; then
-                sleep "${ROLLBACK_READINESS_INTERVAL}"
-              fi
-            done
+          # `|| true` so a single workload that fails to poll (e.g. transient
+          # cpln API error) doesn't abort the parent before the others finish.
+          # Missing or non-`ready` status files are surfaced in the aggregation
+          # loop below, so the failure is still visible to operators.
+          for pid in "${pids[@]}"; do
+            wait "${pid}" || true
+          done
 
-            if [[ "${ready}" != "true" ]]; then
+          for workload_name in "${workloads[@]}"; do
+            [[ -n "${workload_name}" ]] || continue
+            status_file="${status_dir}/${workload_name}"
+            if [[ ! -f "${status_file}" ]] || [[ "$(<"${status_file}")" != "ready" ]]; then
               echo "::warning::Workload '${workload_name}' did not report ready after rollback."
             fi
           done

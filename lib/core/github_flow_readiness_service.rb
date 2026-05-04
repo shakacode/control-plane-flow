@@ -326,6 +326,9 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   # dependencies. At most REGISTRY_FETCH_THREADS duplicate requests can fire per cold
   # name on the first parallel sweep — acceptable because the fetches are idempotent and
   # the public registries (rubygems.org, registry.npmjs.org) are designed to absorb that.
+  # On the write side this means the second `cache[:store][name] = value` overwrites the
+  # first; that is safe (no `||=` guard needed) precisely because both racers fetched the
+  # same registry data and so write the same value.
   def fetch_with_cache(cache, name)
     cache[:mutex].synchronize do
       return cache[:store][name] if cache[:store].key?(name)
