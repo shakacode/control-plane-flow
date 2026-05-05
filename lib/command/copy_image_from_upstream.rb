@@ -57,7 +57,7 @@ module Command
     end
 
     def ensure_upstream_token!
-      return if @upstream_token
+      return if @upstream_token && !@upstream_token.strip.empty?
 
       raise "Missing upstream token. Pass `--upstream-token`/`-t` or set the `CPLN_UPSTREAM_TOKEN` env var."
     end
