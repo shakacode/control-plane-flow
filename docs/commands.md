@@ -173,14 +173,14 @@ cpflow env -a $APP_NAME
 ### `exists`
 
 - Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
-- Exits 0 when the app exists, 2 when it does not exist, and 64 for other errors.
+- Exits 0 when the app exists, 3 when it does not exist, and 64 for other errors.
 
 ```sh
 cpflow exists -a "$APP_NAME"
 status=$?
 if [ "$status" -eq 0 ]; then
   echo "exists"
-elif [ "$status" -eq 2 ]; then
+elif [ "$status" -eq 3 ]; then
   echo "not found"
 else
   echo "error: cpflow exists exited $status"

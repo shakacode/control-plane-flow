@@ -177,6 +177,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = review_app_workflow_path.read
 
       expect(contents).to include("exists_status")
+      expect(contents).to include("            3)")
       expect(contents).to include('echo "exists=false" >> "$GITHUB_OUTPUT"')
       expect(contents).to include("cpflow exists returned unexpected exit code")
     end
@@ -277,7 +278,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "detects release phase support from controlplane.yml instead of cpflow config text" do
       contents = detect_release_action_path.read
 
-      expect(contents).to include('YAML.load_file(".controlplane/controlplane.yml", aliases: true)')
+      expect(contents).to include('YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)')
       expect(contents).to include("app_name.start_with?(name)")
       expect(contents).not_to include("cpflow config")
       expect(contents).not_to include("grep -qE")
@@ -303,6 +304,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("⚠️ Application does not exist")
       expect(contents).to include("exists_status")
+      expect(contents).to include("  3)")
       expect(contents).to include("failed to determine whether application exists")
     end
 

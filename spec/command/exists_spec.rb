@@ -7,6 +7,10 @@ describe Command::Exists do
     allow_any_instance_of(Controlplane).to receive(:ensure_org_exists!) # rubocop:disable RSpec/AnyInstance
   end
 
+  it "uses an unambiguous not-found exit code" do
+    expect(ExitCode::NOT_FOUND).to eq(3)
+  end
+
   context "when app does not exist" do
     let(:app) { dummy_test_app("default") }
 

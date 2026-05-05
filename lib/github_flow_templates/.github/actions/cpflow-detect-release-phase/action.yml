@@ -34,7 +34,7 @@ runs:
         require "yaml"
 
         app_name = ARGV.fetch(0)
-        data = YAML.load_file(".controlplane/controlplane.yml", aliases: true)
+        data = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
         apps = data["apps"] || {}
         app_config = apps[app_name]
 

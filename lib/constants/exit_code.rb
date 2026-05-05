@@ -2,7 +2,7 @@
 
 module ExitCode
   SUCCESS = 0
-  NOT_FOUND = 2
+  NOT_FOUND = 3
   ERROR_DEFAULT = 64
   INTERRUPT = 130
 end

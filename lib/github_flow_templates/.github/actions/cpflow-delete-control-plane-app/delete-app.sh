@@ -24,7 +24,7 @@ set -e
 case "$exists_status" in
   0)
     ;;
-  2)
+  3)
     if [[ -n "$exists_output" ]]; then
       printf '%s\n' "$exists_output"
     fi

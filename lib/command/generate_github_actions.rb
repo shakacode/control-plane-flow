@@ -116,8 +116,8 @@ module Command
       self.class.ensure_template_root!
       branch = staging_branch
 
-      if existing_files.any?
-        files = existing_files.map { |path| "- #{path}" }.join("\n")
+      if (existing = existing_files).any?
+        files = existing.map { |path| "- #{path}" }.join("\n")
         Shell.warn("The following files already exist:\n#{files}\n\n" \
                    "Remove or rename them before running `cpflow #{NAME}` again.")
         return
