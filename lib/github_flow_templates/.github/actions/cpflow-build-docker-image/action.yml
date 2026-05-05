@@ -80,7 +80,6 @@ runs:
         PR_INFO=""
         docker_build_args=()
         ssh_agent_started=false
-        trap cleanup_build_ssh EXIT
 
         cleanup_build_ssh() {
           if [[ "${ssh_agent_started}" == "true" ]]; then
@@ -88,6 +87,7 @@ runs:
           fi
           rm -f "${HOME}/.ssh/cpflow_build_key"
         }
+        trap cleanup_build_ssh EXIT
         cd "${WORKING_DIRECTORY}"
 
         if [[ -n "${PR_NUMBER}" ]]; then

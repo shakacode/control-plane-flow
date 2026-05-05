@@ -125,7 +125,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = build_action_path.read
 
       expect(contents).to include("cleanup_build_ssh()")
-      expect(contents).to match(/ssh_agent_started=false\n\s+trap cleanup_build_ssh EXIT\n\n\s+cleanup_build_ssh\(\)/)
+      expect(contents.index("cleanup_build_ssh()")).to be < contents.index("trap cleanup_build_ssh EXIT")
+      expect(contents.index("trap cleanup_build_ssh EXIT")).to be < contents.index('cd "${WORKING_DIRECTORY}"')
       expect(contents.index("trap cleanup_build_ssh EXIT")).to be < contents.index(
         'if [[ -n "${DOCKER_BUILD_EXTRA_ARGS}" ]]'
       )
@@ -213,6 +214,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}")
       expect(contents).to include('cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}"')
       expect(contents).not_to include('cpflow cleanup-stale-apps -a "${{ vars.REVIEW_APP_PREFIX }}"')
+      expect(contents).to include("persist-credentials: false")
     end
 
     it "wires the help workflow author_association gate" do

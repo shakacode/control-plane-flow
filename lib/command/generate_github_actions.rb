@@ -13,9 +13,10 @@ module Command
     argument :staging_branch, type: :string, required: false
 
     def copy_files
-      copy_template_files(generated_files)
-      substitute_template_variables(generated_files)
-      make_shell_scripts_executable(generated_files)
+      relative_paths = generated_files
+      copy_template_files(relative_paths)
+      substitute_template_variables(relative_paths)
+      make_shell_scripts_executable(relative_paths)
     end
 
     def self.source_root

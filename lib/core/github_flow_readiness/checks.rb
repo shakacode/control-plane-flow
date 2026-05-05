@@ -64,7 +64,7 @@ module GithubFlowReadiness
 
     class RubyVersion < Base
       # Oldest Ruby line still receiving security backports (ruby-lang.org/en/downloads/branches/).
-      # Bump this when the upstream branch list drops a series.
+      # Bump this constant when the upstream list drops the 3.3 series.
       THRESHOLD = Gem::Version.new("3.3.0")
 
       def call

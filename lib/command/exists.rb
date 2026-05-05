@@ -27,6 +27,8 @@ module Command
 
     def call
       exit(cp.fetch_gvc.nil? ? ExitCode::NOT_FOUND : ExitCode::SUCCESS)
+    rescue StandardError => e
+      Shell.abort(e.message)
     end
   end
 end

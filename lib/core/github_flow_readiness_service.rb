@@ -356,10 +356,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     nil
   end
 
-  # npm registry expects scoped packages as "@scope%2Fpkg". Exact dependency names
-  # should already be package names, but bad package.json input can still contain
-  # path-unsafe characters; URI construction errors are treated as unknown registry
-  # availability by the caller.
+  # Encodes the `/` in scoped package names so the registry path is valid.
+  # Other characters that are rare-but-legal in npm names (e.g. `%`) are not
+  # encoded here; URI construction errors are rescued in `fetch_versions_from_npm`
+  # and treated as unknown availability.
   def npm_package_path_segment(name)
     name.gsub("/", "%2F")
   end
