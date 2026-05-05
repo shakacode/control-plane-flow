@@ -274,9 +274,7 @@ jobs:
               ref: process.env.PR_SHA,
               environment: `review/${process.env.APP_NAME}`,
               auto_merge: false,
-              // Review apps intentionally bypass branch-protection contexts:
-              // they are preview deployments for the exact PR commit.
-              required_contexts: [],
+              required_contexts: [], // intentional: review apps deploy regardless of required status checks
               description: `Control Plane review app for PR #${process.env.PR_NUMBER}`
             });
 

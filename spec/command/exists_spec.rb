@@ -34,4 +34,17 @@ describe Command::Exists do
       expect(result[:status]).to eq(0)
     end
   end
+
+  context "when app lookup errors" do
+    let(:app) { dummy_test_app("default") }
+
+    it "exits with the default error status" do
+      allow_any_instance_of(Controlplane).to receive(:fetch_gvc).and_raise("network unavailable") # rubocop:disable RSpec/AnyInstance
+
+      result = run_cpflow_command("exists", "-a", app)
+
+      expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+      expect(result[:stderr]).to include("network unavailable")
+    end
+  end
 end

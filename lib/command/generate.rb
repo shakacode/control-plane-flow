@@ -151,7 +151,9 @@ module Command
     def react_on_rails_auto_load_bundle?
       return false unless File.file?("config/initializers/react_on_rails.rb")
 
-      File.read("config/initializers/react_on_rails.rb").match?(/config\.auto_load_bundle\s*=\s*true\b/)
+      File.readlines("config/initializers/react_on_rails.rb")
+          .reject { |line| line.lstrip.start_with?("#") }
+          .any? { |line| line.match?(/config\.auto_load_bundle\s*=\s*true\b/) }
     end
   end
 

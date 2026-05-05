@@ -125,6 +125,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = build_action_path.read
 
       expect(contents).to include("cleanup_build_ssh()")
+      expect(contents).to match(/ssh_agent_started=false\n\s+trap cleanup_build_ssh EXIT\n\n\s+cleanup_build_ssh\(\)/)
       expect(contents.index("trap cleanup_build_ssh EXIT")).to be < contents.index(
         'if [[ -n "${DOCKER_BUILD_EXTRA_ARGS}" ]]'
       )
@@ -182,6 +183,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("cpflow exists returned unexpected exit code")
     end
 
+    it "documents that review app deployments bypass required branch-protection contexts" do
+      expect(review_app_workflow_path.read).to include(
+        "required_contexts: [], // intentional: review apps deploy regardless of required status checks"
+      )
+    end
+
     it "handles missing PR comment ids gracefully in the review-app workflow" do
       expect(review_app_workflow_path.read).to include(
         "Skipping PR comment update because no comment id was created."
@@ -231,6 +238,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "does not persist checkout credentials in staging jobs" do
+      expect(staging_workflow_path.read.scan("persist-credentials: false").length).to eq(2)
+    end
+
     it "documents the branch-filter trade-off and sets staging concurrency/vars" do
       contents = staging_workflow_path.read
       expect(contents).to include("GitHub does not allow repository vars in branch filters")
@@ -262,6 +273,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "failure() && steps.capture-current.outputs.rollback_state != '' && " \
         "steps.capture-current.outputs.rollback_state != '{}'"
       )
+    end
+
+    it "does not persist checkout credentials in the production promotion job" do
+      expect(promote_workflow_path.read.scan("persist-credentials: false").length).to eq(1)
     end
 
     it "copies the image currently deployed on staging instead of the newest pushed staging image" do

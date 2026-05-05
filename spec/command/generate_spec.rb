@@ -361,6 +361,25 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when React on Rails auto bundle generation is commented out" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config/initializers"))
+      GENERATOR_PLAYGROUND_PATH.join("config/initializers/react_on_rails.rb").write(<<~RUBY)
+        ReactOnRails.configure do |config|
+          # config.auto_load_bundle = true
+        end
+      RUBY
+    end
+
+    it "does not add the React on Rails pack generation step" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(dockerfile_path.read).not_to include("RUN bundle exec rake react_on_rails:generate_packs")
+      end
+    end
+  end
+
   context "when .controlplane directory already exist" do
     it "doesn't generates base config files" do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
