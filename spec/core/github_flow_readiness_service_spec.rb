@@ -288,6 +288,23 @@ describe GithubFlowReadinessService do
     expect(service.results.map(&:message).join("\n")).not_to include("Production database config uses SQLite")
   end
 
+  it "does not report SQLite production when production uses DATABASE_URL over a SQLite default adapter" do
+    File.write(playground.join("config/database.yml"), <<~YAML)
+      default: &default
+        adapter: sqlite3
+
+      production:
+        <<: *default
+        url: <%= ENV.fetch("DATABASE_URL") %>
+    YAML
+
+    allow(service).to receive(:fetch_rubygems_versions).with("rails").and_return(["8.0.2.1"])
+    allow(service).to receive(:fetch_rubygems_versions).with("react_on_rails").and_return(["16.4.0"])
+    allow(service).to receive(:fetch_npm_versions).with("react-on-rails").and_return(["16.4.0"])
+
+    expect(service.results.map(&:message).join("\n")).not_to include("Production database config uses SQLite")
+  end
+
   it "does not infer SQLite production from database.yml that contains ERB" do
     File.write(playground.join("config/database.yml"), <<~YAML)
       default: &default

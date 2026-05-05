@@ -6,8 +6,6 @@ module RepoIntrospection
   DEFAULT_APP_PREFIX = "my-app"
   RUBY_VERSION_DIRECTIVE_PATTERN = /^\s*ruby\s+['"\d]/
   RUBY_VERSION_DIRECTIVE_PREFIX = /^\s*ruby\s+/
-  # Same token prefix as a Gemfile `ruby` directive; also works for `.tool-versions`.
-  TOOL_VERSIONS_RUBY_PREFIX = RUBY_VERSION_DIRECTIVE_PREFIX
 
   # Pure string → version-string extractor. Strips a leading `ruby-` prefix and returns
   # the first `MAJOR.MINOR[.PATCH]` found in the source, or nil.
@@ -37,10 +35,10 @@ module RepoIntrospection
     path = File.join(root, ".tool-versions")
     return unless File.file?(path)
 
-    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(TOOL_VERSIONS_RUBY_PREFIX) }
+    ruby_line = File.readlines(path, chomp: true).find { |line| line.match?(RUBY_VERSION_DIRECTIVE_PREFIX) }
     return unless ruby_line
 
-    parse_ruby_version_string(ruby_line.sub(TOOL_VERSIONS_RUBY_PREFIX, ""))
+    parse_ruby_version_string(ruby_line.sub(RUBY_VERSION_DIRECTIVE_PREFIX, ""))
   end
 
   def self.ruby_version_from_gemfile(root)
@@ -86,6 +84,9 @@ module RepoIntrospection
     production = parsed["production"]
     return false unless production.is_a?(Hash)
 
+    url = production["url"]
+    return sqlite_database_url?(url) if url.is_a?(String) && !url.strip.empty?
+
     sqlite_adapter_in_hash?(production)
   end
 
@@ -109,5 +110,9 @@ module RepoIntrospection
 
     adapter = config["adapter"]
     adapter.is_a?(String) && adapter.strip.start_with?("sqlite3")
+  end
+
+  def self.sqlite_database_url?(url)
+    url.strip.downcase.start_with?("sqlite:", "sqlite3:")
   end
 end

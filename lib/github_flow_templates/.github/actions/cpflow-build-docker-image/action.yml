@@ -23,6 +23,10 @@ inputs:
   docker_build_ssh_known_hosts:
     description: Optional SSH known_hosts entries used with docker_build_ssh_key. Defaults to pinned GitHub.com host keys.
     required: false
+  working_directory:
+    description: Directory containing the app .controlplane config and Docker build context
+    required: false
+    default: "."
 
 runs:
   using: composite
@@ -69,6 +73,7 @@ runs:
         CONTROL_PLANE_ORG: ${{ inputs.org }}
         DOCKER_BUILD_EXTRA_ARGS: ${{ inputs.docker_build_extra_args }}
         PR_NUMBER: ${{ inputs.pr_number }}
+        WORKING_DIRECTORY: ${{ inputs.working_directory }}
       run: |
         set -euo pipefail
 
@@ -83,6 +88,7 @@ runs:
           rm -f "${HOME}/.ssh/cpflow_build_key"
         }
         trap cleanup_build_ssh EXIT
+        cd "${WORKING_DIRECTORY}"
 
         if [[ -n "${PR_NUMBER}" ]]; then
           PR_INFO=" for PR #${PR_NUMBER}"

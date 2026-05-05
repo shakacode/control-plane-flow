@@ -10,9 +10,13 @@ Please follow the recommendations outlined at [keepachangelog.com](https://keepa
 
 ## [Unreleased]
 
-Changes since the last non-beta release.
+Target release: 5.0.0. Changes since v4.2.0.
 
 _Please add entries here for your pull requests that have not yet been released._
+
+### Added
+
+- Added the GitHub Actions flow generator and readiness checks for staging, review-app, and production-promotion workflows. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
 
 ### Breaking Changes
 
@@ -295,7 +299,7 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...HEAD
 [4.1.1]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/shakacode/control-plane-flow/compare/v3.0.1...v4.0.0

@@ -117,9 +117,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     @parsed_package_json = nil
   end
 
-  def package_json_parse_error?
-    # `@package_json_parse_error` is set as a side effect of memoizing parsed_package_json;
-    # trigger it here so the flag reflects the parse result before we read it.
+  def package_json_parse_error
     parsed_package_json
     @package_json_parse_error
   end

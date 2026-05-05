@@ -154,6 +154,25 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('echo "allowed=false" >> "$GITHUB_OUTPUT"')
     end
 
+    it "keeps trusted generated actions separate from PR-controlled app code" do
+      contents = review_app_workflow_path.read
+
+      expect(contents).to include("ref: ${{ github.event.repository.default_branch }}")
+      expect(contents).to include("path: app")
+      expect(contents).to include("persist-credentials: false")
+      expect(contents).to include("rm -rf app/.git")
+      expect(contents).to include("working-directory: app")
+      expect(contents).to include("working_directory: app")
+    end
+
+    it "passes GitHub event metadata through shell env vars instead of inline expressions" do
+      contents = review_app_workflow_path.read
+
+      expect(contents).to include("EVENT_NAME: ${{ github.event_name }}")
+      expect(contents).not_to include('case "${{ github.event_name }}"')
+      expect(contents).not_to include('[[ "${{ github.event_name }}"')
+    end
+
     it "distinguishes review-app not-found from cpflow exists errors" do
       contents = review_app_workflow_path.read
 
@@ -223,9 +242,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
       contents = promote_workflow_path.read
       expect(contents).to include("group: cpflow-promote-staging-to-production")
-      expect(contents).to include(
-        'contents: write  # Required for `gh release create` in the "Create GitHub release" step.'
-      )
+      expect(contents).to include("contents: read")
+      expect(contents).to include("create-github-release:")
+      expect(contents).to include("contents: write")
+      expect(contents).to include("GH_REPO: ${{ github.repository }}")
       expect(contents).to include("Production-only variables")
       expect(contents).to include("map({name, image})")
       expect(contents).to include("Could not retrieve current containers")
@@ -241,6 +261,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "failure() && steps.capture-current.outputs.rollback_state != '' && " \
         "steps.capture-current.outputs.rollback_state != '{}'"
       )
+    end
+
+    it "copies the image currently deployed on staging instead of the newest pushed staging image" do
+      contents = promote_workflow_path.read
+
+      expect(contents).to include("id: staging-image")
+      expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln workload get')
+      expect(contents).to include("staging_image=\"${staging_image_ref##*/image/}\"")
+      expect(contents).to include("STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}")
+      expect(contents).to include('cpflow copy-image-from-upstream -a "${PRODUCTION_APP_NAME}" ' \
+                                  '--org "${CPLN_ORG_PRODUCTION}" --image "${STAGING_IMAGE}"')
     end
 
     it "detects release phase support from controlplane.yml instead of cpflow config text" do

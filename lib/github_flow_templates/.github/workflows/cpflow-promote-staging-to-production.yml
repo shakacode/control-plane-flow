@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: write  # Required for `gh release create` in the "Create GitHub release" step.
+  contents: read
 
 env:
   # Override these by editing this file or by setting the matching repository variable.
@@ -211,16 +211,68 @@ jobs:
             echo "${delim}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Capture deployed staging image
+        id: staging-image
+        env:
+          CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
+          STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
+          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
+          WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          selected_workload="${PRIMARY_WORKLOAD:-}"
+          selected_image=""
+          first_image=""
+
+          while IFS= read -r workload_name; do
+            [[ -n "${workload_name}" ]] || continue
+
+            workload_json="$(CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln workload get "${workload_name}" --gvc "${STAGING_APP_NAME}" --org "${CPLN_ORG_STAGING}" -o json)"
+            workload_image="$(echo "${workload_json}" | jq -r '.spec.containers[0].image // empty')"
+
+            if [[ -z "${workload_image}" ]]; then
+              echo "::error::Could not find an image on staging workload '${workload_name}'." >&2
+              exit 1
+            fi
+
+            if [[ -z "${first_image}" ]]; then
+              first_image="${workload_image}"
+            fi
+
+            if [[ -n "${selected_workload}" && "${workload_name}" == "${selected_workload}" ]]; then
+              selected_image="${workload_image}"
+            fi
+          done < <(tr ',' '\n' <<< "${WORKLOAD_NAMES}")
+
+          staging_image_ref="${selected_image:-${first_image}}"
+          if [[ -z "${staging_image_ref}" ]]; then
+            echo "::error::Could not determine the deployed staging image." >&2
+            exit 1
+          fi
+
+          if [[ "${staging_image_ref}" == /org/*/image/* ]]; then
+            staging_image="${staging_image_ref##*/image/}"
+          elif [[ "${staging_image_ref}" == *.registry.cpln.io/* ]]; then
+            staging_image="${staging_image_ref#*.registry.cpln.io/}"
+          else
+            staging_image="${staging_image_ref}"
+          fi
+
+          echo "image=${staging_image}" >> "$GITHUB_OUTPUT"
+
       - name: Copy image from staging
         env:
           # Pass the upstream token via env rather than `-t` so it doesn't appear in /proc/<pid>/cmdline.
           CPLN_UPSTREAM_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
           CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}
         shell: bash
         run: |
           set -euo pipefail
-          cpflow copy-image-from-upstream -a "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}"
+          cpflow copy-image-from-upstream -a "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" --image "${STAGING_IMAGE}"
 
       - name: Deploy image to production
         env:
@@ -382,25 +434,6 @@ jobs:
             fi
           done
 
-      - name: Create GitHub release
-        if: success() && steps.health-check.outputs.healthy == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
-          PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          release_date="$(date '+%Y-%m-%d')"
-          timestamp="$(date '+%H%M%S')"
-          release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"
-
-          gh release create "${release_tag}" \
-            --title "Production Release ${release_date} ${timestamp}" \
-            --notes "Promoted ${STAGING_APP_NAME} to ${PRODUCTION_APP_NAME} on ${release_date} at ${timestamp}."
-
       - name: Promotion summary
         if: always()
         env:
@@ -421,3 +454,30 @@ jobs:
             echo "Previous image: \`${PREVIOUS_IMAGE}\`"
             echo "Previous version: ${PREVIOUS_VERSION}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  create-github-release:
+    needs: promote-to-production
+    if: needs.promote-to-production.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create GitHub release
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
+          PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_date="$(date '+%Y-%m-%d')"
+          timestamp="$(date '+%H%M%S')"
+          release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"
+
+          gh release create "${release_tag}" \
+            --title "Production Release ${release_date} ${timestamp}" \
+            --notes "Promoted ${STAGING_APP_NAME} to ${PRODUCTION_APP_NAME} on ${release_date} at ${timestamp}."

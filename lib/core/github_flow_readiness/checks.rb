@@ -134,7 +134,7 @@ module GithubFlowReadiness
 
     class NpmExactPins < Base
       def call
-        return service.package_json_parse_error_result if service.package_json_parse_error?
+        return service.package_json_parse_error_result if service.package_json_parse_error
 
         service.exact_pin_registry_result(service.npm_registry_check)
       end

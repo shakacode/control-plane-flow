@@ -7,6 +7,10 @@ inputs:
   app_name:
     description: cpflow app name to inspect
     required: true
+  working_directory:
+    description: Directory containing .controlplane/controlplane.yml
+    required: false
+    default: "."
 
 outputs:
   flag:
@@ -21,8 +25,10 @@ runs:
       shell: bash
       env:
         APP_NAME: ${{ inputs.app_name }}
+        WORKING_DIRECTORY: ${{ inputs.working_directory }}
       run: |
         set -euo pipefail
+        cd "${WORKING_DIRECTORY}"
 
         release_script="$(ruby - "${APP_NAME}" <<'RUBY'
         require "yaml"
