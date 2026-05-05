@@ -118,7 +118,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def package_json_parse_error
-    parsed_package_json
+    # Calling `parsed_package_json` here is the explicit "make sure parsing has run"
+    # trigger, so a reader of `package_json_parse_error` does not have to know that the
+    # flag is populated lazily. Guarded so memoized state isn't re-fetched.
+    parsed_package_json unless instance_variable_defined?(:@parsed_package_json)
     @package_json_parse_error
   end
 

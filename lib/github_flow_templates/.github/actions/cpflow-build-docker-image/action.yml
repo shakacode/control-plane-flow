@@ -80,12 +80,19 @@ runs:
         PR_INFO=""
         docker_build_args=()
         ssh_agent_started=false
+        build_ssh_prepped=false
 
         cleanup_build_ssh() {
           if [[ "${ssh_agent_started}" == "true" ]]; then
             ssh-agent -k >/dev/null || true
           fi
           rm -f "${HOME}/.ssh/cpflow_build_key"
+          # Only remove known_hosts if this action's prep step wrote it. On self-hosted
+          # or reused runners we must not touch a user-managed file we did not create,
+          # so the flag is set inside the same prep-detection branch below.
+          if [[ "${build_ssh_prepped}" == "true" ]]; then
+            rm -f "${HOME}/.ssh/known_hosts"
+          fi
         }
         trap cleanup_build_ssh EXIT
         cd "${WORKING_DIRECTORY}"
@@ -110,6 +117,9 @@ runs:
         fi
 
         if [[ -f "${HOME}/.ssh/cpflow_build_key" ]]; then
+          # Mark prep-step ownership so cleanup_build_ssh only removes known_hosts
+          # when this action wrote it (see trap above).
+          build_ssh_prepped=true
           eval "$(ssh-agent -s)"
           ssh_agent_started=true
           ssh-add "${HOME}/.ssh/cpflow_build_key"

@@ -90,13 +90,9 @@ runs:
           exit 1
         fi
 
-        create_output=""
-        if ! create_output="$(cpln profile create default --org "$ORG" 2>&1)"; then
-          if ! echo "$create_output" | grep -qi "already exists"; then
-            echo "$create_output" >&2
-            exit 1
-          fi
-        fi
-
+        # `cpln profile update` lists `create` as an alias (cpln profile --help) and is
+        # idempotent: it creates the profile if missing and updates it otherwise. Calling
+        # update directly avoids parsing the CLI's "already exists" English error text,
+        # which would silently swallow a real failure if the wording ever changed.
         cpln profile update default --org "$ORG"
         cpln image docker-login --org "$ORG"

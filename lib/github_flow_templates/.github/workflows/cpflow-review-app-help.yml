@@ -14,6 +14,10 @@ permissions:
 
 jobs:
   show-help:
+    # Skip on PRs in repos that have not configured the cpflow review app flow yet,
+    # so this workflow does not noisily comment on every contributor PR. Once the
+    # repository sets `vars.REVIEW_APP_PREFIX`, the help message starts appearing.
+    if: vars.REVIEW_APP_PREFIX != ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

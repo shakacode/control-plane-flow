@@ -21,6 +21,7 @@ _Please add entries here for your pull requests that have not yet been released.
 ### Breaking Changes
 
 - BREAKING CHANGE: `cpflow exists` now returns exit code 3 when the app is not found, preserving 64 for real errors so scripts can distinguish not-found from API/auth failures. Affected callers: only scripts that branched specifically on `[ $? -eq 64 ]` as a "not found" signal — those will now misroute "not found" into the error branch and must switch to checking for exit 3. Scripts that treat any non-zero exit as "not found" are unaffected. The change is isolated to `lib/command/exists.rb` and `lib/constants/exit_code.rb` (`NOT_FOUND = 3`), so users hitting a regression can bisect by file. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
+- BREAKING CHANGE: `cpflow generate` now writes `bundle config set with 'production'` in the generated Dockerfile, dropping the previous `'staging production'` group set. Apps that placed gems specifically under a `staging:` group in their `Gemfile` (e.g. APM agents, observability libraries that should ship to staging) must move those gems into the `production:` group before regenerating, or the regenerated Dockerfile will exclude them at install time. New scaffolds are unaffected. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 
