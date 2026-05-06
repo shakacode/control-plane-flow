@@ -71,3 +71,9 @@ CPLN_ORG=your-org-for-tests bundle exec rspec --tag slow
 ```sh
 cpflow test
 ```
+
+## Releasing
+
+See [Releasing the Gem](./docs/releasing.md) for the changelog-first Ruby gem release process. In short: merge the
+versioned changelog section first, then run `bundle exec rake release`. This project releases only the `cpflow`
+RubyGem; there is no npm publishing step.
