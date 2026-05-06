@@ -10,19 +10,29 @@ the React on Rails release flow but without any npm publishing steps.
 Always update `CHANGELOG.md` before running the release task.
 
 1. Ensure all desired changes are merged to `main`.
-2. Move the relevant `Unreleased` entries into a versioned header:
+2. Run `/update-changelog release` to find merged PRs, add entries under the
+   right headings, compute the next version, stamp the version header, update
+   compare links, and open a changelog PR. Use `/update-changelog rc`,
+   `/update-changelog beta`, or an explicit version like
+   `/update-changelog 4.2.0.rc.1` when preparing a prerelease or fixed target
+   version.
+3. Review the generated changelog PR and verify the version number matches the
+   intended release level:
+   - Breaking changes: major
+   - Added features or enhancements: minor
+   - Fixes, improvements, deprecations, removals, or security updates: patch
+4. Merge the changelog PR before releasing.
+
+If updating the changelog manually, move the relevant `Unreleased` entries into
+a versioned header:
 
    ```markdown
    ## [4.2.0] - 2026-05-05
    ```
 
-3. Verify the version number matches the intended release level:
-   - Breaking changes: major
-   - Added features or enhancements: minor
-   - Fixes, improvements, deprecations, removals, or security updates: patch
-4. Update the compare links at the bottom of `CHANGELOG.md`, including the
-   `Unreleased` link and the new version link.
-5. Commit, push, review, and merge the changelog update before releasing.
+Then update the compare links at the bottom of `CHANGELOG.md`, including the
+`Unreleased` link and the new version link, and merge those changelog changes
+before releasing.
 
 The release task reads the latest versioned `CHANGELOG.md` header and can create
 the GitHub release from that section automatically.
