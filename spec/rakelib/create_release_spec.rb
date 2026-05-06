@@ -76,5 +76,15 @@ RSpec.describe Release do
         expect(described_class.resolve_version_input("", gem_root: root)).to eq("4.2.0")
       end
     end
+
+    it "uses an untagged changelog prerelease when its release base matches the current gem version" do
+      Dir.mktmpdir do |root|
+        write_file(root, "CHANGELOG.md", changelog("## [5.0.0.rc.0] - 2026-05-05"))
+        write_file(root, "lib/cpflow/version.rb", version_file("5.0.0"))
+        allow(described_class).to receive(:version_tagged?).and_return(false)
+
+        expect(described_class.resolve_version_input("", gem_root: root)).to eq("5.0.0.rc.0")
+      end
+    end
   end
 end

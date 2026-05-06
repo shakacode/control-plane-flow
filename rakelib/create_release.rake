@@ -274,6 +274,19 @@ module Release
         return changelog_version
       end
 
+      if changelog_version && prerelease_version?(changelog_version)
+        changelog_components = parse_gem_version_components(changelog_version)
+        current_components = parse_gem_version_components(current_version)
+        same_release_base = changelog_components[:major] == current_components[:major] &&
+                            changelog_components[:minor] == current_components[:minor] &&
+                            changelog_components[:patch] == current_components[:patch]
+
+        if same_release_base && !version_tagged?(gem_root, changelog_version)
+          puts "Found untagged CHANGELOG.md prerelease version: #{changelog_version} (current: #{current_version})"
+          return changelog_version
+        end
+      end
+
       puts "No new version found in CHANGELOG.md (latest: #{changelog_version || 'none'}, current: #{current_version})."
       puts "Falling back to patch bump."
       "patch"
