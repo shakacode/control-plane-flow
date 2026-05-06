@@ -40,6 +40,8 @@ module Command
     WITH_INFO_HEADER = true
     # Which validations to run before the command
     VALIDATIONS = %w[config].freeze
+    # Whether or not to run CLI startup checks such as cpln availability and update checks
+    REQUIRES_STARTUP_CHECKS = true
 
     def initialize(config)
       @config = config
@@ -311,6 +313,18 @@ module Command
         params: {
           desc: "Runs release phase",
           type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.staging_branch_option(required: false)
+      {
+        name: :staging_branch,
+        params: {
+          banner: "BRANCH",
+          desc: "Branch that should auto-deploy staging; defaults to main/master",
+          type: :string,
           required: required
         }
       }

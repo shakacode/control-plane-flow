@@ -22,9 +22,17 @@ _If you need a free demo account for Control Plane (no CC required), you can con
 
 ---
 
-Be sure to see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane), which includes simple YAML configurations and setup for `cpflow`.
+To bootstrap a new project, run three commands from the repo root:
 
-Also, check [how the `cpflow` gem (this project) is used in the Github actions](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.github/actions/deploy-to-control-plane/action.yml).
+1. **`cpflow github-flow-readiness`** — gate for common rollout blockers (missing Rails runtime scaffold, legacy Ruby or Bundler toolchains, unpublished exact-pinned gems or npm packages, missing production Dockerfiles). Exits non-zero on any blocker.
+2. **`cpflow generate`** — creates `.controlplane/` scaffolding. Infers the app prefix from the repo directory, the base Ruby version from `.ruby-version`/`.tool-versions`/`Gemfile`, the JS package manager from `package.json`, repo-defined frontend precompile hooks (Shakapacker `precompile_hook`, React on Rails auto bundle generation), and switches to persistent `db` + `storage` volume templates when `config/database.yml` shows SQLite in production.
+3. **`cpflow generate-github-actions`** — adds the reusable GitHub Actions pipeline for review apps, staging deploys, and manual production promotion.
+
+The generated scaffold is a starting point. After generation, adapt `.controlplane/` for app-specific workloads (Sidekiq, Node renderer), wire any private-dependency Docker build settings (SSH key, optional known-host overrides), and verify that the production Docker build succeeds.
+
+See [CI automation](./docs/ci-automation.md) for the full setup and required GitHub secrets and variables. For an AI agent rollout, see the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` inside the target repo to print a copy-paste prompt with that repo's default app prefix filled in.
+
+For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
 
 ---
@@ -64,6 +72,7 @@ Additionally, the documentation includes numerous examples and practical tips fo
 - Extensive Heroku-to-Control Plane migration examples included in the documentation.
 - Convention-driven configuration to simplify workflows and reduce custom scripting requirements.
 - Easy to understand Heroku to Control Plane conventions in setup and naming.
+- GitHub Actions generator for on-demand review apps, automatic staging deploys, and manual promotion to production.
 - **Safe, production-ready** equivalents of `heroku run` and `heroku run:detached` for Control Plane.
 - Automatic sequential release tagging for Docker images.
 - A project-aware CLI that enables working on multiple projects.
@@ -118,7 +127,9 @@ _Note, if you want to use Terraform with cpflow, you will start the same way bel
 
 3. Install [Ruby](https://www.ruby-lang.org/en/) (required for these helpers).
 
-4. Install Control Plane CLI, and configure access ([docs here](https://shakadocs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)).
+4. Purely local bootstrap commands can run before Control Plane CLI is installed. That includes `cpflow help`, `cpflow version`, `cpflow github-flow-readiness`, `cpflow ai-github-flow-prompt`, `cpflow generate`, `cpflow generate-github-actions`, and `cpflow terraform generate`. Install Control Plane CLI before any `cpflow` command that talks to Control Plane infrastructure.
+
+5. Install Control Plane CLI, and configure access ([docs here](https://shakadocs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)).
 
 ```sh
 # Install CLI
@@ -131,11 +142,11 @@ cpln login
 npm update -g @controlplane/cli
 ```
 
-5. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
+6. Run `cpln image docker-login --org <your-org>` to ensure that you have access to the Control Plane Docker registry.
 
-6. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
+7. Install Control Plane Flow `cpflow` CLI as a [Ruby gem](https://rubygems.org/gems/cpflow): `gem install cpflow`. If you want to use `cpflow` from Rake tasks in a Rails project, use `Bundler.with_unbundled_env { `cpflow help` } or else you'll get an error that `cpflow` cannot be found. While you can add `cpflow` to your Gemfile, it's not recommended because it might trigger conflicts with other gems.
 
-7. You will need a production-ready Dockerfile. If you're using Rails, consider the default one that ships with Rails 8. You can use [this Dockerfile](https://github.com/shakacode/rails-v8-kamal-v2-terraform-gcp-tutorial/blob/master/Dockerfile) as an example for your project. Ensure that you have Docker running.
+8. You will need a production-ready Dockerfile. If you're using Rails, consider the default one that ships with Rails 8. You can use [this Dockerfile](https://github.com/shakacode/rails-v8-kamal-v2-terraform-gcp-tutorial/blob/master/Dockerfile) as an example for your project. Ensure that you have Docker running.
 
 **Note:** Do not confuse the `cpflow` CLI with the `cpln` CLI. The `cpflow` CLI is the Control Plane Flow playbook CLI.
 The `cpln` CLI is the Control Plane CLI.
@@ -148,20 +159,22 @@ The `cpflow` gem is based on several configuration files within a `/.controlplan
 .controlplane/
 ├─ templates/
 │  ├─ app.yml
-│  ├─ postgres.yml
+│  ├─ postgres.yml or db.yml + storage.yml
 │  ├─ rails.yml
 ├─ controlplane.yml
 ├─ Dockerfile
 ├─ entrypoint.sh
+├─ release_script.sh
 ```
 
-1. `controlplane.yml` describes the overall application. Be sure to have `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
-2. `Dockerfile` builds the production application. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
-3. `templates` directory contains the templates for the various workloads, such as `rails.yml` and `postgres.yml`.
-4. `templates/app.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
-5. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/app.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
-6. For other workloads (like lines in a Heroku `Procfile`), you create additional template files. For example, you can base a `templates/sidekiq.yml` on the `templates/rails.yml` file.
-7. You can have other files in the `templates` directory, such as `redis.yml` and `postgres.yml`, which could setup Redis and Postgres for a testing application.
+1. `controlplane.yml` describes the overall application. The generated version includes staging, review, and production entries named from the repo directory, plus `setup_app_templates` and `release_script` defaults. Be sure to update `<your-org>` as the value for `aliases.common.cpln_org`, or set it with the `CPLN_ORG` environment variable.
+2. `Dockerfile` builds the production application. The generated example includes Node.js, package-manager auto-detection (`npm`, Yarn, or `pnpm`), a Ruby base-image hint derived from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`, and any detected repo-defined asset precompile hook such as a Shakapacker `precompile_hook` or React on Rails auto bundle generation step so Rails apps with frontend assets can precompile from a clean clone. `entrypoint.sh` is an _example_ entrypoint script for the production application, referenced in your Dockerfile.
+3. `release_script.sh` is the generated release-phase entrypoint used by `cpflow deploy-image --run-release-phase` and `cpflow promote-app-from-upstream --run-release-phase`.
+4. `templates` directory contains the templates for the various workloads, such as `rails.yml` and either `postgres.yml` or the SQLite `db.yml` and `storage.yml` pair.
+5. `templates/app.yml` defines your project's GVC (like a Heroku app). More importantly, it contains ENV values for the app.
+6. `templates/rails.yml` defines your Rails workload. It may inherit ENV values from the parent GVC, which is populated from the `templates/app.yml`. This file also configures scaling, sizing, firewalls, and other workload-specific values.
+7. For other workloads (like lines in a Heroku `Procfile`), you create additional template files. For example, you can base a `templates/sidekiq.yml` on the `templates/rails.yml` file.
+8. You can have other files in the `templates` directory, such as `redis.yml`, `postgres.yml`, or SQLite-backed `db.yml` and `storage.yml`, depending on the application runtime.
 
 Here's a complete example of all supported config keys explained for the `controlplane.yml` file:
 
@@ -330,6 +343,21 @@ apps:
 
 ## Workflow
 
+### Bootstrap a New Repo
+
+```sh
+# Check the repo for common rollout blockers before generating files
+cpflow github-flow-readiness
+
+# Create the .controlplane/ scaffolding
+cpflow generate
+
+# Create reusable GitHub Actions for review apps, staging, and production promotion
+cpflow generate-github-actions
+```
+
+`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, start with the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` in the target repo rather than giving a vague "set up CI" request.
+
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 
 You can use this repository as a reference for setting up your own project.
@@ -387,7 +415,7 @@ cpflow build-image -a tutorial-app --commit ABCD
 
 ### Real World
 
-Most companies will configure their CI system to handle the above steps. Please [contact Shakacode](mailto:controlplane@shakacode.com) for examples of how to do this.
+Most teams will automate the above steps in CI. Run `cpflow generate-github-actions` to scaffold the GitHub Actions flow, then follow [CI automation](./docs/ci-automation.md) to wire it to your `.controlplane/controlplane.yml` and repository settings.
 
 You can also join our [**Slack channel**](https://reactrails.slack.com/join/shared_invite/enQtNjY3NTczMjczNzYxLTlmYjdiZmY3MTVlMzU2YWE0OWM0MzNiZDI0MzdkZGFiZTFkYTFkOGVjODBmOWEyYWQ3MzA2NGE1YWJjNmVlMGE) for ShakaCode open source projects.
 

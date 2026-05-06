@@ -1,0 +1,46 @@
+# Keys beginning with "cpln_" correspond to your settings in Control Plane.
+#
+# Generated baseline for a Rails app that uses SQLite in production. This setup
+# keeps `/app/db` and `/app/storage` on persistent volumes.
+
+allow_org_override_by_env: true
+allow_app_override_by_env: true
+
+aliases:
+  common: &common
+    cpln_org: my-org-staging
+    default_location: aws-us-east-2
+    setup_app_templates:
+      - app
+      - db
+      - storage
+      - rails
+
+    one_off_workload: rails
+    app_workloads:
+      - rails
+    additional_workloads: []
+
+    maintenance_workload: maintenance
+    release_script: release_script.sh
+
+    stale_app_image_deployed_days: 5
+    image_retention_days: 7
+
+  production: &production
+    <<: *common
+    allow_org_override_by_env: false
+    allow_app_override_by_env: false
+    cpln_org: my-org-production
+    upstream: __APP_PREFIX__-staging
+
+apps:
+  __APP_PREFIX__-staging:
+    <<: *common
+
+  __APP_PREFIX__-review:
+    <<: *common
+    match_if_app_name_starts_with: true
+
+  __APP_PREFIX__-production:
+    <<: *production

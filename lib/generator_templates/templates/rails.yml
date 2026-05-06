@@ -6,31 +6,22 @@ spec:
   type: standard
   containers:
     - name: rails
-      # 300m is a good starting place for a test app. You can experiment with CPU configuration
-      # once your app is running.
       cpu: 300m
-      env:
-        - name: LOG_LEVEL
-          value: debug
-      # Inherit other ENV values from GVC
       inheritEnv: true
       image: {{APP_IMAGE_LINK}}
-      # 512 corresponds to a standard 1x dyno type
       memory: 512Mi
       ports:
         - number: 3000
           protocol: http
   defaultOptions:
-    # Start out like this for "test apps"
     autoscaling:
-      # Max of 1 effectively disables autoscaling, so a like a Heroku dyno count of 1
+      minScale: 1
       maxScale: 1
     capacityAI: false
+    timeoutSeconds: 60
   firewallConfig:
     external:
-      # Default to allow public access to Rails server
       inboundAllowCIDR:
         - 0.0.0.0/0
-      # Could configure outbound for more security
       outboundAllowCIDR:
         - 0.0.0.0/0

@@ -57,6 +57,31 @@ describe Command::CopyImageFromUpstream do
     end
   end
 
+  context "when upstream token env var is blank" do
+    let!(:upstream_app) { dummy_test_app }
+    let!(:app) { dummy_test_app }
+
+    before do
+      stub_env("CPLN_UPSTREAM", upstream_app)
+      stub_env("CPLN_ORG_UPSTREAM", dummy_test_org)
+      stub_env("CPLN_UPSTREAM_TOKEN", "")
+      allow(Shell).to receive(:cmd).and_call_original
+      allow(Shell).to receive(:cmd).with("docker", "version", capture_stderr: true).and_return({ success: true })
+      allow_any_instance_of(Controlplane).to receive(:ensure_org_exists!) # rubocop:disable RSpec/AnyInstance
+      allow_any_instance_of(Controlplane).to receive(:profile_switch) # rubocop:disable RSpec/AnyInstance
+      allow_any_instance_of(Controlplane).to receive(:profile_exists?).and_return(false) # rubocop:disable RSpec/AnyInstance
+      allow_any_instance_of(Controlplane).to receive(:profile_create).and_raise("empty token reached profile_create") # rubocop:disable RSpec/AnyInstance
+    end
+
+    it "raises the missing upstream token error before creating a profile" do
+      result = run_cpflow_command("copy-image-from-upstream", "-a", app)
+
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Missing upstream token")
+      expect(result[:stderr]).not_to include("empty token reached profile_create")
+    end
+  end
+
   context "when using invalid token for upstream org" do
     let!(:upstream_app) { dummy_test_app }
     let!(:app) { dummy_test_app }

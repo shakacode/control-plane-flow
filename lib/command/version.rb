@@ -10,6 +10,7 @@ module Command
     DESC
     WITH_INFO_HEADER = false
     VALIDATIONS = [].freeze
+    REQUIRES_STARTUP_CHECKS = false
 
     def call
       puts Cpflow::VERSION

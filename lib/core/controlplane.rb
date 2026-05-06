@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "shellwords"
+
 class Controlplane # rubocop:disable Metrics/ClassLength
   attr_reader :config, :api, :gvc, :org
 
@@ -93,14 +95,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def image_build(image, dockerfile:, docker_context:, docker_args: [], build_args: [])
     # https://docs.controlplane.com/guides/push-image#step-2
     # Might need to use `docker buildx build` if compatiblitity issues arise
-    cmd = "docker build --platform=linux/amd64 -t #{image} -f #{dockerfile}"
-    cmd += " --progress=plain" if ControlplaneApiDirect.trace
+    cmd = ["docker", "build", "--platform=linux/amd64", "-t", image, "-f", dockerfile]
+    cmd << "--progress=plain" if ControlplaneApiDirect.trace
 
-    cmd += " #{docker_args.join(' ')}" if docker_args.any?
-    build_args.each { |build_arg| cmd += " --build-arg #{build_arg}" }
-    cmd += " #{docker_context}"
+    cmd.concat(docker_args)
+    build_args.each { |build_arg| cmd.concat(["--build-arg", build_arg]) }
+    cmd << docker_context
 
-    perform!(cmd)
+    perform!(Shellwords.join(cmd))
   end
 
   def fetch_image_details(image)

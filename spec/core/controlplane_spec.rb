@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "shellwords"
 
 describe Controlplane do
   describe "#initialize" do
@@ -75,6 +76,37 @@ describe Controlplane do
       expect do
         described_instance.send(:build_command, original_cmd, output_mode: :invalid)
       end.to raise_error("Invalid command output mode 'invalid'.")
+    end
+  end
+
+  describe "#image_build" do
+    let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
+    let!(:described_instance) { described_class.new(fake_config) }
+
+    it "shell-escapes Docker build tokens before spawning the command" do
+      allow(described_instance).to receive(:perform!)
+
+      described_instance.image_build(
+        "example.registry.cpln.io/my-app:1",
+        dockerfile: ".controlplane/Dockerfile",
+        docker_context: ".",
+        docker_args: ["--build-arg=PAYLOAD=$(touch${IFS}/tmp/pwned)"],
+        build_args: ["GIT_COMMIT=abc123"]
+      )
+
+      expect(described_instance).to have_received(:perform!) do |cmd|
+        expect(cmd).not_to include("$(touch")
+        expect(Shellwords.split(cmd)).to eq(
+          [
+            "docker", "build", "--platform=linux/amd64",
+            "-t", "example.registry.cpln.io/my-app:1",
+            "-f", ".controlplane/Dockerfile",
+            "--build-arg=PAYLOAD=$(touch${IFS}/tmp/pwned)",
+            "--build-arg", "GIT_COMMIT=abc123",
+            "."
+          ]
+        )
+      end
     end
   end
 end

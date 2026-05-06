@@ -11,6 +11,18 @@ This `-a` option is used in most of the commands and will pick all other app con
 
 ## Commands
 
+### `ai-github-flow-prompt`
+
+Prints a copy-paste prompt for an AI agent to roll out the reusable Control Plane GitHub Flow:
+- verifies the repo is deployable from a clean clone before generating files
+- scaffolds `.controlplane/` and `cpflow-*` GitHub Actions files when the repo qualifies
+- stops on external blockers or product decisions instead of forcing a broken rollout
+
+```sh
+# Prints the recommended AI rollout prompt for the current repo
+cpflow ai-github-flow-prompt
+```
+
 ### `apply-template`
 
 - Applies application-specific configs from templates (e.g., for every review-app)
@@ -93,12 +105,15 @@ cpflow config -a $APP_NAME
 
 - Copies an image (by default the latest) from a source org to the current org
 - The source app must be specified either through the `CPLN_UPSTREAM` env var or `upstream` in the `.controlplane/controlplane.yml` file
-- Additionally, the token for the source org must be provided through `--upstream-token` or `-t`
+- The token for the source org must be provided through `--upstream-token`/`-t` or the `CPLN_UPSTREAM_TOKEN` env var
 - A `cpln` profile will be temporarily created to pull the image from the source org
 
 ```sh
 # Copies the latest image from the source org to the current org.
 cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN
+
+# Equivalent call using an env var (avoids exposing the token via the OS process table).
+CPLN_UPSTREAM_TOKEN=$UPSTREAM_TOKEN cpflow copy-image-from-upstream -a $APP_NAME
 
 # Copies a specific image from the source org to the current org.
 cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --image appimage:123
@@ -158,18 +173,64 @@ cpflow env -a $APP_NAME
 ### `exists`
 
 - Shell-checks if an application (GVC) exists, useful in scripts, e.g.:
+- Exits 0 when the app exists, 3 when it does not exist, and 64 for other errors.
 
 ```sh
-if [ cpflow exists -a $APP_NAME ]; ...
+cpflow exists -a "$APP_NAME"
+status=$?
+if [ "$status" -eq 0 ]; then
+  echo "exists"
+elif [ "$status" -eq 3 ]; then
+  echo "not found"
+else
+  echo "error: cpflow exists exited $status"
+fi
 ```
 
 ### `generate`
 
-Creates base Control Plane config and template files
+Creates base Control Plane config and template files for a Rails project:
+- infers the app prefix from the current directory and wires staging, review, and production entries
+- infers the Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`
+- preserves repo-defined asset precompile hooks, including React on Rails auto bundle generation
+- detects SQLite in `config/database.yml` and generates persistent `db` and `storage` volume templates instead of the default Postgres workload
 
 ```sh
-# Creates .controlplane directory with Control Plane config and other templates
+# Creates .controlplane directory with Control Plane config and starter templates
 cpflow generate
+```
+
+### `generate-github-actions`
+
+Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
+- on-demand review apps for pull requests
+- automatic staging deploys from your main branch
+- manual promotion from staging to production
+- nightly cleanup and PR help workflows
+
+Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
+other than `main` or `master`; the generator will bake that branch into the
+GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
+
+```sh
+# Creates .github/actions and .github/workflows files for the Control Plane flow
+cpflow generate-github-actions
+
+# Creates the flow with staging deploys triggered from develop
+cpflow generate-github-actions --staging-branch develop
+```
+
+### `github-flow-readiness`
+
+Checks the current repository for common rollout blockers before adding the Control Plane GitHub flow:
+- Rails runtime scaffold present
+- modern Ruby and Bundler toolchain
+- installable exact-pinned direct gem and npm package versions
+- production Dockerfile presence and SQLite production hints
+
+```sh
+# Checks the current repo for common rollout blockers
+cpflow github-flow-readiness
 ```
 
 ### `info`
