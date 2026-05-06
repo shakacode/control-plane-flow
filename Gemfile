@@ -5,6 +5,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "debug", "~> 1"
+gem "gem-release", "~> 2.2"
 gem "overcommit", "~> 0.69.0"
 gem "rake", "~> 13.0"
 gem  "rspec",         "~> 3.13"

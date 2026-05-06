@@ -28,6 +28,7 @@ GEM
     docile (1.4.1)
     dotenv (3.2.0)
     erb (6.0.2)
+    gem-release (2.2.4)
     hashdiff (1.2.1)
     iniparse (1.5.0)
     io-console (0.8.2)
@@ -130,6 +131,7 @@ PLATFORMS
 DEPENDENCIES
   cpflow!
   debug (~> 1)
+  gem-release (~> 2.2)
   overcommit (~> 0.69.0)
   rake (~> 13.0)
   rspec (~> 3.13)
