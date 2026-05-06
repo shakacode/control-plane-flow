@@ -62,6 +62,14 @@ describe Command::PromoteAppFromUpstream do
       it_behaves_like "copies latest image from upstream and deploys image",
                       runs_release_script: false,
                       uses_digest_image_ref: true
+
+      context "with --no-use-digest-image-ref CLI flag overriding YAML" do
+        let(:extra_args) { ["--no-use-digest-image-ref"] }
+
+        it_behaves_like "copies latest image from upstream and deploys image",
+                        runs_release_script: false,
+                        uses_digest_image_ref: false
+      end
     end
 
     context "with --use-digest-image-ref option" do
