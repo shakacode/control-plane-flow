@@ -56,7 +56,7 @@ module Command
       digest = image_details["digest"]
       raise "Image '#{image}' does not have a digest available." if digest.nil? || digest.empty?
 
-      "#{image_details['name']}@#{digest}"
+      "#{image}@#{digest}"
     end
 
     def image_not_found_message(image)

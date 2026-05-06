@@ -76,6 +76,13 @@ describe Command::DeployImage do
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-fA-F0-9]{64}'/)
     end
+
+    it "deploys without digest reference when --no-use-digest-image-ref overrides YAML", :slow do
+      result = run_cpflow_command("deploy-image", "-a", app, "--no-use-digest-image-ref")
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+(?!@)'/)
+    end
   end
 
   context "when 'release_script' is not defined" do
