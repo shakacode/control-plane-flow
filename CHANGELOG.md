@@ -34,13 +34,13 @@ _Please add entries here for your pull requests that have not yet been released.
 
 - Suppress Node.js deprecation warnings from internal `cpln` calls by setting `NODE_NO_WARNINGS=1`, producing cleaner cpflow output. [PR 256](https://github.com/shakacode/control-plane-flow/pull/256) by [Judah Meek](https://github.com/Judahmeek).
 
-### Changed
-
-- Redact sensitive data (Authorization headers, tokens) from `--trace` output. [PR 261](https://github.com/shakacode/control-plane-flow/pull/261) by [Sergey Tarasov](https://github.com/dzirtusss).
-
 ### Fixed
 
 - Fixed issue where `run` command could hang indefinitely when updating runner workload. [PR 260](https://github.com/shakacode/control-plane-flow/pull/260) by [Sergey Tarasov](https://github.com/dzirtusss).
+
+### Security
+
+- Redact sensitive data (Authorization headers, tokens) from `--trace` output. [PR 261](https://github.com/shakacode/control-plane-flow/pull/261) by [Sergey Tarasov](https://github.com/dzirtusss).
 
 ## [4.1.1] - 2025-03-14
 
