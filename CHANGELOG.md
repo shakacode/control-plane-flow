@@ -6,6 +6,8 @@ All notable changes to this project's source code will be documented in this fil
 
 Please follow the recommendations outlined at [keepachangelog.com](https://keepachangelog.com). Please use the existing headings and styling as a guide, and add a link for the version diff at the bottom of the file. Also, please update the `Unreleased` link to compare it to the latest release version.
 
+In addition to the standard keepachangelog.com categories, this project uses a local `### Breaking Changes` heading at the top of each version section to surface backwards-incompatible changes. The release tooling treats that heading as a signal to require a major version bump (see `expected_bump_type_from_changelog_section` in `rakelib/create_release.rake`).
+
 ## Versions
 
 ## [Unreleased]
