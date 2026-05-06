@@ -74,6 +74,6 @@ cpflow test
 
 ## Releasing
 
-See [Releasing the Gem](./docs/releasing.md) for the changelog-first Ruby gem release process. In short: merge the
-versioned changelog section first, then run `bundle exec rake release`. This project releases only the `cpflow`
-RubyGem; there is no npm publishing step.
+See [Releasing the Gem](./docs/releasing.md) for the changelog-first Ruby gem release process. In short: run
+`/update-changelog release`, merge the generated changelog PR, then run `bundle exec rake release`. This project
+releases only the `cpflow` RubyGem; there is no npm publishing step.
