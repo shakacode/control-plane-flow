@@ -146,7 +146,9 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def use_digest_image_ref?
-    current&.dig(:use_digest_image_ref) || options[:use_digest_image_ref]
+    return options[:use_digest_image_ref] unless options[:use_digest_image_ref].nil?
+
+    current&.dig(:use_digest_image_ref) || false
   end
 
   private

@@ -19,20 +19,11 @@ module Command
       - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest
     DESC
 
-    def call # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
+    def call # rubocop:disable Metrics/MethodLength
       run_release_script if config.options[:run_release_phase]
 
       deployed_endpoints = {}
-
-      image = cp.latest_image
-      image_details = cp.fetch_image_details(image)
-      if image_details.nil?
-        raise "Image '#{image}' does not exist in the Docker repository on Control Plane " \
-              "(see https://console.cpln.io/console/org/#{config.org}/repository/#{config.app}). " \
-              "Use `cpflow build-image` first."
-      end
-
-      image = "#{image_details['name']}@#{image_details['digest']}" if config.use_digest_image_ref?
+      image = resolve_image_to_deploy
 
       config[:app_workloads].each do |workload|
         workload_data = cp.fetch_workload!(workload)
@@ -54,6 +45,25 @@ module Command
     end
 
     private
+
+    def resolve_image_to_deploy
+      image = cp.latest_image
+      image_details = cp.fetch_image_details(image)
+      raise image_not_found_message(image) if image_details.nil?
+
+      return image unless config.use_digest_image_ref?
+
+      digest = image_details["digest"]
+      raise "Image '#{image}' does not have a digest available." if digest.nil? || digest.empty?
+
+      "#{image_details['name']}@#{digest}"
+    end
+
+    def image_not_found_message(image)
+      "Image '#{image}' does not exist in the Docker repository on Control Plane " \
+        "(see https://console.cpln.io/console/org/#{config.org}/repository/#{config.app}). " \
+        "Use `cpflow build-image` first."
+    end
 
     def endpoint_for_workload(workload_data)
       endpoint = workload_data.dig("status", "endpoint")

@@ -58,6 +58,26 @@ describe Command::DeployImage do
     end
   end
 
+  context "with use_digest_image_ref from YAML file" do
+    let!(:app) { dummy_test_app("use-digest-image-ref") }
+
+    before do
+      run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
+    end
+
+    after do
+      run_cpflow_command!("delete", "-a", app, "--yes")
+    end
+
+    it "deploys latest image with digest reference", :slow do
+      result = run_cpflow_command("deploy-image", "-a", app)
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-fA-F0-9]{64}'/)
+    end
+  end
+
   context "when 'release_script' is not defined" do
     let!(:app) { dummy_test_app("nothing") }
 
