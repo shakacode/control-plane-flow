@@ -6,6 +6,11 @@ on:
     paths:
       - README.md
       - docs/**
+  workflow_dispatch: {}
+
+concurrency:
+  group: docs-dispatch
+  cancel-in-progress: true
 
 jobs:
   notify-docs-site:
@@ -28,3 +33,4 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           repository: shakacode/controlplaneflow-com
           event-type: docs-updated
+          client-payload: '{"sha": "${{ github.sha }}", "ref": "${{ github.ref }}"}'
