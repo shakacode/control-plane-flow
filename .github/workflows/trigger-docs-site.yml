@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: docs-dispatch
-  cancel-in-progress: true
+  cancel-in-progress: true  # only the most recent docs dispatch matters
 
 jobs:
   notify-docs-site:
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Generate GitHub App token
-        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         id: app-token
         with:
           app-id: ${{ secrets.DOCS_DISPATCH_APP_ID }}
@@ -28,7 +28,7 @@ jobs:
           repositories: controlplaneflow-com
 
       - name: Dispatch docs-updated event
-        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0
+        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: shakacode/controlplaneflow-com
