@@ -28,7 +28,7 @@ module Command
       config[:app_workloads].each do |workload|
         workload_data = cp.fetch_workload!(workload)
         workload_data.dig("spec", "containers").each do |container|
-          next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}:})
+          next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}[:@]})
 
           container_name = container["name"]
           step("Deploying image '#{image}' for workload '#{container_name}'") do
@@ -55,6 +55,7 @@ module Command
 
       digest = image_details["digest"]
       raise "Image '#{image}' does not have a digest available." if digest.nil? || digest.empty?
+      raise "Unexpected digest format for image '#{image}'." unless digest.match?(/\Asha256:[a-fA-F0-9]{64}\z/)
 
       "#{image}@#{digest}"
     end

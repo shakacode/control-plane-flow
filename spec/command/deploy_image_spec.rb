@@ -81,7 +81,8 @@ describe Command::DeployImage do
       result = run_cpflow_command("deploy-image", "-a", app, "--no-use-digest-image-ref")
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+(?!@)'/)
+      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+'/)
+      expect(result[:stderr]).not_to include("@sha256:")
     end
   end
 
