@@ -72,6 +72,22 @@ CPLN_ORG=your-org-for-tests bundle exec rspec --tag slow
 cpflow test
 ```
 
+## Developing the GitHub flow generator
+
+`cpflow generate-github-actions` copies templates from `lib/github_flow_templates/` into a target repo's `.github/` directory. To work on this feature:
+
+- **Edit the templates in place.** The generator does no string-mangling beyond a small set of substitutions handled in `lib/command/generate_github_actions.rb`; what you put in `lib/github_flow_templates/.github/` is (almost) exactly what ships into a generated repo. Make changes there, not in a generated copy.
+- **Surface area to keep consistent.** A change to a PR command (e.g. `+review-app-deploy`) usually touches three places: the trigger workflow (`lib/github_flow_templates/.github/workflows/cpflow-deploy-review-app.yml`), the PR-open quick reference (`cpflow-review-app-help.yml`), and the long-form help (`lib/github_flow_templates/.github/cpflow-help.md`). The AI flow prompt (`lib/command/ai_github_flow_prompt.rb`) also names commands and should be kept in sync.
+- **Run the generator spec on every change:**
+
+  ```sh
+  bundle exec rspec spec/command/generate_github_actions_spec.rb
+  ```
+
+  It generates the templates into a tmp playground and asserts on their contents — most regressions in the templates will fail there.
+- **Lint the templates.** Generated workflows are checked with `actionlint` in CI. Install it locally and run `actionlint lib/github_flow_templates/.github/workflows/*.yml` to catch issues before pushing.
+- **Test PR-branch workflow edits in a real repo.** Comment-triggered runs (`+review-app-deploy`, `+review-app-delete`, `+review-app-help`) execute base-branch code, so they will not exercise your PR-branch changes. Generate the workflows into a downstream test repo, push to a feature branch, then dispatch with `gh workflow run cpflow-deploy-review-app.yml --ref <your-branch> -f pr_number=<pr>` to run the workflow code from your branch. Repeat for the delete/help workflows as needed.
+
 ## Releasing
 
 See [Releasing the Gem](./docs/releasing.md) for the changelog-first Ruby gem release process. In short: run
