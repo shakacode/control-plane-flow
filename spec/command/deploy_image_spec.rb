@@ -48,7 +48,16 @@ describe Command::DeployImage do
   end
 
   context "with --use-digest-image-ref option" do
-    let!(:app) { dummy_test_app("rails-non-app-image", create_if_not_exists: true) }
+    let!(:app) { dummy_test_app("rails-non-app-image") }
+
+    before do
+      run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+      run_cpflow_command!("build-image", "-a", app)
+    end
+
+    after do
+      run_cpflow_command!("delete", "-a", app, "--yes")
+    end
 
     it "deploys latest image with digest reference", :slow do
       result = run_cpflow_command("deploy-image", "-a", app, "--use-digest-image-ref")

@@ -34,9 +34,9 @@ module Command
     def deploy_image
       args = []
       args.push("--run-release-phase") if config.current[:release_script]
-      # Always forward the resolved value as an explicit CLI flag so the deploy-image
-      # subprocess uses what was resolved here (CLI beats YAML), not what its own
-      # Config would re-resolve from YAML alone.
+      # Always forward the resolved value as an explicit CLI flag so the in-process
+      # deploy-image invocation uses what was resolved here (CLI beats YAML), not
+      # what its own fresh Config would re-resolve from YAML alone.
       args.push(config.use_digest_image_ref? ? "--use-digest-image-ref" : "--no-use-digest-image-ref")
       run_cpflow_command("deploy-image", "-a", config.app, *args)
     end
