@@ -224,6 +224,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('fs.readFileSync(".github/cpflow-help.md"')
     end
 
+    it "pins the public +review-app-* PR comment trigger strings" do
+      expect(review_app_workflow_path.read).to include("github.event.comment.body == '+review-app-deploy'")
+      expect(delete_review_workflow_path.read).to include("github.event.comment.body == '+review-app-delete'")
+      expect(help_workflow_path.read).to include("github.event.comment.body == '+review-app-help'")
+    end
+
     it "documents Docker build vars in the help markdown" do
       help_md_path = playground.join(".github/cpflow-help.md")
       contents = help_md_path.read
