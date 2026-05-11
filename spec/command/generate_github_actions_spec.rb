@@ -234,9 +234,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_workflow_path.read).to include("github.event.comment.body == '+review-app-help'")
 
       pr_open_help = pr_open_help_workflow_path.read
-      expect(pr_open_help).to include("+review-app-deploy")
-      expect(pr_open_help).to include("+review-app-delete")
-      expect(pr_open_help).to include("+review-app-help")
+      expect(pr_open_help).to include('"- `+review-app-deploy`')
+      expect(pr_open_help).to include('"- `+review-app-delete`')
+      expect(pr_open_help).to include('"- `+review-app-help`')
     end
 
     it "documents Docker build vars in the help markdown" do

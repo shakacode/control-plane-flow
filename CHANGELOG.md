@@ -14,7 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Changed
 
-- Renamed the generated review-app PR comment commands to a namespaced `+review-app-*` family: `/deploy-review-app` → `+review-app-deploy`, `/delete-review-app` → `+review-app-delete`, and `/help` → `+review-app-help`. Repos that ran `cpflow generate-github-actions` against 5.0.0.rc.0 must regenerate the workflow templates and update saved instructions or runbooks. [PR 285](https://github.com/shakacode/control-plane-flow/pull/285) by [Justin Gordon](https://github.com/justin808).
+- Renamed the generated review-app PR comment commands to a namespaced `+review-app-*` family: `/deploy-review-app` → `+review-app-deploy`, `/delete-review-app` → `+review-app-delete`, and `/help` → `+review-app-help`. The `+` prefix is used instead of `/` to avoid collision with GitHub's reserved slash-command surface and with other bots that listen on `/help`, and to make the three commands obviously part of one namespaced family. Repos that ran `cpflow generate-github-actions` against 5.0.0.rc.0 must regenerate the workflow templates and update saved instructions or runbooks. [PR 285](https://github.com/shakacode/control-plane-flow/pull/285) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.0.0.rc.0] - 2026-05-05
 
