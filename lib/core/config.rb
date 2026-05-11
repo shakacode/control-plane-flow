@@ -150,7 +150,7 @@ class Config # rubocop:disable Metrics/ClassLength
     # (both short-circuit YAML), absent → nil (fall through to YAML).
     return options[:use_digest_image_ref] unless options[:use_digest_image_ref].nil?
 
-    current&.dig(:use_digest_image_ref) || false
+    current&.dig(:use_digest_image_ref) == true
   end
 
   private

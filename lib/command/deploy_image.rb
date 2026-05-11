@@ -56,7 +56,8 @@ module Command
       digest = image_details["digest"]
       raise "Image '#{image}' does not have a digest available." if digest.nil? || digest.empty?
       # SHA-256 only; expand the regex if Control Plane ever returns sha512 or other digest algorithms.
-      raise "Unexpected digest format for image '#{image}'." unless digest.match?(/\Asha256:[a-fA-F0-9]{64}\z/)
+      # OCI digests are always lowercase hex per the OCI image spec.
+      raise "Unexpected digest format for image '#{image}'." unless digest.match?(/\Asha256:[a-f0-9]{64}\z/)
 
       "#{image}@#{digest}"
     end

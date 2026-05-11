@@ -51,7 +51,7 @@ describe Command::DeployImage do
     let!(:app) { dummy_test_app("rails-non-app-image") }
 
     before do
-      run_cpflow_command!("apply-template", "app", "rails", "-a", app)
+      run_cpflow_command!("apply-template", "app", "rails", "rails-with-non-app-image", "-a", app)
       run_cpflow_command!("build-image", "-a", app)
     end
 
@@ -63,7 +63,7 @@ describe Command::DeployImage do
       result = run_cpflow_command("deploy-image", "-a", app, "--use-digest-image-ref")
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-fA-F0-9]{64}'/)
+      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-f0-9]{64}'/)
     end
   end
 
@@ -83,7 +83,7 @@ describe Command::DeployImage do
       result = run_cpflow_command("deploy-image", "-a", app)
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-fA-F0-9]{64}'/)
+      expect(result[:stderr]).to match(/Deploying image '#{app}:\d+@sha256:[a-f0-9]{64}'/)
     end
 
     it "deploys without digest reference when --no-use-digest-image-ref overrides YAML", :slow do

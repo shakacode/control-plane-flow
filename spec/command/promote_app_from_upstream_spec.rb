@@ -35,12 +35,13 @@ describe Command::PromoteAppFromUpstream do
 
       if options[:runs_release_script]
         expect(result[:stderr]).to include("Running release script")
+        expect(result[:stderr]).to include("Finished running release script")
       else
         expect(result[:stderr]).not_to include("Running release script")
       end
 
       if options[:uses_digest_image_ref]
-        expect(result[:stderr]).to match(/Deploying image '#{app}:1@sha256:[a-fA-F0-9]{64}'/)
+        expect(result[:stderr]).to match(/Deploying image '#{app}:1@sha256:[a-f0-9]{64}'/)
       else
         expect(result[:stderr]).to match(/Deploying image '#{app}:1(?!@)'/)
       end
