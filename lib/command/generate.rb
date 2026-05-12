@@ -94,6 +94,7 @@ module Command
       command = normalized_asset_precompile_hook_command
       return "" unless command
 
+      # Folded YAML scalars carry a trailing newline even when they hold one command.
       stripped = command.strip
       return "" if stripped.empty?
       return "" unless single_line_asset_precompile_hook?(stripped)

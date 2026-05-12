@@ -101,6 +101,8 @@ module RepoIntrospection
     nested_sqlite_database_config?(config)
   end
 
+  # Returns true/false when a direct `url` or `adapter` key is conclusive, or nil
+  # when neither key is present so the caller can check nested sub-configs.
   def self.direct_sqlite_database_config?(config)
     url = config["url"]
     return sqlite_database_url?(url) if url.is_a?(String) && !url.strip.empty?
@@ -111,6 +113,8 @@ module RepoIntrospection
   end
 
   def self.nested_sqlite_database_config?(config)
+    # In Rails multi-database configs, hash values at this level are named
+    # connections such as primary:, cache:, or queue:. Scalar keys are ignored.
     sub_configs = config.values.select { |value| value.is_a?(Hash) }
     return false if sub_configs.empty?
 

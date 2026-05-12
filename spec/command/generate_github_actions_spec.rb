@@ -212,6 +212,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("id: config")
       expect(contents).to match(/steps\.config\.outputs\.ready == 'true'/)
+      expect(contents).to include("Finalizer still runs after delete failures")
       expect(contents).to include("if: always() && steps.config.outputs.ready == 'true'")
     end
 

@@ -324,6 +324,34 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when production uses sqlite3 URLs in a nested database config" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            url: sqlite3:db/production.sqlite3
+          cache:
+            url: sqlite3:db/production_cache.sqlite3
+      YAML
+    end
+
+    it "generates sqlite-backed persistent volume templates instead of postgres" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        controlplane_content = controlplane_config_file_path.read
+
+        expect(controlplane_content).to include("- db")
+        expect(controlplane_content).to include("- storage")
+        expect(controlplane_content).not_to include("- postgres")
+        expect(postgres_template_path).not_to exist
+        expect(db_template_path).to exist
+        expect(storage_template_path).to exist
+      end
+    end
+  end
+
   context "when production has a nested database config with a non-sqlite adapter" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
