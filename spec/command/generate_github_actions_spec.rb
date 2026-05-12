@@ -30,6 +30,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     playground.join(".github/workflows/cpflow-help-command.yml")
   end
 
+  def pr_open_help_workflow_path
+    playground.join(".github/workflows/cpflow-review-app-help.yml")
+  end
+
+  def command_body_match_expression(command)
+    %(contains(fromJson('["#{command}","#{command}\\n","#{command}\\r\\n"]'), github.event.comment.body))
+  end
+
   def promote_workflow_path
     playground.join(".github/workflows/cpflow-promote-staging-to-production.yml")
   end
@@ -222,6 +230,33 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("contents: read")
       expect(contents).to include('fs.readFileSync(".github/cpflow-help.md"')
+    end
+
+    it "pins the +review-app-* workflow trigger strings" do
+      expect(review_app_workflow_path.read).to include(command_body_match_expression("+review-app-deploy"))
+      expect(delete_review_workflow_path.read).to include(command_body_match_expression("+review-app-delete"))
+      expect(help_workflow_path.read).to include(command_body_match_expression("+review-app-help"))
+    end
+
+    it "pins the +review-app-* commands in the PR-open message" do
+      pr_open_help = pr_open_help_workflow_path.read
+
+      expect(pr_open_help).to include('"Repo owners, members, and collaborators can use these commands:"')
+      expect(pr_open_help).to include("- `+review-app-deploy` - create or redeploy this PR's review app.")
+      expect(pr_open_help).to include("- `+review-app-delete` - delete this PR's review app and temporary resources.")
+      expect(pr_open_help).to include("- `+review-app-help` - show setup details and workflow behavior.")
+      expect(pr_open_help).to include(
+        '"For setup details, repo owners, members, and collaborators can comment `+review-app-help`."'
+      )
+    end
+
+    it "pins the +review-app-* commands in the long-form help markdown" do
+      help_md = playground.join(".github/cpflow-help.md").read
+
+      expect(help_md).to include("`+review-app-deploy`")
+      expect(help_md).to include("`+review-app-delete`")
+      expect(help_md).to include("`+review-app-help`")
+      expect(help_md).to include("A single trailing newline from GitHub's comment editor is accepted.")
     end
 
     it "documents Docker build vars in the help markdown" do

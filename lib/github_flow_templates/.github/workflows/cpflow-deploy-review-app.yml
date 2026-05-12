@@ -37,7 +37,7 @@ jobs:
   deploy:
     # Skip synchronize/opened events from fork PRs at the job level — they cannot access
     # repository secrets anyway, so running any steps just burns billable minutes. Users
-    # can still manually deploy a fork PR via `/deploy-review-app` (gated below by
+    # can still manually deploy a fork PR via `+review-app-deploy` (gated below by
     # author_association) or workflow_dispatch.
     if: |
       (github.event_name == 'pull_request' &&
@@ -45,7 +45,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       github.event.comment.body == '/deploy-review-app' &&
+       contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body) &&
        contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -236,7 +236,7 @@ jobs:
         run: |
           {
             echo "Review app ${APP_NAME} does not exist yet."
-            echo "Create it with a PR comment that is exactly /deploy-review-app."
+            echo "Create it with +review-app-deploy as the PR comment body."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup review app if it does not exist yet
