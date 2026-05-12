@@ -35,5 +35,4 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           repository: shakacode/controlplaneflow-com
           event-type: docs-updated
-          client-payload: >-
-            {"sha": ${{ toJSON(github.sha) }}, "ref": ${{ toJSON(github.ref) }}}
+          client-payload: '{"sha": ${{ toJSON(github.sha) }}, "ref": ${{ toJSON(github.ref) }}}'

@@ -27,6 +27,18 @@ gem install overcommit
 overcommit --install
 ```
 
+## Docs Site Dispatch
+
+The `trigger-docs-site.yml` workflow notifies `shakacode/controlplaneflow-com` when docs-related files change on `main`.
+It requires these repository secrets:
+
+- `DOCS_DISPATCH_APP_ID`: the GitHub App ID used to create the dispatch token
+- `DOCS_DISPATCH_APP_KEY`: the GitHub App private key PEM for that app
+
+The app must be installed with access to `shakacode/controlplaneflow-com` and enough permission to create
+`repository_dispatch` events. If the dispatch succeeds but the docs site does not rebuild, check the target repo's
+workflow runs for the matching `docs-updated` event.
+
 ## Testing
 
 We use real apps for the tests. You'll need to have full access to a Control Plane org, and then set it as the env var `CPLN_ORG` when running the tests (or in the `.env` file):
