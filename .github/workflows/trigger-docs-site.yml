@@ -39,3 +39,15 @@ jobs:
           repository: shakacode/controlplaneflow-com
           event-type: docs-updated
           client-payload: '{"sha": ${{ toJSON(github.sha) }}, "ref": ${{ toJSON(github.ref) }}}'
+
+      - name: Summarize docs dispatch
+        run: |
+          {
+            echo "### Docs site dispatch"
+            echo "- Target repository: \`shakacode/controlplaneflow-com\`"
+            echo "- Event type: \`docs-updated\`"
+            echo "- Source ref: \`${{ github.ref }}\`"
+            echo "- Source SHA: \`${{ github.sha }}\`"
+            echo
+            echo "Check the target repository workflow runs for downstream rebuild status."
+          } >> "$GITHUB_STEP_SUMMARY"
