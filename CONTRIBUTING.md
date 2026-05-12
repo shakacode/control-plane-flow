@@ -49,6 +49,11 @@ If the job fails and the summary shows `Dispatch outcome: skipped`, the dispatch
 failed. Check the `Generate GitHub App token` step first, including the App ID, private key secret, installation, and target
 repository permissions.
 
+If a manual dispatch is canceled and no later successful `main` run replaces it, re-trigger the manual run from `main`. If
+the run is canceled while the dispatch step is already executing, the target repo may already have received the event; check
+the target repo workflow runs before re-triggering. Duplicate dispatches are harmless, but they can rebuild the docs site
+twice.
+
 ## Testing
 
 We use real apps for the tests. You'll need to have full access to a Control Plane org, and then set it as the env var `CPLN_ORG` when running the tests (or in the `.env` file):
