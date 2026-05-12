@@ -9,7 +9,7 @@ on:
       - CONTRIBUTING.md
       - docs/**
   workflow_dispatch:
-    # Dispatching from a non-main branch sends a non-main sha/ref in the payload.
+    # Non-main manual dispatches are skipped by the job guard below.
     # Only use this for forcing a rebuild from main.
 
 concurrency:
@@ -19,6 +19,7 @@ concurrency:
 jobs:
   notify-docs-site:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     permissions: {}
     timeout-minutes: 5
     steps:

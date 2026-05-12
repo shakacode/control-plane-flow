@@ -39,8 +39,8 @@ The app must be installed with access to `shakacode/controlplaneflow-com` and en
 `repository_dispatch` events. If the dispatch succeeds but the docs site does not rebuild, check the target repo's
 workflow runs for the matching `docs-updated` event.
 
-Manual runs should be started from `main`. Choosing another branch sends that branch's `sha` and `ref` to the docs site.
-The workflow also uses a single concurrency group with `cancel-in-progress: true`, so a manual run can be superseded by a
+Manual runs should be started from `main`; non-main manual dispatches are skipped before notifying the docs site. The
+workflow also uses a single concurrency group with `cancel-in-progress: true`, so a manual run can be superseded by a
 concurrent push to `main`; that is expected because the newest docs state wins.
 
 ## Testing
