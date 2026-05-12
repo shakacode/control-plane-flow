@@ -48,18 +48,29 @@ module Command
 
     def resolve_image_to_deploy
       image = cp.latest_image
-      image_details = cp.fetch_image_details(image)
-      raise image_not_found_message(image) if image_details.nil?
+      image_details = fetch_image_details!(image)
 
       return image unless config.use_digest_image_ref?
 
+      # Control Plane accepts the tagged digest form returned here; latest_image currently returns app:N.
+      "#{image}@#{image_digest!(image, image_details)}"
+    end
+
+    def fetch_image_details!(image)
+      image_details = cp.fetch_image_details(image)
+      raise image_not_found_message(image) if image_details.nil?
+
+      image_details
+    end
+
+    def image_digest!(image, image_details)
       digest = image_details["digest"]
       raise "Image '#{image}' does not have a digest available." if digest.nil? || digest.empty?
       # SHA-256 only; expand the regex if Control Plane ever returns sha512 or other digest algorithms.
       # OCI digests are always lowercase hex per the OCI image spec.
       raise "Unexpected digest format for image '#{image}'." unless digest.match?(/\Asha256:[a-f0-9]{64}\z/)
 
-      "#{image}@#{digest}"
+      digest
     end
 
     def image_not_found_message(image)

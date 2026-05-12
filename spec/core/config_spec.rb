@@ -4,12 +4,14 @@ require "spec_helper"
 
 describe Config do
   describe "#use_digest_image_ref?" do
-    let(:config) do
+    def build_config(options:, current:)
       instance = described_class.allocate
       instance.instance_variable_set(:@options, options)
       allow(instance).to receive(:current).and_return(current)
       instance
     end
+
+    let(:config) { build_config(options: options, current: current) }
 
     context "when CLI flag is true" do
       let(:options) { { use_digest_image_ref: true } }

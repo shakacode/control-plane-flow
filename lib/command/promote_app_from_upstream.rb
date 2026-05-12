@@ -33,12 +33,17 @@ module Command
 
     def deploy_image
       args = []
-      args.push("--run-release-phase") if config.current[:release_script]
-      # Always forward the resolved value as an explicit CLI flag so the in-process
-      # deploy-image invocation uses what was resolved here (CLI beats YAML), not
-      # what its own fresh Config would re-resolve from YAML alone.
-      args.push(config.use_digest_image_ref? ? "--use-digest-image-ref" : "--no-use-digest-image-ref")
+      args.push("--run-release-phase") if config.current&.dig(:release_script)
+      digest_image_ref_option = deploy_image_digest_ref_option
+      args.push(digest_image_ref_option) if digest_image_ref_option
       run_cpflow_command("deploy-image", "-a", config.app, *args)
+    end
+
+    def deploy_image_digest_ref_option
+      # Forward explicit false so a parent CLI override is not lost when the child command re-reads YAML.
+      return "--no-use-digest-image-ref" if config.options[:use_digest_image_ref] == false
+
+      "--use-digest-image-ref" if config.use_digest_image_ref?
     end
   end
 end
