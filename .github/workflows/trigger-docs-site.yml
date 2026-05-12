@@ -54,7 +54,7 @@ jobs:
       - name: Summarize docs dispatch
         if: always()
         env:
-          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome || 'not-run' }}
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
           DISPATCH_REASON: ${{ inputs.reason || github.event_name }}
           DISPATCH_REF: ${{ github.ref }}
           DISPATCH_SHA: ${{ github.sha }}
@@ -70,6 +70,8 @@ jobs:
             echo
             if [ "$DISPATCH_OUTCOME" = "success" ]; then
               echo "Check the target repository workflow runs for downstream rebuild status."
+            elif [ "$DISPATCH_OUTCOME" = "skipped" ]; then
+              echo "Dispatch was skipped because the ref is not main or a prior step failed."
             else
               echo "Inspect this job's logs before checking the target repository workflow runs."
             fi
