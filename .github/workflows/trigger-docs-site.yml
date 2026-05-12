@@ -19,12 +19,14 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true  # only the most recent docs dispatch for the same ref matters
+  # Only the most recent docs dispatch for the same ref matters.
+  # Re-run a canceled manual dispatch if another main run does not replace it.
+  cancel-in-progress: true
 
 jobs:
   notify-docs-site:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'  # skip non-main workflow_dispatch runs
     permissions: {}
     timeout-minutes: 5
     steps:
