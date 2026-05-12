@@ -71,7 +71,7 @@ jobs:
             if [ "$DISPATCH_OUTCOME" = "success" ]; then
               echo "Check the target repository workflow runs for downstream rebuild status."
             elif [ "$DISPATCH_OUTCOME" = "skipped" ]; then
-              echo "Dispatch was skipped because the ref is not main or a prior step failed."
+              echo "Dispatch was skipped because a prior step did not complete successfully."
             else
               echo "Inspect this job's logs before checking the target repository workflow runs."
             fi
