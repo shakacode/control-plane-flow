@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - README.md
+      - CHANGELOG.md
+      - CONTRIBUTING.md
       - docs/**
   workflow_dispatch: {}
 
 concurrency:
-  group: docs-dispatch
+  group: ${{ github.workflow }}
   cancel-in-progress: true  # only the most recent docs dispatch matters
 
 jobs:
