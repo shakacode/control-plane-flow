@@ -1,5 +1,10 @@
 # Migrating Postgres database from Heroku infrastructure
 
+If you are replacing Heroku Postgres or another pre-provisioned database service, also review the
+[Control Plane PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres). The
+catalog template covers a single-replica PostgreSQL workload with persistent storage, optional PgBouncer, and optional
+scheduled backups.
+
 One of the biggest problems that will appear when moving from Heroku infrastructure is migrating the database. And
 despite it being rather easy if done between Heroku-hosted databases or non-Heroku-hosted databases (as Postgres has
 tools to do that naturally) it is not easily possible between Heroku and anything outside Heroku,

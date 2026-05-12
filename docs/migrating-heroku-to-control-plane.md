@@ -19,6 +19,11 @@ without compromising your current environment.
 Consider migrating just the web dyno first, and get other types of dynos working afterward. You can also move the
 add-ons to Control Plane later once the app works as expected.
 
+If you are ready to replace Heroku add-ons as part of the migration, review the Control Plane Template Catalog options for
+[PostgreSQL](https://shakadocs.controlplane.com/template-catalog/templates/postgres) and
+[Redis](https://shakadocs.controlplane.com/template-catalog/templates/redis). They are especially useful when you are coming
+from an environment where managed database and Redis add-ons were already provisioned for you.
+
 First, create a new Heroku app with all the add-ons, copying the data from the current staging app.
 
 Then, copy project-specific configs to a `.controlplane/` directory at the top of your project. `cpflow` will pick those up
@@ -236,11 +241,19 @@ For the review app resources, these should be handled as env vars in the templat
 Notice that `APP_GVC` is the app name, which is used as the database name on RDS, so that each review app gets its own
 database on the one RDS instance used for all review apps, which would be, e.g., `my-app-review-1234`.
 
+For teams that prefer a Control Plane-hosted PostgreSQL workload over RDS for some environments, see the
+[PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres) for the current
+supported template, storage, PgBouncer, and backup options.
+
 ### Redis and Memcached for Review Apps
 
 So long as no persistence is needed for Redis and Memcached, we have templates for workloads that should be sufficient
 for review apps in the `templates/` directory of this repository. Using these templates results in considerable cost
 savings compared to paying for the resources on Heroku.
+
+For Redis environments that need more than the simple review-app template, see the
+[Redis Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/redis) for Sentinel, persistence,
+public access, and backup options.
 
 ```yaml
 - name: MEMCACHE_SERVERS
