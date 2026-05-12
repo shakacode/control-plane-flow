@@ -12,11 +12,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-### Changed
-
-- Renamed the generated review-app PR comment commands to a namespaced `+review-app-*` family: `/deploy-review-app` → `+review-app-deploy`, `/delete-review-app` → `+review-app-delete`, and `/help` → `+review-app-help`. The `+` prefix is used instead of `/` to avoid collision with GitHub's reserved slash-command surface and with other bots that listen on `/help`, and to make the three commands obviously part of one namespaced family. Repos that ran `cpflow generate-github-actions` against 5.0.0.rc.0 must regenerate the generated `.github/workflows/cpflow-*.yml` files and `.github/cpflow-help.md`, then update saved instructions or runbooks. [PR 285](https://github.com/shakacode/control-plane-flow/pull/285) by [Justin Gordon](https://github.com/justin808).
-
-## [5.0.0.rc.0] - 2026-05-05
+## [5.0.0.rc.1] - 2026-05-11
 
 ### Breaking Changes
 
@@ -26,12 +22,13 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
-- Added the GitHub Actions flow generator and readiness checks for staging, review-app, and production-promotion workflows. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
-- Added `use-digest-image-ref` (also configurable through `use_digest_image_ref` in `controlplane.yml`) option to `deploy-image` and `promote-app-from-upstream` commands. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
+- **Added the GitHub Actions flow generator and readiness checks for staging, review-app, and production-promotion workflows.** [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
+- **Added `use-digest-image-ref` (also configurable through `use_digest_image_ref` in `controlplane.yml`) option to `deploy-image` and `promote-app-from-upstream` commands.** [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
 ### Changed
 
-- Updated runtime dependencies: `dotenv` (~> 2.8.1 → ~> 3.1), `jwt` (~> 2.8.1 → ~> 3.1), `psych` (~> 5.1.0 → ~> 5.2), and `thor` (~> 1.2.1 → ~> 1.4). [PR 258](https://github.com/shakacode/control-plane-flow/pull/258) by [Justin Gordon](https://github.com/justin808).
+- **Renamed the generated review-app PR comment commands to a namespaced `+review-app-*` family.** [PR 285](https://github.com/shakacode/control-plane-flow/pull/285) by [Justin Gordon](https://github.com/justin808). `/deploy-review-app` → `+review-app-deploy`, `/delete-review-app` → `+review-app-delete`, and `/help` → `+review-app-help`. The `+` prefix avoids collision with GitHub's reserved slash-command surface and makes the three commands obviously part of one namespaced family. Repos that ran `cpflow generate-github-actions` against 5.0.0.rc.0 must regenerate the generated `.github/workflows/cpflow-*.yml` files and `.github/cpflow-help.md`, then update saved instructions or runbooks.
+- **Updated runtime dependencies: `dotenv` (~> 2.8.1 → ~> 3.1), `jwt` (~> 2.8.1 → ~> 3.1), `psych` (~> 5.1.0 → ~> 5.2), and `thor` (~> 1.2.1 → ~> 1.4).** [PR 258](https://github.com/shakacode/control-plane-flow/pull/258) by [Justin Gordon](https://github.com/justin808).
 
 ## [4.2.0] - 2026-02-19
 
@@ -316,8 +313,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.0...HEAD
-[5.0.0.rc.0]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.0
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...HEAD
+[5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.1
 [4.2.0]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/shakacode/control-plane-flow/compare/v4.0.0...v4.1.0
