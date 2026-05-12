@@ -72,7 +72,9 @@ jobs:
               echo "Check the target repository workflow runs for downstream rebuild status."
             elif [ "$DISPATCH_OUTCOME" = "skipped" ]; then
               echo "Dispatch was skipped because a prior step did not complete successfully."
+            elif [ "$DISPATCH_OUTCOME" = "failure" ]; then
+              echo "Dispatch step failed. Inspect this job's logs and verify the App token has Contents: Write on the target repo."
             else
-              echo "Inspect this job's logs before checking the target repository workflow runs."
+              echo "Dispatch outcome: ${DISPATCH_OUTCOME}. Inspect this job's logs before checking the target repository workflow runs."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

@@ -42,8 +42,12 @@ rebuild, check the target repo's workflow runs for the matching `docs-updated` e
 
 Manual runs should be started from `main`; non-main manual dispatches are skipped before token generation or docs-site
 notification. The GitHub Actions run can therefore finish without dispatching anything when a non-main ref is selected.
-The workflow also uses a single concurrency group with `cancel-in-progress: true`, so a manual run can be
-superseded by a concurrent push to `main`; that is expected because the newest docs state wins.
+The workflow deduplicates runs by workflow and ref with `cancel-in-progress: true`, so consecutive `main` runs can
+supersede one another; that is expected because the newest docs state wins.
+
+If the job fails and the summary shows `Dispatch outcome: skipped`, the dispatch step did not run because an earlier step
+failed. Check the `Generate GitHub App token` step first, including the App ID, private key secret, installation, and target
+repository permissions.
 
 ## Testing
 
