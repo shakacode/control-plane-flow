@@ -35,9 +35,9 @@ It requires these repository secrets:
 - `DOCS_DISPATCH_APP_ID`: the GitHub App ID used to create the dispatch token
 - `DOCS_DISPATCH_APP_KEY`: the GitHub App private key PEM for that app
 
-The app must be installed on `shakacode/controlplaneflow-com` with **Contents: Write** permission, which is the minimum
-permission required to create `repository_dispatch` events. If the dispatch succeeds but the docs site does not rebuild,
-check the target repo's workflow runs for the matching `docs-updated` event.
+GitHub documents the repository dispatch endpoint as requiring **Contents: Write** for GitHub App installation tokens.
+Install the app on `shakacode/controlplaneflow-com` with that permission. If the dispatch succeeds but the docs site does
+not rebuild, check the target repo's workflow runs for the matching `docs-updated` event.
 
 Manual runs should be started from `main`; non-main manual dispatches are skipped before token generation or docs-site
 notification. The workflow also uses a single concurrency group with `cancel-in-progress: true`, so a manual run can be

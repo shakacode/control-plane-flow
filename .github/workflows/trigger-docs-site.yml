@@ -18,8 +18,8 @@ on:
     # Only use this for forcing a rebuild from main.
 
 concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true  # only the most recent docs dispatch matters
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  # only the most recent docs dispatch for the same ref matters
 
 jobs:
   notify-docs-site:
@@ -38,6 +38,7 @@ jobs:
           repositories: controlplaneflow-com
 
       - name: Dispatch docs-updated event
+        id: dispatch
         uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -46,8 +47,9 @@ jobs:
           client-payload: '{"sha": ${{ toJSON(github.sha) }}, "ref": ${{ toJSON(github.ref) }}, "reason": ${{ toJSON(inputs.reason || github.event_name) }}}'
 
       - name: Summarize docs dispatch
-        if: success()
+        if: always()
         env:
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome || 'not-run' }}
           DISPATCH_REASON: ${{ inputs.reason || github.event_name }}
           DISPATCH_REF: ${{ github.ref }}
           DISPATCH_SHA: ${{ github.sha }}
@@ -59,6 +61,11 @@ jobs:
             echo "- Source ref: \`${DISPATCH_REF}\`"
             echo "- Source SHA: \`${DISPATCH_SHA}\`"
             echo "- Reason: \`${DISPATCH_REASON}\`"
+            echo "- Dispatch outcome: \`${DISPATCH_OUTCOME}\`"
             echo
-            echo "Check the target repository workflow runs for downstream rebuild status."
+            if [ "$DISPATCH_OUTCOME" = "success" ]; then
+              echo "Check the target repository workflow runs for downstream rebuild status."
+            else
+              echo "Inspect this job's logs before checking the target repository workflow runs."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
