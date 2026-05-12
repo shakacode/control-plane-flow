@@ -9,6 +9,8 @@ on:
       - CONTRIBUTING.md
       - docs/**
   workflow_dispatch:
+    # Dispatching from a non-main branch sends a non-main sha/ref in the payload.
+    # Only use this for forcing a rebuild from main.
 
 concurrency:
   group: ${{ github.workflow }}
