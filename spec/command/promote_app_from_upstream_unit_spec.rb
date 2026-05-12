@@ -64,6 +64,25 @@ describe Command::PromoteAppFromUpstream do
       end
     end
 
+    context "when the current app config has a release script and digest mode resolves to true" do
+      let(:current) { { release_script: "release.sh" } }
+      let(:use_digest_image_ref) { true }
+
+      it "forwards the release phase and digest flags" do
+        command.send(:deploy_image)
+
+        expect(command)
+          .to have_received(:run_cpflow_command)
+          .with(
+            "deploy-image",
+            "-a",
+            "test-app",
+            "--run-release-phase",
+            "--use-digest-image-ref"
+          )
+      end
+    end
+
     context "when the current app config is missing" do
       let(:current) { nil }
 

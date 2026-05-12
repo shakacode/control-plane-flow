@@ -48,6 +48,8 @@ module Command
 
     def resolve_image_to_deploy
       image = cp.latest_image
+      # Preserve the pre-existing fail-fast check so missing images are reported
+      # before workloads are touched.
       image_details = fetch_image_details!(image)
 
       return image unless config.use_digest_image_ref?

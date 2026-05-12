@@ -14,6 +14,26 @@ describe Command::DeployImage do
       command
     end
 
+    context "when digest mode is enabled" do
+      it "returns the latest image with its digest reference" do
+        digest = "sha256:#{'a' * 64}"
+        command = build_command(image_details: { "digest" => digest })
+
+        expect(command.send(:resolve_image_to_deploy)).to eq("test-app:1@#{digest}")
+      end
+    end
+
+    context "when digest mode is disabled" do
+      it "returns the latest image without validating the digest" do
+        command = build_command(
+          image_details: { "digest" => "sha512:#{'a' * 128}" },
+          use_digest_image_ref: false
+        )
+
+        expect(command.send(:resolve_image_to_deploy)).to eq("test-app:1")
+      end
+    end
+
     context "when the image does not exist" do
       it "raises the image not found error" do
         command = build_command(image_details: nil)
