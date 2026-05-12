@@ -9,6 +9,11 @@ on:
       - CONTRIBUTING.md
       - docs/**
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for forcing a docs rebuild"
+        required: false
+        default: "manual"
     # Non-main manual dispatches are skipped by the job guard below.
     # Only use this for forcing a rebuild from main.
 
@@ -38,9 +43,10 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           repository: shakacode/controlplaneflow-com
           event-type: docs-updated
-          client-payload: '{"sha": ${{ toJSON(github.sha) }}, "ref": ${{ toJSON(github.ref) }}}'
+          client-payload: '{"sha": ${{ toJSON(github.sha) }}, "ref": ${{ toJSON(github.ref) }}, "reason": ${{ toJSON(inputs.reason || github.event_name) }}}'
 
       - name: Summarize docs dispatch
+        if: success()
         run: |
           {
             echo "### Docs site dispatch"
@@ -48,6 +54,7 @@ jobs:
             echo "- Event type: \`docs-updated\`"
             echo "- Source ref: \`${{ github.ref }}\`"
             echo "- Source SHA: \`${{ github.sha }}\`"
+            echo "- Reason: \`${{ inputs.reason || github.event_name }}\`"
             echo
             echo "Check the target repository workflow runs for downstream rebuild status."
           } >> "$GITHUB_STEP_SUMMARY"
