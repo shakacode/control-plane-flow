@@ -2,7 +2,7 @@
 
 If you are replacing Heroku Postgres or another pre-provisioned database service, also review the
 [Control Plane PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres). The
-catalog template covers a single-replica PostgreSQL workload with persistent storage, optional PgBouncer, and optional
+catalog template covers a single-instance PostgreSQL workload with persistent storage, optional PgBouncer, and optional
 scheduled backups.
 
 One of the biggest problems that will appear when moving from Heroku infrastructure is migrating the database. And

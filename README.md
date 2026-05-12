@@ -110,8 +110,8 @@ For the typical Rails app, this means:
 | --------------- | -------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------- |
 | web traffic     | `rails`, `sinatra`   | `web` dyno    | workload with app image                                                                                           |
 | background jobs | `sidekiq`, `resque`  | `worker` dyno | workload with app image                                                                                           |
-| db              | `postgres`, `mysql`  | add-on        | external provider, Control Plane Template Catalog, or a development/testing workload template                        |
-| in-memory db    | `redis`, `memcached` | add-on        | external provider, Control Plane Template Catalog, or a development/testing workload template                        |
+| db              | `postgres`, `mysql`  | add-on        | external provider, [Control Plane Template Catalog](https://shakadocs.controlplane.com/template-catalog/templates/postgres), or a development/testing workload template |
+| in-memory db    | `redis`, `memcached` | add-on        | external provider, [Control Plane Template Catalog](https://shakadocs.controlplane.com/template-catalog/templates/redis), or a development/testing workload template |
 | others          | `mailtrap`           | add-on        | external provider or can be set up for development/testing with Docker image (lacks persistence between restarts) |
 
 ## Migration Strategy
@@ -494,7 +494,7 @@ aws-rds-single-pg-instance
 ```
 
 If you want to run PostgreSQL on Control Plane instead of keeping a Heroku add-on or moving to RDS, review the
-[Control Plane PostgreSQL template](https://shakadocs.controlplane.com/template-catalog/templates/postgres). It includes
+[Control Plane PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres). It includes
 persistent storage and optional scheduled backups. Additionally, we provide a default `postgres` template in this
 repository optimized for Control Plane and suitable for development purposes.
 
@@ -506,7 +506,7 @@ For development purposes, it's useful to set those up as Control Plane workloads
 valuable data and can be safely restarted, which doesn't affect application performance.
 
 For production purposes or where restarts are not an option, you should use an external cloud service or review the
-[Control Plane Redis template](https://shakadocs.controlplane.com/template-catalog/templates/redis), which includes
+[Control Plane Redis Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/redis), which includes
 master-replica deployment, Redis Sentinel, optional persistent storage, and optional backups.
 
 We provide default `redis` and `memcached` templates in this repository optimized for Control Plane and suitable for

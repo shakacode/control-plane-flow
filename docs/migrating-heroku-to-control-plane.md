@@ -21,8 +21,7 @@ add-ons to Control Plane later once the app works as expected.
 
 If you are ready to replace Heroku add-ons as part of the migration, review the Control Plane Template Catalog options for
 [PostgreSQL](https://shakadocs.controlplane.com/template-catalog/templates/postgres) and
-[Redis](https://shakadocs.controlplane.com/template-catalog/templates/redis). They are especially useful when you are coming
-from an environment where managed database and Redis add-ons were already provisioned for you.
+[Redis](https://shakadocs.controlplane.com/template-catalog/templates/redis).
 
 First, create a new Heroku app with all the add-ons, copying the data from the current staging app.
 
