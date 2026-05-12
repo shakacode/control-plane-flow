@@ -8,7 +8,7 @@ on:
       - CHANGELOG.md
       - CONTRIBUTING.md
       - docs/**
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}
