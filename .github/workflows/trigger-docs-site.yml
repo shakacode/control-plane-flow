@@ -1,4 +1,5 @@
 name: Trigger docs site rebuild
+run-name: Docs dispatch (${{ github.event_name == 'workflow_dispatch' && inputs.reason || github.event_name }}) @ ${{ github.sha }}
 
 on:
   push:
@@ -61,13 +62,14 @@ jobs:
           DISPATCH_REF: ${{ github.ref }}
           DISPATCH_SHA: ${{ github.sha }}
         run: |
+          safe_dispatch_reason=${DISPATCH_REASON//\`/}
           {
             echo "### Docs site dispatch"
             echo "- Target repository: \`shakacode/controlplaneflow-com\`"
             echo "- Event type: \`docs-updated\`"
             echo "- Source ref: \`${DISPATCH_REF}\`"
             echo "- Source SHA: \`${DISPATCH_SHA}\`"
-            echo "- Reason: \`${DISPATCH_REASON}\`"
+            echo "- Reason: \`${safe_dispatch_reason}\`"
             echo "- Dispatch outcome: \`${DISPATCH_OUTCOME}\`"
             echo
             if [ "$DISPATCH_OUTCOME" = "success" ]; then
