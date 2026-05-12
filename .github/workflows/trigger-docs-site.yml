@@ -20,7 +20,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   # Only the most recent docs dispatch for the same ref matters.
-  # Re-run a canceled manual dispatch if another main run does not replace it.
+  # Manually re-trigger a canceled manual dispatch if no main run replaces it.
   cancel-in-progress: true
 
 jobs:
@@ -76,6 +76,8 @@ jobs:
               echo "Dispatch was skipped because a prior step did not complete successfully."
             elif [ "$DISPATCH_OUTCOME" = "failure" ]; then
               echo "Dispatch step failed. Inspect this job's logs and verify the App token has Contents: Write on the target repo."
+            elif [ "$DISPATCH_OUTCOME" = "cancelled" ]; then
+              echo "Dispatch was cancelled by a newer run for the same ref. The newer run will dispatch instead."
             else
               echo "Dispatch outcome: ${DISPATCH_OUTCOME}. Inspect this job's logs before checking the target repository workflow runs."
             fi
