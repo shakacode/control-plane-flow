@@ -1,5 +1,11 @@
 # Migrating Redis databases
 
+If you are replacing a Heroku Redis add-on or another pre-provisioned Redis service, also review the
+[Control Plane Redis Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/redis). The catalog
+template covers a Redis master-replica deployment with Redis Sentinel, optional persistent storage, and optional backups.
+It is the better fit when you need Redis Sentinel, public endpoint access, or backup options beyond what the `redis` and
+`redis2` repo templates provide.
+
 There are two templates examples in this repo:
 - `redis` - basic non-persistent template. It is good for review-apps or staging or where no persistence is required
 - `redis2` - basic persistent template. Good for production where persistence is needed, but cluster is overkill.
