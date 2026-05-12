@@ -89,9 +89,9 @@ cpflow test
 - **Test PR-branch workflow edits in a real repo.** Comment-triggered runs (`+review-app-deploy`, `+review-app-delete`, `+review-app-help`) execute the workflow code from the repository's default branch, so they will not exercise your PR-branch changes. Generate the workflows into a downstream test repo, push to a feature branch, then dispatch each affected workflow with `gh`:
 
   ```sh
-  gh workflow run cpflow-deploy-review-app.yml --ref <your-branch> -f pr_number=<pr>
-  gh workflow run cpflow-delete-review-app.yml --ref <your-branch> -f pr_number=<pr>
-  gh workflow run cpflow-help-command.yml      --ref <your-branch> -f pr_number=<pr>
+  gh workflow run cpflow-deploy-review-app.yml --ref <your-pr-branch> -f pr_number=<pr-number>
+  gh workflow run cpflow-delete-review-app.yml --ref <your-pr-branch> -f pr_number=<pr-number>
+  gh workflow run cpflow-help-command.yml      --ref <your-pr-branch> -f pr_number=<pr-number>
   ```
 
 ## Releasing
