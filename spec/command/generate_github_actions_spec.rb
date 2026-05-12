@@ -228,15 +228,31 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('fs.readFileSync(".github/cpflow-help.md"')
     end
 
-    it "pins the public +review-app-* PR comment trigger strings" do
+    it "pins the +review-app-* workflow trigger strings" do
       expect(review_app_workflow_path.read).to include("github.event.comment.body == '+review-app-deploy'")
       expect(delete_review_workflow_path.read).to include("github.event.comment.body == '+review-app-delete'")
       expect(help_workflow_path.read).to include("github.event.comment.body == '+review-app-help'")
+    end
 
+    it "pins the +review-app-* commands in the PR-open message" do
       pr_open_help = pr_open_help_workflow_path.read
+
+      expect(pr_open_help).to include('"Repo owners, members, and collaborators can use these commands:"')
+      # The leading " is the opening quote of the JS array string literal in cpflow-review-app-help.yml.
       expect(pr_open_help).to include('"- `+review-app-deploy`')
       expect(pr_open_help).to include('"- `+review-app-delete`')
       expect(pr_open_help).to include('"- `+review-app-help`')
+      expect(pr_open_help).to include(
+        '"For setup details, repo owners, members, and collaborators can comment `+review-app-help`."'
+      )
+    end
+
+    it "pins the +review-app-* commands in the long-form help markdown" do
+      help_md = playground.join(".github/cpflow-help.md").read
+
+      expect(help_md).to include("`+review-app-deploy`")
+      expect(help_md).to include("`+review-app-delete`")
+      expect(help_md).to include("`+review-app-help`")
     end
 
     it "documents Docker build vars in the help markdown" do
