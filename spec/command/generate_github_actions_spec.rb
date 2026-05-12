@@ -207,6 +207,34 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "gates delete-review-app downstream steps on cpflow-validate-config readiness" do
+      contents = delete_review_workflow_path.read
+
+      expect(contents).to include("id: config")
+      expect(contents).to match(/steps\.config\.outputs\.ready == 'true'/)
+      expect(contents).to include("if: always() && steps.config.outputs.ready == 'true'")
+    end
+
+    it "routes github-script step outputs through env vars instead of inline expressions" do
+      review_contents = review_app_workflow_path.read
+
+      expect(review_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
+      expect(review_contents).not_to include('"${{ steps.init-deployment.outputs.result }}"')
+      expect(review_contents).not_to include('"${{ steps.workload.outputs.workload_url }}"')
+      expect(review_contents).not_to include('"${{ job.status }}"')
+      expect(review_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
+      expect(review_contents).to include("DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}")
+      expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.workload_url }}")
+      expect(review_contents).to include("JOB_STATUS: ${{ job.status }}")
+
+      delete_contents = delete_review_workflow_path.read
+
+      expect(delete_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
+      expect(delete_contents).not_to include('"${{ job.status }}"')
+      expect(delete_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
+      expect(delete_contents).to include("JOB_STATUS: ${{ job.status }}")
+    end
+
     it "uses shell env vars for stale review cleanup inputs" do
       contents = cleanup_stale_review_apps_workflow_path.read
 
@@ -241,7 +269,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "does not persist checkout credentials in staging jobs" do
-      expect(staging_workflow_path.read.scan("persist-credentials: false").length).to eq(2)
+      expect(staging_workflow_path.read.scan("persist-credentials: false").length).to eq(3)
     end
 
     it "documents the branch-filter trade-off and sets staging concurrency/vars" do

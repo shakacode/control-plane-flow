@@ -93,9 +93,12 @@ module Command
     def asset_precompile_hook_run
       command = normalized_asset_precompile_hook_command
       return "" unless command
-      return "" unless single_line_asset_precompile_hook?(command)
 
-      "RUN #{command}\n\n"
+      stripped = command.strip
+      return "" if stripped.empty?
+      return "" unless single_line_asset_precompile_hook?(stripped)
+
+      "RUN #{stripped}\n\n"
     end
 
     def single_line_asset_precompile_hook?(command)

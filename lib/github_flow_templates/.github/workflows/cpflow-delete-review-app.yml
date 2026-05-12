@@ -57,6 +57,7 @@ jobs:
           persist-credentials: false
 
       - name: Validate required secrets and variables
+        id: config
         uses: ./.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
@@ -70,6 +71,7 @@ jobs:
           pull_request_friendly: "true"
 
       - name: Setup environment
+        if: steps.config.outputs.ready == 'true'
         uses: ./.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
@@ -78,6 +80,7 @@ jobs:
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
 
       - name: Set workflow links
+        if: steps.config.outputs.ready == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -89,6 +92,7 @@ jobs:
             );
 
       - name: Create initial PR comment
+        if: steps.config.outputs.ready == 'true'
         id: create-comment
         uses: actions/github-script@v7
         with:
@@ -102,6 +106,7 @@ jobs:
             core.setOutput("comment-id", comment.data.id);
 
       - name: Delete review app
+        if: steps.config.outputs.ready == 'true'
         uses: ./.github/actions/cpflow-delete-control-plane-app
         with:
           app_name: ${{ env.APP_NAME }}
@@ -109,12 +114,15 @@ jobs:
           review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}
 
       - name: Finalize delete status
-        if: always()
+        if: always() && steps.config.outputs.ready == 'true'
         uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
+          JOB_STATUS: ${{ job.status }}
         with:
           script: |
-            const commentId = Number("${{ steps.create-comment.outputs.comment-id }}");
-            const success = "${{ job.status }}" === "success";
+            const commentId = Number(process.env.COMMENT_ID);
+            const success = process.env.JOB_STATUS === "success";
             const body = success
               ? [
                   `✅ Review app for PR #${process.env.PR_NUMBER} is deleted`,

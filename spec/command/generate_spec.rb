@@ -294,6 +294,66 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when production uses sqlite3 in a nested database config" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: sqlite3
+            database: db/production.sqlite3
+          cache:
+            adapter: sqlite3
+            database: db/production_cache.sqlite3
+      YAML
+    end
+
+    it "generates sqlite-backed persistent volume templates instead of postgres" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        controlplane_content = controlplane_config_file_path.read
+
+        expect(controlplane_content).to include("- db")
+        expect(controlplane_content).to include("- storage")
+        expect(controlplane_content).not_to include("- postgres")
+        expect(postgres_template_path).not_to exist
+        expect(db_template_path).to exist
+        expect(storage_template_path).to exist
+      end
+    end
+  end
+
+  context "when production has a nested database config with a non-sqlite adapter" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: postgresql
+            database: app_production
+          cache:
+            adapter: sqlite3
+            database: db/production_cache.sqlite3
+      YAML
+    end
+
+    it "keeps the postgres-backed templates because the primary database is non-sqlite" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        controlplane_content = controlplane_config_file_path.read
+
+        expect(controlplane_content).to include("- postgres")
+        expect(controlplane_content).not_to include("- db")
+        expect(controlplane_content).not_to include("- storage")
+        expect(postgres_template_path).to exist
+        expect(db_template_path).not_to exist
+        expect(storage_template_path).not_to exist
+      end
+    end
+  end
+
   context "when shakapacker config defines a precompile hook" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
@@ -338,6 +398,30 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         expect(dockerfile_content).not_to include("RUN rake react_on_rails:generate_packs")
         expect(dockerfile_content).not_to include("USER root")
+      end
+    end
+  end
+
+  context "when shakapacker config defines a folded single-command precompile hook" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/shakapacker.yml").write(<<~YAML)
+        default: &default
+          precompile_hook: >
+            rake react_on_rails:generate_packs
+      YAML
+    end
+
+    it "emits the folded scalar as a single RUN line ahead of assets:precompile" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        dockerfile_content = dockerfile_path.read
+
+        expect(dockerfile_content).to include("RUN bundle exec rake react_on_rails:generate_packs\n")
+        expect(
+          dockerfile_content.index("RUN bundle exec rake react_on_rails:generate_packs")
+        ).to be < dockerfile_content.index("RUN rails assets:precompile")
       end
     end
   end
