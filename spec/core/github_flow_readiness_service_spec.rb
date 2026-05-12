@@ -409,4 +409,23 @@ describe GithubFlowReadinessService do
   it "treats invalid npm package registry URLs as unknown availability" do
     expect(service.send(:fetch_versions_from_npm, "bad package")).to be_nil
   end
+
+  it "honors HTTPS proxy environment variables for registry HTTP requests" do
+    response = instance_double(Net::HTTPSuccess)
+    http = instance_spy(Net::HTTP)
+
+    stub_env("https_proxy" => "http://proxy.example:3128")
+
+    allow(Net::HTTP).to receive(:new).and_return(http)
+    allow(http).to receive(:get).with("/api/v1/versions/rails.json").and_return(response)
+
+    expect(service.send(:http_get, URI("https://rubygems.org/api/v1/versions/rails.json"))).to be(response)
+
+    expect(Net::HTTP).to have_received(:new)
+      .with("rubygems.org", 443, "proxy.example", 3128, nil, nil)
+    expect(http).to have_received(:use_ssl=).with(true)
+    expect(http).to have_received(:open_timeout=).with(5)
+    expect(http).to have_received(:read_timeout=).with(5)
+    expect(http).to have_received(:get).with("/api/v1/versions/rails.json")
+  end
 end

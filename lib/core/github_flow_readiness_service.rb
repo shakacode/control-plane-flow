@@ -3,6 +3,7 @@
 require "bundler"
 require "cgi"
 require "net/http"
+require "uri"
 require "yaml"
 
 require_relative "repo_introspection"
@@ -368,14 +369,28 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   end
 
   def http_get(uri)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
+    http = build_http_client(uri)
+    http.use_ssl = uri.scheme == "https"
     http.open_timeout = 5
     http.read_timeout = 5
     http.get(uri.request_uri)
   rescue StandardError => e
     warn "github_flow_readiness: HTTP GET #{uri} failed: #{e.class}: #{e.message}" if ENV["CPFLOW_DEBUG"]
     nil
+  end
+
+  def build_http_client(uri)
+    proxy_uri = uri.find_proxy
+    return Net::HTTP.new(uri.host, uri.port) unless proxy_uri
+
+    Net::HTTP.new(
+      uri.host,
+      uri.port,
+      proxy_uri.hostname,
+      proxy_uri.port,
+      proxy_uri.user,
+      proxy_uri.password
+    )
   end
 
   def load_gem_dependencies

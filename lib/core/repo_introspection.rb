@@ -84,10 +84,46 @@ module RepoIntrospection
     production = parsed["production"]
     return false unless production.is_a?(Hash)
 
-    url = production["url"]
+    sqlite_database_config?(production)
+  end
+
+  # Determines whether a database config hash uses SQLite. Handles both
+  # the single-database shape (top-level `adapter`/`url`) and Rails 6.1+ multi-database
+  # shape where each connection sits one level deeper (`primary:`, `cache:`, etc.).
+  # Returns false on any explicit non-SQLite adapter so a mixed config (e.g. Postgres
+  # primary + SQLite cache) keeps the Postgres scaffold rather than a volume scaffold.
+  def self.sqlite_database_config?(config)
+    return false unless config.is_a?(Hash)
+
+    direct_result = direct_sqlite_database_config?(config)
+    return direct_result unless direct_result.nil?
+
+    nested_sqlite_database_config?(config)
+  end
+
+  # Returns true/false when a direct `url` or `adapter` key is conclusive, or nil
+  # when neither key is present so the caller can check nested sub-configs.
+  def self.direct_sqlite_database_config?(config)
+    url = config["url"]
     return sqlite_database_url?(url) if url.is_a?(String) && !url.strip.empty?
 
-    sqlite_adapter_in_hash?(production)
+    return sqlite_adapter_in_hash?(config) if config["adapter"].is_a?(String)
+
+    nil
+  end
+
+  def self.nested_sqlite_database_config?(config)
+    # In Rails multi-database configs, hash values with adapter/url keys are named
+    # connections such as primary:, cache:, or queue:. Scalar and incidental hash
+    # settings are ignored.
+    sub_configs = config.values.select { |value| database_connection_config?(value) }
+    return false if sub_configs.empty?
+
+    sub_configs.all? { |sub| sqlite_database_config?(sub) }
+  end
+
+  def self.database_connection_config?(config)
+    config.is_a?(Hash) && (config.key?("adapter") || config.key?("url"))
   end
 
   def self.safe_load_database_yml(raw_contents)
