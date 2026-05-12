@@ -87,7 +87,7 @@ module RepoIntrospection
     sqlite_database_config?(production)
   end
 
-  # Recursively determines whether a database config hash uses SQLite. Handles both
+  # Determines whether a database config hash uses SQLite. Handles both
   # the single-database shape (top-level `adapter`/`url`) and Rails 6.1+ multi-database
   # shape where each connection sits one level deeper (`primary:`, `cache:`, etc.).
   # Returns false on any explicit non-SQLite adapter so a mixed config (e.g. Postgres
@@ -113,12 +113,17 @@ module RepoIntrospection
   end
 
   def self.nested_sqlite_database_config?(config)
-    # In Rails multi-database configs, hash values at this level are named
-    # connections such as primary:, cache:, or queue:. Scalar keys are ignored.
-    sub_configs = config.values.select { |value| value.is_a?(Hash) }
+    # In Rails multi-database configs, hash values with adapter/url keys are named
+    # connections such as primary:, cache:, or queue:. Scalar and incidental hash
+    # settings are ignored.
+    sub_configs = config.values.select { |value| database_connection_config?(value) }
     return false if sub_configs.empty?
 
     sub_configs.all? { |sub| sqlite_database_config?(sub) }
+  end
+
+  def self.database_connection_config?(config)
+    config.is_a?(Hash) && (config.key?("adapter") || config.key?("url"))
   end
 
   def self.safe_load_database_yml(raw_contents)

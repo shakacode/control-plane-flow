@@ -414,28 +414,18 @@ describe GithubFlowReadinessService do
     response = instance_double(Net::HTTPSuccess)
     http = instance_spy(Net::HTTP)
 
-    with_temporary_env("https_proxy" => "http://proxy.example:3128") do
-      allow(Net::HTTP).to receive(:new).and_return(http)
-      allow(http).to receive(:get).with("/api/v1/versions/rails.json").and_return(response)
+    stub_env("https_proxy" => "http://proxy.example:3128")
 
-      expect(service.send(:http_get, URI("https://rubygems.org/api/v1/versions/rails.json"))).to be(response)
+    allow(Net::HTTP).to receive(:new).and_return(http)
+    allow(http).to receive(:get).with("/api/v1/versions/rails.json").and_return(response)
 
-      expect(Net::HTTP).to have_received(:new)
-        .with("rubygems.org", 443, "proxy.example", 3128, nil, nil)
-      expect(http).to have_received(:use_ssl=).with(true)
-      expect(http).to have_received(:open_timeout=).with(5)
-      expect(http).to have_received(:read_timeout=).with(5)
-      expect(http).to have_received(:get).with("/api/v1/versions/rails.json")
-    end
-  end
+    expect(service.send(:http_get, URI("https://rubygems.org/api/v1/versions/rails.json"))).to be(response)
 
-  def with_temporary_env(values)
-    previous = values.to_h { |key, _value| [key, ENV.fetch(key, nil)] }
-    values.each { |key, value| ENV[key] = value }
-    yield
-  ensure
-    previous.each do |key, value|
-      value.nil? ? ENV.delete(key) : ENV[key] = value
-    end
+    expect(Net::HTTP).to have_received(:new)
+      .with("rubygems.org", 443, "proxy.example", 3128, nil, nil)
+    expect(http).to have_received(:use_ssl=).with(true)
+    expect(http).to have_received(:open_timeout=).with(5)
+    expect(http).to have_received(:read_timeout=).with(5)
+    expect(http).to have_received(:get).with("/api/v1/versions/rails.json")
   end
 end
