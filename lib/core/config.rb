@@ -145,6 +145,14 @@ class Config # rubocop:disable Metrics/ClassLength
                                 end&.last
   end
 
+  def use_digest_image_ref?
+    # Three-state: --use-digest-image-ref → true, --no-use-digest-image-ref → false
+    # (both short-circuit YAML), absent → nil (fall through to YAML).
+    return options[:use_digest_image_ref] unless options[:use_digest_image_ref].nil?
+
+    current&.dig(:use_digest_image_ref) == true
+  end
+
   private
 
   def ensure_current_config!

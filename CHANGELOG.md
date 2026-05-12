@@ -27,6 +27,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 ### Added
 
 - Added the GitHub Actions flow generator and readiness checks for staging, review-app, and production-promotion workflows. [PR 278](https://github.com/shakacode/control-plane-flow/pull/278) by [Justin Gordon](https://github.com/justin808).
+- Added `use-digest-image-ref` (also configurable through `use_digest_image_ref` in `controlplane.yml`) option to `deploy-image` and `promote-app-from-upstream` commands. [PR 249](https://github.com/shakacode/control-plane-flow/pull/249) by [Zakir Dzhamaliddinov](https://github.com/zzaakiirr).
 
 ### Changed
 
