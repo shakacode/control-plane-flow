@@ -17,14 +17,31 @@ describe Command::MaintenanceSetPage do
   end
 
   context "when maintenance workload uses external (non-shakacode) image" do
-    let!(:app) { dummy_test_app("external-maintenance-image") }
-
-    before do
-      run_cpflow_command!("apply-template", "app", "maintenance-with-external-image", "-a", app)
+    let(:app) { dummy_test_app("external-maintenance-image") }
+    let(:controlplane) { instance_spy(Controlplane) }
+    let(:maintenance_workload_data) do
+      {
+        "spec" => {
+          "containers" => [
+            {
+              "name" => "maintenance",
+              "env" => [
+                { "name" => "PORT", "value" => "3000" },
+                { "name" => "PAGE_URL", "value" => "https://hichee.com/maintenance.html" }
+              ],
+              "image" => "external-image"
+            }
+          ]
+        }
+      }
     end
 
-    after do
-      run_cpflow_command!("delete", "-a", app, "--yes")
+    before do
+      allow(Controlplane).to receive(:new).and_return(controlplane)
+      allow(controlplane)
+        .to receive(:fetch_workload!)
+        .with("maintenance-with-external-image")
+        .and_return(maintenance_workload_data)
     end
 
     it "does nothing" do
@@ -32,6 +49,8 @@ describe Command::MaintenanceSetPage do
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Setting '#{example_maintenance_page}' as the page for maintenance mode")
+      expect(controlplane).to have_received(:fetch_workload!).with("maintenance-with-external-image")
+      expect(controlplane).not_to have_received(:set_workload_env_var)
     end
   end
 
