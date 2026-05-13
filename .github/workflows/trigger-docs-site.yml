@@ -19,6 +19,8 @@ on:
     # Only use this for forcing a rebuild from main.
 
 concurrency:
+  # Include the ref so accidental non-main manual runs cannot cancel a main dispatch
+  # before the job guard skips them.
   group: ${{ github.workflow }}-${{ github.ref }}
   # Only the most recent docs dispatch for the same ref matters.
   # See CONTRIBUTING.md for manual cancellation/retry guidance.
@@ -63,6 +65,8 @@ jobs:
           DISPATCH_SHA: ${{ github.sha }}
         run: |
           safe_dispatch_reason=${DISPATCH_REASON//[^a-zA-Z0-9 _.\/-]/}
+          # Ref and SHA come from GitHub; the job guard restricts ref to main,
+          # and the SHA is the triggering commit id.
           {
             echo "### Docs site dispatch"
             echo "- Target repository: \`shakacode/controlplaneflow-com\`"
