@@ -270,13 +270,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "pins the +review-app-* commands in the PR-open message" do
       pr_open_help = pr_open_help_workflow_path.read
 
-      expect(pr_open_help).to include('"Repo owners, members, and collaborators can use these commands:"')
+      expect(pr_open_help).to include('"# Review app commands"')
       expect(pr_open_help).to include("- `+review-app-deploy` - create or redeploy this PR's review app.")
       expect(pr_open_help).to include("- `+review-app-delete` - delete this PR's review app and temporary resources.")
       expect(pr_open_help).to include("- `+review-app-help` - show setup details and workflow behavior.")
-      expect(pr_open_help).to include(
-        '"For setup details, repo owners, members, and collaborators can comment `+review-app-help`."'
-      )
+      expect(pr_open_help).to include('"For setup details, comment `+review-app-help`."')
     end
 
     it "pins the +review-app-* commands in the long-form help markdown" do
