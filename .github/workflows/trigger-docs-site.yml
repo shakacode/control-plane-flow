@@ -62,7 +62,7 @@ jobs:
           DISPATCH_REF: ${{ github.ref }}
           DISPATCH_SHA: ${{ github.sha }}
         run: |
-          safe_dispatch_reason=${DISPATCH_REASON//\`/}
+          safe_dispatch_reason=${DISPATCH_REASON//[^a-zA-Z0-9 _.\/-]/}
           {
             echo "### Docs site dispatch"
             echo "- Target repository: \`shakacode/controlplaneflow-com\`"
