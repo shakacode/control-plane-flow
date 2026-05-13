@@ -27,6 +27,33 @@ gem install overcommit
 overcommit --install
 ```
 
+## Docs Site Dispatch
+
+The `trigger-docs-site.yml` workflow notifies `shakacode/controlplaneflow-com` when docs-related files change on `main`.
+It requires these repository secrets:
+
+- `DOCS_DISPATCH_APP_ID`: the GitHub App ID used to create the dispatch token
+- `DOCS_DISPATCH_APP_KEY`: the GitHub App private key PEM for that app
+
+GitHub's REST docs for the repository dispatch endpoint list **Contents: Write** as the required repository permission for
+GitHub App installation tokens. This is separate from **Actions: Write**, which is used by other workflow APIs. Install
+the app on `shakacode/controlplaneflow-com` with **Contents: Write**. If the dispatch succeeds but the docs site does not
+rebuild, check the target repo's workflow runs for the matching `docs-updated` event.
+
+Manual runs should be started from `main`; non-main manual dispatches are skipped before token generation or docs-site
+notification. The GitHub Actions run can therefore finish without dispatching anything when a non-main ref is selected.
+The workflow deduplicates runs by workflow and ref with `cancel-in-progress: true`, so consecutive `main` runs can
+supersede one another; that is expected because the newest docs state wins.
+
+If the job fails and the summary shows `Dispatch outcome: skipped`, the dispatch step did not run because an earlier step
+failed. Check the `Generate GitHub App token` step first, including the App ID, private key secret, installation, and target
+repository permissions.
+
+If a manual dispatch is canceled and no later successful `main` run replaces it, re-trigger the manual run from `main`. If
+the run is canceled while the dispatch step is already executing, the target repo may already have received the event; check
+the target repo workflow runs before re-triggering. Duplicate dispatches are harmless, but they can rebuild the docs site
+twice.
+
 ## Testing
 
 We use real apps for the tests. You'll need to have full access to a Control Plane org, and then set it as the env var `CPLN_ORG` when running the tests (or in the `.env` file):

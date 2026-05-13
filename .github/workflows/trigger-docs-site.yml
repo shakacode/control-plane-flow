@@ -1,0 +1,90 @@
+name: Trigger docs site rebuild
+run-name: Docs dispatch (${{ github.event_name == 'workflow_dispatch' && inputs.reason || github.event_name }}) @ ${{ github.sha }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - CHANGELOG.md
+      - CONTRIBUTING.md
+      - docs/**
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for forcing a docs rebuild"
+        required: false
+        default: "manual"
+    # Non-main manual dispatches are skipped by the job guard below.
+    # Only use this for forcing a rebuild from main.
+
+concurrency:
+  # Include the ref so accidental non-main manual runs cannot cancel a main dispatch
+  # before the job guard skips them.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Only the most recent docs dispatch for the same ref matters.
+  # See CONTRIBUTING.md for manual cancellation/retry guidance.
+  cancel-in-progress: true
+
+jobs:
+  notify-docs-site:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # skip non-main workflow_dispatch runs
+    permissions: {}
+    timeout-minutes: 5
+    steps:
+      - name: Generate GitHub App token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.DOCS_DISPATCH_APP_ID }}
+          private-key: ${{ secrets.DOCS_DISPATCH_APP_KEY }}
+          owner: shakacode
+          repositories: controlplaneflow-com
+
+      - name: Dispatch docs-updated event
+        id: dispatch
+        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: shakacode/controlplaneflow-com
+          event-type: docs-updated
+          client-payload: |
+            {
+              "sha": ${{ toJSON(github.sha) }},
+              "ref": ${{ toJSON(github.ref) }},
+              "reason": ${{ toJSON(inputs.reason || github.event_name) }}
+            }
+
+      - name: Summarize docs dispatch
+        if: always()
+        env:
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
+          DISPATCH_REASON: ${{ inputs.reason || github.event_name }}
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          safe_dispatch_reason=${DISPATCH_REASON//[^a-zA-Z0-9 _.\/-]/}
+          # Ref and SHA come from GitHub; the job guard restricts ref to main,
+          # and the SHA is the triggering commit id.
+          {
+            echo "### Docs site dispatch"
+            echo "- Target repository: \`shakacode/controlplaneflow-com\`"
+            echo "- Event type: \`docs-updated\`"
+            echo "- Source ref: \`${DISPATCH_REF}\`"
+            echo "- Source SHA: \`${DISPATCH_SHA}\`"
+            echo "- Reason: \`${safe_dispatch_reason}\`"
+            echo "- Dispatch outcome: \`${DISPATCH_OUTCOME}\`"
+            echo
+            if [ "$DISPATCH_OUTCOME" = "success" ]; then
+              echo "Check the target repository workflow runs for downstream rebuild status."
+            elif [ "$DISPATCH_OUTCOME" = "skipped" ]; then
+              echo "Dispatch was skipped because a prior step did not complete successfully."
+            elif [ "$DISPATCH_OUTCOME" = "failure" ]; then
+              echo "Dispatch step failed. Inspect this job's logs and verify the App token has Contents: Write on the target repo."
+            elif [ "$DISPATCH_OUTCOME" = "cancelled" ]; then
+              echo "Dispatch step was interrupted mid-execution. Check the target repo's workflow runs because the event may or may not have been received."
+            else
+              echo "Dispatch outcome: ${DISPATCH_OUTCOME}. Inspect this job's logs before checking the target repository workflow runs."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -30,7 +30,7 @@ describe Command::LatestImage do
     end
   end
 
-  context "when images have been built" do
+  context "when images have been built", :slow do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
 
     it "displays latest image for app" do
