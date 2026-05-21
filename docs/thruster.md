@@ -27,7 +27,7 @@ User → HTTPS/HTTP2 → Thruster → HTTP/1.1 → Rails
 
 ```
 User → HTTPS/HTTP2 → Control Plane LB → HTTP/1.1 → Thruster → HTTP/1.1 → Rails
-                      (LB handles TLS)    (protocol: http)  (HTTP/2 features)
+                      (LB handles TLS)    (protocol: http)  (caching, compression)
 ```
 
 Thruster speaks HTTP/2 on the *frontend* (the TLS-terminated connection from the browser)
@@ -39,11 +39,11 @@ negotiation fails with `502 Bad Gateway`.
 
 Even with `protocol: http`, end users still get:
 
-- HTTP/2 to the browser (via the Control Plane load balancer)
-- Asset caching and compression
-- Efficient static file serving
-- Early hints support
-- HTTP/2 multiplexing
+- HTTP/2 to the browser (from the Control Plane load balancer)
+- HTTP/2 multiplexing (from the Control Plane load balancer)
+- Asset caching and compression (from Thruster)
+- Efficient static file serving (from Thruster)
+- Early hints support (from Thruster)
 
 ## Workload template
 
@@ -73,9 +73,12 @@ The workload port is set to `protocol: http2`. Change it to `protocol: http` and
 
 ### Verify Thruster is the process running as PID 1
 
+`/proc/1/cmdline` stores arguments NUL-separated with no trailing newline, so pipe it
+through `tr` to make the output readable:
+
 ```sh
 cpln workload exec <workload> --gvc <gvc> --org <org> --location <location> \
-  -- cat /proc/1/cmdline
+  -- sh -c "tr '\0' ' ' < /proc/1/cmdline && echo"
 ```
 
 You should see `thrust` in the output. If you see `rails` or `puma` directly, the
@@ -103,5 +106,5 @@ repository — see
 
 ## Further reading
 
-- Thruster: https://github.com/basecamp/thruster
-- DHH on Rails 8 with Thruster: https://world.hey.com/dhh/rails-8-with-thruster-by-default-c953f5e3
+- [Thruster on GitHub](https://github.com/basecamp/thruster)
+- [DHH on Rails 8 with Thruster](https://world.hey.com/dhh/rails-8-with-thruster-by-default-c953f5e3)
