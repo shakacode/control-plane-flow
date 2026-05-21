@@ -277,14 +277,69 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_workflow_path.read).to include(command_body_match_expression("+review-app-help"))
     end
 
+    it "reacts immediately to trusted review-app comment commands" do
+      review_contents = review_app_workflow_path.read
+      delete_contents = delete_review_workflow_path.read
+      help_contents = help_workflow_path.read
+
+      expect(review_contents).to include("React to deploy command")
+      expect(review_contents).to include("comment_id: context.payload.comment.id")
+      expect(review_contents).to include('content: "rocket"')
+
+      expect(delete_contents).to include("React to delete command")
+      expect(delete_contents).to include("comment_id: context.payload.comment.id")
+      expect(delete_contents).to include('content: "eyes"')
+
+      expect(help_contents).to include("React to help command")
+      expect(help_contents).to include("comment_id: context.payload.comment.id")
+      expect(help_contents).to include('content: "eyes"')
+    end
+
+    it "uses rich review-app deployment comment formatting" do
+      contents = review_app_workflow_path.read
+
+      expect(contents).to include("## 🚀 Starting deployment process...")
+      expect(contents).to include("🏗️ Building Docker image for PR #${process.env.PR_NUMBER}")
+      expect(contents).to include("📝 [View Build Logs]")
+      expect(contents).to include("🎮 [Control Plane Console]")
+      expect(contents).to include("## 🚀 Deploying to Control Plane...")
+      expect(contents).to include("**Waiting for deployment to be ready...**")
+      expect(contents).to include("## 🎉 ✨ Deploy Complete! 🚀")
+      expect(contents).to include("### 🌐 [**➡️ Open Review App**]")
+      expect(contents).to include(
+        "_Deployment successful for PR #${process.env.PR_NUMBER}, commit ${process.env.PR_SHA}_"
+      )
+      expect(contents).to include("📋 [View Completed Action Build and Deploy Logs]")
+    end
+
+    it "supports an animated deploy status icon with a repository override" do
+      contents = review_app_workflow_path.read
+
+      expect(contents).to include("DEPLOYING_ICON_URL: ${{ vars.REVIEW_APP_DEPLOYING_ICON_URL }}")
+      expect(contents).to include("DEFAULT_DEPLOYING_ICON_URL")
+      expect(contents).to include(
+        "https://raw.githubusercontent.com/shakacode/control-plane-flow/main/docs/assets/cpflow-deploying.svg"
+      )
+      expect(contents).to include('<img src="${deployingIconUrl}" alt="Deploying" width="20" height="20" />')
+    end
+
+    it "ships the default animated deployment icon asset" do
+      asset_path = Pathname.new(__dir__).join("../../docs/assets/cpflow-deploying.svg").expand_path
+
+      expect(asset_path).to exist
+      expect(asset_path.read).to include("<animateTransform")
+    end
+
     it "pins the +review-app-* commands in the PR-open message" do
       pr_open_help = pr_open_help_workflow_path.read
 
-      expect(pr_open_help).to include('"# Review app commands"')
-      expect(pr_open_help).to include("- `+review-app-deploy` - create or redeploy this PR's review app.")
-      expect(pr_open_help).to include("- `+review-app-delete` - delete this PR's review app and temporary resources.")
-      expect(pr_open_help).to include("- `+review-app-help` - show setup details and workflow behavior.")
-      expect(pr_open_help).to include('"For setup details, comment `+review-app-help`."')
+      expect(pr_open_help).to include('"# 🚀 Quick Review App Commands"')
+      expect(pr_open_help).to include('"### `+review-app-deploy`"')
+      expect(pr_open_help).to include('"Deploy your PR branch for testing."')
+      expect(pr_open_help).to include('"### `+review-app-delete`"')
+      expect(pr_open_help).to include('"Remove the review app when done."')
+      expect(pr_open_help).to include('"### `+review-app-help`"')
+      expect(pr_open_help).to include('"Show detailed instructions, environment setup, and configuration options."')
     end
 
     it "pins the +review-app-* commands in the long-form help markdown" do
@@ -301,6 +356,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = help_md_path.read
       expect(contents).to include("DOCKER_BUILD_EXTRA_ARGS")
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
+    end
+
+    it "documents the review-app deploying icon override in the help markdown" do
+      help_md = playground.join(".github/cpflow-help.md").read
+
+      expect(help_md).to include("REVIEW_APP_DEPLOYING_ICON_URL")
+      expect(help_md).to include("Set to `none` to use the text fallback icon.")
     end
 
     it "wires Docker build inputs through the staging workflow" do
