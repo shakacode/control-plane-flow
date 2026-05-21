@@ -282,7 +282,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location} -it"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
-    perform!(cmd, output_mode: :all)
+    perform(cmd, output_mode: :all)
   end
 
   def start_cron_workload(workload, job_start_yaml, location:)

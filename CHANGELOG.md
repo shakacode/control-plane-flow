@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed broken UX when `cpflow run` interactive bash session ends with a non-zero status from the upstream `cpln workload exec` (e.g. "Failed to create terminal session"). Instead of compounding the upstream message with a generic "Command exited with non-zero status" error and exit code 64, cpflow now treats the upstream exit as informational and prints a hint with the exact `cpflow ps:stop` command to clean up the runner workload if it is still active. Fixes [issue 199](https://github.com/shakacode/control-plane-flow/issues/199). By [Justin Gordon](https://github.com/justin808).
+
 ## [5.0.0.rc.2] - 2026-05-23
 
 ### Added

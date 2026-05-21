@@ -265,7 +265,23 @@ module Command
 
     def run_interactive
       progress.puts("Connecting to replica '#{replica}'...\n\n")
-      cp.workload_exec(runner_workload, replica, location: location, container: container, command: command)
+      success = cp.workload_exec(runner_workload, replica, location: location, container: container, command: command)
+      return if success
+
+      # Upstream cpln CLI occasionally exits non-zero on session close (see issue #199).
+      # The bash session has usually exited cleanly, so guide the user on cleanup
+      # instead of aborting with a generic error.
+      print_interactive_cleanup_hint
+    end
+
+    def print_interactive_cleanup_hint
+      app_workload_replica_config = app_workload_replica_args.join(" ")
+      progress.puts(Shell.color(
+                      "\nThe interactive session ended with a non-zero status from the upstream CLI. " \
+                      "If the runner workload is still running, stop it with:\n" \
+                      "  `cpflow ps:stop #{app_workload_replica_config}`",
+                      :yellow
+                    ))
     end
 
     def run_non_interactive
