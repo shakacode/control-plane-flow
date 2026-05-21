@@ -29,7 +29,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- Fixed `deploy-image` showing container names instead of workload names in the "Deploying image..." steps and the "Deployed endpoints" summary when a workload's name differs from its container's name. The deployment behavior is unchanged; only the display was incorrect. [Issue 255](https://github.com/shakacode/control-plane-flow/issues/255).
+- Fixed `deploy-image` showing container names instead of workload names in the "Deploying image..." steps and the "Deployed endpoints" summary when a workload's name differs from its container's name. The deployment behavior is unchanged; only the display was incorrect. Fixes [Issue 255](https://github.com/shakacode/control-plane-flow/issues/255). [PR 294](https://github.com/shakacode/control-plane-flow/pull/294) by [Justin Gordon](https://github.com/justin808).
 - **Relaxed `thor` runtime dependency from `~> 1.4` to `~> 1.3`** so cpflow can be bundled into Rails 8 apps that pull in `solid_queue` 1.1.0 (Rails 8.0.x default), which pins `thor ~> 1.3.1`. The previous `~> 1.4` constraint had zero overlap with that pin and forced users to install cpflow globally instead of adding it to the Gemfile. [Issue 264](https://github.com/shakacode/control-plane-flow/issues/264) / [PR 291](https://github.com/shakacode/control-plane-flow/pull/291) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.0.0.rc.1] - 2026-05-11
