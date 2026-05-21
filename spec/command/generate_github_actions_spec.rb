@@ -223,6 +223,33 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
     end
 
+    # Issue #293: GitHub parses ${{ ... }} inside composite action `description:` fields
+    # while loading the manifest, where `vars` is unavailable. Any literal expression
+    # syntax there makes the entire action fail to load before workflow steps run.
+    it "keeps GitHub expression syntax out of composite action metadata descriptions" do
+      action_paths = Dir.glob(playground.join(".github/actions/*/action.yml").to_s).sort
+      expect(action_paths).not_to be_empty
+
+      violations = action_paths.flat_map do |path|
+        metadata = YAML.load_file(path, aliases: true)
+        described = []
+        described << ["description", metadata["description"]]
+        (metadata["inputs"] || {}).each do |name, spec|
+          described << ["inputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
+        end
+        (metadata["outputs"] || {}).each do |name, spec|
+          described << ["outputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
+        end
+        described
+          .select { |_key, value| value.is_a?(String) && value.include?("${{") }
+          .map { |key, value| "#{path}: #{key} contains #{value.inspect}" }
+      end
+
+      expect(violations).to be_empty,
+                            "Composite action descriptions must not embed GitHub expression syntax " \
+                            "(see issue #293):\n#{violations.join("\n")}"
+    end
+
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 
