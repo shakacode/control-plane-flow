@@ -70,4 +70,56 @@ describe Command::DeployImage do
       end
     end
   end
+
+  describe "#call" do
+    let(:config) do
+      instance_double(
+        Config,
+        app: "test-app",
+        org: "test-org",
+        options: { run_release_phase: false },
+        use_digest_image_ref?: false
+      )
+    end
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+    let(:workload_data) do
+      {
+        "name" => "frontend",
+        "spec" => {
+          "containers" => [
+            { "name" => "rails", "image" => "/org/test-org/image/test-app:1" }
+          ]
+        },
+        "status" => { "endpoint" => "https://frontend-test.cpln.app" }
+      }
+    end
+
+    before do
+      allow(config).to receive(:[]).with(:app_workloads).and_return(["frontend"])
+      allow(cp).to receive(:fetch_workload!).with("frontend").and_return(workload_data)
+      allow(cp).to receive_messages(
+        latest_image: "test-app:1",
+        fetch_image_details: { "digest" => "sha256:#{'a' * 64}" },
+        workload_set_image_ref: true
+      )
+      allow(command).to receive(:cp).and_return(cp)
+      allow(Resolv).to receive(:getaddress).and_return("1.2.3.4")
+    end
+
+    it "shows the workload name in the deploy step message, not the container name" do
+      expect { command.call }.to output(/Deploying image 'test-app:1' for workload 'frontend'/).to_stderr
+    end
+
+    it "lists the workload name in the deployed endpoints section, not the container name" do
+      expect { command.call }.to output(%r{- frontend: https://frontend-test\.cpln\.app}).to_stderr
+    end
+
+    it "uses the container name for the API call that updates the image ref" do
+      command.call
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+    end
+  end
 end
