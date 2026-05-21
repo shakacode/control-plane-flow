@@ -35,7 +35,14 @@ describe Command::Run do
           expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
         end
 
-        expect(progress).to have_received(:puts).with(include("cpflow ps:stop"))
+        expect(progress).to have_received(:puts).with(
+          satisfy do |msg|
+            msg.include?("cpflow ps:stop") &&
+              msg.include?("-a test-app") &&
+              msg.include?("--workload rails-runner") &&
+              msg.include?("--replica rails-runner-12345")
+          end
+        )
       end
     end
 
