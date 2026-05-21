@@ -95,7 +95,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
   end
 
   def generated_yaml_paths
-    Dir.glob(playground.join(".github/**/*.yml")).sort
+    Dir.glob(playground.join(".github/**/*.yml"))
   end
 
   def shared_yaml_paths

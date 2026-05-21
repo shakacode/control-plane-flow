@@ -45,7 +45,7 @@ module RepoIntrospection
     path = File.join(root, "Gemfile")
     return unless File.file?(path)
 
-    ruby_lines = File.readlines(path, chomp: true).select { |line| line.match?(RUBY_VERSION_DIRECTIVE_PREFIX) }
+    ruby_lines = File.readlines(path, chomp: true).grep(RUBY_VERSION_DIRECTIVE_PREFIX)
     ruby_line = ruby_lines.find { |line| line.match?(RUBY_VERSION_DIRECTIVE_PATTERN) }
     warn_dynamic_ruby_directive if ruby_lines.any? && ruby_line.nil?
     return unless ruby_line
@@ -103,6 +103,7 @@ module RepoIntrospection
 
   # Returns true/false when a direct `url` or `adapter` key is conclusive, or nil
   # when neither key is present so the caller can check nested sub-configs.
+  # rubocop:disable Style/ReturnNilInPredicateMethodDefinition -- ternary nil/true/false is load-bearing for the caller
   def self.direct_sqlite_database_config?(config)
     url = config["url"]
     return sqlite_database_url?(url) if url.is_a?(String) && !url.strip.empty?
@@ -111,6 +112,7 @@ module RepoIntrospection
 
     nil
   end
+  # rubocop:enable Style/ReturnNilInPredicateMethodDefinition
 
   def self.nested_sqlite_database_config?(config)
     # In Rails multi-database configs, hash values with adapter/url keys are named

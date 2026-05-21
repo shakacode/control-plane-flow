@@ -226,6 +226,9 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     version.is_a?(String) && version.match?(/\A\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\z/)
   end
 
+  # Returns true/false/nil — `nil` means "registry lookup failed" so partition_dependencies
+  # can route those into :unknown rather than :unavailable.
+  # rubocop:disable Style/ReturnNilInPredicateMethodDefinition, Naming/PredicateMethod
   def rubygems_requirement_available?(dependency)
     versions = fetch_rubygems_versions(dependency[:name])
     return nil unless versions
@@ -240,6 +243,7 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
 
     versions.include?(dependency[:exact_version])
   end
+  # rubocop:enable Style/ReturnNilInPredicateMethodDefinition, Naming/PredicateMethod
 
   # Fan out registry lookups across a small thread pool. Each HTTP call has a 5s timeout
   # (see `http_get`), and the join deadline below bounds cases such as DNS resolution

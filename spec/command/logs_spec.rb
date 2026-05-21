@@ -16,10 +16,10 @@ describe Command::Logs do
       logs_result = nil
       logs_regex = /Rails .+? application starting in production/
 
-      spawn_cpflow_command("logs", "-a", app) do |it|
-        message_result = it.wait_for(message_regex)
-        logs_result = it.wait_for(logs_regex)
-        it.kill
+      spawn_cpflow_command("logs", "-a", app) do |process|
+        message_result = process.wait_for(message_regex)
+        logs_result = process.wait_for(logs_regex)
+        process.kill
       end
 
       expect(message_result).to include("Fetching logs for workload 'rails'")
@@ -33,10 +33,10 @@ describe Command::Logs do
       logs_result = nil
       logs_regex = /PostgreSQL init process complete/
 
-      spawn_cpflow_command("logs", "-a", app, "--workload", "postgres") do |it|
-        message_result = it.wait_for(message_regex)
-        logs_result = it.wait_for(logs_regex)
-        it.kill
+      spawn_cpflow_command("logs", "-a", app, "--workload", "postgres") do |process|
+        message_result = process.wait_for(message_regex)
+        logs_result = process.wait_for(logs_regex)
+        process.kill
       end
 
       expect(message_result).to include("Fetching logs for workload 'postgres'")
@@ -58,10 +58,10 @@ describe Command::Logs do
       logs_result = nil
       logs_regex = /PostgreSQL init process complete/
 
-      spawn_cpflow_command("logs", "-a", app, "--workload", "postgres", "--replica", replica) do |it|
-        message_result = it.wait_for(message_regex)
-        logs_result = it.wait_for(logs_regex)
-        it.kill
+      spawn_cpflow_command("logs", "-a", app, "--workload", "postgres", "--replica", replica) do |process|
+        message_result = process.wait_for(message_regex)
+        logs_result = process.wait_for(logs_regex)
+        process.kill
       end
 
       expect(message_result).to include("Fetching logs for replica '#{replica}'")
@@ -86,9 +86,9 @@ describe Command::Logs do
     it "displays correct number of entries", :slow do
       result = nil
 
-      spawn_cpflow_command(*cmd_args[:logs], "--limit", "5") do |it|
-        result = it.wait_for(/Line 9/)
-        it.kill
+      spawn_cpflow_command(*cmd_args[:logs], "--limit", "5") do |process|
+        result = process.wait_for(/Line 9/)
+        process.kill
       end
 
       expect(result).not_to match(/Line [0-4]/)
@@ -113,9 +113,9 @@ describe Command::Logs do
     it "displays entries from correct duration", :slow do
       result = nil
 
-      spawn_cpflow_command(*cmd_args[:logs], "--since", "30s") do |it|
-        result = it.wait_for(/Line 2/)
-        it.kill
+      spawn_cpflow_command(*cmd_args[:logs], "--since", "30s") do |process|
+        result = process.wait_for(/Line 2/)
+        process.kill
       end
 
       expect(result).not_to include("Line 1")

@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe Command::Maintenance do
-  include_examples "validates domain existence", command: "maintenance"
+  it_behaves_like "validates domain existence", command: "maintenance"
 
   context "when app has domain" do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }

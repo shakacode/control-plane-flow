@@ -26,11 +26,11 @@ describe Command::Run do
         result = nil
         expected_regex = /Gemfile/
 
-        spawn_cpflow_command("run", "-a", app, "--interactive", "--", "bash") do |it|
-          it.wait_for_prompt
-          it.type("ls")
-          result = it.wait_for(expected_regex)
-          it.type("exit")
+        spawn_cpflow_command("run", "-a", app, "--interactive", "--", "bash") do |process|
+          process.wait_for_prompt
+          process.type("ls")
+          result = process.wait_for(expected_regex)
+          process.type("exit")
         end
 
         expect(result).to match(expected_regex)
@@ -54,11 +54,11 @@ describe Command::Run do
         result = nil
         expected_regex = /10 150/
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "bash", stty_rows: 10, stty_cols: 150) do |it|
-          it.wait_for_prompt
-          it.type("stty size")
-          result = it.wait_for(expected_regex)
-          it.type("exit")
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "bash", stty_rows: 10, stty_cols: 150) do |process|
+          process.wait_for_prompt
+          process.type("stty size")
+          result = process.wait_for(expected_regex)
+          process.type("exit")
         end
 
         expect(result).to match(expected_regex)
@@ -72,11 +72,11 @@ describe Command::Run do
         result = nil
         expected_regex = /20 300/
 
-        spawn_cpflow_command("run", "-a", app, "--entrypoint", "bash", "--terminal-size", "20,300") do |it|
-          it.wait_for_prompt
-          it.type("stty size")
-          result = it.wait_for(expected_regex)
-          it.type("exit")
+        spawn_cpflow_command("run", "-a", app, "--entrypoint", "bash", "--terminal-size", "20,300") do |process|
+          process.wait_for_prompt
+          process.type("stty size")
+          result = process.wait_for(expected_regex)
+          process.type("exit")
         end
 
         expect(result).to match(expected_regex)

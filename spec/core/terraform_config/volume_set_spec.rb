@@ -42,7 +42,7 @@ describe TerraformConfig::VolumeSet do
     end
 
     context "with storage_class_suffix" do
-      let(:config) { described_class.new(**options.merge(storage_class_suffix: "suffix")) }
+      let(:config) { described_class.new(**options, storage_class_suffix: "suffix") }
 
       it "includes storage_class_suffix in the config" do
         expect(generated).to include('storage_class_suffix = "suffix"')
@@ -51,13 +51,11 @@ describe TerraformConfig::VolumeSet do
 
     context "with snapshots" do
       let(:config) do
-        described_class.new(**options.merge(
-          snapshots: {
-            create_final_snapshot: true,
-            retention_duration: "7d",
-            schedule: "0 1 * * *"
-          }
-        ))
+        described_class.new(**options, snapshots: {
+                              create_final_snapshot: true,
+                              retention_duration: "7d",
+                              schedule: "0 1 * * *"
+                            })
       end
 
       it "includes snapshots block in the config" do
@@ -75,13 +73,11 @@ describe TerraformConfig::VolumeSet do
 
     context "with autoscaling" do
       let(:config) do
-        described_class.new(**options.merge(
-          autoscaling: {
-            max_capacity: 100,
-            min_free_percentage: 20,
-            scaling_factor: 1.5
-          }
-        ))
+        described_class.new(**options, autoscaling: {
+                              max_capacity: 100,
+                              min_free_percentage: 20,
+                              scaling_factor: 1.5
+                            })
       end
 
       it "includes autoscaling block in the config" do
@@ -101,55 +97,55 @@ describe TerraformConfig::VolumeSet do
   describe "validations" do
     shared_examples "an invalid parameter" do |param, value, err_msg|
       it "raises an error for invalid #{param}" do
-        expect { described_class.new(**options.merge(param => value)) }.to raise_error(ArgumentError, err_msg)
+        expect { described_class.new(**options, param => value) }.to raise_error(ArgumentError, err_msg)
       end
     end
 
-    include_examples "an invalid parameter", :initial_capacity, 5, "Initial capacity should be >= 10"
-    include_examples "an invalid parameter", :initial_capacity, "10", "Initial capacity must be numeric"
+    it_behaves_like "an invalid parameter", :initial_capacity, 5, "Initial capacity should be >= 10"
+    it_behaves_like "an invalid parameter", :initial_capacity, "10", "Initial capacity must be numeric"
 
-    include_examples "an invalid parameter",
-                     :performance_class, "invalid",
-                     "Invalid performance class: invalid. Choose from general-purpose-ssd, high-throughput-ssd"
+    it_behaves_like "an invalid parameter",
+                    :performance_class, "invalid",
+                    "Invalid performance class: invalid. Choose from general-purpose-ssd, high-throughput-ssd"
 
-    include_examples "an invalid parameter",
-                     :file_system_type, "invalid",
-                     "Invalid file system type: invalid. Choose from xfs, ext4"
+    it_behaves_like "an invalid parameter",
+                    :file_system_type, "invalid",
+                    "Invalid file system type: invalid. Choose from xfs, ext4"
   end
 
   describe "autoscaling validations" do
     shared_examples "invalid autoscaling parameter" do |autoscaling_options, err_msg|
       it "raises an error" do
-        expect { described_class.new(**options.merge(autoscaling: autoscaling_options)) }.to raise_error(
+        expect { described_class.new(**options, autoscaling: autoscaling_options) }.to raise_error(
           ArgumentError, err_msg
         )
       end
     end
 
     context "with invalid max_capacity" do
-      include_examples "invalid autoscaling parameter", { max_capacity: 5 }, "autoscaling.max_capacity should be >= 10"
+      it_behaves_like "invalid autoscaling parameter", { max_capacity: 5 }, "autoscaling.max_capacity should be >= 10"
 
-      include_examples "invalid autoscaling parameter", { max_capacity: "100" },
-                       "autoscaling.max_capacity must be numeric"
+      it_behaves_like "invalid autoscaling parameter", { max_capacity: "100" },
+                      "autoscaling.max_capacity must be numeric"
     end
 
     context "with invalid min_free_percentage" do
-      include_examples "invalid autoscaling parameter", { min_free_percentage: 0 },
-                       "autoscaling.min_free_percentage should be between 1 and 100"
+      it_behaves_like "invalid autoscaling parameter", { min_free_percentage: 0 },
+                      "autoscaling.min_free_percentage should be between 1 and 100"
 
-      include_examples "invalid autoscaling parameter", { min_free_percentage: 101 },
-                       "autoscaling.min_free_percentage should be between 1 and 100"
+      it_behaves_like "invalid autoscaling parameter", { min_free_percentage: 101 },
+                      "autoscaling.min_free_percentage should be between 1 and 100"
 
-      include_examples "invalid autoscaling parameter", { min_free_percentage: "50" },
-                       "autoscaling.min_free_percentage must be numeric"
+      it_behaves_like "invalid autoscaling parameter", { min_free_percentage: "50" },
+                      "autoscaling.min_free_percentage must be numeric"
     end
 
     context "with invalid scaling_factor" do
-      include_examples "invalid autoscaling parameter", { scaling_factor: 1.0 },
-                       "autoscaling.scaling_factor should be >= 1.1"
+      it_behaves_like "invalid autoscaling parameter", { scaling_factor: 1.0 },
+                      "autoscaling.scaling_factor should be >= 1.1"
 
-      include_examples "invalid autoscaling parameter", { scaling_factor: "1.5" },
-                       "autoscaling.scaling_factor must be numeric"
+      it_behaves_like "invalid autoscaling parameter", { scaling_factor: "1.5" },
+                      "autoscaling.scaling_factor must be numeric"
     end
 
     context "with valid autoscaling values" do
