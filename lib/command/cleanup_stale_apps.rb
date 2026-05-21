@@ -81,8 +81,7 @@ module Command
     def confirm_action
       return true if config.options[:yes]
 
-      verb = mode == "stop" ? "stop" : "delete"
-      Shell.confirm("\nAre you sure you want to #{verb} these #{stale_apps.length} apps?")
+      Shell.confirm("\nAre you sure you want to #{mode} these #{stale_apps.length} apps?")
     end
 
     def process_app(app)
@@ -94,7 +93,7 @@ module Command
     end
 
     def mode
-      config.options[:mode] || "delete"
+      config.options[:mode]
     end
   end
 end

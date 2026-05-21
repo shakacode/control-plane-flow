@@ -73,7 +73,7 @@ describe Command::CleanupStaleApps do
     end
   end
 
-  context "when there are stale apps to delete" do
+  context "when there are stale apps" do
     let!(:app1) { dummy_test_app("stale-app") }
     let!(:app2) { dummy_test_app("stale-app") }
 
@@ -114,8 +114,21 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).not_to include("Stopping workload")
     end
 
+    it "asks for confirmation and stops stale apps when --mode=stop", :slow do
+      allow(Shell).to receive(:confirm).with(include("stop these 2 apps")).and_return(true)
+
+      travel_to_days_later(30)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting app")
+      expect(result[:stderr]).to match(/Stopping workload 'postgres'[.]+? done!/)
+    end
+
     it "asks for confirmation and deletes stale apps", :slow do
-      allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(true)
+      allow(Shell).to receive(:confirm).with(include("delete these 2 apps")).and_return(true)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
