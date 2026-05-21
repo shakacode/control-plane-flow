@@ -626,6 +626,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("grep -qE")
     end
 
+    it "emits a friendly error before reading a missing controlplane.yml" do
+      contents = detect_release_action_path.read
+
+      expect(contents).to include('unless File.file?(".controlplane/controlplane.yml")')
+      expect(contents).to include(".controlplane/controlplane.yml` is missing")
+    end
+
     it "makes pull_request_target config validation skip cleanly when setup is incomplete" do
       contents = shared_action_path("cpflow-validate-config").read
 
