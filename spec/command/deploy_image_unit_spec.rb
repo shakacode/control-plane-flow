@@ -121,5 +121,29 @@ describe Command::DeployImage do
       expect(cp).to have_received(:workload_set_image_ref)
         .with("frontend", container: "rails", image: "test-app:1")
     end
+
+    context "when a workload has multiple containers matching the app image" do
+      let(:workload_data) do
+        {
+          "name" => "frontend",
+          "spec" => {
+            "containers" => [
+              { "name" => "rails", "image" => "/org/test-org/image/test-app:1" },
+              { "name" => "rails-sidecar", "image" => "/org/test-org/image/test-app:1" }
+            ]
+          },
+          "status" => { "endpoint" => "https://frontend-test.cpln.app" }
+        }
+      end
+
+      it "deploys only the first matching container to avoid duplicate steps per workload" do
+        command.call
+
+        expect(cp).to have_received(:workload_set_image_ref)
+          .with("frontend", container: "rails", image: "test-app:1").once
+        expect(cp).not_to have_received(:workload_set_image_ref)
+          .with("frontend", container: "rails-sidecar", image: "test-app:1")
+      end
+    end
   end
 end

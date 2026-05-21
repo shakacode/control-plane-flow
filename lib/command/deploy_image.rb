@@ -35,6 +35,9 @@ module Command
             cp.workload_set_image_ref(workload, container: container_name, image: image)
             deployed_endpoints[workload] = endpoint_for_workload(workload_data)
           end
+          # Deploy the first matching app-image container per workload; CPLN workloads
+          # are expected to have a single container that runs the app image.
+          break
         end
       end
 
