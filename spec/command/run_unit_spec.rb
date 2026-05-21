@@ -29,14 +29,26 @@ describe Command::Run do
       end
     end
 
-    context "when cpln workload exec exits with a non-zero status" do
-      let(:exec_success) { false }
-
-      it "prints a cleanup hint instead of aborting" do
-        expect { command.send(:run_interactive) }.not_to raise_error
+    shared_examples "an aborted interactive session" do
+      it "prints the cleanup hint instead of the generic error" do
+        expect { command.send(:run_interactive) }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+        end
 
         expect(progress).to have_received(:puts).with(include("cpflow ps:stop"))
       end
+    end
+
+    context "when cpln workload exec exits with a non-zero status" do
+      let(:exec_success) { false }
+
+      it_behaves_like "an aborted interactive session"
+    end
+
+    context "when cpln workload exec is killed by a signal" do
+      let(:exec_success) { nil }
+
+      it_behaves_like "an aborted interactive session"
     end
   end
 end

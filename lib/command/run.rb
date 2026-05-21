@@ -265,19 +265,25 @@ module Command
 
     def run_interactive
       progress.puts("Connecting to replica '#{replica}'...\n\n")
+      # `workload_exec` returns true on clean exit, false on non-zero exit, or nil if the
+      # upstream process was killed by a signal / hit a SystemCallError. Only `true`
+      # counts as success — both falsy values fall through to the cleanup hint.
       success = cp.workload_exec(runner_workload, replica, location: location, container: container, command: command)
       return if success
 
-      # Upstream cpln CLI occasionally exits non-zero on session close (see issue #199).
-      # The bash session has usually exited cleanly, so guide the user on cleanup
-      # instead of aborting with a generic error.
+      # The upstream cpln CLI occasionally exits abnormally on session close (e.g.
+      # "Failed to create terminal session"; see issue #199). The bash session has
+      # usually ended cleanly, so replace the generic "Command exited with non-zero
+      # status" error with an actionable cleanup hint, but still propagate a non-zero
+      # exit so scripted callers can detect genuine failures.
       print_interactive_cleanup_hint
+      exit(ExitCode::ERROR_DEFAULT)
     end
 
     def print_interactive_cleanup_hint
       app_workload_replica_config = app_workload_replica_args.join(" ")
       progress.puts(Shell.color(
-                      "\nThe interactive session ended with a non-zero status from the upstream CLI. " \
+                      "\nThe interactive session ended with a non-zero exit or signal from the upstream CLI. " \
                       "If the runner workload is still running, stop it with:\n" \
                       "  `cpflow ps:stop #{app_workload_replica_config}`",
                       :yellow
