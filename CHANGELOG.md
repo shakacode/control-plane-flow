@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Updated generated GitHub Actions workflow templates to Node 24-compatible action versions** by using `actions/checkout@v6` and `actions/github-script@v8`. [PR 303](https://github.com/shakacode/control-plane-flow/pull/303) by [Justin Gordon](https://github.com/justin808).
+
 ### Fixed
 
 - **Relaxed `thor` runtime dependency from `~> 1.4` to `~> 1.3`** so cpflow can be bundled into Rails 8 apps that pull in `solid_queue` 1.1.0 (Rails 8.0.x default), which pins `thor ~> 1.3.1`. The previous `~> 1.4` constraint had zero overlap with that pin and forced users to install cpflow globally instead of adding it to the Gemfile. [Issue 264](https://github.com/shakacode/control-plane-flow/issues/264) / [PR 291](https://github.com/shakacode/control-plane-flow/pull/291) by [Justin Gordon](https://github.com/justin808).

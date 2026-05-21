@@ -95,6 +95,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
     end
 
+    it "uses Node 24 action versions in generated workflows" do
+      contents = generated_yaml_paths.map { |path| File.read(path) }.join("\n")
+
+      expect(contents).to include("actions/checkout@v6")
+      expect(contents).to include("actions/github-script@v8")
+      expect(contents).not_to include("actions/checkout@v4")
+      expect(contents).not_to include("actions/checkout@v5")
+      expect(contents).not_to include("actions/github-script@v7")
+    end
+
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 
