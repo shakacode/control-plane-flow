@@ -10,6 +10,9 @@ spec:
       memory: 512Mi
       ports:
         - number: 3000
+          # Keep this as `http` even when fronting Rails with Thruster — the Control Plane
+          # load balancer still serves HTTP/2 to end users. Setting `http2` here causes
+          # `502 Bad Gateway` with "protocol error". See docs/thruster.md for details.
           protocol: http
       volumes:
         - path: /app/db

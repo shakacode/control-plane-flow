@@ -65,6 +65,7 @@ Additionally, the documentation includes numerous examples and practical tips fo
 14. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
 15. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)
 16. [Tips](https://www.shakacode.com/control-plane-flow/docs/tips/)
+17. [Thruster HTTP/2 Proxy on Control Plane](https://www.shakacode.com/control-plane-flow/docs/thruster/)
 
 ## Key Features
 
