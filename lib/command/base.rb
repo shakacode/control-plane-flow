@@ -502,6 +502,20 @@ module Command
         }
       }
     end
+
+    def self.cleanup_mode_option(required: false)
+      {
+        name: :mode,
+        params: {
+          banner: "MODE",
+          desc: "Action to take on stale apps: `delete` (default) or `stop`",
+          type: :string,
+          required: required,
+          default: "delete",
+          valid_regex: /^(delete|stop)$/
+        }
+      }
+    end
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options

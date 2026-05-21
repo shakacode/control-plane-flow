@@ -5,17 +5,27 @@ module Command
     NAME = "cleanup-stale-apps"
     OPTIONS = [
       app_option(required: true),
-      skip_confirm_option
+      skip_confirm_option,
+      cleanup_mode_option
     ].freeze
-    DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps"
+    DESCRIPTION = "Deletes or stops stale apps based on the latest image's creation date"
     LONG_DESCRIPTION = <<~DESC
-      - Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
-      - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
-      - Stale apps are identified based on the creation date of the latest image, or the GVC if no images exist
+      - Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
+      - With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy as long as both the identity and the policy exist (and are bound)
+      - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` so the app can be resumed later with `cpflow ps:start` — no GVC, volumeset, or image is removed
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
-      - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
+      - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will act on all stale apps that start with the name
       - Will ask for explicit user confirmation
     DESC
+    EXAMPLES = <<~EX
+      ```sh
+      # Deletes stale apps (default).
+      cpflow cleanup-stale-apps -a $APP_NAME
+
+      # Stops stale apps instead of deleting them; resume with `cpflow ps:start`.
+      cpflow cleanup-stale-apps -a $APP_NAME --mode=stop
+      ```
+    EX
 
     def call # rubocop:disable Metrics/MethodLength
       return progress.puts("No stale apps found.") if stale_apps.empty?
@@ -25,11 +35,11 @@ module Command
         progress.puts("  - #{app[:name]} (#{Shell.color(app[:date].to_s, :red)})")
       end
 
-      return unless confirm_delete
+      return unless confirm_action
 
       progress.puts
       stale_apps.each do |app|
-        delete_app(app[:name])
+        process_app(app[:name])
         progress.puts
       end
     end
@@ -68,14 +78,23 @@ module Command
         end
     end
 
-    def confirm_delete
+    def confirm_action
       return true if config.options[:yes]
 
-      Shell.confirm("\nAre you sure you want to delete these #{stale_apps.length} apps?")
+      verb = mode == "stop" ? "stop" : "delete"
+      Shell.confirm("\nAre you sure you want to #{verb} these #{stale_apps.length} apps?")
     end
 
-    def delete_app(app)
-      run_cpflow_command("delete", "-a", app, "--yes")
+    def process_app(app)
+      if mode == "stop"
+        run_cpflow_command("ps:stop", "-a", app)
+      else
+        run_cpflow_command("delete", "-a", app, "--yes")
+      end
+    end
+
+    def mode
+      config.options[:mode] || "delete"
     end
   end
 end
