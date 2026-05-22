@@ -207,6 +207,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}")
       expect(contents).to include("CPFLOW_VERSION: ${{ inputs.cpflow_version }}")
       expect(contents).to include("ruby/setup-ruby intentionally tracks the v1 tag")
+      expect(contents).to include('default_ruby_version="3.2"')
+      expect(contents).to include("minimum-supported Ruby advances")
+      expect(contents).to include("ruby-version: ${{ steps.ruby-version.outputs.ruby_version }}")
+      expect(contents).to include("${working_directory}/mise.toml")
+      expect(contents).to include("${working_directory}/.mise.toml")
+      expect(contents).to include('grep -Eq "^[[:space:]]*ruby[[:space:]]+" "${working_directory}/.tool-versions"')
       expect(contents).to include('npm_global_prefix="${HOME}/.npm-global"')
       expect(contents).to include('echo "${npm_global_prefix}/bin" >> "$GITHUB_PATH"')
       expect(contents).to include(
@@ -300,6 +306,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
       expect(setup_action_path.read).to include(
         "working-directory: ${{ inputs.working_directory }}"
+      )
+      expect(setup_action_path.read).to include(
+        'grep -Eq "^[[:space:]]*ruby[[:space:]]*(\(|file:|[\'\"])" "${working_directory}/Gemfile"'
       )
     end
 

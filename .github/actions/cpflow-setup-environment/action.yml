@@ -10,12 +10,13 @@ inputs:
     required: true
   ruby_version:
     description: >-
-      Ruby version used for cpflow. When empty (the default), ruby/setup-ruby auto-detects
-      from .ruby-version, .tool-versions, or the Gemfile.
+      Ruby version used for cpflow. When empty (the default), ruby/setup-ruby
+      auto-detects from .ruby-version, .tool-versions, mise.toml, or a Gemfile
+      ruby directive, then falls back to the action's pinned default.
     required: false
     default: ""
   working_directory:
-    description: Directory where ruby/setup-ruby should detect .ruby-version, .tool-versions, or the Gemfile.
+    description: Directory where ruby/setup-ruby should detect Ruby version files.
     required: false
     default: "."
   # GitHub parses double-brace expression snippets inside action metadata (including
@@ -42,12 +43,41 @@ runs:
   # ruby/setup-ruby tracks Ruby/toolcache updates on a major tag. The privileged
   # reusable workflows pin GitHub-owned actions to immutable SHAs.
   steps:
+    - name: Resolve Ruby setup version
+      id: ruby-version
+      shell: bash
+      env:
+        INPUT_RUBY_VERSION: ${{ inputs.ruby_version }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working_directory }}
+      run: |
+        set -euo pipefail
+
+        ruby_version="${INPUT_RUBY_VERSION}"
+        working_directory="${INPUT_WORKING_DIRECTORY:-.}"
+        # Bump when the project's minimum-supported Ruby advances.
+        default_ruby_version="3.2"
+
+        if [[ -z "${ruby_version}" ]]; then
+          if [[ -f "${working_directory}/.ruby-version" ]] ||
+             { [[ -f "${working_directory}/.tool-versions" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]+" "${working_directory}/.tool-versions"; } ||
+             { [[ -f "${working_directory}/mise.toml" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]*=" "${working_directory}/mise.toml"; } ||
+             { [[ -f "${working_directory}/.mise.toml" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]*=" "${working_directory}/.mise.toml"; }; then
+            : # keep empty; ruby/setup-ruby will auto-detect
+          elif [[ -f "${working_directory}/Gemfile" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]*(\(|file:|['\"])" "${working_directory}/Gemfile"; then
+            : # keep empty; ruby/setup-ruby will read Gemfile
+          else
+            ruby_version="${default_ruby_version}"
+          fi
+        fi
+
+        echo "ruby_version=${ruby_version}" >> "$GITHUB_OUTPUT"
+
     - name: Set up Ruby
       # ruby/setup-ruby intentionally tracks the v1 tag so Ruby/toolcache updates
       # roll out automatically; Dependabot/Renovate can manage this non-GitHub action.
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: ${{ inputs.ruby_version }}
+        ruby-version: ${{ steps.ruby-version.outputs.ruby_version }}
         working-directory: ${{ inputs.working_directory }}
 
     - name: Install Control Plane CLI and cpflow gem
