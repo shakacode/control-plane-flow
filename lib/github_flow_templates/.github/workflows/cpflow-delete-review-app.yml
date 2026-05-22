@@ -41,6 +41,27 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: React to delete command
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: actions/github-script@v8
+        with:
+          script: |
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: context.payload.comment.id,
+                content: "eyes"
+              });
+            } catch (error) {
+              if (error.status === 422) {
+                core.info("Delete command reaction already exists.");
+              } else {
+                throw error;
+              }
+            }
+
       # pull_request_target is intentional: PR-close events from forks need access
       # to staging secrets so this workflow can delete review apps and update PR
       # comments. This checkout is safe because it does not set `ref:`; GitHub checks
@@ -97,11 +118,17 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
+            const body = [
+              "## 🗑️ Deleting review app...",
+              "",
+              `_Removing the review app for PR #${process.env.PR_NUMBER}_`
+            ].join("\n");
+
             const comment = await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: Number(process.env.PR_NUMBER),
-              body: "🗑️ Deleting Control Plane review app..."
+              body
             });
             core.setOutput("comment-id", comment.data.id);
 
@@ -127,16 +154,20 @@ jobs:
             const success = process.env.JOB_STATUS === "success";
             const body = success
               ? [
-                  `✅ Review app for PR #${process.env.PR_NUMBER} is deleted`,
+                  "## ✅ Review App Deleted",
                   "",
-                  `[Open organization console](${process.env.CONSOLE_URL})`,
-                  `[View workflow logs](${process.env.WORKFLOW_URL})`
+                  `_Review app for PR #${process.env.PR_NUMBER} is deleted_`,
+                  "",
+                  `🎮 [Control Plane Console](${process.env.CONSOLE_URL})`,
+                  `📋 [View Workflow Logs](${process.env.WORKFLOW_URL})`
                 ].join("\n")
               : [
-                  `❌ Failed to delete review app for PR #${process.env.PR_NUMBER}`,
+                  "## ❌ Failed to Delete Review App",
                   "",
-                  `[Open organization console](${process.env.CONSOLE_URL})`,
-                  `[View workflow logs](${process.env.WORKFLOW_URL})`
+                  `_Failed to delete review app for PR #${process.env.PR_NUMBER}_`,
+                  "",
+                  `🎮 [Control Plane Console](${process.env.CONSOLE_URL})`,
+                  `📋 [View Workflow Logs](${process.env.WORKFLOW_URL})`
                 ].join("\n");
 
             if (!Number.isFinite(commentId) || commentId <= 0) {

@@ -32,6 +32,27 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      - name: React to help command
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: actions/github-script@v8
+        with:
+          script: |
+            try {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: context.payload.comment.id,
+                content: "eyes"
+              });
+            } catch (error) {
+              if (error.status === 422) {
+                core.info("Help command reaction already exists.");
+              } else {
+                throw error;
+              }
+            }
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
