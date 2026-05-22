@@ -34,6 +34,7 @@ jobs:
     steps:
       - name: React to help command
         if: github.event_name == 'issue_comment'
+        continue-on-error: true
         uses: actions/github-script@v8
         with:
           script: |

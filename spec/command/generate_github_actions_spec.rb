@@ -283,14 +283,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       help_contents = help_workflow_path.read
 
       expect(review_contents).to include("React to deploy command")
+      expect(review_contents).to include("continue-on-error: true")
       expect(review_contents).to include("comment_id: context.payload.comment.id")
       expect(review_contents).to include('content: "rocket"')
 
       expect(delete_contents).to include("React to delete command")
+      expect(delete_contents).to include("continue-on-error: true")
       expect(delete_contents).to include("comment_id: context.payload.comment.id")
       expect(delete_contents).to include('content: "eyes"')
 
       expect(help_contents).to include("React to help command")
+      expect(help_contents).to include("continue-on-error: true")
       expect(help_contents).to include("comment_id: context.payload.comment.id")
       expect(help_contents).to include('content: "eyes"')
     end
@@ -317,6 +320,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("DEPLOYING_ICON_URL: ${{ vars.REVIEW_APP_DEPLOYING_ICON_URL }}")
       expect(contents).to include("DEFAULT_DEPLOYING_ICON_URL")
+      expect(contents).to include("Pinned to the commit that introduced this SVG for immutability.")
+      expect(contents).to include("replace this SHA, and regenerate user workflows")
       expect(contents).to include(
         "https://raw.githubusercontent.com/shakacode/control-plane-flow/7632313232b751aaa0bc55a122bf0615ff490345/docs/assets/cpflow-deploying.svg"
       )

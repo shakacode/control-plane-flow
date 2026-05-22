@@ -53,6 +53,7 @@ jobs:
     steps:
       - name: React to deploy command
         if: github.event_name == 'issue_comment'
+        continue-on-error: true
         uses: actions/github-script@v8
         with:
           script: |
@@ -380,6 +381,8 @@ jobs:
               return;
             }
 
+            // Pinned to the commit that introduced this SVG for immutability.
+            // To update the icon: update the SVG, replace this SHA, and regenerate user workflows.
             const DEFAULT_DEPLOYING_ICON_URL = "https://raw.githubusercontent.com/shakacode/control-plane-flow/7632313232b751aaa0bc55a122bf0615ff490345/docs/assets/cpflow-deploying.svg";
             const configuredDeployingIconUrl = (process.env.DEPLOYING_ICON_URL || "").trim();
             const isNone = configuredDeployingIconUrl.toLowerCase() === "none";
