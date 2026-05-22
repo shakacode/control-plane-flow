@@ -16,7 +16,7 @@ End-to-end rollout in one view:
 
 1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
 2. `cpflow generate` — creates `.controlplane/` if missing.
-3. `cpflow generate-github-actions` — adds the `cpflow-*` composite actions and workflows.
+3. `cpflow generate-github-actions` — adds thin `cpflow-*` workflow wrappers that call upstream reusable workflows.
 4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
@@ -52,10 +52,7 @@ not appear to exist in the public registries.
 
 The second command writes namespaced files so they can coexist with an app's existing CI:
 
-- `.github/actions/cpflow-build-docker-image/action.yml`
-- `.github/actions/cpflow-delete-control-plane-app/action.yml`
-- `.github/actions/cpflow-delete-control-plane-app/delete-app.sh`
-- `.github/actions/cpflow-setup-environment/action.yml`
+- `.github/cpflow-help.md`
 - `.github/workflows/cpflow-review-app-help.yml`
 - `.github/workflows/cpflow-help-command.yml`
 - `.github/workflows/cpflow-deploy-review-app.yml`
@@ -253,11 +250,13 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 - Runs nightly and on demand.
 - Deletes stale review apps using `cpflow cleanup-stale-apps`.
 
-## Composite Actions
+## Upstream Reusable Workflows
 
-The generated workflows share these local composite actions:
+The generated workflows are intentionally small wrappers. The deployment logic,
+comment formatting, Control Plane CLI setup, Docker image build, and cleanup helpers
+live in upstream reusable workflows and composite actions in this repository.
 
-- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and the `cpflow` gem, then logs into the target org
+- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream reusable-workflow ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
 - `cpflow-build-docker-image`: builds and pushes the app image with the desired commit SHA
 - `cpflow-delete-control-plane-app`: safely deletes temporary apps and refuses to touch names outside the configured review-app prefix
 

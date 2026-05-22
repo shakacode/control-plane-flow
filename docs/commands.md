@@ -214,7 +214,7 @@ other than `main` or `master`; the generator will bake that branch into the
 GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
 
 ```sh
-# Creates .github/actions and .github/workflows files for the Control Plane flow
+# Creates thin .github/workflows wrappers for the Control Plane flow
 cpflow generate-github-actions
 
 # Creates the flow with staging deploys triggered from develop

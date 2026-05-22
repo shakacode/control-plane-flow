@@ -14,8 +14,9 @@ module Command
 
     def copy_files
       relative_paths = generated_files
+      replacements = template_variables
       copy_template_files(relative_paths)
-      substitute_template_variables(relative_paths)
+      substitute_template_variables(relative_paths, replacements)
       make_shell_scripts_executable(relative_paths)
     end
 
@@ -39,9 +40,9 @@ module Command
 
     def template_variables
       {
-        "__CPFLOW_VERSION__" => ::Cpflow::VERSION,
+        "__CPFLOW_GITHUB_ACTIONS_REF__" => cpflow_github_actions_ref,
         "__STAGING_BRANCH_FILTER__" => staging_branch_filter,
-        "__STAGING_APP_BRANCH_EXPRESSION__" => staging_app_branch_expression
+        "__STAGING_BRANCH_DEFAULT__" => staging_branch_default
       }
     end
 
@@ -58,12 +59,23 @@ module Command
       branches.map(&:to_json).join(", ")
     end
 
-    def staging_app_branch_expression
-      return "${{ vars.STAGING_APP_BRANCH }}" unless staging_branch
+    def staging_branch_default
+      staging_branch.to_s
+    end
 
-      # `valid_staging_branch?` excludes quotes, so this single-quoted GitHub
-      # expression literal cannot be broken by the generated branch name.
-      "${{ vars.STAGING_APP_BRANCH || '#{staging_branch}' }}"
+    def cpflow_github_actions_ref
+      ref = ENV.fetch("CPFLOW_GITHUB_ACTIONS_REF", default_cpflow_github_actions_ref).to_s.strip
+      return default_cpflow_github_actions_ref if ref.empty?
+
+      if ref.match?(/[[:space:]]/)
+        Shell.abort("Invalid CPFLOW_GITHUB_ACTIONS_REF: #{ref.inspect}. Refs cannot contain whitespace.")
+      end
+
+      ref
+    end
+
+    def default_cpflow_github_actions_ref
+      "v#{::Cpflow::VERSION}"
     end
   end
 
@@ -84,7 +96,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Creates .github/actions and .github/workflows files for the Control Plane flow
+      # Creates thin .github/workflows wrappers for the Control Plane flow
       cpflow generate-github-actions
 
       # Creates the flow with staging deploys triggered from develop

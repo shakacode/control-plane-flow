@@ -7,31 +7,55 @@ require "yaml"
 
 describe Command::GenerateGithubActions, :enable_validations, :without_config_file do
   def build_action_path
-    playground.join(".github/actions/cpflow-build-docker-image/action.yml")
+    shared_action_path("cpflow-build-docker-image")
   end
 
   def review_app_workflow_path
     playground.join(".github/workflows/cpflow-deploy-review-app.yml")
   end
 
+  def reusable_review_app_workflow_path
+    shared_workflow_path("cpflow-deploy-review-app")
+  end
+
   def staging_workflow_path
     playground.join(".github/workflows/cpflow-deploy-staging.yml")
+  end
+
+  def reusable_staging_workflow_path
+    shared_workflow_path("cpflow-deploy-staging")
   end
 
   def delete_review_workflow_path
     playground.join(".github/workflows/cpflow-delete-review-app.yml")
   end
 
+  def reusable_delete_review_workflow_path
+    shared_workflow_path("cpflow-delete-review-app")
+  end
+
   def cleanup_stale_review_apps_workflow_path
     playground.join(".github/workflows/cpflow-cleanup-stale-review-apps.yml")
+  end
+
+  def reusable_cleanup_stale_review_apps_workflow_path
+    shared_workflow_path("cpflow-cleanup-stale-review-apps")
   end
 
   def help_workflow_path
     playground.join(".github/workflows/cpflow-help-command.yml")
   end
 
+  def reusable_help_workflow_path
+    shared_workflow_path("cpflow-help-command")
+  end
+
   def pr_open_help_workflow_path
     playground.join(".github/workflows/cpflow-review-app-help.yml")
+  end
+
+  def reusable_pr_open_help_workflow_path
+    shared_workflow_path("cpflow-review-app-help")
   end
 
   def command_body_match_expression(command)
@@ -42,24 +66,41 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     playground.join(".github/workflows/cpflow-promote-staging-to-production.yml")
   end
 
+  def reusable_promote_workflow_path
+    shared_workflow_path("cpflow-promote-staging-to-production")
+  end
+
   def setup_action_path
-    playground.join(".github/actions/cpflow-setup-environment/action.yml")
+    shared_action_path("cpflow-setup-environment")
   end
 
   def detect_release_action_path
-    playground.join(".github/actions/cpflow-detect-release-phase/action.yml")
+    shared_action_path("cpflow-detect-release-phase")
   end
 
   def wait_for_health_action_path
-    playground.join(".github/actions/cpflow-wait-for-health/action.yml")
+    shared_action_path("cpflow-wait-for-health")
   end
 
   def delete_app_script_path
-    playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
+    Cpflow.root_path.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
   end
 
   def generated_yaml_paths
     Dir.glob(playground.join(".github/**/*.yml")).sort
+  end
+
+  def shared_yaml_paths
+    Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s).sort +
+      Dir.glob(Cpflow.root_path.join(".github/actions/cpflow-*/*.yml").to_s).sort
+  end
+
+  def shared_action_path(name)
+    Cpflow.root_path.join(".github/actions/#{name}/action.yml")
+  end
+
+  def shared_workflow_path(name)
+    Cpflow.root_path.join(".github/workflows/#{name}.yml")
   end
 
   let(:playground) { Pathname.new(Dir.mktmpdir("cpflow-github-actions")) }
@@ -81,28 +122,83 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(setup_action_path).to exist
       expect(delete_app_script_path).to exist
       expect(delete_app_script_path).to be_executable
+      expect(playground.join(".github/actions")).not_to exist
     end
 
-    it "substitutes the cpflow version placeholder" do
-      expect(setup_action_path.read).to include(%(default_cpflow_version="#{Cpflow::VERSION}"))
+    it "installs cpflow from the checked-out upstream repository by default" do
+      contents = setup_action_path.read
+
+      expect(contents).to include("CPFLOW_SOURCE_DIR: ${{ github.action_path }}/../../..")
+      expect(contents).to include('cd "${cpflow_source_dir}"')
+      expect(contents).to include('if [[ ! -f "${cpflow_source_dir}/cpflow.gemspec" ]]; then')
+      expect(contents).to include("gem build cpflow.gemspec")
+      expect(contents).to include('gem install "${cpflow_gem}" --no-document')
+      expect(contents).to include(%q(trap 'rm -f "${cpflow_gem}"' EXIT))
+      expect(contents).not_to include("default_cpflow_version")
     end
 
     it "exposes overridable cpflow and cpln-cli version inputs" do
       contents = setup_action_path.read
       expect(contents).to include("cpln_cli_version:")
-      expect(contents).to include('default_cpln_cli_version="3.3.1"')
-      expect(staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
-      expect(staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
+      expect(contents).to include('default_cpln_cli_version="3.10.2"')
+      expect(reusable_staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
+      expect(reusable_staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
     end
 
-    it "uses Node 24 action versions in generated workflows" do
-      contents = generated_yaml_paths.map { |path| File.read(path) }.join("\n")
+    # Issue #293: GitHub parses ${{ ... }} inside composite action `description:` fields
+    # while loading the manifest, where `vars` is unavailable. Any literal expression
+    # syntax there makes the entire action fail to load before workflow steps run.
+    it "keeps GitHub expression syntax out of composite action metadata descriptions" do
+      action_paths = Dir.glob(Cpflow.root_path.join(".github/actions/*/action.yml").to_s).sort
+      expect(action_paths).not_to be_empty
 
-      expect(contents).to include("actions/checkout@v6")
-      expect(contents).to include("actions/github-script@v8")
+      violations = action_paths.flat_map do |path|
+        metadata = YAML.load_file(path, aliases: true)
+        described = []
+        described << ["description", metadata["description"]]
+        (metadata["inputs"] || {}).each do |name, spec|
+          described << ["inputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
+        end
+        (metadata["outputs"] || {}).each do |name, spec|
+          described << ["outputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
+        end
+        described
+          .select { |_key, value| value.is_a?(String) && value.include?("${{") }
+          .map { |key, value| "#{path}: #{key} contains #{value.inspect}" }
+      end
+
+      expect(violations).to be_empty,
+                            "Composite action descriptions must not embed GitHub expression syntax " \
+                            "(see issue #293):\n#{violations.join("\n")}"
+    end
+
+    it "pins GitHub-owned actions to immutable Node 24-compatible releases" do
+      contents = (generated_yaml_paths + shared_yaml_paths).map { |path| File.read(path) }.join("\n")
+
+      expect(contents).to include("actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd")
+      expect(contents).to include("actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd")
+      expect(contents).not_to match(%r{actions/checkout@v\d+})
+      expect(contents).not_to match(%r{actions/github-script@v\d+})
       expect(contents).not_to include("actions/checkout@v4")
       expect(contents).not_to include("actions/checkout@v5")
       expect(contents).not_to include("actions/github-script@v7")
+    end
+
+    it "generates thin wrapper workflows that call upstream reusable workflows" do
+      contents = review_app_workflow_path.read
+      default_ref = "v#{Cpflow::VERSION}"
+
+      expect(contents).to include(
+        "uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{default_ref}"
+      )
+      expect(contents).to include("control_plane_flow_ref: #{default_ref}")
+      expect(contents).to include("Keep the @ref in `uses:` and `control_plane_flow_ref` below in sync")
+      expect(contents).to include("passes all caller repository secrets to the trusted")
+      expect(contents).to include("set CPFLOW_GITHUB_ACTIONS_REF to an immutable commit SHA")
+      expect(contents).to include("secrets: inherit")
+      expect(contents).not_to include("Create initial PR comment")
+      expect(contents).not_to include("Build Docker image")
+      expect(contents).not_to include("Deploy to Control Plane")
     end
 
     it "passes setup action versions through env before using them in shell commands" do
@@ -110,13 +206,18 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}")
       expect(contents).to include("CPFLOW_VERSION: ${{ inputs.cpflow_version }}")
+      expect(contents).to include("ruby/setup-ruby intentionally tracks the v1 tag")
       expect(contents).to include('npm_global_prefix="${HOME}/.npm-global"')
       expect(contents).to include('echo "${npm_global_prefix}/bin" >> "$GITHUB_PATH"')
       expect(contents).to include(
         'npm install --global --prefix "${npm_global_prefix}" "@controlplane/cli@${CPLN_CLI_VERSION}"'
       )
       expect(contents).not_to include("sudo npm install")
+      expect(contents).to include('if [[ -n "${CPFLOW_VERSION}" ]]; then')
       expect(contents).to include('gem install cpflow -v "${CPFLOW_VERSION}" --no-document')
+      expect(contents).to include("gem build cpflow.gemspec --output")
+      expect(contents).to include('delim="CPLN_TOKEN_DELIM_$(openssl rand -hex 8)"')
+      expect(contents).not_to include("__CPFLOW_CPLN_TOKEN__")
       expect(contents).not_to include(
         "npm install -g @controlplane/cli@${{ inputs.cpln_cli_version }}"
       )
@@ -158,7 +259,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "wires Docker build inputs through the review-app workflow" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
       expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
       expect(contents).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
       expect(contents).to include(
@@ -167,7 +268,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "gates review-app deploys by author_association and skips fork PRs" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
       expect(contents).to include("Review app deploys from fork pull requests require a branch")
@@ -175,9 +276,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "keeps trusted generated actions separate from PR-controlled app code" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
 
-      expect(contents).to include("ref: ${{ github.event.repository.default_branch }}")
+      expect(contents).to include("repository: shakacode/control-plane-flow")
+      expect(contents).to include("ref: ${{ inputs.control_plane_flow_ref }}")
+      expect(contents).to include("path: .cpflow")
       expect(contents).to include("path: app")
       expect(contents).to include("persist-credentials: false")
       expect(contents).to include("rm -rf app/.git")
@@ -185,16 +288,32 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("working_directory: app")
     end
 
+    it "runs review-app Ruby setup from the checked-out app directory" do
+      contents = reusable_review_app_workflow_path.read
+
+      expect(contents).to match(
+        %r{
+          uses:\ \./\.cpflow/\.github/actions/cpflow-setup-environment
+          .*?
+          working_directory:\ app
+        }mx
+      )
+      expect(setup_action_path.read).to include(
+        "working-directory: ${{ inputs.working_directory }}"
+      )
+    end
+
     it "passes GitHub event metadata through shell env vars instead of inline expressions" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
 
       expect(contents).to include("EVENT_NAME: ${{ github.event_name }}")
+      expect(contents).to include("GH_REPO: ${{ github.repository }}")
       expect(contents).not_to include('case "${{ github.event_name }}"')
       expect(contents).not_to include('[[ "${{ github.event_name }}"')
     end
 
     it "distinguishes review-app not-found from cpflow exists errors" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
 
       expect(contents).to include("exists_status")
       expect(contents).to include("            3)")
@@ -203,30 +322,33 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "documents that review app deployments bypass required branch-protection contexts" do
-      expect(review_app_workflow_path.read).to include(
+      expect(reusable_review_app_workflow_path.read).to include(
         "required_contexts: [], // intentional: review apps deploy regardless of required status checks"
       )
     end
 
     it "handles missing PR comment ids gracefully in the review-app workflow" do
-      expect(review_app_workflow_path.read).to include(
+      expect(reusable_review_app_workflow_path.read).to include(
         "Skipping PR comment update because no comment id was created."
       )
     end
 
     it "configures delete-review-app concurrency and handles missing comment ids" do
-      contents = delete_review_workflow_path.read
+      contents = reusable_delete_review_workflow_path.read
       expect(contents).to include("concurrency:")
       expect(contents).to include('pull_request_friendly: "true"')
-      expect(contents).to include("pull_request_target is intentional")
-      expect(contents).to include("does not set `ref:`")
+      expect(contents).to include("working_directory: .cpflow")
+      expect(delete_review_workflow_path.read).to include("pull_request_target:")
+      expect(delete_review_workflow_path.read).to include("pull_request_target is intentional")
+      expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
+      expect(delete_review_workflow_path.read).to include("secrets: inherit")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
     end
 
     it "gates delete-review-app downstream steps on cpflow-validate-config readiness" do
-      contents = delete_review_workflow_path.read
+      contents = reusable_delete_review_workflow_path.read
 
       expect(contents).to include("id: config")
       expect(contents).to match(/steps\.config\.outputs\.ready == 'true'/)
@@ -235,7 +357,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "routes github-script step outputs through env vars instead of inline expressions" do
-      review_contents = review_app_workflow_path.read
+      review_contents = reusable_review_app_workflow_path.read
 
       expect(review_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
       expect(review_contents).not_to include('"${{ steps.init-deployment.outputs.result }}"')
@@ -246,7 +368,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.workload_url }}")
       expect(review_contents).to include("JOB_STATUS: ${{ job.status }}")
 
-      delete_contents = delete_review_workflow_path.read
+      delete_contents = reusable_delete_review_workflow_path.read
 
       expect(delete_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
       expect(delete_contents).not_to include('"${{ job.status }}"')
@@ -255,20 +377,24 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "uses shell env vars for stale review cleanup inputs" do
-      contents = cleanup_stale_review_apps_workflow_path.read
+      contents = reusable_cleanup_stale_review_apps_workflow_path.read
 
       expect(contents).to include("REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}")
       expect(contents).to include("CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}")
+      expect(contents).to include("Checkout caller repository")
       expect(contents).to include('cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}"')
       expect(contents).not_to include('cpflow cleanup-stale-apps -a "${{ vars.REVIEW_APP_PREFIX }}"')
       expect(contents).to include("persist-credentials: false")
+      expect(contents).to include("working_directory: .cpflow")
     end
 
     it "wires the help workflow author_association gate" do
       contents = help_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("contents: read")
-      expect(contents).to include('fs.readFileSync(".github/cpflow-help.md"')
+      expect(contents).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
+      expect(contents).to include("secrets: inherit")
+      expect(reusable_help_workflow_path.read).to include('fs.readFileSync(".github/cpflow-help.md"')
     end
 
     it "pins the +review-app-* workflow trigger strings" do
@@ -278,9 +404,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "reacts immediately to trusted review-app comment commands" do
-      review_contents = review_app_workflow_path.read
-      delete_contents = delete_review_workflow_path.read
-      help_contents = help_workflow_path.read
+      review_contents = reusable_review_app_workflow_path.read
+      delete_contents = reusable_delete_review_workflow_path.read
+      help_contents = reusable_help_workflow_path.read
 
       expect(review_contents).to include("React to deploy command")
       expect(review_contents).to include("continue-on-error: true")
@@ -299,7 +425,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "uses rich review-app deployment comment formatting" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
 
       expect(contents).to include("## 🚀 Starting deployment process...")
       expect(contents).to include("🏗️ Building Docker image for PR #${process.env.PR_NUMBER}")
@@ -316,7 +442,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "supports an animated deploy status icon with a repository override" do
-      contents = review_app_workflow_path.read
+      contents = reusable_review_app_workflow_path.read
 
       expect(contents).to include("DEPLOYING_ICON_URL: ${{ vars.REVIEW_APP_DEPLOYING_ICON_URL }}")
       expect(contents).to include("DEFAULT_DEPLOYING_ICON_URL")
@@ -340,7 +466,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "pins the +review-app-* commands in the PR-open message" do
-      pr_open_help = pr_open_help_workflow_path.read
+      pr_open_help = reusable_pr_open_help_workflow_path.read
 
       expect(pr_open_help).to include('"# 🚀 Quick Review App Commands"')
       expect(pr_open_help).to include('"### `+review-app-deploy`"')
@@ -351,6 +477,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(pr_open_help).to include('"Show detailed instructions, environment setup, and configuration options."')
       expect(pr_open_help).to include('"_Comment `+review-app-help` for full setup details._"')
       expect(pr_open_help).not_to include('"---"')
+
+      wrapper = pr_open_help_workflow_path.read
+      expect(wrapper).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
+      expect(wrapper).to include("secrets: inherit")
     end
 
     it "pins the +review-app-* commands in the long-form help markdown" do
@@ -377,35 +507,48 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "wires Docker build inputs through the staging workflow" do
-      contents = staging_workflow_path.read
+      contents = reusable_staging_workflow_path.read
       expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
       expect(contents).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
       expect(contents).to include(
         "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
       )
+      expect(contents.scan("working_directory: .cpflow").length).to eq(2)
     end
 
     it "does not persist checkout credentials in staging jobs" do
-      expect(staging_workflow_path.read.scan("persist-credentials: false").length).to eq(3)
+      expect(reusable_staging_workflow_path.read.scan("persist-credentials: false").length).to eq(5)
     end
 
     it "documents the branch-filter trade-off and sets staging concurrency/vars" do
-      contents = staging_workflow_path.read
-      expect(contents).to include("GitHub does not allow repository vars in branch filters")
-      expect(contents).to include('branches: ["main", "master"]')
-      expect(contents).to include("STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH }}")
-      expect(contents).to include("cpflow-deploy-staging-${{ github.ref_name }}")
-      expect(contents).to include("variable:STAGING_APP_NAME")
+      wrapper = staging_workflow_path.read
+      reusable = reusable_staging_workflow_path.read
+
+      expect(wrapper).to include("GitHub does not allow repository vars in branch filters")
+      expect(wrapper).to include('branches: ["main", "master"]')
+      expect(wrapper).to include('staging_app_branch_default: ""')
+      expect(reusable).to include(
+        "STAGING_APP_BRANCH: ${{ vars.STAGING_APP_BRANCH || inputs.staging_app_branch_default }}"
+      )
+      expect(reusable).to include("cpflow-deploy-staging-${{ github.ref_name }}")
+      expect(reusable).to include("variable:STAGING_APP_NAME")
     end
 
     it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
-      contents = promote_workflow_path.read
+      contents = reusable_promote_workflow_path.read
+      wrapper = promote_workflow_path.read
+
+      expect(wrapper).to include("callers must grant the union of callee permissions")
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include("contents: read")
       expect(contents).to include("create-github-release:")
       expect(contents).to include("contents: write")
+      expect(contents).to include("working_directory: .cpflow")
       expect(contents).to include("GH_REPO: ${{ github.repository }}")
       expect(contents).to include("Production-only variables")
+      expect(contents).to include("PRIMARY_WORKLOAD is not configured")
+      expect(contents).to include(%(puts "primary=\#{primary}"))
+      expect(contents).to include("PRIMARY_WORKLOAD: ${{ steps.workloads.outputs.primary }}")
       expect(contents).to include("map({name, image})")
       expect(contents).to include("Could not retrieve current containers")
       expect(contents).to include("Could not parse rollback state")
@@ -423,16 +566,20 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "does not persist checkout credentials in the production promotion job" do
-      expect(promote_workflow_path.read.scan("persist-credentials: false").length).to eq(1)
+      expect(reusable_promote_workflow_path.read.scan("persist-credentials: false").length).to eq(2)
     end
 
     it "copies the image currently deployed on staging instead of the newest pushed staging image" do
-      contents = promote_workflow_path.read
+      contents = reusable_promote_workflow_path.read
 
       expect(contents).to include("id: staging-image")
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln workload get')
+      expect(contents).to include('selected_workload="${PRIMARY_WORKLOAD}"')
+      expect(contents).not_to include('selected_workload="${PRIMARY_WORKLOAD:-}"')
       expect(contents).to include("staging_image=\"${staging_image_ref##*/image/}\"")
       expect(contents).to include("STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}")
+      expect(contents).to include("workload_name: ${{ steps.workloads.outputs.primary }}")
+      expect(contents).not_to include("workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}")
       expect(contents).to include('cpflow copy-image-from-upstream -a "${PRODUCTION_APP_NAME}" ' \
                                   '--org "${CPLN_ORG_PRODUCTION}" --image "${STAGING_IMAGE}"')
     end
@@ -447,7 +594,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "makes pull_request_target config validation skip cleanly when setup is incomplete" do
-      contents = playground.join(".github/actions/cpflow-validate-config/action.yml").read
+      contents = shared_action_path("cpflow-validate-config").read
 
       expect(contents).to include('pull_request_target"')
       expect(contents).to include('echo "ready=false" >> "$GITHUB_OUTPUT"')
@@ -471,7 +618,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "produces valid YAML for every generated workflow and action file" do
-      generated_yaml_paths.each do |path|
+      (generated_yaml_paths + shared_yaml_paths).each do |path|
         expect { YAML.load_file(path, aliases: true) }.not_to raise_error
       end
     end
@@ -495,9 +642,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       relative_paths.each do |relative_path|
         template = template_root.join(relative_path).read
         expected = template
-                   .gsub("__CPFLOW_VERSION__", Cpflow::VERSION)
+                   .gsub("__CPFLOW_GITHUB_ACTIONS_REF__", "v#{Cpflow::VERSION}")
                    .gsub("__STAGING_BRANCH_FILTER__", %("main", "master"))
-                   .gsub("__STAGING_APP_BRANCH_EXPRESSION__", "${{ vars.STAGING_APP_BRANCH }}")
+                   .gsub("__STAGING_BRANCH_DEFAULT__", "")
         actual = playground.join(relative_path).read
 
         expect(actual).to eq(expected), "Drift in generated #{relative_path}"
@@ -533,7 +680,39 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         end.to output(/already exist/).to_stderr
 
         expect(review_app_workflow_path.read).to eq("existing-content\n")
-        expect(setup_action_path).not_to exist
+        expect(staging_workflow_path).not_to exist
+      end
+    end
+  end
+
+  context "when CPFLOW_GITHUB_ACTIONS_REF is blank" do
+    before do
+      stub_env("CPFLOW_GITHUB_ACTIONS_REF", "  ")
+      inside_dir(playground) do
+        Cpflow::Cli.start([described_class::NAME])
+      end
+    end
+
+    it "falls back to the release tag default" do
+      default_ref = "v#{Cpflow::VERSION}"
+
+      expect(review_app_workflow_path.read).to include(
+        "shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{default_ref}"
+      )
+      expect(review_app_workflow_path.read).to include("control_plane_flow_ref: #{default_ref}")
+    end
+  end
+
+  context "when CPFLOW_GITHUB_ACTIONS_REF contains whitespace" do
+    it "aborts before generating invalid workflow refs" do
+      stub_env("CPFLOW_GITHUB_ACTIONS_REF", "feature branch")
+
+      inside_dir(playground) do
+        result = run_cpflow_command(described_class::NAME)
+
+        expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+        expect(result[:stderr]).to include("Invalid CPFLOW_GITHUB_ACTIONS_REF")
+        expect(playground.join(".github")).not_to exist
       end
     end
   end
@@ -564,7 +743,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = staging_workflow_path.read
 
       expect(contents).to include('branches: ["release@2025"]')
-      expect(contents).to include("vars.STAGING_APP_BRANCH || 'release@2025'")
+      expect(contents).to include('staging_app_branch_default: "release@2025"')
     end
   end
 
