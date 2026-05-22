@@ -380,10 +380,25 @@ jobs:
               return;
             }
 
-            const DEFAULT_DEPLOYING_ICON_URL = "https://raw.githubusercontent.com/shakacode/control-plane-flow/main/docs/assets/cpflow-deploying.svg";
+            const DEFAULT_DEPLOYING_ICON_URL = "https://raw.githubusercontent.com/shakacode/control-plane-flow/7632313232b751aaa0bc55a122bf0615ff490345/docs/assets/cpflow-deploying.svg";
             const configuredDeployingIconUrl = (process.env.DEPLOYING_ICON_URL || "").trim();
-            const deployingIconUrl = configuredDeployingIconUrl || DEFAULT_DEPLOYING_ICON_URL;
-            const deployingIcon = deployingIconUrl.toLowerCase() === "none"
+            const isNone = configuredDeployingIconUrl.toLowerCase() === "none";
+            let deployingIconUrl = DEFAULT_DEPLOYING_ICON_URL;
+
+            if (configuredDeployingIconUrl && !isNone) {
+              try {
+                const parsedUrl = new URL(configuredDeployingIconUrl);
+                if (parsedUrl.protocol === "https:") {
+                  deployingIconUrl = parsedUrl.href;
+                } else {
+                  core.warning("Ignoring REVIEW_APP_DEPLOYING_ICON_URL because it must use https://.");
+                }
+              } catch {
+                core.warning("Ignoring REVIEW_APP_DEPLOYING_ICON_URL because it is not a valid URL.");
+              }
+            }
+
+            const deployingIcon = isNone
               ? "⏳"
               : `<img src="${deployingIconUrl}" alt="Deploying" width="20" height="20" />`;
 
@@ -460,9 +475,9 @@ jobs:
             }
 
             const successBody = [
-              "## 🎉 ✨ Deploy Complete! 🚀",
+              "## 🎉 Deploy Complete!",
               "",
-              appUrl ? `### 🌐 [**➡️ Open Review App**](${appUrl})` : "Review app deployed, but no endpoint URL was detected.",
+              appUrl ? `### [Open Review App](${appUrl})` : "Review app deployed, but no endpoint URL was detected.",
               "",
               `_Deployment successful for PR #${process.env.PR_NUMBER}, commit ${process.env.PR_SHA}_`,
               "",

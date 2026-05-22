@@ -304,8 +304,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("🎮 [Control Plane Console]")
       expect(contents).to include("## 🚀 Deploying to Control Plane...")
       expect(contents).to include("**Waiting for deployment to be ready...**")
-      expect(contents).to include("## 🎉 ✨ Deploy Complete! 🚀")
-      expect(contents).to include("### 🌐 [**➡️ Open Review App**]")
+      expect(contents).to include("## 🎉 Deploy Complete!")
+      expect(contents).to include("### [Open Review App]")
       expect(contents).to include(
         "_Deployment successful for PR #${process.env.PR_NUMBER}, commit ${process.env.PR_SHA}_"
       )
@@ -318,8 +318,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("DEPLOYING_ICON_URL: ${{ vars.REVIEW_APP_DEPLOYING_ICON_URL }}")
       expect(contents).to include("DEFAULT_DEPLOYING_ICON_URL")
       expect(contents).to include(
-        "https://raw.githubusercontent.com/shakacode/control-plane-flow/main/docs/assets/cpflow-deploying.svg"
+        "https://raw.githubusercontent.com/shakacode/control-plane-flow/7632313232b751aaa0bc55a122bf0615ff490345/docs/assets/cpflow-deploying.svg"
       )
+      expect(contents).to include('parsedUrl.protocol === "https:"')
+      expect(contents).to include("new URL(configuredDeployingIconUrl)")
+      expect(contents).to include('configuredDeployingIconUrl.toLowerCase() === "none"')
+      expect(contents).to include('"⏳"')
       expect(contents).to include('<img src="${deployingIconUrl}" alt="Deploying" width="20" height="20" />')
     end
 
@@ -340,6 +344,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(pr_open_help).to include('"Remove the review app when done."')
       expect(pr_open_help).to include('"### `+review-app-help`"')
       expect(pr_open_help).to include('"Show detailed instructions, environment setup, and configuration options."')
+      expect(pr_open_help).to include('"_Comment `+review-app-help` for full setup details._"')
+      expect(pr_open_help).not_to include('"---"')
     end
 
     it "pins the +review-app-* commands in the long-form help markdown" do

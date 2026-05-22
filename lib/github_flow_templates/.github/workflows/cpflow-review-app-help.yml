@@ -39,7 +39,7 @@ jobs:
               "### `+review-app-help`",
               "Show detailed instructions, environment setup, and configuration options.",
               "",
-              "---"
+              "_Comment `+review-app-help` for full setup details._"
             ].join("\n");
 
             await github.rest.issues.createComment({
