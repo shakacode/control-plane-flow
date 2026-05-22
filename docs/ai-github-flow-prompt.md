@@ -44,7 +44,7 @@ Stop and report the blocker instead of generating `cpflow-*` workflow files when
 The rollout is done when all of the following are true:
 
 - `.controlplane/` exists and matches the actual app shape
-- `.github/actions/cpflow-*` and `.github/workflows/cpflow-*` are in place
+- `.github/cpflow-help.md` and `.github/workflows/cpflow-*` wrappers are in place
 - review apps are opt-in, staging auto-deploys from one branch, and production promotion is manual
 - required GitHub secrets and variables are documented for the repo
 - the production image build path is validated for the real app

@@ -472,8 +472,19 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   private
 
   def org_exists?
-    items = api.list_orgs["items"]
+    result = api.list_orgs
+
+    # HTTP 404 from the list-orgs endpoint returns nil in ControlplaneApiDirect.
+    # Defer scoped-token/org problems to the command's target API call, which
+    # can produce a resource-specific error.
+    return true unless result
+
+    items = result.fetch("items", [])
     items.any? { |item| item["name"] == org }
+  rescue ControlplaneApiDirect::ForbiddenError => e
+    raise unless e.url == ControlplaneApi::LIST_ORGS_PATH
+
+    true
   end
 
   def ensure_org_exists!

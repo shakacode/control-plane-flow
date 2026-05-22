@@ -8,9 +8,25 @@ describe Controlplane do
     let!(:fake_config) { Struct.new(:app, :org).new("my-app", "my-org") }
 
     it "raises error if org does not exist" do
+      allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_return({ "items" => [] }) # rubocop:disable RSpec/AnyInstance
+
       expect do
         described_class.new(fake_config)
       end.to raise_error(include("Can't find org 'my-org'"))
+    end
+
+    it "allows scoped tokens that cannot list orgs to continue to the target API call" do
+      allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_return(nil) # rubocop:disable RSpec/AnyInstance
+
+      expect { described_class.new(fake_config) }.not_to raise_error
+    end
+
+    it "allows scoped tokens that are forbidden from listing orgs to continue to the target API call" do
+      response = instance_double(Net::HTTPForbidden, body: '{"message":"forbidden"}', to_s: "403 Forbidden")
+      error = ControlplaneApiDirect::ForbiddenError.new(url: "/org", response: response)
+      allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_raise(error) # rubocop:disable RSpec/AnyInstance
+
+      expect { described_class.new(fake_config) }.not_to raise_error
     end
   end
 
