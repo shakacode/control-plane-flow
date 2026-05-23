@@ -149,24 +149,43 @@ Reference the agent SG by ID, not by CIDR. That way, the rule stays correct as A
 ## Step 4 — Declare the Network Resource on the Identity
 
 cpflow already provisions one Identity per workload (used for binding secrets — see
-`{{APP_IDENTITY_LINK}}` in `templates/rails.yml`). Extend that identity with a `networkResources` entry that
-points at your RDS endpoint through the agent.
+`{{APP_IDENTITY_LINK}}` in `templates/rails.yml`). We need to add a `networkResources` entry to **that
+existing identity**, not create a new one.
 
-cpflow stores identities per GVC (see the existing template at
-`spec/dummy/.controlplane/templates/app.yml`), so the GVC scoping comes from the apply command, not from a
-top-level YAML field. Look up your VPC's DNS resolver IP (typically the VPC CIDR base + 2, e.g. `10.0.0.2`
-for a `10.0.0.0/16` VPC) and your RDS cluster endpoint, then write the identity YAML:
+> **Important: `cpln apply` is a full replace, not a merge.** Applying a stripped-down identity YAML that
+> only contains `networkResources` will overwrite the entire identity, dropping any existing policy
+> bindings (which is how the workload reaches its secrets in the first place). Always **export the live
+> identity first**, edit it in place, then re-apply.
+
+First, find the identity name (cpflow names it after the app — the `{{APP_IDENTITY}}` template variable
+expands to the app prefix, not the literal string `rails`):
+
+```sh
+cpln identity list --gvc my-app-production --org my-org
+```
+
+Export it and add the `networkResources` block. Look up your VPC's DNS resolver IP (typically the VPC CIDR
+base + 2, e.g. `10.0.0.2` for a `10.0.0.0/16` VPC) and your RDS cluster endpoint:
+
+```sh
+cpln identity get my-app-production \
+  --gvc my-app-production --org my-org -o yaml > identity-db.yaml
+```
+
+Edit `identity-db.yaml` and **append** the `networkResources` block — keep every other field exactly as
+exported:
 
 ```yaml
-# identity-db.yaml
+# identity-db.yaml (after edit — abbreviated, your file will have more fields)
 kind: identity
-name: rails              # match the existing cpflow identity name for the workload (typically {{APP_IDENTITY}})
-description: Adds wormhole network resources for private RDS access.
+name: my-app-production        # whatever your cpflow identity is actually called
+description: ...               # leave existing description alone
+# … any other existing fields stay as-is …
 networkResources:
-  - name: db-primary     # ← workload connects to this hostname
+  - name: db-primary           # ← workload connects to this hostname
     agentLink: //agent/aws-us-east-2-prod
     FQDN: myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com
-    resolverIP: 10.0.0.2   # your VPC's .2 resolver, reachable from the agent
+    resolverIP: 10.0.0.2       # your VPC's .2 resolver, reachable from the agent
     ports:
       - 5432
   # Optional second resource for Aurora reader endpoint:
@@ -181,13 +200,19 @@ networkResources:
 If you'd rather pin to specific IPs instead of an FQDN, swap `FQDN` + `resolverIP` for an `IPs:` array of
 1–5 IPv4 addresses. See [IPs vs FQDN](#ips-vs-fqdn--which-to-use) below for trade-offs.
 
-Apply it against the right GVC:
+Apply it back:
 
 ```sh
 cpln apply --file identity-db.yaml --gvc my-app-production --org my-org
 ```
 
 (Use whatever `--org` / `--gvc` flags your team uses, or rely on the org/GVC defaults set by `cpln profile`.)
+
+Confirm the identity now has both the existing policy bindings *and* the new `networkResources`:
+
+```sh
+cpln identity get my-app-production --gvc my-app-production --org my-org -o yaml | grep -E 'name:|networkResources'
+```
 
 Schema notes (per CPLN's documented `networkResources` schema):
 
@@ -333,7 +358,10 @@ spec:
 
 If you're using the cpflow templates as-is, no change is needed here — re-applying the templates
 (`cpflow apply-template rails -a my-app-production` etc.) is enough. If you wrote a custom workload without
-that line, add it now (or run `cpln workload update <workload> --gvc <gvc> --set spec.identityLink=//gvc/<gvc>/identity/<identity>`).
+that line, add it now. The most reliable way to set `identityLink` on an existing workload is the same
+export-edit-apply loop used in Step 4: `cpln workload get <name> --gvc <gvc> -o yaml > workload.yaml`,
+edit `spec.identityLink`, then `cpln apply --file workload.yaml`. (`cpln workload update --help` may also
+list a `--set` flag for this; verify against your installed CLI version before relying on it.)
 
 Re-apply the workload template:
 
@@ -374,8 +402,10 @@ Expected: a current timestamp and the RDS Postgres version. Common failures:
 - With **IPs** in `networkResources`: failover swaps which underlying instance the writer endpoint resolves
   to. The IPs you've allowlisted may now point at the wrong instance. For Aurora specifically, prefer the
   **FQDN** form so the agent re-resolves on each connect.
-- With **FQDN**: the agent re-resolves the cluster endpoint. Writer failover typically propagates within
-  ~30 seconds via Aurora's DNS update.
+- With **FQDN**: the agent re-resolves the cluster endpoint. Aurora's DNS TTL is ~30 seconds, but the full
+  failover window (detection → replica promotion → DNS update → propagation to your VPC resolver) is
+  typically **60–120 seconds** in practice. Size connection-pool timeouts and circuit breakers for the
+  upper end of that range, not just the DNS TTL.
 - Either way, the Rails connection pool will see a burst of errors during failover. The app should be
   configured to reconnect cleanly on `PG::ConnectionBad` and similar errors. Test failover behavior
   before assuming the app recovers without intervention.
