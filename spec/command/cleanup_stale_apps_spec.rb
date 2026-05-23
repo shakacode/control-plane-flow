@@ -171,7 +171,11 @@ describe Command::CleanupStaleApps do
       expect(Shell).not_to have_received(:confirm)
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Deleting app")
-      expect(result[:stderr]).to match(/Stopping workload 'postgres'[.]+? done!/)
+      # ps:stop output does not echo the app name, so assert both apps appear in
+      # the stale-apps listing and that the stop step ran twice (once per app).
+      expect(result[:stderr]).to include("- #{app1}")
+      expect(result[:stderr]).to include("- #{app2}")
+      expect(result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/).length).to eq(2)
     end
   end
 
