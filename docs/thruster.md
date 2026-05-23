@@ -30,7 +30,7 @@ User → HTTPS/HTTP2 → Control Plane LB → HTTP/1.1 → Thruster → HTTP/1.1
                       (LB handles TLS)    (protocol: http)  (caching, compression)
 ```
 
-Thruster speaks HTTP/2 on the *frontend* (the TLS-terminated connection from the browser)
+Thruster terminates TLS and speaks HTTP/2 on the *frontend* (the browser-facing side),
 and talks to upstream services over HTTP/1.1. On Control Plane the load balancer
 terminates TLS, so it is the load balancer — not Thruster — that talks HTTP/2 to the
 browser. Setting `protocol: http2` on the workload port tells the load balancer to expect
@@ -69,7 +69,8 @@ CMD ["bundle", "exec", "thrust", "bin/rails", "server"]
 
 ### `502 Bad Gateway` with "protocol error"
 
-The workload port is set to `protocol: http2`. Change it to `protocol: http` and redeploy.
+The workload port is set to `protocol: http2`. Change it to `protocol: http` in
+`rails.yml`, then redeploy (`cpflow deploy-image -a <app>`) for the change to take effect.
 
 ### Verify Thruster is the process running as PID 1
 
@@ -94,7 +95,7 @@ cpln workload exec <workload> --gvc <gvc> --org <org> --location <location> \
 ### Inspect the workload port configuration
 
 ```sh
-cpln workload get <workload> --gvc <gvc> --org <org> -o json | grep -A 3 "ports"
+cpln workload get <workload> --gvc <gvc> --org <org> -o json | jq '.spec.containers[].ports'
 ```
 
 ## Reference implementation
