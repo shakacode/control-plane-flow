@@ -12,7 +12,7 @@ This page documents the configuration that works.
 
 - Workload port: `protocol: http` (not `http2`).
 - Dockerfile `CMD` runs Thruster: `CMD ["bundle", "exec", "thrust", "bin/rails", "server"]`.
-- End users still get HTTP/2; Control Plane's load balancer terminates it.
+- End users still get HTTP/2; Control Plane's load balancer handles TLS termination.
 
 ## Why `protocol: http` and not `http2`
 
@@ -32,14 +32,14 @@ User → HTTPS/HTTP2 → Control Plane LB → HTTP/1.1 → Thruster → HTTP/1.1
 
 In the diagram above, `protocol: http` is the workload port setting that governs the
 LB→Thruster hop; `caching, compression` describes what Thruster contributes in this
-path (regardless of which arrow the label lands under in your Markdown renderer).
+path.
 
-Thruster terminates TLS and speaks HTTP/2 on the *frontend* (the browser-facing side),
-and talks to upstream services over HTTP/1.1. On Control Plane the load balancer
-terminates TLS, so it is the load balancer — not Thruster — that talks HTTP/2 to the
-browser. Setting `protocol: http2` on the workload port tells the load balancer to expect
-HTTP/2 from the container, which Thruster does not provide on that hop, and protocol
-negotiation fails with `502 Bad Gateway`.
+On Control Plane, the load balancer terminates TLS and speaks HTTP/2 to the browser —
+so Thruster never sees TLS or HTTP/2 on its incoming side. This is the opposite of a
+standalone (VPS) deployment, where Thruster itself handles TLS and HTTP/2. Setting
+`protocol: http2` on the workload port tells the load balancer to expect HTTP/2 from
+the container, which Thruster does not emit on that hop, and protocol negotiation fails
+with `502 Bad Gateway`.
 
 Even with `protocol: http`, end users still get:
 
@@ -78,11 +78,16 @@ The workload port is set to `protocol: http2`. Change it to `protocol: http` in
 
 ```sh
 cpflow apply-template rails -a <app>   # pushes the protocol change to the workload
-cpflow deploy-image -a <app>           # optional: re-pins the latest image
+# Run `cpflow deploy-image -a <app>` only if you also want to update the container image.
 ```
 
 Note: `cpflow deploy-image` alone is not sufficient — it only updates the container
 image reference and does not modify the workload's port configuration.
+
+The remaining troubleshooting commands use the raw Control Plane CLI (`cpln`) rather
+than `cpflow`; see
+[the Control Plane CLI quickstart](https://shakadocs.controlplane.com/quickstart/quick-start-3-cli#getting-started-with-the-cli)
+if you don't already have it installed.
 
 ### Verify Thruster is the process running as PID 1
 
