@@ -6,6 +6,32 @@ require "spec_helper"
 describe Command::CleanupStaleApps do
   let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
+  describe "#stale_apps" do
+    let(:config) { instance_double(Config, app: "dummy-test", options: { yes: true }) }
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+    let(:gvc) { { "name" => "dummy-test-image-less", "created" => "2000-01-01T00:00:00Z" } }
+
+    before do
+      allow(config).to receive(:[]).with(:stale_app_image_deployed_days).and_return(5)
+      allow(command).to receive(:cp).and_return(cp)
+      allow(cp).to receive(:gvc_query).with("dummy-test").and_return({ "items" => [gvc] })
+      allow(cp).to receive(:query_images).with(gvc.fetch("name")).and_return({ "items" => [] })
+      allow(cp).to receive(:latest_image_from)
+        .with([], app_name: gvc.fetch("name"), name_only: false)
+        .and_return(nil)
+    end
+
+    it "uses the GVC creation date when the app has no images" do
+      expect(command.send(:stale_apps)).to eq([
+                                                {
+                                                  name: gvc.fetch("name"),
+                                                  date: DateTime.parse(gvc.fetch("created"))
+                                                }
+                                              ])
+    end
+  end
+
   context "when 'stale_app_image_deployed_days' is not defined" do
     let!(:app) { dummy_test_app("nothing") }
 

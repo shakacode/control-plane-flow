@@ -19,6 +19,9 @@ on:
 jobs:
   rspec:
     runs-on: ${{ inputs.os_version }}
+    concurrency:
+      group: cpln-shared-org-${{ vars.CPLN_ORG }}
+      cancel-in-progress: false
     env:
       RAILS_ENV: test
       # We have to add "_CI" to the end, otherwise it messes with tests where we switch profiles,
