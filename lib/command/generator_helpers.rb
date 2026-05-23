@@ -22,10 +22,14 @@ module Command
 
     def make_shell_scripts_executable(file_paths)
       Array(file_paths).each do |path|
-        next unless File.file?(path) && File.extname(path) == ".sh"
+        next unless File.file?(path) && executable_script?(path)
 
         FileUtils.chmod(0o755, path)
       end
+    end
+
+    def executable_script?(path)
+      File.extname(path) == ".sh" || File.open(path, &:gets).to_s.start_with?("#!")
     end
   end
 end

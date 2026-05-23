@@ -12,8 +12,15 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.0.0.rc.2] - 2026-05-23
+
+### Added
+
+- **Generated local helpers for downstream GitHub Actions ref pinning and validation.** `cpflow generate-github-actions` now writes `bin/pin-cpflow-github-ref` and `bin/test-cpflow-github-flow` so downstream repos can safely pin wrappers to release tags or full upstream commit SHAs, validate wrapper ref consistency, and test unreleased upstream workflow changes without using moving branch refs. [PR 308](https://github.com/shakacode/control-plane-flow/pull/308) by [Justin Gordon](https://github.com/justin808).
+
 ### Changed
 
+- **Documented the downstream testing and release model for reusable GitHub Actions.** The CI automation docs now spell out what is tied to the upstream GitHub ref, what is tied to the RubyGems version, how `CPFLOW_VERSION` changes runtime installation, and how to test an unmerged upstream PR from a downstream app. [PR 308](https://github.com/shakacode/control-plane-flow/pull/308) by [Justin Gordon](https://github.com/justin808).
 - **Updated generated GitHub Actions workflow templates to Node 24-compatible action versions** by using `actions/checkout@v6` and `actions/github-script@v8`. [PR 303](https://github.com/shakacode/control-plane-flow/pull/303) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
@@ -321,7 +328,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.2...HEAD
+[5.0.0.rc.2]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...v5.0.0.rc.2
 [5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.1
 [4.2.0]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...v4.1.1
