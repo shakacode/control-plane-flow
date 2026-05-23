@@ -45,7 +45,7 @@ desc("Releases the cpflow Ruby gem.
 task :release, %i[version dry_run override_version_policy] do |_t, args|
   args_hash = args.to_hash
   gem_root = Release.gem_root
-  is_dry_run = Release.truthy?(args_hash[:dry_run])
+  is_dry_run = Release.affirmative?(args_hash[:dry_run])
   allow_version_policy_override = Release.version_policy_override_enabled?(args_hash[:override_version_policy])
   rubygems_otp = ENV.fetch("RUBYGEMS_OTP", nil)
   current_branch = Release.current_git_branch(gem_root)
@@ -121,7 +121,7 @@ desc("Creates or updates the GitHub release notes from CHANGELOG.md.
 task :sync_github_release, %i[gem_version dry_run] do |_t, args|
   args_hash = args.to_hash
   gem_root = Release.gem_root
-  is_dry_run = Release.truthy?(args_hash[:dry_run])
+  is_dry_run = Release.affirmative?(args_hash[:dry_run])
   requested_gem_version = args_hash[:gem_version].to_s.strip
 
   if requested_gem_version.empty?
@@ -155,12 +155,12 @@ module Release
       File.expand_path("..", __dir__)
     end
 
-    def truthy?(value)
+    def affirmative?(value)
       [true, "true", "yes", 1, "1", "t"].include?(value.instance_of?(String) ? value.downcase : value)
     end
 
     def version_policy_override_enabled?(override_flag)
-      truthy?(override_flag) || truthy?(ENV.fetch("RELEASE_VERSION_POLICY_OVERRIDE", nil))
+      affirmative?(override_flag) || affirmative?(ENV.fetch("RELEASE_VERSION_POLICY_OVERRIDE", nil))
     end
 
     def semver_keyword?(value)

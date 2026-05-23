@@ -92,8 +92,9 @@ module Command
     end
 
     # The confirm_* helpers below prompt the user and mutate state (@asked_for_confirmation,
-    # report_skipped). They return booleans but have side effects, so the method names
-    # intentionally lack `?`.
+    # report_skipped). `confirm_app` and `confirm_workload` return booleans but have side
+    # effects, so their names intentionally lack `?` (suppressed via the inline disables
+    # below). `confirm_apply` doesn't trip the cop and needs no annotation.
     def confirm_apply(message)
       return true if config.options[:yes]
 
