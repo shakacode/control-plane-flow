@@ -161,6 +161,8 @@ but for review apps where cold-start latency is acceptable you can switch the we
 scales to zero replicas when idle:
 
 ```yaml
+# Partial — only the fields that change from the default templates/rails.yml.
+# Keep the existing containers, firewallConfig, identityLink, and other fields.
 kind: workload
 name: rails
 spec:
@@ -185,8 +187,12 @@ For PRs that are clearly done — merged, closed, or untouched for weeks — del
 ```yaml
 my-app-review:
   match_if_app_name_starts_with: true
-  stale_app_image_deployed_days: 7
+  stale_app_image_deployed_days: 14
 ```
+
+Pick a threshold that matches your review cycle — `stale_app_image_deployed_days` measures from the image's push
+timestamp, not last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams with longer
+review cycles often use 14–30 days.
 
 Then run:
 
@@ -214,6 +220,10 @@ cpflow ps:start -a my-app-review-123
 ```
 
 No re-deploy is needed; the workloads come back with the same images they had before.
+
+Note: `ps:stop` overrides serverless auto-wake. If the web workload is already serverless (`minScale: 0`), suspending
+it sets `defaultOptions.suspend: true`, and Control Plane will not bring it back on the next request — `ps:start` must
+be run explicitly first.
 
 ### Non-Web Workloads Stay Running
 
