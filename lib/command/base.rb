@@ -505,6 +505,10 @@ module Command
 
     # Defined on Base (not CleanupStaleApps) so Cpflow::Cli.validate_options!
     # can find it via Base.all_options, which greps `methods` for `_option$`.
+    # TODO: the `--mode` key is owned by this option; if another command ever
+    # needs its own `--mode` with different semantics, rename one of them
+    # before adding a second `*_mode_option` (they would collide in
+    # `all_options_by_key_name`).
     def self.cleanup_mode_option(required: false)
       {
         name: :mode,

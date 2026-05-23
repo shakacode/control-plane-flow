@@ -62,7 +62,7 @@ describe Command::CleanupStaleApps do
     end
   end
 
-  context "when there are no stale apps to delete" do
+  context "when there are no stale apps to act on" do
     let!(:app) { dummy_test_app }
 
     it "displays message" do
