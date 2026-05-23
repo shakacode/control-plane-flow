@@ -265,7 +265,8 @@ module Command
 
     def run_interactive
       progress.puts("Connecting to replica '#{replica}'...\n\n")
-      # `workload_exec` returns falsy on non-zero exit or signal (issue #199).
+      # Returns false on non-zero status or nil on signal / SystemCallError; both fall
+      # through so the cleanup hint replaces the generic "non-zero status" abort.
       success = cp.workload_exec(runner_workload, replica, location: location, container: container, command: command)
       return if success
 
