@@ -81,13 +81,20 @@ jobs:
             variable:REVIEW_APP_PREFIX
           pull_request_friendly: "true"
 
+      - name: Checkout repository
+        if: steps.config.outputs.ready == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          path: app
+          persist-credentials: false
+
       - name: Setup environment
         if: steps.config.outputs.ready == 'true'
         uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ vars.CPLN_ORG_STAGING }}
-          working_directory: .cpflow
+          working_directory: app
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
 
@@ -130,6 +137,7 @@ jobs:
           app_name: ${{ env.APP_NAME }}
           cpln_org: ${{ vars.CPLN_ORG_STAGING }}
           review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}
+          working_directory: app
 
       # Finalizer still runs after delete failures, but only after config validation
       # created the initial PR comment and workflow link env vars it updates.
