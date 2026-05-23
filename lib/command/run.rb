@@ -265,8 +265,8 @@ module Command
 
     def run_interactive
       progress.puts("Connecting to replica '#{replica}'...\n\n")
-      # Returns false on non-zero status or nil on signal / SystemCallError; both fall
-      # through so the cleanup hint replaces the generic "non-zero status" abort.
+      # workload_exec returns false on non-zero exit, nil when signal-killed (e.g. Ctrl-C).
+      # Both fall through to the cleanup hint instead of the generic "non-zero status" abort.
       success = cp.workload_exec(runner_workload, replica, location: location, container: container, command: command)
       return if success
 
@@ -278,7 +278,7 @@ module Command
       progress.puts(Shell.color(
                       "\nThe interactive session ended with a non-zero exit or signal from the upstream CLI. " \
                       "If the runner workload is still running, stop it with:\n" \
-                      "  `cpflow ps:stop #{app_workload_replica_args.join(' ')} --location #{location}`",
+                      "  cpflow ps:stop #{app_workload_replica_args.join(' ')} --location #{location}",
                       :yellow
                     ))
     end
