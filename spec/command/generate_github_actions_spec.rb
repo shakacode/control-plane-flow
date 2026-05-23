@@ -74,6 +74,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     shared_action_path("cpflow-setup-environment")
   end
 
+  def pin_cpflow_ref_path
+    playground.join("bin/pin-cpflow-github-ref")
+  end
+
+  def test_cpflow_flow_path
+    playground.join("bin/test-cpflow-github-flow")
+  end
+
   def detect_release_action_path
     shared_action_path("cpflow-detect-release-phase")
   end
@@ -120,7 +128,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_app_workflow_path).to exist
       expect(build_action_path).to exist
       expect(setup_action_path).to exist
+      expect(pin_cpflow_ref_path).to exist
+      expect(test_cpflow_flow_path).to exist
       expect(delete_app_script_path).to exist
+      expect(pin_cpflow_ref_path).to be_executable
+      expect(test_cpflow_flow_path).to be_executable
       expect(delete_app_script_path).to be_executable
       expect(playground.join(".github/actions")).not_to exist
     end
@@ -199,6 +211,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("Create initial PR comment")
       expect(contents).not_to include("Build Docker image")
       expect(contents).not_to include("Deploy to Control Plane")
+    end
+
+    it "generates local helpers for pinning and validating cpflow workflow refs" do
+      expect(pin_cpflow_ref_path.read).to include("Use a full 40-character commit SHA")
+      expect(pin_cpflow_ref_path.read).to include("Pathname.new(path).relative_path_from(root).to_s")
+      expect(test_cpflow_flow_path.read).to include("cpflow github-flow-readiness")
+      expect(test_cpflow_flow_path.read).to include(
+        "control_plane_flow_ref but no control-plane-flow reusable workflow"
+      )
+      expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
     end
 
     it "passes setup action versions through env before using them in shell commands" do
@@ -669,7 +691,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
                     .map { |path| Pathname.new(path).relative_path_from(template_root).to_s }
                     .sort
 
-      generated = Dir.glob(playground.join(".github/**/*").to_s, File::FNM_DOTMATCH)
+      generated = Dir.glob(playground.join("**", "*").to_s, File::FNM_DOTMATCH)
                      .select { |path| File.file?(path) }
                      .map { |path| Pathname.new(path).relative_path_from(playground).to_s }
                      .sort
