@@ -99,8 +99,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
   end
 
   def shared_yaml_paths
-    Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s).sort +
-      Dir.glob(Cpflow.root_path.join(".github/actions/cpflow-*/*.yml").to_s).sort
+    Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s) +
+      Dir.glob(Cpflow.root_path.join(".github/actions/cpflow-*/*.yml").to_s)
   end
 
   def shared_action_path(name)
@@ -161,7 +161,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     # while loading the manifest, where `vars` is unavailable. Any literal expression
     # syntax there makes the entire action fail to load before workflow steps run.
     it "keeps GitHub expression syntax out of composite action metadata descriptions" do
-      action_paths = Dir.glob(Cpflow.root_path.join(".github/actions/*/action.yml").to_s).sort
+      action_paths = Dir.glob(Cpflow.root_path.join(".github/actions/*/action.yml").to_s)
       expect(action_paths).not_to be_empty
 
       violations = action_paths.flat_map do |path|

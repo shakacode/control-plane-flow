@@ -44,7 +44,7 @@ unless ref.match?(FULL_COMMIT_SHA) || ref.match?(RELEASE_TAG) || allow_moving_re
 end
 
 root = Pathname.new(__dir__).join("..").expand_path
-workflow_paths = Dir[root.join(".github/workflows/cpflow-*.yml")].sort
+workflow_paths = Dir[root.join(".github/workflows/cpflow-*.yml")]
 
 if workflow_paths.empty?
   warn "No cpflow workflow wrappers found."
