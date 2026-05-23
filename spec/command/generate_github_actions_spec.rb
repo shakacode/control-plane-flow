@@ -232,15 +232,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       violations = action_paths.flat_map do |path|
         metadata = YAML.load_file(path, aliases: true)
-        described = []
-        described << ["description", metadata["description"]]
+        field_pairs = []
+        field_pairs << ["description", metadata["description"]]
         (metadata["inputs"] || {}).each do |name, spec|
-          described << ["inputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
+          field_pairs << ["inputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
         end
         (metadata["outputs"] || {}).each do |name, spec|
-          described << ["outputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
+          field_pairs << ["outputs.#{name}.description", spec.is_a?(Hash) ? spec["description"] : nil]
         end
-        described
+        field_pairs
           .select { |_key, value| value.is_a?(String) && value.include?("${{") }
           .map { |key, value| "#{path}: #{key} contains #{value.inspect}" }
       end
