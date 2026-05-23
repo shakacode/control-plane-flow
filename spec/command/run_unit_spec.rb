@@ -25,14 +25,15 @@ describe Command::Run do
       it "does not print a cleanup hint" do
         command.send(:run_interactive)
 
+        expect(cp).to have_received(:workload_exec).once
         expect(progress).not_to have_received(:puts).with(/runner workload is still running/)
       end
     end
 
-    shared_examples "an aborted interactive session" do
+    shared_examples "an aborted interactive session" do |expected_exit_code|
       it "prints the cleanup hint instead of the generic error" do
         expect { command.send(:run_interactive) }.to raise_error(SystemExit) do |error|
-          expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+          expect(error.status).to eq(expected_exit_code)
         end
 
         expect(progress).to have_received(:puts).with(
@@ -40,7 +41,8 @@ describe Command::Run do
             msg.include?("cpflow ps:stop") &&
               msg.include?("-a test-app") &&
               msg.include?("--workload rails-runner") &&
-              msg.include?("--replica rails-runner-12345")
+              msg.include?("--replica rails-runner-12345") &&
+              msg.include?("--location aws-us-east-2")
           end
         )
       end
@@ -49,13 +51,13 @@ describe Command::Run do
     context "when cpln workload exec exits with a non-zero status" do
       let(:exec_success) { false }
 
-      it_behaves_like "an aborted interactive session"
+      it_behaves_like "an aborted interactive session", ExitCode::ERROR_DEFAULT
     end
 
     context "when cpln workload exec is killed by a signal" do
       let(:exec_success) { nil }
 
-      it_behaves_like "an aborted interactive session"
+      it_behaves_like "an aborted interactive session", ExitCode::INTERRUPT
     end
   end
 end

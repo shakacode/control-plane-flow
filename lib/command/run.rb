@@ -271,15 +271,14 @@ module Command
       return if success
 
       print_interactive_cleanup_hint
-      exit(ExitCode::ERROR_DEFAULT)
+      exit(success.nil? ? ExitCode::INTERRUPT : ExitCode::ERROR_DEFAULT)
     end
 
     def print_interactive_cleanup_hint
-      app_workload_replica_config = app_workload_replica_args.join(" ")
       progress.puts(Shell.color(
                       "\nThe interactive session ended with a non-zero exit or signal from the upstream CLI. " \
                       "If the runner workload is still running, stop it with:\n" \
-                      "  `cpflow ps:stop #{app_workload_replica_config}`",
+                      "  `cpflow ps:stop #{app_workload_replica_args.join(' ')} --location #{location}`",
                       :yellow
                     ))
     end
