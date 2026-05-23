@@ -503,6 +503,8 @@ module Command
       }
     end
 
+    # Defined on Base (not CleanupStaleApps) so Cpflow::Cli.validate_options!
+    # can find it via Base.all_options, which greps `methods` for `_option$`.
     def self.cleanup_mode_option(required: false)
       {
         name: :mode,
@@ -512,7 +514,7 @@ module Command
           type: :string,
           required: required,
           default: "delete",
-          valid_regex: /^(delete|stop)$/
+          valid_regex: /\A(delete|stop)\z/
         }
       }
     end

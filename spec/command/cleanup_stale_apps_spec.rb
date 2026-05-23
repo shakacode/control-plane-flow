@@ -160,6 +160,19 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).to match(/Deleting app '#{app2}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting image '#{app2}:1' from app '#{app2}'[.]+? done!/)
     end
+
+    it "skips confirmation and stops stale apps when --mode=stop --yes", :slow do
+      allow(Shell).to receive(:confirm).and_return(false)
+
+      travel_to_days_later(30)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop", "--yes")
+      travel_back
+
+      expect(Shell).not_to have_received(:confirm)
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting app")
+      expect(result[:stderr]).to match(/Stopping workload 'postgres'[.]+? done!/)
+    end
   end
 
   context "with multiple apps" do
