@@ -630,7 +630,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = detect_release_action_path.read
 
       expect(contents).to include('unless File.file?(".controlplane/controlplane.yml")')
-      expect(contents).to include(".controlplane/controlplane.yml` is missing")
+      expect(contents).to match(%r{`\.controlplane/controlplane\.yml` is missing.*?exit 1}m)
     end
 
     it "makes pull_request_target config validation skip cleanly when setup is incomplete" do
