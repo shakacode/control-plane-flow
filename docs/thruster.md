@@ -74,15 +74,32 @@ CMD ["bundle", "exec", "thrust", "bin/rails", "server"]
 ### `502 Bad Gateway` with "protocol error"
 
 The workload port is set to `protocol: http2`. Change it to `protocol: http` in
-`rails.yml`, then apply the template so the workload spec is updated:
+`rails.yml`, then push the workload spec.
+
+`cpflow apply-template` rewrites the workload from the template. If you have tuned
+CPU, memory, autoscaling, firewall, or other workload fields directly in the
+Control Plane UI (or via `cpln`) without mirroring those changes back into
+`rails.yml`, those edits will be reset. Either reconcile `rails.yml` with the live
+spec first, or change the port field in place:
 
 ```sh
-cpflow apply-template rails -a <app>   # pushes the protocol change to the workload
-# Run `cpflow deploy-image -a <app>` only if you also want to update the container image.
+# Option A — apply the full template (resets any drift between rails.yml and the live spec):
+cpflow apply-template rails -a <app>
+
+# Option B — edit only the port protocol in place (preserves UI-tuned fields):
+cpln workload edit <workload> --gvc <gvc> --org <org>
+# change spec.containers[].ports[].protocol from http2 to http
+```
+
+Inspect the current spec before choosing if you're unsure what would change:
+
+```sh
+cpln workload get <workload> --gvc <gvc> --org <org> -o yaml
 ```
 
 Note: `cpflow deploy-image` alone is not sufficient — it only updates the container
-image reference and does not modify the workload's port configuration.
+image reference and does not modify the workload's port configuration. Run it
+*after* the protocol change has been applied if you also want to ship a new image.
 
 The remaining troubleshooting commands use the raw Control Plane CLI (`cpln`) rather
 than `cpflow`; see
@@ -102,7 +119,10 @@ cpln workload exec <workload> --gvc <gvc> --org <org> --location <location> \
 You should see `thrust` in the output. If you see `rails` or `puma` directly, the
 Dockerfile `CMD` is not invoking Thruster.
 
-### Test internal connectivity to Rails
+### Test HTTP connectivity through Thruster
+
+This hits Thruster on port 3000 — not Rails directly. A `200 OK` confirms the
+container-internal LB → Thruster → Rails path is healthy.
 
 ```sh
 cpln workload exec <workload> --gvc <gvc> --org <org> --location <location> \
@@ -120,7 +140,8 @@ cpln workload get <workload> --gvc <gvc> --org <org> -o json | jq '.spec.contain
 A working setup lives in the
 [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial)
 repository — see
-[PR #687](https://github.com/shakacode/react-webpack-rails-tutorial/pull/687).
+[`.controlplane/templates/rails.yml`](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/templates/rails.yml)
+on the `master` branch.
 
 ## Further reading
 
