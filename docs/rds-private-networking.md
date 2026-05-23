@@ -64,7 +64,9 @@ Key properties:
   private.
 - The workload connects to the resource by its **name**, not by RDS's hostname — CPLN routes the connection
   through the agent.
-- Identity + Agent are at the **org** level. Network resources are declared on the Identity (which is per-GVC).
+- The Agent is **org-scoped** — one agent can serve workloads in any GVC in the org.
+- The Identity (and its `networkResources`) is **GVC-scoped** — an org with staging and production GVCs
+  needs the same `networkResources` declared in each GVC's identity, but can share a single agent.
 
 ## Prerequisites
 
@@ -112,6 +114,12 @@ Recommended baseline:
 - **Instance type:** `t3.small` for testing; `t3.medium` or larger for production (CPLN recommends a minimum of
   2 vCPU / 4 GiB).
 - **Launch Template:** set the user data to the bootstrap script from step 1.
+  - **Security note:** EC2 user data is visible to anyone with `ec2:DescribeLaunchTemplates` /
+    `ec2:DescribeInstanceAttribute`, and readable from the instance itself at
+    `http://169.254.169.254/latest/user-data` via IMDS. For production, prefer storing the bootstrap script
+    in AWS Secrets Manager or SSM Parameter Store and having a small bootstrap snippet in user data fetch
+    and execute it at startup (granting the instance role `secretsmanager:GetSecretValue` or `ssm:GetParameter`
+    on that specific resource ARN). At minimum, audit who has those `Describe*` permissions in the account.
 - **Auto Scaling Group:**
   - Testing: desired 1 / min 1 / max 1.
   - Production: desired 2 / min 2 / max 4 across at least two availability zones. Two agents give you
@@ -194,7 +202,7 @@ Schema notes (per CPLN's documented `networkResources` schema):
 - `ports` — array of **1 to 10** ports, each `0–65535`. Required.
 - One identity may declare **up to 50** `networkResources`.
 - For native AWS PrivateLink, an alternative `awsPrivateLink` field exists on identities (see
-  [Alternatives](#alternatives-when-not-to-use-an-agent) below).
+  [Alternatives](#alternatives--when-not-to-use-an-agent) below).
 
 ### IPs vs FQDN — which to use?
 
@@ -216,23 +224,32 @@ CPLN's `cpln://secret/<name>.<key>` syntax substitutes the **entire env var valu
 is not a substring interpolation. So you have two options for assembling a `DATABASE_URL` that includes a
 secret password:
 
+**TLS to RDS:** RDS and Aurora require TLS by default in current parameter groups. Always include
+`sslmode=require` (or stricter — `verify-ca` / `verify-full` if you bundle the AWS RDS CA bundle) in the
+connection string or `database.yml`. Without it, newer clusters will refuse the connection and older ones
+will silently fall back to unencrypted.
+
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
 
-Create a dictionary secret holding the entire connection string:
+Create a dictionary secret holding the entire connection string. The CPLN UI is the safest place to enter
+credentials; the CLI form below is shown for reference but writes the password to your shell history and to
+the `cpln` request body in plaintext — at minimum, prefix the command with a space if `HISTCONTROL=ignorespace`
+is set, or use the UI instead.
 
 ```sh
-cpln apply --file - <<'YAML'
+ cpln apply --file - <<'YAML'
 kind: secret
 name: my-app-database
 type: dictionary
 data:
-  url: "postgres://app:supersecret@db-primary:5432/myapp_production"
-  url_readers: "postgres://app_readonly:readsecret@db-readers:5432/myapp_production"
+  url: "postgres://app:supersecret@db-primary:5432/myapp_production?sslmode=require"
+  url_readers: "postgres://app_readonly:readsecret@db-readers:5432/myapp_production?sslmode=require"
 YAML
 ```
 
-Make sure the existing app policy grants `reveal` on this new secret — see `docs/secrets-and-env-values.md`.
+Make sure the existing app policy grants `reveal` on this new secret — see
+[secrets-and-env-values.md](./secrets-and-env-values.md).
 
 Then in your workload template:
 
@@ -251,6 +268,20 @@ spec:
 
 **Option B: keep the password in a secret, assemble the URL in app code.** Use this if you want the URL host
 to live in plaintext config so it's easy to grep for in templates.
+
+Create a secret holding just the password:
+
+```sh
+ cpln apply --file - <<'YAML'
+kind: secret
+name: my-app-database
+type: dictionary
+data:
+  password: "supersecret"
+YAML
+```
+
+Then set the workload env:
 
 ```yaml
 env:
@@ -276,14 +307,33 @@ production:
   database: <%= ENV.fetch("DATABASE_NAME") %>
   username: <%= ENV.fetch("DATABASE_USER") %>
   password: <%= ENV.fetch("DATABASE_PASSWORD") %>
+  sslmode: require
 ```
 
 Either way:
 
-- `db-primary` / `db-readers` are the `networkResources[].name` values from step 4.
-- If your workload runtime doesn't resolve the bare `db-primary` hostname, try the GVC-suffixed form
-  `db-primary.<gvc-name>.cpln.local` — that's the pattern cpflow uses for workload-to-workload DNS, and
-  documented network resources may follow the same convention. Confirm with `cpln workload exec ... -- nslookup db-primary`.
+- `db-primary` / `db-readers` are the `networkResources[].name` values from step 4 and serve as the
+  workload-facing hostnames per the CPLN docs.
+- If your workload can't resolve `db-primary`, diagnose with
+  `cpln workload exec <workload> -- nslookup db-primary`. The Verification section below covers the
+  most common resolution and connectivity failures.
+
+## Step 6 — Bind the identity to the workload
+
+The wormhole only takes effect once the workload's `spec.identityLink` points at the identity from step 4.
+cpflow's stock templates already do this — see `{{APP_IDENTITY_LINK}}` in `templates/rails.yml`,
+`templates/sidekiq.yml`, and `templates/daily-task.yml`:
+
+```yaml
+# templates/rails.yml (excerpt)
+spec:
+  # Identity is used for binding workload to secrets — and, after step 4, also to network resources.
+  identityLink: {{APP_IDENTITY_LINK}}
+```
+
+If you're using the cpflow templates as-is, no change is needed here — re-applying the templates
+(`cpflow apply-template rails -a my-app-production` etc.) is enough. If you wrote a custom workload without
+that line, add it now (or run `cpln workload update <workload> --gvc <gvc> --set spec.identityLink=//gvc/<gvc>/identity/<identity>`).
 
 Re-apply the workload template:
 
@@ -293,17 +343,23 @@ cpflow apply-template rails -a my-app-production
 
 ## Verification
 
-From a one-off workload in the same GVC, confirm connectivity:
+From a one-off workload in the same GVC, confirm connectivity. Quote the command so `$DATABASE_URL` is
+expanded on the **remote** workload, not on your laptop:
 
 ```sh
 # Run psql inside the rails workload, using the live identity binding.
-cpflow run -a my-app-production -- psql "$DATABASE_URL" -c 'select now(), version();'
+cpflow run -a my-app-production -- bash -c 'psql "$DATABASE_URL" -c "select now(), version();"'
 ```
 
-Expected: a current timestamp and the RDS Postgres version. If you instead see
-`could not translate host name "db-primary" to address`, the identity is not bound to the workload (check
-`spec.identityLink`). If you see `connection refused` or timeouts, the agent → RDS path is wrong — check
-security groups and the agent heartbeat.
+Expected: a current timestamp and the RDS Postgres version. Common failures:
+
+- `could not translate host name "db-primary" to address` — the identity isn't bound to the workload. Check
+  `spec.identityLink` on the workload, re-apply the template, and re-run.
+- `connection refused` or timeouts to the resource — the agent → RDS path is wrong. Verify the agent has a
+  green heartbeat in the CPLN UI, the agent SG has egress to the RDS SG on `5432`, and the RDS SG accepts
+  ingress from the agent SG.
+- `FATAL: no pg_hba.conf entry … SSL off` or `SSL connection is required` — `sslmode=require` is missing
+  from the connection string or `database.yml`.
 
 ## Operations
 
