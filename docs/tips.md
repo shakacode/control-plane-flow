@@ -152,7 +152,7 @@ To set up a liveness probe on port 7433, see: https://github.com/arturictus/side
 ## Minimizing Review App Costs
 
 Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
-workload runs full-time. cpflow and `cpln` already provide several knobs to manage this without custom orchestration.
+workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
 
 ### Scale the Web Workload to Zero
 
@@ -191,11 +191,12 @@ my-app-review:
 Then run:
 
 ```sh
-cpflow cleanup-stale-apps -a my-app-review
+cpflow cleanup-stale-apps -a my-app-review --yes
 ```
 
 This deletes the GVC, workloads, volumesets, and images for any review app whose latest image is older than the
-threshold. Wire it into a nightly CI cron — see [CI Automation](/docs/ci-automation.md) for an example workflow.
+threshold. It also unbinds the app identity from the secrets policy when that binding exists. Wire it into a nightly CI
+cron — see [CI Automation](/docs/ci-automation.md) for an example workflow.
 
 ### Pause and Resume with `ps:stop` / `ps:start`
 
@@ -206,7 +207,7 @@ all workloads with:
 cpflow ps:stop -a my-app-review-123
 ```
 
-This sets `defaultOptions.suspend: true` on every workload. Resume with:
+This sets `defaultOptions.suspend: true` on every workload defined in `.controlplane/controlplane.yml`. Resume with:
 
 ```sh
 cpflow ps:start -a my-app-review-123
@@ -219,9 +220,9 @@ No re-deploy is needed; the workloads come back with the same images they had be
 The Sidekiq, Postgres, Redis, and Memcached templates all ship with `type: standard` and `minScale: 1`, and they don't
 auto-scale. They keep running while the web tier sleeps via `minScale: 0`, which can erode the cost savings.
 
-To pause them too, use `cpflow ps:stop -a $APP_NAME` — it suspends every workload, web included. A future `--mode=stop`
-flag on `cleanup-stale-apps` (see issue #295) will combine staleness detection with `ps:stop` for reversible idle
-handling.
+To pause them too, use `cpflow ps:stop -a $APP_NAME` — it suspends every configured workload, web included. A future
+`--mode=stop` flag on `cleanup-stale-apps` (see issue #295) will combine staleness detection with `ps:stop` for
+reversible idle handling.
 
 ## Useful Links
 
