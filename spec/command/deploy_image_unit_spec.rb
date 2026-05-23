@@ -145,5 +145,29 @@ describe Command::DeployImage do
           .with("frontend", container: "rails-sidecar", image: "test-app:1")
       end
     end
+
+    context "when a workload has no containers matching the app image" do
+      let(:workload_data) do
+        {
+          "name" => "frontend",
+          "spec" => {
+            "containers" => [
+              { "name" => "redis", "image" => "/org/test-org/image/redis:7" }
+            ]
+          },
+          "status" => { "endpoint" => "https://frontend-test.cpln.app" }
+        }
+      end
+
+      it "does not call the image-update API for the workload" do
+        command.call
+
+        expect(cp).not_to have_received(:workload_set_image_ref)
+      end
+
+      it "does not list the workload in the deployed endpoints summary" do
+        expect { command.call }.not_to output(/- frontend:/).to_stderr
+      end
+    end
   end
 end
