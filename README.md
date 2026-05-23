@@ -500,6 +500,11 @@ aws-rds-single-pg-instance
   mydb-review-333
 ```
 
+For production, you'll typically want RDS or Aurora in private subnets, reached from your Control Plane workloads
+over a private network path rather than the public internet. See
+[Connecting Control Plane workloads to a private AWS RDS/Aurora database](./docs/rds-private-networking.md) for the
+full Cloud Wormhole + Agent setup.
+
 If you want to run PostgreSQL on Control Plane instead of keeping a Heroku add-on or moving to RDS, review the
 [Control Plane PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres). It includes
 persistent storage and optional scheduled backups. Additionally, we provide a default `postgres` template in this
