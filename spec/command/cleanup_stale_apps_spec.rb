@@ -138,7 +138,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "lists correct stale apps", :slow do
-      allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(false)
+      allow(Shell).to receive(:confirm).with(include("3 apps")).and_return(false)
 
       # We need to stub the image from app3 to have the current date,
       # as Control Plane does not allow manipulating the creation date of an image
@@ -156,6 +156,7 @@ describe Command::CleanupStaleApps do
       travel_to_days_later(30)
       # App with new image, wont't be listed
       run_cpflow_command!("build-image", "-a", app3)
+      # app4 has no image; its old GVC date is used as the fallback, so it is listed
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
       travel_back
 
@@ -164,7 +165,7 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).to include("- #{app1}")
       expect(result[:stderr]).to include("- #{app2}")
       expect(result[:stderr]).not_to include("- #{app3}")
-      expect(result[:stderr]).not_to include("- #{app4}")
+      expect(result[:stderr]).to include("- #{app4}")
     end
   end
 end

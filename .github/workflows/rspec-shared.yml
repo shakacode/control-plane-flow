@@ -20,7 +20,7 @@ jobs:
   rspec:
     runs-on: ${{ inputs.os_version }}
     concurrency:
-      group: cpln-shared-org-${{ vars.CPLN_ORG }}
+      group: cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}
       cancel-in-progress: false
     env:
       RAILS_ENV: test

@@ -16,7 +16,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     it "queues jobs that share the CI Control Plane org" do
       expect(job.fetch("concurrency")).to eq(
-        "group" => "cpln-shared-org-${{ vars.CPLN_ORG }}",
+        "group" => "cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}",
         "cancel-in-progress" => false
       )
     end
