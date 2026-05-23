@@ -30,6 +30,10 @@ User → HTTPS/HTTP2 → Control Plane LB → HTTP/1.1 → Thruster → HTTP/1.1
                       (LB handles TLS)    (protocol: http)  (caching, compression)
 ```
 
+In the diagram above, `protocol: http` is the workload port setting that governs the
+LB→Thruster hop; `caching, compression` describes what Thruster contributes in this
+path (regardless of which arrow the label lands under in your Markdown renderer).
+
 Thruster terminates TLS and speaks HTTP/2 on the *frontend* (the browser-facing side),
 and talks to upstream services over HTTP/1.1. On Control Plane the load balancer
 terminates TLS, so it is the load balancer — not Thruster — that talks HTTP/2 to the
@@ -43,7 +47,7 @@ Even with `protocol: http`, end users still get:
 - HTTP/2 multiplexing (from the Control Plane load balancer)
 - Asset caching and compression (from Thruster)
 - Efficient static file serving (from Thruster)
-- Early hints support (from Thruster)
+- Early Hints (103) from Thruster (reaches the browser only if the load balancer forwards 103 responses)
 
 ## Workload template
 
@@ -70,7 +74,15 @@ CMD ["bundle", "exec", "thrust", "bin/rails", "server"]
 ### `502 Bad Gateway` with "protocol error"
 
 The workload port is set to `protocol: http2`. Change it to `protocol: http` in
-`rails.yml`, then redeploy (`cpflow deploy-image -a <app>`) for the change to take effect.
+`rails.yml`, then apply the template so the workload spec is updated:
+
+```sh
+cpflow apply-template rails -a <app>   # pushes the protocol change to the workload
+cpflow deploy-image -a <app>           # optional: re-pins the latest image
+```
+
+Note: `cpflow deploy-image` alone is not sufficient — it only updates the container
+image reference and does not modify the workload's port configuration.
 
 ### Verify Thruster is the process running as PID 1
 
