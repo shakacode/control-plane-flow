@@ -346,7 +346,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = reusable_delete_review_workflow_path.read
       expect(contents).to include("concurrency:")
       expect(contents).to include('pull_request_friendly: "true"')
-      expect(contents).to include("working_directory: .cpflow")
+      expect(contents).to include("Checkout repository")
+      expect(contents).to include("path: app")
+      expect(contents).to include("working_directory: app")
       expect(delete_review_workflow_path.read).to include("pull_request_target:")
       expect(delete_review_workflow_path.read).to include("pull_request_target is intentional")
       expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
