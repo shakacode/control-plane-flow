@@ -208,11 +208,23 @@ cpln apply --file identity-db.yaml --gvc my-app-production --org my-org
 
 (Use whatever `--org` / `--gvc` flags your team uses, or rely on the org/GVC defaults set by `cpln profile`.)
 
-Confirm the identity now has both the existing policy bindings *and* the new `networkResources`:
+Confirm the identity now has the new `networkResources` and that the policy still references it:
 
 ```sh
-cpln identity get my-app-production --gvc my-app-production --org my-org -o yaml | grep -E 'name:|networkResources'
+# 1. The identity itself should now list `networkResources`.
+cpln identity get my-app-production --gvc my-app-production --org my-org -o yaml \
+  | grep -A 5 networkResources
+
+# 2. Policies are separate resources — they reference the identity by link, not by replacing it.
+#    Confirm the existing cpflow-generated policy (typically <app>-secrets) still grants
+#    `reveal` on the workload's secrets to this identity.
+cpln policy list --org my-org -o yaml \
+  | grep -B 1 -A 8 "//gvc/my-app-production/identity/my-app-production"
 ```
+
+If the policy block is gone or no longer contains the identity link, your workload won't be able to read
+its secrets — re-apply the app template (`cpflow apply-template app -a my-app-production`, or whichever
+template owns the identity + policy in your project) to recreate the policy binding.
 
 Schema notes (per CPLN's documented `networkResources` schema):
 
@@ -371,12 +383,19 @@ cpflow apply-template rails -a my-app-production
 
 ## Verification
 
-From a one-off workload in the same GVC, confirm connectivity. Quote the command so `$DATABASE_URL` is
-expanded on the **remote** workload, not on your laptop:
+Open an interactive shell in a one-off copy of the rails workload (with the identity, env, and image of
+the live workload), then run `psql` from inside it. `cpflow run` flattens argv with `join(" ")` and does
+no shell escaping (see `lib/command/base.rb`), so quoted multi-arg commands like
+`-- bash -c 'psql "$DATABASE_URL" -c "select 1"'` won't survive round-tripping — running `psql` from
+inside the interactive shell sidesteps the issue entirely.
 
 ```sh
-# Run psql inside the rails workload, using the live identity binding.
-cpflow run -a my-app-production -- bash -c 'psql "$DATABASE_URL" -c "select now(), version();"'
+# Step 1: open a one-off interactive shell inside the rails workload.
+cpflow run -a my-app-production
+
+# Step 2: from inside the workload shell, confirm DATABASE_URL is set and reachable.
+echo "$DATABASE_URL"
+psql "$DATABASE_URL" -c 'select now(), version();'
 ```
 
 Expected: a current timestamp and the RDS Postgres version. Common failures:
