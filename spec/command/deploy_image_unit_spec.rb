@@ -98,9 +98,11 @@ describe Command::DeployImage do
     before do
       allow(config).to receive(:[]).with(:app_workloads).and_return(["frontend"])
       allow(cp).to receive(:fetch_workload!).with("frontend").and_return(workload_data)
+      # fetch_image_details is called for the fail-fast existence check, but the digest
+      # value is not consulted because use_digest_image_ref? is false in this describe block.
       allow(cp).to receive_messages(
         latest_image: "test-app:1",
-        fetch_image_details: { "digest" => "sha256:#{'a' * 64}" },
+        fetch_image_details: {},
         workload_set_image_ref: true
       )
       allow(command).to receive(:cp).and_return(cp)
