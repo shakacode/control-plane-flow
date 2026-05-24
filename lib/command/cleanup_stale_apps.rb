@@ -2,11 +2,23 @@
 
 module Command
   class CleanupStaleApps < Base
+    CLEANUP_MODE_OPTION = {
+      name: :mode,
+      params: {
+        banner: "MODE",
+        desc: "Action to take on stale apps: `delete` (default) or `stop`",
+        type: :string,
+        required: false,
+        default: "delete",
+        valid_regex: /^(delete|stop)$/
+      }
+    }.freeze
+
     NAME = "cleanup-stale-apps"
     OPTIONS = [
       app_option(required: true),
       skip_confirm_option,
-      cleanup_mode_option
+      CLEANUP_MODE_OPTION
     ].freeze
     DESCRIPTION = "Deletes or stops stale apps based on the latest image's creation date"
     LONG_DESCRIPTION = <<~DESC
@@ -83,7 +95,7 @@ module Command
     def confirm_action
       return true if config.options[:yes]
 
-      Shell.confirm("\nAre you sure you want to #{mode} these #{stale_apps.length} apps?")
+      Shell.confirm("\nAre you sure you want to #{action_description} these #{stale_apps.length} apps?")
     end
 
     def process_app(app)
@@ -95,8 +107,12 @@ module Command
       end
     end
 
+    def action_description
+      mode == "stop" ? "suspend all workloads in" : "delete"
+    end
+
     def mode
-      config.options[:mode]
+      @mode ||= config.options[:mode]
     end
   end
 end

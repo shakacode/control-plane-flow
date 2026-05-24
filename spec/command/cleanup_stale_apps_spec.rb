@@ -6,6 +6,43 @@ require "spec_helper"
 describe Command::CleanupStaleApps do
   let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
+  describe ".OPTIONS" do
+    it "keeps the cleanup mode option scoped to cleanup-stale-apps" do
+      expect(described_class::OPTIONS.map { |option| option[:name] }).to include(:mode)
+      expect(Command::Base.all_options.map { |option| option[:name] }).not_to include(:mode)
+    end
+  end
+
+  describe "#confirm_action" do
+    let(:config) { instance_double(Config, options: { mode: mode, yes: false }) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(command).to receive(:stale_apps).and_return([{ name: "app-1" }, { name: "app-2" }])
+      allow(Shell).to receive(:confirm).and_return(false)
+    end
+
+    context "with delete mode" do
+      let(:mode) { "delete" }
+
+      it "confirms app deletion" do
+        command.send(:confirm_action)
+
+        expect(Shell).to have_received(:confirm).with(include("delete these 2 apps"))
+      end
+    end
+
+    context "with stop mode" do
+      let(:mode) { "stop" }
+
+      it "confirms workload suspension" do
+        command.send(:confirm_action)
+
+        expect(Shell).to have_received(:confirm).with(include("suspend all workloads in these 2 apps"))
+      end
+    end
+  end
+
   describe "#stale_apps" do
     let(:config) { instance_double(Config, app: "dummy-test") }
     let(:cp) { instance_double(Controlplane) }
@@ -101,8 +138,8 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).not_to include("Deleting app")
     end
 
-    it "uses stop wording when --mode=stop and does nothing on declined confirmation", :slow do
-      allow(Shell).to receive(:confirm).with(include("stop these 2 apps")).and_return(false)
+    it "uses workload-suspension wording when --mode=stop and does nothing on declined confirmation", :slow do
+      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(false)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")
@@ -115,7 +152,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "asks for confirmation and stops stale apps when --mode=stop", :slow do
-      allow(Shell).to receive(:confirm).with(include("stop these 2 apps")).and_return(true)
+      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(true)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")

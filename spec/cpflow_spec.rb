@@ -20,6 +20,23 @@ describe Cpflow do
     end
   end
 
+  describe ".validate_options!" do
+    it "validates regexes against the current command options only" do
+      command_options = [
+        {
+          name: :mode,
+          params: {
+            valid_regex: /^(preview|apply)$/
+          }
+        }
+      ]
+
+      expect do
+        Cpflow::Cli.validate_options!({ "mode" => "preview" }, command_options: command_options)
+      end.not_to raise_error
+    end
+  end
+
   it "handles subcommands correctly" do
     result = run_cpflow_command("--help")
 
