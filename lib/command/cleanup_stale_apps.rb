@@ -12,7 +12,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
       - With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy as long as both the identity and the policy exist (and are bound)
-      - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` so the app can be resumed later with `cpflow ps:start` — no GVC, volumeset, or image is removed. Only workloads listed in `app_workloads` + `additional_workloads` in `.controlplane/controlplane.yml` are suspended; workloads present in the live GVC but missing from the config are skipped silently
+      - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` so the app can be resumed later with `cpflow ps:start` — no GVC, volumeset, or image is removed. Only workloads listed in `app_workloads` + `additional_workloads` in `.controlplane/controlplane.yml` are suspended; workloads present in the live GVC but missing from the config are skipped silently. The command returns once each workload is marked suspended and does not wait for it to reach a not-ready state
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
       - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will act on all stale apps that start with the name
       - Will ask for explicit user confirmation

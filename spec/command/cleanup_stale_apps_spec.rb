@@ -128,7 +128,9 @@ describe Command::CleanupStaleApps do
       # the stale-apps listing and that the stop step ran twice (once per app).
       expect(result[:stderr]).to include("- #{app1}")
       expect(result[:stderr]).to include("- #{app2}")
-      expect(result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/).length).to eq(2)
+      stop_lines = result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/)
+      expect(stop_lines.length).to eq(2),
+                                   "expected exactly 2 'Stopping workload postgres' lines; got: #{result[:stderr]}"
     end
 
     it "asks for confirmation and deletes stale apps", :slow do
@@ -179,7 +181,9 @@ describe Command::CleanupStaleApps do
       # the stale-apps listing and that the stop step ran twice (once per app).
       expect(result[:stderr]).to include("- #{app1}")
       expect(result[:stderr]).to include("- #{app2}")
-      expect(result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/).length).to eq(2)
+      stop_lines = result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/)
+      expect(stop_lines.length).to eq(2),
+                                   "expected exactly 2 'Stopping workload postgres' lines; got: #{result[:stderr]}"
     end
   end
 
