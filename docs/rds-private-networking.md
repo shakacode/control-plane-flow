@@ -106,8 +106,8 @@ launch template's user data in step 2.
 > The bootstrap token is shown by the UI immediately after creation and is **not retrievable
 > afterward** — if you miss it, delete the agent and recreate it. The closest CLI equivalents are
 > `cpln agent info <name>` (operational status, not the bootstrap token) and `cpln agent manifest`
-> (generates Kubernetes manifests from an existing `--bootstrap-file`; it does not generate or print
-> a new token).
+> (takes an existing `--bootstrap-file` as input and renders host manifests; it does not generate,
+> recover, or print a new token).
 >
 > **Unverified CLI note:** `cpln agent create` exists, but this guide has not verified whether it
 > emits the bootstrap payload on stdout for every CLI/org version. For IaC workflows, verify that
@@ -462,7 +462,7 @@ inside the interactive shell sidesteps the issue entirely.
 
 ```sh
 # Step 1: open a one-off interactive shell inside the rails workload.
-cpflow run -a my-app-production
+cpflow run -a my-app-production -w rails
 
 # Step 2: from inside the workload shell, confirm DATABASE_URL is set and reachable.
 echo "$DATABASE_URL"
