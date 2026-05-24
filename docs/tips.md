@@ -164,7 +164,8 @@ review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
 # Partial — only the fields that change from the default templates/rails.yml.
-# Keep the existing containers, firewallConfig, identityLink, and other fields.
+# Keep the existing containers, firewallConfig, identityLink, defaultOptions.capacityAI,
+# defaultOptions.timeoutSeconds, and other fields.
 kind: workload
 name: rails
 spec:
@@ -176,7 +177,8 @@ spec:
 ```
 
 See [`templates/rails.yml`](../templates/rails.yml) for the full default — `containers`, `firewallConfig`,
-`identityLink`, and the other required fields must be preserved when you copy the snippet above.
+`identityLink`, `defaultOptions.capacityAI`, `defaultOptions.timeoutSeconds`, and the other required fields must be
+preserved when you copy the snippet above.
 
 Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
 `type: standard` always keeps at least one replica running.
@@ -197,8 +199,9 @@ my-app-review:
 
 Pick a threshold that matches your review cycle — `stale_app_image_deployed_days` measures from the image's creation
 date (typically set at build time, not the push timestamp; reproducible-build pipelines such as BuildKit `--timestamp=0`
-can override this), not last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams with
-longer review cycles often use 14–30 days.
+pin timestamps to epoch and make every image appear maximally old, so use a build/commit timestamp instead for review
+apps), not last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams with longer review
+cycles often use 14–30 days.
 
 Then run:
 
