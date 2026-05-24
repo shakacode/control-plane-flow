@@ -150,29 +150,76 @@ apps:
 
 Important points:
 
-- `REVIEW_APP_PREFIX` in GitHub Actions must match the review config key prefix, for example `my-app-review`.
 - `match_if_app_name_starts_with: true` is what allows a single config entry to back `my-app-review-123`, `my-app-review-456`, and cleanup commands like `cpflow cleanup-stale-apps -a my-app-review`.
+- Review-app deploy, delete, and cleanup workflows infer the review app prefix from the single app entry with `match_if_app_name_starts_with: true`.
+- Review-app workflows infer the staging Control Plane org from that review app entry's `cpln_org`.
 - `upstream: my-app-staging` is what lets the production promotion workflow copy the exact staging artifact.
 - If your main web workload is not named `rails`, set the optional `PRIMARY_WORKLOAD` repository variable described below.
 
 ## Required GitHub Repository Settings
 
-Configure these repository secrets:
+For a normal generated review-app setup, configure one repository secret:
 
 - `CPLN_TOKEN_STAGING`: token for the staging Control Plane org
-- `CPLN_TOKEN_PRODUCTION`: token for the production Control Plane org
 
-Configure these repository variables:
+No GitHub repository variables are required for review apps when `.controlplane/controlplane.yml`
+has exactly one review app entry with `match_if_app_name_starts_with: true` and
+that entry has a `cpln_org`. Set these variables only when you need to override
+or disambiguate generated review-app config:
+
+- `CPLN_ORG_STAGING`: override the staging/review org name, for example `company-staging`
+- `REVIEW_APP_PREFIX`: required only when multiple review app prefixes exist in `controlplane.yml`
+- `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
+
+For staging deploys, also configure:
 
 - `CPLN_ORG_STAGING`: staging org name, for example `company-staging`
-- `CPLN_ORG_PRODUCTION`: production org name, for example `company-production`
 - `STAGING_APP_NAME`: staging GVC name, for example `my-app-staging`
-- `PRODUCTION_APP_NAME`: production GVC name, for example `my-app-production`
-- `REVIEW_APP_PREFIX`: review-app prefix, for example `my-app-review`
 - `STAGING_APP_BRANCH`: optional branch that auto-deploys staging. If you use a custom branch, either pass it to `cpflow generate-github-actions --staging-branch BRANCH` during generation or edit `cpflow-deploy-staging.yml` so its `on.push.branches` list includes the same branch.
-- `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
-- `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited single `docker build` tokens passed through to `cpflow build-image`, for example `--build-arg=FOO=bar` or `--secret=id=npmrc,src=.npmrc`
-- `DOCKER_BUILD_SSH_KNOWN_HOSTS`: optional multi-line `known_hosts` content used with `DOCKER_BUILD_SSH_KEY` when the build needs SSH access to hosts other than GitHub.com
+
+For production promotion, also configure:
+
+- a GitHub Environment named `production`
+- required reviewers on that environment, limited to the people or team allowed to promote production
+- "Prevent self-review" on that environment, so the person who starts the promotion cannot approve it
+- optionally disable administrator bypass and restrict deployment branches/tags to your protected release branch
+- `CPLN_TOKEN_PRODUCTION` as an environment secret on `production`, not as a repository or organization secret
+- `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
+- `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
+
+Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
+sensitive production systems. The generated promotion reusable workflow declares
+`environment: production`, so GitHub waits for the `production` environment's
+protection rules before the job can access `CPLN_TOKEN_PRODUCTION`.
+
+### Production Promotion Safety
+
+`CPLN_TOKEN_PRODUCTION` can change live production workloads, images, releases,
+and rollback state. Treat it differently from review-app and staging credentials.
+The standard path is:
+
+1. Create the `production` GitHub Environment before setting the production token.
+2. Add a small required-reviewer list or team with production authority.
+3. Enable prevent self-review.
+4. Disable administrator bypass if your org policy requires two-person control.
+5. Restrict deployable branches or tags to the protected release branch.
+6. Store `CPLN_TOKEN_PRODUCTION` only as a `production` environment secret.
+7. Store `CPLN_ORG_PRODUCTION` and `PRODUCTION_APP_NAME` as `production`
+   environment variables, or as repository variables only when those names are
+   intentionally non-sensitive.
+
+GitHub only exposes environment secrets to jobs that reference the environment
+after configured protection rules pass. GitHub also does not allow a caller job
+that directly invokes a reusable workflow to set `environment`; for that reason,
+the reusable promotion workflow itself declares `environment: production`. See
+GitHub's docs for [managing environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),
+[deployment protection rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments),
+and [reusable workflow limitations](https://docs.github.com/en/actions/reference/reusable-workflows-reference#supported-keywords-for-jobs-that-call-a-reusable-workflow).
+
+Application runtime secrets such as `SECRET_KEY_BASE`, API keys, or private
+license keys belong in Control Plane secret dictionaries referenced by
+`controlplane.yml`. They are not GitHub repository variables unless your
+Docker build itself needs them.
 
 Recommended org layout:
 
@@ -182,6 +229,17 @@ Recommended org layout:
 Optional repository secret for private dependency builds:
 
 - `DOCKER_BUILD_SSH_KEY`: private SSH key used when the Dockerfile needs `RUN --mount=type=ssh` to fetch private GitHub dependencies during image build
+
+Optional repository variables for private dependency builds:
+
+- `DOCKER_BUILD_EXTRA_ARGS`: optional newline-delimited single `docker build` tokens passed through to `cpflow build-image`, for example `--build-arg=FOO=bar` or `--secret=id=npmrc,src=.npmrc`
+- `DOCKER_BUILD_SSH_KNOWN_HOSTS`: optional multi-line `known_hosts` content used with `DOCKER_BUILD_SSH_KEY` when the build needs SSH access to hosts other than GitHub.com
+
+Advanced optional repository variables:
+
+- `REVIEW_APP_DEPLOYING_ICON_URL`: custom image URL for the animated icon in review-app PR comments. Ignore this for the standard setup; it is cosmetic only.
+- `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
+- `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
 
 ## Docker Builds with Private Dependencies
 
@@ -242,6 +300,7 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 `cpflow-promote-staging-to-production.yml`
 
 - Manually promotes the staging artifact to production with a confirmation input.
+- Runs the production job in the `production` GitHub Environment, so configured reviewers approve the job before production environment secrets are available.
 - Verifies that production has the env var names staging expects.
 - Runs a health check against `PRIMARY_WORKLOAD`.
 - Attempts a rollback of every configured application workload if the new production image does not come up healthy.
@@ -282,7 +341,18 @@ Those two pins must stay in sync:
   `control-plane-flow` checkout to use for shared composite actions and, when
   `CPFLOW_VERSION` is empty, for building and installing the `cpflow` gem.
 
-The stable release path is still gem-driven:
+There are two locks, and they protect different things:
+
+- The GitHub ref locks the reusable workflow and composite action code that
+  GitHub runs.
+- The RubyGems version locks the `cpflow` CLI/runtime code only when you install
+  or run that gem. It does not make GitHub load reusable workflow YAML from the
+  gem.
+
+That means a downstream app cannot rely on the gem alone for GitHub Actions
+behavior. The safe stable path is still gem-driven for generation, but
+developers must commit generated wrappers that reference the matching upstream
+release tag:
 
 1. Publish a `cpflow` gem.
 2. Install or bundle that released gem in the downstream project.
@@ -300,6 +370,18 @@ feature-branch refs.
 `control-plane-flow` ref. For normal releases, leave `CPFLOW_VERSION` unset while
 pinning the wrappers to the matching `v<version>` tag, or set
 `CPFLOW_VERSION` to that same released gem version without the leading `v`.
+When setting `CPFLOW_VERSION`, use RubyGems version syntax, for example
+`5.0.0` or `5.0.0.rc.1`; do not use `v5.0.0` or dash-separated prereleases
+because the value is passed directly to `gem install cpflow -v`.
+
+The setup action fails early when `CPFLOW_VERSION` and `control_plane_flow_ref`
+are out of sync. `CPFLOW_VERSION=5.0.0` is accepted only when
+`control_plane_flow_ref` is `v5.0.0` (or `refs/tags/v5.0.0`). Release tags may
+use dot- or dash-separated prerelease suffixes, such as `v5.0.0.rc.1` or
+`v5.0.0-rc.1`; the gem version should still use dots. When testing an unreleased
+upstream commit SHA, leave `CPFLOW_VERSION` unset so the workflow builds
+`cpflow` from the same source that supplies the reusable workflow and composite
+actions.
 
 ## Testing Unreleased Upstream Changes Downstream
 
@@ -319,7 +401,10 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
    local experiments that should not be committed.
 
 3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same
-   upstream SHA that supplies the reusable workflow and composite actions.
+   upstream SHA that supplies the reusable workflow and composite actions. If
+   `CPFLOW_VERSION` is set while `control_plane_flow_ref` is a SHA, the setup
+   action fails before deployment because the gem and action code cannot be
+   proven to match.
 4. Run:
 
    ```sh
@@ -343,8 +428,10 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
 6. Verify the deploy logs show the expected upstream commit SHA, the setup step
    prints the expected `cpflow` source/version, and the review app URL returns
    HTTP 200.
-7. After the upstream PR merges and a gem is released, regenerate or repin the
-   downstream wrappers to the release tag.
+7. After the upstream PR merges and a gem is released, regenerate the downstream
+   wrappers from that released gem and commit the release tag. Use
+   `bin/pin-cpflow-github-ref vX.Y.Z` only for a ref-only update when the
+   generated templates are already current.
 
 This tests the real reusable workflow, shared composite actions, and source-built
 `cpflow` gem from one immutable upstream commit. It avoids merging upstream blind
@@ -397,7 +484,7 @@ In practice, porting the flow into a demo app usually follows five phases.
 
 **Wire up GitHub secrets, variables, and private builds:**
 
-11. Make sure the repo variables and secrets line up with the configured app names.
+11. Make sure the repo variables and secrets line up with the configured app names. For production promotion, store `CPLN_TOKEN_PRODUCTION` only on a protected `production` GitHub Environment with required reviewers.
 12. If the Dockerfile pulls private dependencies over SSH, configure `DOCKER_BUILD_SSH_KEY`, add `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the host is not GitHub.com, and validate that the image can build with `RUN --mount=type=ssh`.
 
 **Validate and push:**
@@ -417,7 +504,7 @@ current prompt with that repo's default app prefix already filled in.
 Short version:
 
 ```text
-Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-readiness` and stop on any reported blockers. The repo must be deployable from a clean clone, with published package versions and a production Dockerfile that can really build the app. Stop and report blockers for unpublished packages, inaccessible private dependencies, legacy toolchains, or missing production build paths instead of generating workflows blindly. Then run `cpflow generate` if `.controlplane/` is missing, run `cpflow generate-github-actions`, adapt the generated scaffold to the real workloads, document the required GitHub secrets and variables, validate the real build path locally, push the branch, and check the GitHub Actions results.
+Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-readiness` and stop on any reported blockers. The repo must be deployable from a clean clone, with published package versions and a production Dockerfile that can really build the app. Stop and report blockers for unpublished packages, inaccessible private dependencies, legacy toolchains, or missing production build paths instead of generating workflows blindly. Then run `cpflow generate` if `.controlplane/` is missing, run `cpflow generate-github-actions`, adapt the generated scaffold to the real workloads, document the required GitHub secrets and variables, validate the real build path locally, push the branch, and check the GitHub Actions results. Keep production promotion safe by documenting `CPLN_TOKEN_PRODUCTION` as a protected `production` GitHub Environment secret, not a repository or organization secret.
 ```
 
 Expand that prompt with app-specific requirements before editing files:

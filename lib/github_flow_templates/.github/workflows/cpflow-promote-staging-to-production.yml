@@ -21,6 +21,10 @@ jobs:
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-promote-staging-to-production.yml@__CPFLOW_GITHUB_ACTIONS_REF__
     with:
       control_plane_flow_ref: __CPFLOW_GITHUB_ACTIONS_REF__
+      # Keep CPLN_TOKEN_PRODUCTION as a secret on this protected GitHub
+      # Environment. Required reviewers approve the job before GitHub exposes
+      # environment secrets to the upstream reusable workflow.
+      production_environment: production
     # `secrets: inherit` passes all caller repository secrets to the trusted
     # upstream workflow. The upstream workflow only reads the named secrets it
     # references, but GitHub does not enforce that boundary. Strict consumers can

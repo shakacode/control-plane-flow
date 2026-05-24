@@ -37,6 +37,12 @@ inputs:
       without publishing a release.
     required: false
     default: ""
+  control_plane_flow_ref:
+    description: >-
+      control-plane-flow GitHub ref used by the calling reusable workflow. When
+      cpflow_version is set, this must be the matching release tag.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -83,6 +89,7 @@ runs:
     - name: Install Control Plane CLI and cpflow gem
       shell: bash
       env:
+        CONTROL_PLANE_FLOW_REF: ${{ inputs.control_plane_flow_ref }}
         CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}
         CPFLOW_VERSION: ${{ inputs.cpflow_version }}
         CPFLOW_SOURCE_DIR: ${{ github.action_path }}/../../..
@@ -94,6 +101,62 @@ runs:
         default_cpln_cli_version="3.10.2"
 
         CPLN_CLI_VERSION="${CPLN_CLI_VERSION:-${default_cpln_cli_version}}"
+
+        normalize_version() {
+          local version="${1#v}"
+
+          if [[ "${version}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)([.-](test|beta|alpha|rc|pre|dev|snapshot|nightly)([.-]?([0-9]+))?)?$ ]]; then
+            if [[ -n "${BASH_REMATCH[3]}" ]]; then
+              echo "${BASH_REMATCH[1]}.${BASH_REMATCH[3]}${BASH_REMATCH[5]:+.${BASH_REMATCH[5]}}"
+            else
+              echo "${BASH_REMATCH[1]}"
+            fi
+          fi
+          # Empty output means an unrecognized format; callers check for that.
+        }
+
+        normalize_release_ref() {
+          local ref="${1#refs/tags/}"
+
+          [[ "${ref}" == v* ]] || return 0 # Non-v refs intentionally produce empty output.
+          normalize_version "${ref}"
+        }
+
+        is_rubygems_version() {
+          [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.(test|beta|alpha|rc|pre|dev|snapshot|nightly)(\.([0-9]+))?)?$ ]]
+        }
+
+        validate_cpflow_version_pin() {
+          [[ -z "${CPFLOW_VERSION}" ]] && return 0
+
+          local actual_version
+          local expected_version
+
+          if ! is_rubygems_version "${CPFLOW_VERSION}"; then
+            echo "::error::CPFLOW_VERSION must be a RubyGems version usable by 'gem install cpflow -v', such as 5.0.0 or 5.0.0.rc.1. Do not include a leading v, and use dot-separated prereleases instead of dash-separated prereleases."
+            exit 1
+          fi
+
+          actual_version="$(normalize_version "${CPFLOW_VERSION}")"
+          expected_version="$(normalize_release_ref "${CONTROL_PLANE_FLOW_REF}")"
+
+          if [[ -z "${actual_version}" ]]; then
+            echo "::error::CPFLOW_VERSION='${CPFLOW_VERSION}' is not a recognized semver format. Use X.Y.Z or X.Y.Z-prerelease, such as 5.0.0 or 5.0.0.rc.1."
+            exit 1
+          fi
+
+          if [[ -z "${expected_version}" ]]; then
+            echo "::error::CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag like v${CPFLOW_VERSION}. Dot and dash prerelease tags are accepted, for example v5.0.0.rc.1 or v5.0.0-rc.1. Current control_plane_flow_ref: ${CONTROL_PLANE_FLOW_REF:-<empty>}. Leave CPFLOW_VERSION unset when testing a commit SHA or branch so cpflow is built from the same source as the reusable workflow."
+            exit 1
+          fi
+
+          if [[ "${actual_version}" != "${expected_version}" ]]; then
+            echo "::error::CPFLOW_VERSION must match control_plane_flow_ref. CPFLOW_VERSION=${CPFLOW_VERSION}, normalized CPFLOW_VERSION=${actual_version}, control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF}, expected CPFLOW_VERSION=${expected_version}."
+            exit 1
+          fi
+        }
+
+        validate_cpflow_version_pin
 
         npm_global_prefix="${HOME}/.npm-global"
         mkdir -p "${npm_global_prefix}"

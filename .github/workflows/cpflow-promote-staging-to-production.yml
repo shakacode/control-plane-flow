@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: main
+      production_environment:
+        description: GitHub Environment that protects production promotion and stores production-only secrets.
+        required: false
+        type: string
+        default: production
 
 permissions:
   contents: read
@@ -48,6 +53,7 @@ jobs:
   promote-to-production:
     if: github.event.inputs.confirm_promotion == 'promote'
     runs-on: ubuntu-latest
+    environment: ${{ inputs.production_environment }}
     timeout-minutes: 45
 
     steps:
@@ -92,6 +98,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       # Runs after Setup production environment so the pinned Ruby (>= 3.1) is on PATH.
       # YAML.load_file(..., aliases: true) is not supported on Ruby 3.0 (system Ruby on ubuntu-22.04).

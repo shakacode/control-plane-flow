@@ -153,6 +153,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = setup_action_path.read
       expect(contents).to include("cpln_cli_version:")
       expect(contents).to include('default_cpln_cli_version="3.10.2"')
+      expect(contents).to include("control_plane_flow_ref:")
       expect(reusable_staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
       expect(reusable_staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
     end
@@ -226,8 +227,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 
+      expect(contents).to include("CONTROL_PLANE_FLOW_REF: ${{ inputs.control_plane_flow_ref }}")
       expect(contents).to include("CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}")
       expect(contents).to include("CPFLOW_VERSION: ${{ inputs.cpflow_version }}")
+      expect(contents).to include("normalize_version")
+      expect(contents).to include("is_rubygems_version")
+      expect(contents).to include("CPFLOW_VERSION must be a RubyGems version usable by 'gem install cpflow -v'")
+      expect(contents).to include("validate_cpflow_version_pin")
+      expect(contents).to include("CPFLOW_VERSION must match control_plane_flow_ref")
+      expect(contents).to include("CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag")
+      expect(contents).not_to include("normalized CPFLOW_VERSION=${actual_version:-<unrecognized>}")
       expect(contents).to include("ruby/setup-ruby intentionally tracks the v1 tag")
       expect(contents).to include('default_ruby_version="3.2"')
       expect(contents).to include("minimum-supported Ruby advances")
@@ -250,6 +259,40 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "npm install -g @controlplane/cli@${{ inputs.cpln_cli_version }}"
       )
       expect(contents).not_to include("gem install cpflow -v ${{ inputs.cpflow_version }}")
+    end
+
+    it "passes control_plane_flow_ref to every setup action call for gem/ref validation" do
+      # This validates checked-in reusable workflows, not generated app wrappers.
+      Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s).each do |path|
+        workflow = YAML.load_file(path, aliases: true)
+        workflow_on = workflow["on"] || workflow[true]
+
+        expect(workflow_on).to have_key("workflow_call"), "#{path} must declare a workflow_call trigger"
+
+        workflow_inputs = workflow_on.dig("workflow_call", "inputs") || {}
+
+        expect(workflow_inputs).to(
+          have_key("control_plane_flow_ref"),
+          "#{path} must declare control_plane_flow_ref as a workflow_call input"
+        )
+
+        workflow.fetch("jobs").each_value do |job|
+          if job["uses"].to_s.include?("cpflow")
+            expect(job.fetch("with", {})).to include(
+              "control_plane_flow_ref" => "${{ inputs.control_plane_flow_ref }}"
+            ), "#{path} reusable job call must pass control_plane_flow_ref"
+          end
+
+          # Job-level `uses:` entries call reusable workflows; they cannot call composite actions directly.
+          Array(job["steps"]).each do |step|
+            next unless step["uses"] == "./.cpflow/.github/actions/cpflow-setup-environment"
+
+            expect(step.fetch("with")).to include(
+              "control_plane_flow_ref" => "${{ inputs.control_plane_flow_ref }}"
+            ), "#{path} setup action call must pass control_plane_flow_ref"
+          end
+        end
+      end
     end
 
     it "exposes Docker build action inputs" do
@@ -412,11 +455,18 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "uses shell env vars for stale review cleanup inputs" do
       contents = reusable_cleanup_stale_review_apps_workflow_path.read
 
-      expect(contents).to include("REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}")
-      expect(contents).to include("CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}")
+      expect(contents).to include("CONFIGURED_REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}")
+      expect(contents).to include("CONFIGURED_CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}")
+      expect(contents).to include("Resolve review app config")
+      expect(contents).to include('YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)')
       expect(contents).to include("Checkout caller repository")
+      expect(contents).to include("path: app")
+      expect(contents).to include("working-directory: app")
       expect(contents).to include('cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}"')
+      expect(contents).to include("working-directory: app\n        env:\n          REVIEW_APP_PREFIX:")
       expect(contents).not_to include('cpflow cleanup-stale-apps -a "${{ vars.REVIEW_APP_PREFIX }}"')
+      expect(contents).not_to include("variable:REVIEW_APP_PREFIX")
+      expect(contents).not_to include("variable:CPLN_ORG_STAGING")
       expect(contents).to include("persist-credentials: false")
       expect(contents).to include("working_directory: .cpflow")
     end
@@ -428,6 +478,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
       expect(contents).to include("secrets: inherit")
       expect(reusable_help_workflow_path.read).to include('fs.readFileSync(".github/cpflow-help.md"')
+      expect(reusable_pr_open_help_workflow_path.read).not_to include("vars.REVIEW_APP_PREFIX != ''")
     end
 
     it "pins the +review-app-* workflow trigger strings" do
@@ -572,8 +623,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       wrapper = promote_workflow_path.read
 
       expect(wrapper).to include("callers must grant the union of callee permissions")
+      expect(wrapper).to include("production_environment: production")
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include("contents: read")
+      expect(contents).to include("production_environment:")
+      expect(contents).to include("default: production")
+      expect(contents).to include("environment: ${{ inputs.production_environment }}")
       expect(contents).to include("create-github-release:")
       expect(contents).to include("contents: write")
       expect(contents).to include("working_directory: .cpflow")

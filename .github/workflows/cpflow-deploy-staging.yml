@@ -107,6 +107,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       - name: Build Docker image
         uses: ./.cpflow/.github/actions/cpflow-build-docker-image
@@ -145,6 +146,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       - name: Detect release phase support
         id: release-phase

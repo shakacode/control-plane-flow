@@ -110,8 +110,17 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(app_template_content).to include("SECRET_KEY_BASE")
         expect(rails_template_content).to include("minScale: 1")
         expect(rails_template_content).to include("timeoutSeconds: 60")
-        expect(entrypoint_path.read).to include('exec "$@"')
-        expect(entrypoint_path.read).not_to include("$*")
+        entrypoint_content = entrypoint_path.read
+        expect(entrypoint_content).to include("set -e")
+        expect(entrypoint_content).to include("./bin/rails db:prepare")
+        expect(entrypoint_content).to include("is_rails_server_command")
+        expect(entrypoint_content).to include("flag-free Thruster invocations")
+        expect(entrypoint_content).to include('"rails" ] || [')
+        expect(entrypoint_content).to include('"bin/rails" ] || [')
+        expect(entrypoint_content).to include('"server" ] || [')
+        expect(entrypoint_content).to include('"s" ]')
+        expect(entrypoint_content).to include('exec "$@"')
+        expect(entrypoint_content).not_to include("$*")
         expect(postgres_template_path).to exist
         expect(release_script_path.read).to include("SECRET_KEY_BASE=\"${SECRET_KEY_BASE:-precompile_placeholder}\"")
       end

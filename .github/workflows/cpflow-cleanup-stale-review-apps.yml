@@ -37,33 +37,83 @@ jobs:
         uses: ./.cpflow/.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
-          REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}
         with:
           required: |
             secret:CPLN_TOKEN_STAGING
-            variable:CPLN_ORG_STAGING
-            variable:REVIEW_APP_PREFIX
+
+      - name: Checkout caller repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          path: app
+          persist-credentials: false
+
+      - name: Resolve review app config
+        id: review-config
+        working-directory: app
+        env:
+          CONFIGURED_CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
+          CONFIGURED_REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ruby <<'RUBY' | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_ENV"
+          require "yaml"
+
+          config = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
+          apps = config.fetch("apps")
+          review_apps = apps.select do |_name, app_config|
+            app_config.is_a?(Hash) && app_config["match_if_app_name_starts_with"] == true
+          end
+
+          prefix = ENV.fetch("CONFIGURED_REVIEW_APP_PREFIX", "").strip
+          if prefix.empty?
+            if review_apps.length == 1
+              prefix = review_apps.keys.first
+            elsif review_apps.empty?
+              warn "::error::Set REVIEW_APP_PREFIX or define exactly one app with match_if_app_name_starts_with: true in .controlplane/controlplane.yml."
+              exit 1
+            else
+              warn "::error::Set REVIEW_APP_PREFIX because .controlplane/controlplane.yml defines multiple review app prefixes: #{review_apps.keys.sort.join(', ')}."
+              exit 1
+            end
+          end
+
+          app_config = apps[prefix]
+          unless app_config.is_a?(Hash) && app_config["match_if_app_name_starts_with"] == true
+            warn "::error::Review app prefix '#{prefix}' must match an app in .controlplane/controlplane.yml with match_if_app_name_starts_with: true."
+            exit 1
+          end
+
+          cpln_org = ENV.fetch("CONFIGURED_CPLN_ORG_STAGING", "").strip
+          cpln_org = app_config["cpln_org"].to_s.strip if cpln_org.empty?
+          if cpln_org.empty?
+            warn "::error::Set CPLN_ORG_STAGING or cpln_org for review app prefix '#{prefix}' in .controlplane/controlplane.yml."
+            exit 1
+          end
+
+          puts "REVIEW_APP_PREFIX=#{prefix}"
+          puts "CPLN_ORG=#{cpln_org}"
+          puts "review_app_prefix=#{prefix}"
+          puts "cpln_org=#{cpln_org}"
+          RUBY
 
       - name: Setup environment
         uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
-          org: ${{ vars.CPLN_ORG_STAGING }}
+          org: ${{ steps.review-config.outputs.cpln_org }}
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
-
-      - name: Checkout caller repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          persist-credentials: false
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       - name: Remove stale review apps
+        working-directory: app
         env:
-          REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
+          REVIEW_APP_PREFIX: ${{ steps.review-config.outputs.review_app_prefix }}
+          CPLN_ORG: ${{ steps.review-config.outputs.cpln_org }}
         shell: bash
         run: |
           set -euo pipefail
-          cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}" --org "${CPLN_ORG_STAGING}" --yes
+          cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}" --org "${CPLN_ORG}" --yes

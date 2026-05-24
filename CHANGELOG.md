@@ -12,6 +12,16 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- Added a generated workflow guard that fails early when `CPFLOW_VERSION` does not match the `control_plane_flow_ref` release tag. This prevents review apps from running with reusable workflow/composite action code from one `control-plane-flow` version and a `cpflow` gem from another.
+- Added review-app workflow config inference so generated deploy/delete/cleanup workflows can derive the review app prefix and staging Control Plane org from `.controlplane/controlplane.yml`. In the normal generated case, testing review apps now requires only the `CPLN_TOKEN_STAGING` GitHub secret.
+- Added `production` GitHub Environment protection to the generated production promotion reusable workflow so production-only secrets can be stored as environment secrets behind required reviewers.
+
+### Fixed
+
+- Fixed generated Control Plane entrypoints so database preparation runs through `./bin/rails`, stops the container on failure, and only runs for generated Rails server commands instead of every workload sharing the image. Apps with hand-edited `.controlplane/entrypoint.sh` files should audit custom commands when regenerating, especially commands prefixed with `env`, Thruster invocations with custom flags, and startup paths that relied on continuing after a failed database connection.
+
 ## [5.0.0] - 2026-05-23
 
 ### Breaking Changes
