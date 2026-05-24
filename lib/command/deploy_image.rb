@@ -31,10 +31,13 @@ module Command
           next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}[:@]})
 
           container_name = container["name"]
-          step("Deploying image '#{image}' for workload '#{container_name}'") do
+          step("Deploying image '#{image}' for workload '#{workload}'") do
             cp.workload_set_image_ref(workload, container: container_name, image: image)
-            deployed_endpoints[container_name] = endpoint_for_workload(workload_data)
+            deployed_endpoints[workload] = endpoint_for_workload(workload_data)
           end
+          # Deploy the first matching app-image container per workload; CPLN workloads
+          # are expected to have a single container that runs the app image.
+          break
         end
       end
 
