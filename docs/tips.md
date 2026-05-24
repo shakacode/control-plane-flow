@@ -12,7 +12,7 @@
    - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
 8. [Minimizing Review App Costs](#minimizing-review-app-costs)
    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
-   - [Delete Abandoned Apps with `cleanup-stale-apps`](#delete-abandoned-apps-with-cleanup-stale-apps)
+   - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
    - [Pause Non-Web Workloads Too](#pause-non-web-workloads-too)
 9. [Useful Links](#useful-links)
@@ -163,9 +163,8 @@ create a review-app-specific template (for example `rails-review.yml`) and list 
 review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Partial — only the fields that change from the default templates/rails.yml.
-# Keep the existing containers, firewallConfig, identityLink, defaultOptions.capacityAI,
-# defaultOptions.timeoutSeconds, and other fields.
+# Partial — keep defaultOptions complete, and preserve the omitted containers,
+# firewallConfig, identityLink, and other fields from the default templates/rails.yml.
 kind: workload
 name: rails
 spec:
@@ -174,11 +173,12 @@ spec:
     autoscaling:
       minScale: 0
       maxScale: 1
+    capacityAI: false
+    timeoutSeconds: 60
 ```
 
 See [`templates/rails.yml`](../templates/rails.yml) for the full default — `containers`, `firewallConfig`,
-`identityLink`, `defaultOptions.capacityAI`, `defaultOptions.timeoutSeconds`, and the other required fields must be
-preserved when you copy the snippet above.
+`identityLink`, and the other required fields must be preserved when you copy the snippet above.
 
 Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
 `type: standard` always keeps at least one replica running.
@@ -186,7 +186,11 @@ Control Plane spins the workload back up on the next request. Only `type: server
 Tradeoff: the first request after a quiet period pays the cold-start cost (typically a few seconds for a Rails image).
 For review apps that's usually fine; for production it usually isn't.
 
-### Delete Abandoned Apps with `cleanup-stale-apps`
+> **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
+> request. Run `cpflow ps:start` explicitly first. See
+> [Pause and Resume](#pause-and-resume-with-psstop--psstart).
+
+### Delete or Pause Abandoned Apps with `cleanup-stale-apps`
 
 For PRs that are clearly done — merged, closed, or untouched for weeks — deleting beats scaling. Set
 `stale_app_image_deployed_days` in `.controlplane/controlplane.yml`:
@@ -200,8 +204,8 @@ my-app-review:
 Pick a threshold that matches your review cycle — when a matching app image exists,
 `stale_app_image_deployed_days` measures from the Control Plane image resource's `created` timestamp, typically when the
 image was pushed to Control Plane's registry. If no matching image exists, the command falls back to the GVC's `created`
-timestamp. It does not consider last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams
-with longer review cycles often use 14–30 days.
+timestamp. It does not consider last traffic or last comment. A 7-day threshold can catch PRs still in QA; teams with
+longer review cycles often use 14–30 days.
 
 Then run in delete mode:
 
@@ -209,13 +213,16 @@ Then run in delete mode:
 cpflow cleanup-stale-apps -a my-app-review --yes
 ```
 
+The `--yes` flag skips the interactive confirmation prompt; keep it for CI jobs, or omit it when running manually and
+you want to review the prompt.
+
 This deletes the GVC, workloads, volumesets, and images for any review app whose latest matching image, or GVC when no
 matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy when that
 binding exists. Wire it into a nightly CI cron — see
 [CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
 `cpflow-cleanup-stale-review-apps.yml` workflow.
 
-For reversible idle handling, use stop mode instead:
+For reversible idle handling under the same stale-app scan, use stop mode instead:
 
 ```sh
 cpflow cleanup-stale-apps -a my-app-review --mode=stop --yes
