@@ -4,7 +4,7 @@ plugins:
 
 AllCops:
   TargetRubyVersion: 3.0
-  NewCops: disable
+  NewCops: enable
 
 Metrics/AbcSize:
   Enabled: false
@@ -24,3 +24,16 @@ RSpec/MultipleExpectations:
 RSpec/NestedGroups:
   Enabled: true
   Max: 5
+
+# Test support and Rails dummy app scripts intentionally write to stdout for
+# verbose test output and setup messages — not actual specs.
+RSpec/Output:
+  Exclude:
+    - spec/support/**/*
+    - spec/dummy/**/*
+
+# Empty blocks in this spec are intentional — the DSL must render empty
+# Terraform blocks correctly.
+Lint/EmptyBlock:
+  Exclude:
+    - spec/core/terraform_config/dsl_spec.rb

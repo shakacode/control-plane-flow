@@ -34,6 +34,13 @@ runs:
         require "yaml"
 
         app_name = ARGV.fetch(0)
+
+        unless File.file?(".controlplane/controlplane.yml")
+          warn "Error: `.controlplane/controlplane.yml` is missing. " \
+               "cpflow-detect-release-phase must be invoked from a cpflow-configured project."
+          exit 1
+        end
+
         data = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
         apps = data["apps"] || {}
         app_config = apps[app_name]

@@ -11,7 +11,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
       - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
-      - Stale apps are identified based on the creation date of the latest image
+      - Stale apps are identified based on the creation date of the latest image, or the GVC if no images exist
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
       - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
       - Will ask for explicit user confirmation
@@ -50,9 +50,11 @@ module Command
 
             images = cp.query_images(app_name)["items"].select { |item| item["name"].start_with?("#{app_name}:") }
             image = cp.latest_image_from(images, app_name: app_name, name_only: false)
-            next unless image
 
-            created_date = DateTime.parse(image["created"])
+            created_at = image ? image["created"] : gvc["created"]
+            next unless created_at
+
+            created_date = DateTime.parse(created_at)
             diff_in_days = (now - created_date).to_i
             next unless diff_in_days >= stale_app_image_deployed_days
 

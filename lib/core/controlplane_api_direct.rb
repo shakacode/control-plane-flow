@@ -1,28 +1,45 @@
 # frozen_string_literal: true
 
-class RedactedDebugOutput
-  SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
-  HEADER_REGEX = /^([A-Za-z-]+): (.+)$/
-
-  def <<(msg)
-    $stdout << redact(msg)
-  end
-
-  private
-
-  def redact(msg)
-    msg.lines.map { |line| redact_line(line) }.join
-  end
-
-  def redact_line(line)
-    match = line.match(HEADER_REGEX)
-    return line.gsub(/[\w\-._]{50,}/, "[REDACTED]") unless match
-
-    SAFE_HEADERS.any? { |h| h.casecmp(match[1]).zero? } ? line : "#{match[1]}: [REDACTED]\n"
-  end
-end
-
 class ControlplaneApiDirect
+  class RedactedDebugOutput
+    SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
+    HEADER_REGEX = /^([A-Za-z-]+): (.+)$/
+
+    def <<(msg)
+      $stdout << redact(msg)
+    end
+
+    private
+
+    def redact(msg)
+      msg.lines.map { |line| redact_line(line) }.join
+    end
+
+    def redact_line(line)
+      match = line.match(HEADER_REGEX)
+      return line.gsub(/[\w\-._]{50,}/, "[REDACTED]") unless match
+
+      SAFE_HEADERS.any? { |h| h.casecmp(match[1]).zero? } ? line : "#{match[1]}: [REDACTED]\n"
+    end
+  end
+
+  class ForbiddenError < StandardError
+    attr_reader :url
+
+    def initialize(url:, response:)
+      @url = url
+      org = ControlplaneApiDirect.parse_org(url)
+      message =
+        if org
+          "Double check your org #{org}. #{response}"
+        else
+          "Control Plane API request to #{url} was forbidden. #{response}"
+        end
+
+      super(message)
+    end
+  end
+
   API_METHODS = {
     get: Net::HTTP::Get,
     patch: Net::HTTP::Patch,
@@ -32,12 +49,6 @@ class ControlplaneApiDirect
   }.freeze
   API_HOSTS = { api: "https://api.cpln.io", logs: "https://logs.cpln.io" }.freeze
 
-  # API_TOKEN_REGEX = Regexp.union(
-  #  /^[\w.]{155}$/, # CPLN_TOKEN format
-  #  /^[\w\-._]{1134}$/ # 'cpln profile token' format
-  # ).freeze
-
-  API_TOKEN_REGEX = /^[\w\-._]+$/
   API_TOKEN_EXPIRY_SECONDS = 300
 
   class << self
@@ -52,7 +63,7 @@ class ControlplaneApiDirect
 
     refresh_api_token if should_refresh_api_token?
 
-    request["Authorization"] = api_token[:token]
+    request["Authorization"] = authorization_header
     request.body = body.to_json if body
 
     Shell.debug(method.upcase, "#{uri} #{body&.to_json}")
@@ -71,8 +82,7 @@ class ControlplaneApiDirect
     when Net::HTTPNotFound
       nil
     when Net::HTTPForbidden
-      org = self.class.parse_org(url)
-      raise("Double check your org #{org}. #{response} #{response.body}")
+      raise ForbiddenError.new(url: url, response: response)
     else
       raise("#{response} #{response.body}")
     end
@@ -85,6 +95,13 @@ class ControlplaneApiDirect
     else
       API_HOSTS[host]
     end
+  end
+
+  def authorization_header
+    token = api_token[:token]
+    return token if token.match?(/\ABearer\s+/i)
+
+    "Bearer #{token}"
   end
 
   # rubocop:disable Style/ClassVars
@@ -101,7 +118,11 @@ class ControlplaneApiDirect
         comes_from_profile: true
       }
     end
-    return @@api_token if @@api_token[:token].match?(API_TOKEN_REGEX)
+    token = @@api_token[:token]
+    # Allow any token that does not contain line breaks. Scoped service-account
+    # tokens include punctuation such as '/', '+', ':', and '=', so format
+    # validation is deferred to the Control Plane API.
+    return @@api_token if token && !token.empty? && !token.match?(/[\r\n]/)
 
     raise "Unknown API token format. " \
           "Please re-run 'cpln profile login' or set the correct CPLN_TOKEN env variable."
@@ -112,7 +133,9 @@ class ControlplaneApiDirect
     return false unless api_token[:comes_from_profile]
 
     payload, = JWT.decode(api_token[:token], nil, false, algorithms: [])
-    difference_in_seconds = payload["exp"] - Time.now.to_i
+    return false unless payload.is_a?(Hash) && payload["exp"]
+
+    difference_in_seconds = payload["exp"].to_i - Time.now.to_i
 
     difference_in_seconds <= API_TOKEN_EXPIRY_SECONDS
   rescue JWT::DecodeError
@@ -129,6 +152,6 @@ class ControlplaneApiDirect
   # rubocop:enable Style/ClassVars
 
   def self.parse_org(url)
-    url.match(%r{^/org/([^/]+)})[1]
+    url.match(%r{^/org/([^/]+)})&.[](1)
   end
 end

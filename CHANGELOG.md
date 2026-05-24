@@ -12,6 +12,26 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `cpflow run` interactive sessions printing a confusing "Command exited with non-zero status" error when `cpln workload exec` exits non-zero or is signal-killed on session close. cpflow now prints an actionable `cpflow ps:stop` hint instead; exit code 64 is returned for non-zero exits and 130 for signal termination so scripted callers can still detect failure. Fixes [issue 199](https://github.com/shakacode/control-plane-flow/issues/199). [PR 301](https://github.com/shakacode/control-plane-flow/pull/301) by [Justin Gordon](https://github.com/justin808).
+- Fixed `deploy-image` showing container names instead of workload names in the "Deploying image..." steps and the "Deployed endpoints" summary when a workload's name differs from its container's name. Also guards against duplicate work per workload by deploying only the first container whose image matches the app-image pattern; workloads are expected to run a single app-image container, so any additional matches are skipped. Fixes [issue 255](https://github.com/shakacode/control-plane-flow/issues/255). [PR 294](https://github.com/shakacode/control-plane-flow/pull/294) by [Justin Gordon](https://github.com/justin808).
+
+## [5.0.0.rc.2] - 2026-05-23
+
+### Added
+
+- **Generated local helpers for downstream GitHub Actions ref pinning and validation.** `cpflow generate-github-actions` now writes `bin/pin-cpflow-github-ref` and `bin/test-cpflow-github-flow` so downstream repos can safely pin wrappers to release tags or full upstream commit SHAs, validate wrapper ref consistency, and test unreleased upstream workflow changes without using moving branch refs. [PR 308](https://github.com/shakacode/control-plane-flow/pull/308) by [Justin Gordon](https://github.com/justin808).
+
+### Changed
+
+- **Documented the downstream testing and release model for reusable GitHub Actions.** The CI automation docs now spell out what is tied to the upstream GitHub ref, what is tied to the RubyGems version, how `CPFLOW_VERSION` changes runtime installation, and how to test an unmerged upstream PR from a downstream app. [PR 308](https://github.com/shakacode/control-plane-flow/pull/308) by [Justin Gordon](https://github.com/justin808).
+- **Updated generated GitHub Actions workflow templates to Node 24-compatible action versions** by using `actions/checkout@v6` and `actions/github-script@v8`. [PR 303](https://github.com/shakacode/control-plane-flow/pull/303) by [Justin Gordon](https://github.com/justin808).
+
+### Fixed
+
+- **Relaxed `thor` runtime dependency from `~> 1.4` to `~> 1.3`** so cpflow can be bundled into Rails 8 apps that pull in `solid_queue` 1.1.0 (Rails 8.0.x default), which pins `thor ~> 1.3.1`. The previous `~> 1.4` constraint had zero overlap with that pin and forced users to install cpflow globally instead of adding it to the Gemfile. [Issue 264](https://github.com/shakacode/control-plane-flow/issues/264) / [PR 291](https://github.com/shakacode/control-plane-flow/pull/291) by [Justin Gordon](https://github.com/justin808).
+
 ## [5.0.0.rc.1] - 2026-05-11
 
 ### Breaking Changes
@@ -313,7 +333,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.2...HEAD
+[5.0.0.rc.2]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...v5.0.0.rc.2
 [5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.1
 [4.2.0]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/shakacode/control-plane-flow/compare/v4.1.0...v4.1.1

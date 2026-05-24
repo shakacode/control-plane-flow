@@ -6,6 +6,40 @@ require "spec_helper"
 describe Command::CleanupStaleApps do
   let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
+  describe "#stale_apps" do
+    let(:config) { instance_double(Config, app: "dummy-test") }
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+    let(:gvc) { { "name" => "dummy-test-image-less", "created" => "2000-01-01T00:00:00Z" } }
+
+    before do
+      allow(config).to receive(:[]).with(:stale_app_image_deployed_days).and_return(5)
+      allow(command).to receive(:cp).and_return(cp)
+      allow(cp).to receive(:gvc_query).with("dummy-test").and_return({ "items" => [gvc] })
+      allow(cp).to receive(:query_images).with(gvc.fetch("name")).and_return({ "items" => [] })
+      allow(cp).to receive(:latest_image_from)
+        .with([], app_name: gvc.fetch("name"), name_only: false)
+        .and_return(nil)
+    end
+
+    it "uses the GVC creation date when the app has no images" do
+      expect(command.send(:stale_apps)).to eq([
+                                                {
+                                                  name: gvc.fetch("name"),
+                                                  date: DateTime.parse(gvc.fetch("created"))
+                                                }
+                                              ])
+    end
+
+    context "when the GVC has no creation date" do
+      let(:gvc) { { "name" => "dummy-test-image-less", "created" => nil } }
+
+      it "skips the app instead of raising" do
+        expect(command.send(:stale_apps)).to eq([])
+      end
+    end
+  end
+
   context "when 'stale_app_image_deployed_days' is not defined" do
     let!(:app) { dummy_test_app("nothing") }
 
@@ -112,7 +146,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "lists correct stale apps", :slow do
-      allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(false)
+      allow(Shell).to receive(:confirm).with(include("3 apps")).and_return(false)
 
       # We need to stub the image from app3 to have the current date,
       # as Control Plane does not allow manipulating the creation date of an image
@@ -130,6 +164,7 @@ describe Command::CleanupStaleApps do
       travel_to_days_later(30)
       # App with new image, wont't be listed
       run_cpflow_command!("build-image", "-a", app3)
+      # app4 has no image; its old GVC date is used as the fallback, so it is listed
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
       travel_back
 
@@ -138,7 +173,7 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).to include("- #{app1}")
       expect(result[:stderr]).to include("- #{app2}")
       expect(result[:stderr]).not_to include("- #{app3}")
-      expect(result[:stderr]).not_to include("- #{app4}")
+      expect(result[:stderr]).to include("- #{app4}")
     end
   end
 end

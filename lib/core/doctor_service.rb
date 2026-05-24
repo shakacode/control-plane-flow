@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-class ValidationError < StandardError; end
-
 class DoctorService
+  class ValidationError < StandardError; end
+
   extend Forwardable
 
   def_delegators :@command, :config, :progress

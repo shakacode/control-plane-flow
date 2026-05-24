@@ -65,6 +65,7 @@ Additionally, the documentation includes numerous examples and practical tips fo
 14. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
 15. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)
 16. [Tips](https://www.shakacode.com/control-plane-flow/docs/tips/)
+17. [Thruster HTTP/2 Proxy on Control Plane](https://www.shakacode.com/control-plane-flow/docs/thruster/)
 
 ## Key Features
 
@@ -278,8 +279,8 @@ aliases:
     # If not specified, defaults to 21600 (6 hours).
     runner_job_timeout: 1000
 
-    # Apps with a deployed image created before this amount of days will be listed for deletion
-    # when running the command `cpflow cleanup-stale-apps`.
+    # Apps with a deployed image, or an image-less GVC, created before this amount of days
+    # will be listed for deletion when running the command `cpflow cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
 
     # Images that exceed this quantity will be listed for deletion
@@ -357,9 +358,12 @@ cpflow generate
 
 # Create reusable GitHub Actions for review apps, staging, and production promotion
 cpflow generate-github-actions
+
+# Validate the generated GitHub Actions wrapper refs and metadata
+bin/test-cpflow-github-flow
 ```
 
-`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, start with the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` in the target repo rather than giving a vague "set up CI" request.
+`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate-github-actions` also writes `bin/test-cpflow-github-flow` for local validation and `bin/pin-cpflow-github-ref` for temporarily pinning downstream wrappers to an upstream commit SHA during pre-release testing. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, start with the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` in the target repo rather than giving a vague "set up CI" request.
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 

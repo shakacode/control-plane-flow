@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe TerraformConfig::Secret do
-  let(:config) { described_class.new(**base_options.merge(type: type, data: data)) }
+  let(:config) { described_class.new(**base_options, type: type, data: data) }
 
   let(:base_options) do
     {

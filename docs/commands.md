@@ -80,7 +80,7 @@ cpflow cleanup-images -a $APP_NAME
 
 - Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
 - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
-- Stale apps are identified based on the creation date of the latest image
+- Stale apps are identified based on the creation date of the latest image, or the GVC if no images exist
 - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
 - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
 - Will ask for explicit user confirmation
@@ -214,7 +214,7 @@ other than `main` or `master`; the generator will bake that branch into the
 GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
 
 ```sh
-# Creates .github/actions and .github/workflows files for the Control Plane flow
+# Creates thin .github/workflows wrappers for the Control Plane flow
 cpflow generate-github-actions
 
 # Creates the flow with staging deploys triggered from develop

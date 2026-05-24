@@ -1,0 +1,161 @@
+name: Setup Control Plane Environment
+description: Sets up Ruby, installs the Control Plane CLI and cpflow, and configures a default profile
+
+inputs:
+  token:
+    description: Control Plane token
+    required: true
+  org:
+    description: Control Plane organization
+    required: true
+  ruby_version:
+    description: >-
+      Ruby version used for cpflow. When empty (the default), ruby/setup-ruby
+      auto-detects from .ruby-version, .tool-versions, mise.toml, or a Gemfile
+      ruby directive, then falls back to the action's pinned default.
+    required: false
+    default: ""
+  working_directory:
+    description: Directory where ruby/setup-ruby should detect Ruby version files.
+    required: false
+    default: "."
+  # GitHub parses double-brace expression snippets inside action metadata (including
+  # `description:`) while loading the composite action, and the `vars` context is not
+  # available in that phase. Keep these descriptions in plain prose - reference repo
+  # variables by NAME only, never with literal GitHub Actions expression syntax.
+  cpln_cli_version:
+    description: >-
+      @controlplane/cli version. Empty string falls back to the action's pinned default,
+      so callers can wire this input to the CPLN_CLI_VERSION repository variable
+      unconditionally.
+    required: false
+    default: ""
+  cpflow_version:
+    description: >-
+      cpflow gem version to install from RubyGems. Empty string installs cpflow from
+      the checked-out control-plane-flow repository, so callers can test a GitHub ref
+      without publishing a release.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  # ruby/setup-ruby tracks Ruby/toolcache updates on a major tag. The privileged
+  # reusable workflows pin GitHub-owned actions to immutable SHAs.
+  steps:
+    - name: Resolve Ruby setup version
+      id: ruby-version
+      shell: bash
+      env:
+        INPUT_RUBY_VERSION: ${{ inputs.ruby_version }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working_directory }}
+      run: |
+        set -euo pipefail
+
+        ruby_version="${INPUT_RUBY_VERSION}"
+        working_directory="${INPUT_WORKING_DIRECTORY:-.}"
+        # Bump when the project's minimum-supported Ruby advances.
+        default_ruby_version="3.2"
+
+        if [[ -z "${ruby_version}" ]]; then
+          if [[ -f "${working_directory}/.ruby-version" ]] ||
+             { [[ -f "${working_directory}/.tool-versions" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]+" "${working_directory}/.tool-versions"; } ||
+             { [[ -f "${working_directory}/mise.toml" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]*=" "${working_directory}/mise.toml"; } ||
+             { [[ -f "${working_directory}/.mise.toml" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]*=" "${working_directory}/.mise.toml"; }; then
+            : # keep empty; ruby/setup-ruby will auto-detect
+          elif [[ -f "${working_directory}/Gemfile" ]] && grep -Eq "^[[:space:]]*ruby[[:space:]]*(\(|file:|['\"])" "${working_directory}/Gemfile"; then
+            : # keep empty; ruby/setup-ruby will read Gemfile
+          else
+            ruby_version="${default_ruby_version}"
+          fi
+        fi
+
+        echo "ruby_version=${ruby_version}" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Ruby
+      # ruby/setup-ruby intentionally tracks the v1 tag so Ruby/toolcache updates
+      # roll out automatically; Dependabot/Renovate can manage this non-GitHub action.
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ steps.ruby-version.outputs.ruby_version }}
+        working-directory: ${{ inputs.working_directory }}
+
+    - name: Install Control Plane CLI and cpflow gem
+      shell: bash
+      env:
+        CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}
+        CPFLOW_VERSION: ${{ inputs.cpflow_version }}
+        CPFLOW_SOURCE_DIR: ${{ github.action_path }}/../../..
+      run: |
+        set -euo pipefail
+
+        # Bump this default when a new Control Plane CLI release should roll out by default.
+        # Override per-repo by setting the `CPLN_CLI_VERSION` repo variable.
+        default_cpln_cli_version="3.10.2"
+
+        CPLN_CLI_VERSION="${CPLN_CLI_VERSION:-${default_cpln_cli_version}}"
+
+        npm_global_prefix="${HOME}/.npm-global"
+        mkdir -p "${npm_global_prefix}"
+        echo "${npm_global_prefix}/bin" >> "$GITHUB_PATH"
+        export PATH="${npm_global_prefix}/bin:${PATH}"
+
+        npm install --global --prefix "${npm_global_prefix}" "@controlplane/cli@${CPLN_CLI_VERSION}"
+        cpln --version
+
+        if [[ -n "${CPFLOW_VERSION}" ]]; then
+          gem install cpflow -v "${CPFLOW_VERSION}" --no-document
+        else
+          cpflow_source_dir="$(cd "${CPFLOW_SOURCE_DIR}" && pwd)"
+          if [[ ! -f "${cpflow_source_dir}/cpflow.gemspec" ]]; then
+            echo "::error::CPFLOW_SOURCE_DIR (${cpflow_source_dir}) does not contain cpflow.gemspec" >&2
+            exit 1
+          fi
+
+          cpflow_gem="$(mktemp -t cpflow-XXXXXX.gem)"
+          trap 'rm -f "${cpflow_gem}"' EXIT
+          (
+            cd "${cpflow_source_dir}"
+            gem build cpflow.gemspec --output "${cpflow_gem}"
+          )
+          gem install "${cpflow_gem}" --no-document
+        fi
+
+        cpflow --version
+
+    - name: Setup Control Plane profile and registry login
+      shell: bash
+      env:
+        # Pass the token via CPLN_TOKEN so cpln picks it up from the environment
+        # rather than `--token`, which would leak it into /proc/<pid>/cmdline and ps output.
+        CPLN_TOKEN: ${{ inputs.token }}
+        ORG: ${{ inputs.org }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$CPLN_TOKEN" ]]; then
+          echo "Error: Control Plane token not provided" >&2
+          exit 1
+        fi
+
+        if [[ -z "$ORG" ]]; then
+          echo "Error: Control Plane organization not provided" >&2
+          exit 1
+        fi
+
+        # `cpln profile update` lists `create` as an alias (cpln profile --help) and is
+        # idempotent: it creates the profile if missing and updates it otherwise. Calling
+        # update directly avoids parsing the CLI's "already exists" English error text,
+        # which would silently swallow a real failure if the wording ever changed.
+        cpln profile update default --org "$ORG"
+        cpln image docker-login --org "$ORG"
+
+        # Keep the token available to later cpflow/cpln steps without passing it
+        # on the command line. GitHub masks secret values in logs, and the env file
+        # itself is not echoed.
+        delim="CPLN_TOKEN_DELIM_$(openssl rand -hex 8)"
+        {
+          echo "CPLN_TOKEN<<${delim}"
+          echo "${CPLN_TOKEN}"
+          echo "${delim}"
+        } >> "$GITHUB_ENV"

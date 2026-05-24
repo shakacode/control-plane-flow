@@ -16,7 +16,7 @@ End-to-end rollout in one view:
 
 1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
 2. `cpflow generate` — creates `.controlplane/` if missing.
-3. `cpflow generate-github-actions` — adds the `cpflow-*` composite actions and workflows.
+3. `cpflow generate-github-actions` — adds thin `cpflow-*` workflow wrappers that call upstream reusable workflows.
 4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
@@ -52,10 +52,7 @@ not appear to exist in the public registries.
 
 The second command writes namespaced files so they can coexist with an app's existing CI:
 
-- `.github/actions/cpflow-build-docker-image/action.yml`
-- `.github/actions/cpflow-delete-control-plane-app/action.yml`
-- `.github/actions/cpflow-delete-control-plane-app/delete-app.sh`
-- `.github/actions/cpflow-setup-environment/action.yml`
+- `.github/cpflow-help.md`
 - `.github/workflows/cpflow-review-app-help.yml`
 - `.github/workflows/cpflow-help-command.yml`
 - `.github/workflows/cpflow-deploy-review-app.yml`
@@ -63,6 +60,8 @@ The second command writes namespaced files so they can coexist with an app's exi
 - `.github/workflows/cpflow-deploy-staging.yml`
 - `.github/workflows/cpflow-promote-staging-to-production.yml`
 - `.github/workflows/cpflow-cleanup-stale-review-apps.yml`
+- `bin/pin-cpflow-github-ref`
+- `bin/test-cpflow-github-flow`
 
 `cpflow generate` also infers the app prefix from the repo directory, infers the
 Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's
@@ -253,13 +252,117 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 - Runs nightly and on demand.
 - Deletes stale review apps using `cpflow cleanup-stale-apps`.
 
-## Composite Actions
+## Upstream Reusable Workflows
 
-The generated workflows share these local composite actions:
+The generated workflows are intentionally small wrappers. The deployment logic,
+comment formatting, Control Plane CLI setup, Docker image build, and cleanup helpers
+live in upstream reusable workflows and composite actions in this repository.
 
-- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and the `cpflow` gem, then logs into the target org
+- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream reusable-workflow ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
 - `cpflow-build-docker-image`: builds and pushes the app image with the desired commit SHA
 - `cpflow-delete-control-plane-app`: safely deletes temporary apps and refuses to touch names outside the configured review-app prefix
+
+## Version Pins: GitHub Ref vs RubyGems
+
+The generated `cpflow-*` workflow files are thin wrappers around reusable
+workflows in `shakacode/control-plane-flow`. GitHub loads reusable workflows
+from a repository ref, not from the Ruby gem, so each wrapper has an upstream
+GitHub ref:
+
+```yaml
+uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@<ref>
+with:
+  control_plane_flow_ref: <ref>
+```
+
+Those two pins must stay in sync:
+
+- `uses: ...@<ref>` chooses the upstream reusable workflow file.
+- `control_plane_flow_ref: <ref>` tells that reusable workflow which
+  `control-plane-flow` checkout to use for shared composite actions and, when
+  `CPFLOW_VERSION` is empty, for building and installing the `cpflow` gem.
+
+The stable release path is still gem-driven:
+
+1. Publish a `cpflow` gem.
+2. Install or bundle that released gem in the downstream project.
+3. Run `cpflow generate-github-actions`.
+4. Commit the generated wrappers that point to the matching upstream release tag
+   such as `v5.0.0`.
+
+That release tag should point to the same source that produced the RubyGems
+release. Downstream production automation should use release tags, not `main` or
+feature-branch refs.
+
+`CPFLOW_VERSION` is a runtime override. If a downstream repository sets the
+`CPFLOW_VERSION` variable, the setup action runs `gem install cpflow -v
+<version>`. If it is unset, the setup action builds `cpflow` from the checked-out
+`control-plane-flow` ref. For normal releases, leave `CPFLOW_VERSION` unset while
+pinning the wrappers to the matching `v<version>` tag, or set
+`CPFLOW_VERSION` to that same released gem version without the leading `v`.
+
+## Testing Unreleased Upstream Changes Downstream
+
+You can test a `control-plane-flow` PR in a downstream app before merging or
+releasing it. Use an immutable commit SHA from the upstream PR branch:
+
+1. Push the upstream PR branch and copy its full 40-character head SHA.
+2. In a downstream test branch, run:
+
+   ```sh
+   bin/pin-cpflow-github-ref <upstream-pr-sha>
+   ```
+
+   The helper updates every generated `cpflow-*` workflow wrapper. It accepts
+   release tags and full commit SHAs by default, rejects branch names such as
+   `main` or `feature/foo`, and requires `--allow-moving-ref` for short-lived
+   local experiments that should not be committed.
+
+3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same
+   upstream SHA that supplies the reusable workflow and composite actions.
+4. Run:
+
+   ```sh
+   bin/test-cpflow-github-flow
+   ```
+
+   Pass a local checkout command when you are validating unreleased generator
+   code before it is installed:
+
+   ```sh
+   bin/test-cpflow-github-flow ruby /path/to/control-plane-flow/bin/cpflow
+   ```
+
+5. Open a downstream PR and trigger the real review app with a comment whose body
+   is exactly:
+
+   ```text
+   +review-app-deploy
+   ```
+
+6. Verify the deploy logs show the expected upstream commit SHA, the setup step
+   prints the expected `cpflow` source/version, and the review app URL returns
+   HTTP 200.
+7. After the upstream PR merges and a gem is released, regenerate or repin the
+   downstream wrappers to the release tag.
+
+This tests the real reusable workflow, shared composite actions, and source-built
+`cpflow` gem from one immutable upstream commit. It avoids merging upstream blind
+and avoids running production automation against a moving branch.
+
+## Local Generated-Flow Checks
+
+Run this after generation or after changing a downstream wrapper ref:
+
+```sh
+bin/test-cpflow-github-flow
+```
+
+The helper runs `cpflow github-flow-readiness`, parses generated workflow YAML,
+checks composite action metadata for literal GitHub expressions in descriptions,
+checks that all generated wrappers use one upstream ref consistently, requires
+secret-inheriting reusable workflows to pass `control_plane_flow_ref`, and runs
+`actionlint -ignore "SC2129" .github/workflows/cpflow-*.yml`.
 
 ## Applying This to React on Rails Demo Apps
 
