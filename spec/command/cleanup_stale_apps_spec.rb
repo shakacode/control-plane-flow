@@ -7,7 +7,7 @@ describe Command::CleanupStaleApps do
   let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
   describe "#stale_apps" do
-    let(:config) { instance_double(Config, app: "dummy-test", options: { yes: true }) }
+    let(:config) { instance_double(Config, app: "dummy-test") }
     let(:cp) { instance_double(Controlplane) }
     let(:command) { described_class.new(config) }
     let(:gvc) { { "name" => "dummy-test-image-less", "created" => "2000-01-01T00:00:00Z" } }
@@ -29,6 +29,14 @@ describe Command::CleanupStaleApps do
                                                   date: DateTime.parse(gvc.fetch("created"))
                                                 }
                                               ])
+    end
+
+    context "when the GVC has no creation date" do
+      let(:gvc) { { "name" => "dummy-test-image-less", "created" => nil } }
+
+      it "skips the app instead of raising" do
+        expect(command.send(:stale_apps)).to eq([])
+      end
     end
   end
 
