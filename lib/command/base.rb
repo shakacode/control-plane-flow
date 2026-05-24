@@ -518,7 +518,7 @@ module Command
           type: :string,
           required: required,
           default: "delete",
-          valid_regex: /\A(delete|stop)\z/
+          valid_regex: /^(delete|stop)$/
         }
       }
     end
