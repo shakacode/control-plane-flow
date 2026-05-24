@@ -12,6 +12,12 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-05-23
+
+### Changed
+
+- Promoted the 5.0.0 release-candidate line to stable. This release includes the generated GitHub Actions flow, upstream reusable workflow model, Node 24 action updates, richer review-app command feedback, generated downstream pin/validation helpers, and cleanup/run/deploy fixes documented in `5.0.0.rc.3`.
+
 ### Fixed
 
 - Fixed packaged `cpflow` gems failing to boot without the development-only `debug` gem installed. The hidden `cpflow test` command no longer requires `debug` while loading the CLI, and coverage now exercises loading `cpflow` with `require "debug"` blocked.
@@ -343,7 +349,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.3...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.3...v5.0.0
 [5.0.0.rc.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...v5.0.0.rc.3
 [5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.1
 [4.2.0]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...v4.2.0
