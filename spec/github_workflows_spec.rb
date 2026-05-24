@@ -4,6 +4,24 @@ require "spec_helper"
 require "yaml"
 
 RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/DescribeClass
+  describe "RSpec shared workflow" do
+    let(:workflow) do
+      YAML.safe_load_file(
+        File.expand_path("../.github/workflows/rspec-shared.yml", __dir__),
+        aliases: true
+      )
+    end
+
+    let(:job) { workflow.fetch("jobs").fetch("rspec") }
+
+    it "queues jobs that share the CI Control Plane org" do
+      expect(job.fetch("concurrency")).to eq(
+        "group" => "cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}",
+        "cancel-in-progress" => false
+      )
+    end
+  end
+
   describe "Delete Review App workflow" do
     let(:workflow) do
       YAML.safe_load_file(

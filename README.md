@@ -279,8 +279,8 @@ aliases:
     # If not specified, defaults to 21600 (6 hours).
     runner_job_timeout: 1000
 
-    # Apps with a deployed image created before this amount of days will be listed for deletion
-    # when running the command `cpflow cleanup-stale-apps`.
+    # Apps with a deployed image, or an image-less GVC, created before this amount of days
+    # will be listed for deletion when running the command `cpflow cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
 
     # Images that exceed this quantity will be listed for deletion
