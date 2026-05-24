@@ -232,8 +232,18 @@ cpln policy list --org my-org -o yaml \
 ```
 
 If the policy block is gone or no longer contains the identity link, your workload won't be able to read
-its secrets — re-apply the app template (`cpflow apply-template app -a my-app-production`, or whichever
-template owns the identity + policy in your project) to recreate the policy binding.
+its secrets — re-bind the identity to the secrets policy directly with the CPLN CLI:
+
+```sh
+cpln policy add-binding my-app-production-secrets-policy --org my-org \
+  --identity /org/my-org/gvc/my-app-production/identity/my-app-production-identity \
+  --permission reveal
+```
+
+This is the same call `cpflow setup-app` makes internally (see `Controlplane#bind_identity_to_policy`).
+`cpflow apply-template app` does **not** recreate the binding — its `app` template only defines the
+GVC, and `--add-app-identity` only inserts an identity object, not the policy binding. Adjust the
+policy name if you've overridden `secrets_policy_name` in `controlplane.yml`.
 
 Schema notes (per CPLN's documented `networkResources` schema):
 
