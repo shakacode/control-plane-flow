@@ -14,7 +14,6 @@
    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
    - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-   - [Pause Non-Web Workloads Too](#pause-non-web-workloads-too)
 9. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
@@ -163,8 +162,9 @@ create a review-app-specific template (for example `rails-review.yml`) and list 
 review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Partial — keep defaultOptions complete, and preserve the omitted containers,
-# firewallConfig, identityLink, and other fields from the default templates/rails.yml.
+# Partial workload spec — omits containers, firewallConfig, and identityLink.
+# Copy this over the matching fields in templates/rails.yml (or a review-app-specific template);
+# keep everything else from that file intact.
 kind: workload
 name: rails
 spec:
@@ -177,7 +177,7 @@ spec:
     timeoutSeconds: 60
 ```
 
-See [`templates/rails.yml`](../templates/rails.yml) for the full default — `containers`, `firewallConfig`,
+See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
 `identityLink`, and the other required fields must be preserved when you copy the snippet above.
 
 Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
@@ -201,11 +201,12 @@ my-app-review:
   stale_app_image_deployed_days: 14
 ```
 
-Pick a threshold that matches your review cycle — when a matching app image exists,
-`stale_app_image_deployed_days` measures from the Control Plane image resource's `created` timestamp, typically when the
-image was pushed to Control Plane's registry. If no matching image exists, the command falls back to the GVC's `created`
-timestamp. It does not consider last traffic or last comment. A 7-day threshold can catch PRs still in QA; teams with
-longer review cycles often use 14–30 days.
+Pick a threshold that fits your review cycle — 7 days can catch PRs still in QA; teams with longer review cycles often
+use 14–30 days.
+
+> **How staleness is measured:** `stale_app_image_deployed_days` uses the Control Plane image resource's `created`
+> timestamp, typically when the image was pushed to Control Plane's registry. If no matching image exists, it falls back
+> to the GVC's `created` timestamp. It does not consider last traffic or last PR comment.
 
 Then run in delete mode:
 
@@ -250,18 +251,13 @@ cpflow ps:start -a my-app-review-123
 
 No re-deploy is needed; the workloads come back with the same images they had before.
 
-Note: `ps:stop` overrides serverless auto-wake. If the web workload is already serverless (`minScale: 0`), suspending
-it sets `defaultOptions.suspend: true`, and Control Plane will not bring it back on the next request — `ps:start` must
-be run explicitly first.
-
-### Pause Non-Web Workloads Too
-
-The Sidekiq, Postgres, Redis, and Memcached templates all ship with `type: standard` and `minScale: 1`, and they don't
-auto-scale. They keep running while the web tier sleeps via `minScale: 0`, which can erode the cost savings.
-
-To pause them too, use `cpflow ps:stop -a $APP_NAME` — it suspends every configured workload, web included.
-`cleanup-stale-apps --mode=stop` combines staleness detection with `ps:stop` for reversible idle handling: no GVC or
-images are removed, and `cpflow ps:start -a $APP_NAME` resumes the app.
+> **Note:** `ps:stop` overrides serverless auto-wake. If the web workload is already serverless (`minScale: 0`),
+> suspending it sets `defaultOptions.suspend: true`, and Control Plane will not bring it back on the next request —
+> `ps:start` must be run explicitly first.
+>
+> **Note:** Sidekiq, Postgres, Redis, and Memcached templates default to `type: standard` and `minScale: 1`, so they
+> keep running while only the web tier sleeps. `cpflow ps:stop -a $APP_NAME` suspends every configured workload, web
+> included, and `cleanup-stale-apps --mode=stop` applies the same pause behavior to stale review apps.
 
 ## Useful Links
 
