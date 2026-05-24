@@ -162,9 +162,8 @@ create a review-app-specific template (for example `rails-review.yml`) and list 
 review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Partial workload spec — omits containers, firewallConfig, and identityLink.
-# Copy this over the matching fields in templates/rails.yml (or a review-app-specific template);
-# keep everything else from that file intact.
+# Fields to override — merge into your full templates/rails.yml (or a review-app-specific template);
+# keep containers, firewallConfig, identityLink, and everything else from that file intact.
 kind: workload
 name: rails
 spec:
@@ -207,6 +206,7 @@ use 14–30 days.
 > **How staleness is measured:** `stale_app_image_deployed_days` uses the Control Plane image resource's `created`
 > timestamp, typically when the image was pushed to Control Plane's registry. If no matching image exists, it falls back
 > to the GVC's `created` timestamp. It does not consider last traffic or last PR comment.
+> The same stale-app scan applies to both delete and stop modes below.
 
 Then run in delete mode:
 
