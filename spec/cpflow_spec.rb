@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
+require "rbconfig"
 
 options_by_key_name = Command::Base.all_options_by_key_name
 non_boolean_options_by_key_name = options_by_key_name
@@ -9,6 +11,35 @@ non_boolean_options_by_key_name = options_by_key_name
 describe Cpflow do
   it "has a version number" do
     expect(Cpflow::VERSION).not_to be_nil
+  end
+
+  it "loads without development-only debug dependencies" do
+    script = <<~RUBY
+      module Kernel
+        alias_method :cpflow_original_require, :require
+
+        def require(path)
+          raise LoadError, "debug must not be required at runtime" if path == "debug"
+
+          cpflow_original_require(path)
+        end
+      end
+
+      require "cpflow"
+      puts Cpflow::VERSION
+    RUBY
+
+    stdout, stderr, status = Open3.capture3(
+      { "RUBYOPT" => nil },
+      RbConfig.ruby,
+      "-I",
+      File.expand_path("../lib", __dir__),
+      "-e",
+      script
+    )
+
+    expect(status).to be_success, stderr
+    expect(stdout).to include(Cpflow::VERSION)
   end
 
   non_boolean_options_by_key_name.each do |option_key_name, option|

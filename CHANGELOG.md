@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed packaged `cpflow` gems failing to boot without the development-only `debug` gem installed. The hidden `cpflow test` command no longer requires `debug` while loading the CLI, and coverage now exercises loading `cpflow` with `require "debug"` blocked.
+
 ## [5.0.0.rc.3] - 2026-05-23
 
 ### Added
