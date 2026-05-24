@@ -14,6 +14,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [5.0.0] - 2026-05-23
 
+### Breaking Changes
+
+- Promotes the 5.x release-candidate line to stable. The breaking changes introduced during the 5.0.0 prerelease cycle are documented in `5.0.0.rc.1`, including the Ruby 3.0 minimum, `cpflow exists` not-found exit code change, and generated Dockerfile production-group behavior.
+
 ### Changed
 
 - Promoted the 5.0.0 release-candidate line to stable. This release includes the generated GitHub Actions flow, upstream reusable workflow model, Node 24 action updates, richer review-app command feedback, generated downstream pin/validation helpers, and cleanup/run/deploy fixes documented in `5.0.0.rc.3`.
