@@ -24,7 +24,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- Fixed packaged `cpflow` gems failing to boot without the development-only `debug` gem installed. The hidden `cpflow test` command no longer requires `debug` while loading the CLI, and coverage now exercises loading `cpflow` with `require "debug"` blocked.
+- **Fixed packaged `cpflow` gems failing to boot without the development-only `debug` gem installed.** [PR 314](https://github.com/shakacode/control-plane-flow/pull/314) by [Justin Gordon](https://github.com/justin808). The hidden `cpflow test` command no longer requires `debug` while loading the CLI, and coverage now exercises loading `cpflow` with `require "debug"` blocked.
 
 ## [5.0.0.rc.3] - 2026-05-23
 
