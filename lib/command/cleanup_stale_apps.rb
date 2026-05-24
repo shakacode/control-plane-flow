@@ -2,20 +2,44 @@
 
 module Command
   class CleanupStaleApps < Base
+    CLEANUP_MODE_OPTION = {
+      name: :mode,
+      params: {
+        banner: "MODE",
+        desc: "Action to take on stale apps: `delete` (default) or `stop`",
+        type: :string,
+        required: false,
+        default: "delete",
+        valid_regex: /^(delete|stop)$/
+      }
+    }.freeze
+
     NAME = "cleanup-stale-apps"
     OPTIONS = [
       app_option(required: true),
-      skip_confirm_option
+      skip_confirm_option,
+      CLEANUP_MODE_OPTION
     ].freeze
-    DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps"
+    DESCRIPTION = "Deletes or stops stale apps based on the latest image's creation date"
     LONG_DESCRIPTION = <<~DESC
-      - Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
-      - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
-      - Stale apps are identified based on the creation date of the latest image, or the GVC if no images exist
+      - Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
+      - With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy as long as both the identity and the policy exist (and are bound)
+      - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` — no GVC, volumeset, or image is removed; resume with `cpflow ps:start`
+      - `--mode=stop` only suspends workloads listed in `app_workloads` + `additional_workloads`; workloads present in the live GVC but missing from the config are skipped silently
+      - `--mode=stop` returns once each workload is marked suspended; it does not wait for the workload to reach a not-ready state
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
-      - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
+      - If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will act on all stale apps that start with the name
       - Will ask for explicit user confirmation
     DESC
+    EXAMPLES = <<~EX
+      ```sh
+      # Deletes stale apps (default).
+      cpflow cleanup-stale-apps -a $APP_NAME
+
+      # Stops stale apps instead of deleting them; resume with `cpflow ps:start`.
+      cpflow cleanup-stale-apps -a $APP_NAME --mode=stop
+      ```
+    EX
 
     def call # rubocop:disable Metrics/MethodLength
       return progress.puts("No stale apps found.") if stale_apps.empty?
@@ -25,11 +49,11 @@ module Command
         progress.puts("  - #{app[:name]} (#{Shell.color(app[:date].to_s, :red)})")
       end
 
-      return unless confirm_delete
+      return unless confirm_action
 
       progress.puts
       stale_apps.each do |app|
-        delete_app(app[:name])
+        process_app(app[:name])
         progress.puts
       end
     end
@@ -68,14 +92,27 @@ module Command
         end
     end
 
-    def confirm_delete
+    def confirm_action
       return true if config.options[:yes]
 
-      Shell.confirm("\nAre you sure you want to delete these #{stale_apps.length} apps?")
+      Shell.confirm("\nAre you sure you want to #{action_description} these #{stale_apps.length} apps?")
     end
 
-    def delete_app(app)
-      run_cpflow_command("delete", "-a", app, "--yes")
+    def process_app(app)
+      if mode == "stop"
+        progress.puts("Stopping app '#{app}'")
+        run_cpflow_command("ps:stop", "-a", app)
+      else
+        run_cpflow_command("delete", "-a", app, "--yes")
+      end
+    end
+
+    def action_description
+      mode == "stop" ? "suspend all workloads in" : "delete"
+    end
+
+    def mode
+      @mode ||= config.options[:mode]
     end
   end
 end

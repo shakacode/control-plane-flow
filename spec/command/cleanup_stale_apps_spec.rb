@@ -6,6 +6,43 @@ require "spec_helper"
 describe Command::CleanupStaleApps do
   let!(:app_prefix) { dummy_test_app_prefix("stale-app") }
 
+  describe ".OPTIONS" do
+    it "keeps the cleanup mode option scoped to cleanup-stale-apps" do
+      expect(described_class::OPTIONS.map { |option| option[:name] }).to include(:mode)
+      expect(Command::Base.all_options.map { |option| option[:name] }).not_to include(:mode)
+    end
+  end
+
+  describe "#confirm_action" do
+    let(:config) { instance_double(Config, options: { mode: mode, yes: false }) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(command).to receive(:stale_apps).and_return([{ name: "app-1" }, { name: "app-2" }])
+      allow(Shell).to receive(:confirm).and_return(false)
+    end
+
+    context "with delete mode" do
+      let(:mode) { "delete" }
+
+      it "confirms app deletion" do
+        command.send(:confirm_action)
+
+        expect(Shell).to have_received(:confirm).with(include("delete these 2 apps"))
+      end
+    end
+
+    context "with stop mode" do
+      let(:mode) { "stop" }
+
+      it "confirms workload suspension" do
+        command.send(:confirm_action)
+
+        expect(Shell).to have_received(:confirm).with(include("suspend all workloads in these 2 apps"))
+      end
+    end
+  end
+
   describe "#stale_apps" do
     let(:config) { instance_double(Config, app: "dummy-test") }
     let(:cp) { instance_double(Controlplane) }
@@ -51,7 +88,18 @@ describe Command::CleanupStaleApps do
     end
   end
 
-  context "when there are no stale apps to delete" do
+  context "when --mode value is invalid" do
+    let!(:app) { dummy_test_app }
+
+    it "rejects the command" do
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app, "--mode=pause")
+
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("Invalid value provided for option --mode.")
+    end
+  end
+
+  context "when there are no stale apps to act on" do
     let!(:app) { dummy_test_app }
 
     it "displays message" do
@@ -62,7 +110,7 @@ describe Command::CleanupStaleApps do
     end
   end
 
-  context "when there are stale apps to delete" do
+  context "when there are stale apps" do
     let!(:app1) { dummy_test_app("stale-app") }
     let!(:app2) { dummy_test_app("stale-app") }
 
@@ -79,7 +127,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "asks for confirmation and does nothing", :slow do
-      allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(false)
+      allow(Shell).to receive(:confirm).with(include("delete these 2 apps")).and_return(false)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
@@ -90,8 +138,39 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).not_to include("Deleting app")
     end
 
+    it "uses workload-suspension wording when --mode=stop and does nothing on declined confirmation", :slow do
+      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(false)
+
+      travel_to_days_later(30)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting app")
+      expect(result[:stderr]).not_to include("Stopping workload")
+    end
+
+    it "asks for confirmation and stops stale apps when --mode=stop", :slow do
+      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(true)
+
+      travel_to_days_later(30)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")
+      travel_back
+
+      expect(Shell).to have_received(:confirm).once
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting app")
+      # Per-app header gives the workload-stop output app-name context in CI logs.
+      expect(result[:stderr]).to include("Stopping app '#{app1}'")
+      expect(result[:stderr]).to include("Stopping app '#{app2}'")
+      stop_lines = result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/)
+      expect(stop_lines.length).to eq(2),
+                                   "expected exactly 2 'Stopping workload postgres' lines; got: #{result[:stderr]}"
+    end
+
     it "asks for confirmation and deletes stale apps", :slow do
-      allow(Shell).to receive(:confirm).with(include("2 apps")).and_return(true)
+      allow(Shell).to receive(:confirm).with(include("delete these 2 apps")).and_return(true)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix)
@@ -122,6 +201,24 @@ describe Command::CleanupStaleApps do
       expect(result[:stderr]).to match(/Deleting volumeset 'postgres-volume' from app '#{app2}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting app '#{app2}'[.]+? done!/)
       expect(result[:stderr]).to match(/Deleting image '#{app2}:1' from app '#{app2}'[.]+? done!/)
+    end
+
+    it "skips confirmation and stops stale apps when --mode=stop --yes", :slow do
+      allow(Shell).to receive(:confirm).and_return(false)
+
+      travel_to_days_later(30)
+      result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop", "--yes")
+      travel_back
+
+      expect(Shell).not_to have_received(:confirm)
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).not_to include("Deleting app")
+      # Per-app header gives the workload-stop output app-name context in CI logs.
+      expect(result[:stderr]).to include("Stopping app '#{app1}'")
+      expect(result[:stderr]).to include("Stopping app '#{app2}'")
+      stop_lines = result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/)
+      expect(stop_lines.length).to eq(2),
+                                   "expected exactly 2 'Stopping workload postgres' lines; got: #{result[:stderr]}"
     end
   end
 

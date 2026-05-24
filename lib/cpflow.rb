@@ -307,7 +307,7 @@ module Cpflow
         end
 
         begin
-          Cpflow::Cli.validate_options!(options)
+          Cpflow::Cli.validate_options!(options, command_options: command_options)
 
           config = Config.new(args, options, required_options)
 
@@ -333,25 +333,39 @@ module Cpflow
     check_unknown_options!(except: @commands_with_extra_options)
     stop_on_unknown_option!
 
-    def self.validate_options!(options) # rubocop:disable Metrics/MethodLength
+    def self.validate_options!(options, command_options: ::Command::Base.all_options)
+      option_definitions = option_definitions_for(command_options)
+
       options.each do |name, value|
         normalized_name = ::Helpers.normalize_option_name(name)
         raise "No value provided for option #{normalized_name}." if value.to_s.strip.empty?
 
-        option = ::Command::Base.all_options.find { |current_option| current_option[:name].to_s == name }
-        if option[:new_name]
-          normalized_new_name = ::Helpers.normalize_option_name(option[:new_name])
-          ::Shell.warn_deprecated("Option #{normalized_name} is deprecated, " \
-                                  "please use #{normalized_new_name} instead.")
-          $stderr.puts
-        end
-
-        params = option[:params]
-        next unless params[:valid_regex]
-
-        raise "Invalid value provided for option #{normalized_name}." unless value.match?(params[:valid_regex])
+        option = option_definitions.find { |current_option| current_option[:name].to_s == name }
+        validate_option!(option, normalized_name, value) if option
       end
     end
+
+    def self.option_definitions_for(command_options)
+      (::Command::Base.common_options + command_options).uniq { |option| option[:name] }
+    end
+    private_class_method :option_definitions_for
+
+    def self.validate_option!(option, normalized_name, value)
+      warn_deprecated_option(option, normalized_name) if option[:new_name]
+
+      params = option[:params]
+      return unless params[:valid_regex]
+
+      raise "Invalid value provided for option #{normalized_name}." unless value.match?(params[:valid_regex])
+    end
+    private_class_method :validate_option!
+
+    def self.warn_deprecated_option(option, normalized_name)
+      normalized_new_name = ::Helpers.normalize_option_name(option[:new_name])
+      ::Shell.warn_deprecated("Option #{normalized_name} is deprecated, please use #{normalized_new_name} instead.")
+      $stderr.puts
+    end
+    private_class_method :warn_deprecated_option
 
     def self.show_info_header(config) # rubocop:disable Metrics/MethodLength
       return if @showed_info_header
