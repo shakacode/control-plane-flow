@@ -15,6 +15,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 ### Fixed
 
 - Fixed `cpflow run` interactive sessions printing a confusing "Command exited with non-zero status" error when `cpln workload exec` exits non-zero or is signal-killed on session close. cpflow now prints an actionable `cpflow ps:stop` hint instead; exit code 64 is returned for non-zero exits and 130 for signal termination so scripted callers can still detect failure. Fixes [issue 199](https://github.com/shakacode/control-plane-flow/issues/199). [PR 301](https://github.com/shakacode/control-plane-flow/pull/301) by [Justin Gordon](https://github.com/justin808).
+- Fixed `deploy-image` showing container names instead of workload names in the "Deploying image..." steps and the "Deployed endpoints" summary when a workload's name differs from its container's name. Also guards against duplicate work per workload by deploying only the first container whose image matches the app-image pattern; workloads are expected to run a single app-image container, so any additional matches are skipped. Fixes [Issue 255](https://github.com/shakacode/control-plane-flow/issues/255). [PR 294](https://github.com/shakacode/control-plane-flow/pull/294) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.0.0.rc.2] - 2026-05-23
 
@@ -29,7 +30,6 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- Fixed `deploy-image` showing container names instead of workload names in the "Deploying image..." steps and the "Deployed endpoints" summary when a workload's name differs from its container's name. Also guards against duplicate work per workload by deploying only the first container whose image matches the app-image pattern; workloads are expected to run a single app-image container, so any additional matches are skipped. Fixes [Issue 255](https://github.com/shakacode/control-plane-flow/issues/255). [PR 294](https://github.com/shakacode/control-plane-flow/pull/294) by [Justin Gordon](https://github.com/justin808).
 - **Relaxed `thor` runtime dependency from `~> 1.4` to `~> 1.3`** so cpflow can be bundled into Rails 8 apps that pull in `solid_queue` 1.1.0 (Rails 8.0.x default), which pins `thor ~> 1.3.1`. The previous `~> 1.4` constraint had zero overlap with that pin and forced users to install cpflow globally instead of adding it to the Gemfile. [Issue 264](https://github.com/shakacode/control-plane-flow/issues/264) / [PR 291](https://github.com/shakacode/control-plane-flow/pull/291) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.0.0.rc.1] - 2026-05-11
