@@ -92,22 +92,22 @@ launch template's user data in step 2.
 4. Copy the **bootstrap script** displayed by the UI. Treat it like a secret — it contains a one-time
    registration token.
 
-> Alternative declarative form using YAML:
+> **CLI creation note:** do not use `cpln apply --file agent.yaml` for this step. It can create the
+> Agent object, but it does not give you the bootstrap config/token needed by the EC2 host. Use the
+> Console path above unless you have verified the CLI creation output in your org:
 >
 > ```sh
-> cat > agent.yaml <<'YAML'
-> kind: agent
-> name: aws-us-east-2-prod
-> description: Wormhole agent in customer AWS VPC, us-east-2.
-> YAML
-> cpln apply --file agent.yaml
+> cpln agent create \
+>   --name aws-us-east-2-prod \
+>   --description "Wormhole agent in customer AWS VPC, us-east-2." \
+>   --org my-org -o yaml
 > ```
 >
 > The bootstrap token is shown by the UI immediately after creation and is **not retrievable
 > afterward** — if you miss it, delete the agent and recreate it. The closest CLI equivalents are
 > `cpln agent info <name>` (operational status, not the bootstrap token) and `cpln agent manifest`
-> (uses an existing `--bootstrap-file` to generate a Kubernetes manifest; it does not generate or
-> print a new token).
+> (generates Kubernetes manifests from an existing `--bootstrap-file`; it does not generate or print
+> a new token).
 >
 > **Unverified CLI note:** `cpln agent create` exists, but this guide has not verified whether it
 > emits the bootstrap payload on stdout for every CLI/org version. For IaC workflows, verify that
@@ -127,7 +127,10 @@ Recommended baseline:
     `http://169.254.169.254/latest/user-data` via IMDS. For production, prefer storing the bootstrap script
     in AWS Secrets Manager or SSM Parameter Store and having a small bootstrap snippet in user data fetch
     and execute it at startup (granting the instance role `secretsmanager:GetSecretValue` or `ssm:GetParameter`
-    on that specific resource ARN). At minimum, audit who has those `Describe*` permissions in the account.
+    on that specific resource ARN). That requires an IAM instance profile: create or reuse one, attach only
+    the narrowly scoped `GetSecretValue` / `GetParameter` permission on the specific secret or parameter ARN,
+    and set the profile in the Launch Template under **Advanced details** → **IAM instance profile** before
+    relying on the user-data fetch. At minimum, audit who has those `Describe*` permissions in the account.
 - **Auto Scaling Group:**
   - Testing: desired 1 / min 1 / max 1.
   - Production: desired 2 / min 2 / max 4 across at least two availability zones. Two agents give you
@@ -183,16 +186,12 @@ existing identity**, not create a new one.
 
 First, find the identity name. cpflow's `Config#identity` defines this as `<app>-identity` and the
 `{{APP_IDENTITY}}` template variable expands to the same — so for an app named `my-app-production` the
-identity is `my-app-production-identity`. Confirm against your org (the `cpln` CLI exposes `get` and
-`query` for identities — there is no `list` subcommand):
+identity is `my-app-production-identity`. Confirm against your org (`cpln identity get` with no ref returns
+all identities in the GVC; there is no `list` subcommand):
 
 ```sh
-# `get` with no ref returns all identities in the GVC.
-cpln identity get --gvc my-app-production --org my-org
-
-# Or, to filter by name property:
-cpln identity query --gvc my-app-production --org my-org \
-  --property name=my-app-production-identity
+cpln identity get --gvc my-app-production --org my-org \
+  | grep my-app-production-identity
 ```
 
 Export it and add the `networkResources` block. Look up your VPC's DNS resolver IP (typically the VPC CIDR
@@ -246,7 +245,8 @@ cpln apply --file identity-db.yaml --gvc my-app-production --org my-org
 
 (Use whatever `--org` / `--gvc` flags your team uses, or rely on the org/GVC defaults set by `cpln profile`.)
 
-Confirm the identity now has the new `networkResources` and that the policy still references it:
+Confirm the identity now has the new `networkResources` and that the policy still references it with the
+`reveal` permission:
 
 ```sh
 # 1. The identity itself should now list `networkResources`.
@@ -254,16 +254,25 @@ cpln identity get my-app-production-identity --gvc my-app-production --org my-or
   | grep -A 5 networkResources
 
 # 2. Policies are separate resources — they reference the identity by link, not by replacing it.
-#    Confirm the existing cpflow-generated policy (typically <app>-secrets) still grants
-#    `reveal` on the workload's secrets to this identity. The full identity link cpflow uses is
+#    Confirm the existing cpflow-generated policy (typically <app>-secrets-policy) has `reveal`
+#    and the identity link in the same binding block. The full identity link cpflow uses is
 #    /org/<org>/gvc/<app>/identity/<app>-identity (see Config#identity_link).
 #    (The `cpln` CLI exposes `policy get`/`policy query` — there is no `policy list` subcommand.)
-cpln policy get --org my-org -o yaml \
-  | grep -B 1 -A 8 "/org/my-org/gvc/my-app-production/identity/my-app-production-identity"
+cpln policy get my-app-production-secrets-policy --org my-org -o yaml
 ```
 
-If the policy block is gone or no longer contains the identity link, your workload won't be able to read
-its secrets — re-bind the identity to the secrets policy directly with the CPLN CLI:
+Look for a binding shaped like this; both `reveal` and the identity link must be in the same item:
+
+```yaml
+bindings:
+  - permissions:
+      - reveal
+    principalLinks:
+      - /org/my-org/gvc/my-app-production/identity/my-app-production-identity
+```
+
+If the policy block is gone, no longer contains the identity link, or does not grant `reveal`, your workload
+won't be able to read its secrets — re-bind the identity to the secrets policy directly with the CPLN CLI:
 
 ```sh
 cpln policy add-binding my-app-production-secrets-policy --org my-org \
@@ -314,9 +323,12 @@ is not a substring interpolation. So you have two options for assembling a `DATA
 secret password:
 
 **TLS to RDS:** RDS and Aurora require TLS by default in current parameter groups. Always include
-`sslmode=require` (or stricter — `verify-ca` / `verify-full` if you bundle the AWS RDS CA bundle) in the
-connection string or `database.yml`. Without it, newer clusters will refuse the connection and older ones
-will silently fall back to unencrypted.
+`sslmode=require` in the connection string or `database.yml`. Without it, newer clusters will refuse the
+connection and older ones will silently fall back to unencrypted. For stricter certificate verification
+(`verify-ca` / `verify-full`), the AWS RDS CA bundle must be present in the container image and referenced
+with `sslrootcert=/path/to/rds-ca.pem` in the connection string or `PGSSLROOTCERT`; otherwise those modes fail
+even though `sslmode=require` works. See the
+[AWS RDS SSL/TLS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
 
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
