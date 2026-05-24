@@ -91,6 +91,10 @@ module Command
       raise "Can't find templates above, please create them."
     end
 
+    # The confirm_* helpers below prompt the user and mutate state (@asked_for_confirmation,
+    # report_skipped). `confirm_app` and `confirm_workload` return booleans but have side
+    # effects, so their names intentionally lack `?` (suppressed via the inline disables
+    # below). `confirm_apply` doesn't trip the cop and needs no annotation.
     def confirm_apply(message)
       return true if config.options[:yes]
 
@@ -98,7 +102,7 @@ module Command
       Shell.confirm(message)
     end
 
-    def confirm_app(template)
+    def confirm_app(template) # rubocop:disable Naming/PredicateMethod
       app = cp.fetch_gvc(template["name"])
       return true unless app
 
@@ -109,7 +113,7 @@ module Command
       false
     end
 
-    def confirm_workload(template)
+    def confirm_workload(template) # rubocop:disable Naming/PredicateMethod
       workload = cp.fetch_workload(template["name"])
       return true unless workload
 

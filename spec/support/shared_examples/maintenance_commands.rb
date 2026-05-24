@@ -27,8 +27,8 @@ RSpec.shared_examples "validates maintenance workload existence" do |command:|
 end
 
 RSpec.shared_examples "switches maintenance mode command" do |action:|
-  include_examples "validates domain existence", command: "maintenance:#{action}"
-  include_examples "validates maintenance workload existence", command: "maintenance:#{action}"
+  it_behaves_like "validates domain existence", command: "maintenance:#{action}"
+  it_behaves_like "validates maintenance workload existence", command: "maintenance:#{action}"
 
   context "when maintenance workload exists" do
     let!(:app) { dummy_test_app("full", create_if_not_exists: true) }

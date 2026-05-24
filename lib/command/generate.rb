@@ -126,7 +126,7 @@ module Command
       # Parse rather than regex-match: Shakapacker emits an environment-keyed YAML file
       # (the hook usually lives under `default:` or `production:`), and folded or quoted
       # multi-line values would also defeat a single-line regex.
-      config = YAML.safe_load(File.read("config/shakapacker.yml"), aliases: true)
+      config = YAML.safe_load_file("config/shakapacker.yml", aliases: true)
       hook = extract_shakapacker_precompile_hook(config)
       hook unless hook.nil? || hook.empty?
     rescue Psych::SyntaxError

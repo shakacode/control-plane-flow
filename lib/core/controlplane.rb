@@ -99,7 +99,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd << "--progress=plain" if ControlplaneApiDirect.trace
 
     cmd.concat(docker_args)
-    build_args.each { |build_arg| cmd.concat(["--build-arg", build_arg]) }
+    build_args.each { |build_arg| cmd.push("--build-arg", build_arg) }
     cmd << docker_context
 
     perform!(Shellwords.join(cmd))

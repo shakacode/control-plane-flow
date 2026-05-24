@@ -3,7 +3,7 @@
 require "spec_helper"
 
 describe TerraformConfig::Policy do
-  let(:config) { described_class.new(**base_options.merge(extra_options)) }
+  let(:config) { described_class.new(**base_options, **extra_options) }
 
   let(:base_options) { { name: "policy-name" } }
   let(:extra_options) { {} }

@@ -106,7 +106,9 @@ module Command
       @app_workloads.keys.find { |app_name| config.app_matches?(app_name, app, config.apps[app.to_sym]) }
     end
 
-    def check_any_app_starts_with(app)
+    # Returns boolean but mutates @missing_apps_starting_with and writes to stdout,
+    # so the method name intentionally lacks `?`.
+    def check_any_app_starts_with(app) # rubocop:disable Naming/PredicateMethod
       if any_app_starts_with?(app)
         false
       else

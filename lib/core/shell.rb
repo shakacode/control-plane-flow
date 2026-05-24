@@ -27,7 +27,9 @@ class Shell
     shell.set_color(message, color_key)
   end
 
-  def self.confirm(message)
+  # Prompts the user and returns whether they confirmed. Side-effecting on stdout/stdin,
+  # so the method name intentionally lacks `?` despite returning a boolean.
+  def self.confirm(message) # rubocop:disable Naming/PredicateMethod
     shell.yes?("#{message} (y/N)")
   end
 

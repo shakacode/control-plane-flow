@@ -81,7 +81,9 @@ module Command
       progress.puts("#{Shell.color(message, :red)}\n#{images_list}\n\n")
     end
 
-    def confirm_delete(item)
+    # Prompts the user and writes to progress on confirm — returns boolean but
+    # has side effects, so the method name intentionally lacks `?`.
+    def confirm_delete(item) # rubocop:disable Naming/PredicateMethod
       return true if config.options[:yes]
 
       confirmed = Shell.confirm("Are you sure you want to delete '#{item}'?")
