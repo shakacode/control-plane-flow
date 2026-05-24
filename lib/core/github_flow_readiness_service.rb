@@ -239,6 +239,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
   # rubocop:enable Style/ReturnNilInPredicateMethodDefinition, Naming/PredicateMethod
 
   # Same tri-state semantics as rubygems_requirement_available? — `nil` means lookup failed.
+  # The body is a single `include?` call, which `Naming/PredicateMethod` recognises as
+  # boolean-safe, so only the nil-return cop needs suppressing here.
   # rubocop:disable Style/ReturnNilInPredicateMethodDefinition
   def npm_dependency_available?(dependency)
     versions = fetch_npm_versions(dependency[:name])
