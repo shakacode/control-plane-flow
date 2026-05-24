@@ -277,8 +277,8 @@ module Command
     def print_interactive_cleanup_hint
       progress.puts(Shell.color(
                       "\nThe interactive session ended with a non-zero exit or signal from the upstream CLI. " \
-                      "If the runner workload is still running, stop it with:\n" \
-                      "  cpflow ps:stop #{app_workload_replica_args.join(' ')} --location #{location}",
+                      "If the runner workload is still running, stop it with:\n  " \
+                      "cpflow ps:stop #{app_workload_replica_args.join(' ')} --location #{location}",
                       :yellow
                     ))
     end
