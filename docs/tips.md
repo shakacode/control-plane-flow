@@ -175,6 +175,9 @@ spec:
       maxScale: 1
 ```
 
+See [`templates/rails.yml`](../templates/rails.yml) for the full default — `containers`, `firewallConfig`,
+`identityLink`, and the other required fields must be preserved when you copy the snippet above.
+
 Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
 `type: standard` always keeps at least one replica running.
 
@@ -193,8 +196,9 @@ my-app-review:
 ```
 
 Pick a threshold that matches your review cycle — `stale_app_image_deployed_days` measures from the image's creation
-date (set at build time, not the push timestamp), not last traffic or last comment, so 7 days will delete PRs waiting on
-QA for a week. Teams with longer review cycles often use 14–30 days.
+date (typically set at build time, not the push timestamp; reproducible-build pipelines such as BuildKit `--timestamp=0`
+can override this), not last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams with
+longer review cycles often use 14–30 days.
 
 Then run:
 
@@ -216,7 +220,9 @@ all workloads with:
 cpflow ps:stop -a my-app-review-123
 ```
 
-This sets `defaultOptions.suspend: true` on every workload defined in `.controlplane/controlplane.yml`. Resume with:
+This sets `defaultOptions.suspend: true` on every workload listed under `app_workloads` or `additional_workloads` in
+`.controlplane/controlplane.yml`. Workloads created outside that config (for example through the Control Plane UI) are
+left alone. Resume with:
 
 ```sh
 cpflow ps:start -a my-app-review-123
