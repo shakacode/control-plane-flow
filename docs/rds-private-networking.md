@@ -157,8 +157,9 @@ existing identity**, not create a new one.
 > bindings (which is how the workload reaches its secrets in the first place). Always **export the live
 > identity first**, edit it in place, then re-apply.
 
-First, find the identity name (cpflow names it after the app — the `{{APP_IDENTITY}}` template variable
-expands to the app prefix, not the literal string `rails`):
+First, find the identity name. cpflow's `Config#identity` defines this as `<app>-identity` and the
+`{{APP_IDENTITY}}` template variable expands to the same — so for an app named `my-app-production` the
+identity is `my-app-production-identity`. Confirm against your org:
 
 ```sh
 cpln identity list --gvc my-app-production --org my-org
@@ -168,18 +169,25 @@ Export it and add the `networkResources` block. Look up your VPC's DNS resolver 
 base + 2, e.g. `10.0.0.2` for a `10.0.0.0/16` VPC) and your RDS cluster endpoint:
 
 ```sh
-cpln identity get my-app-production \
+# Replace my-app-production-identity with whatever `cpln identity list` shows for your app.
+cpln identity get my-app-production-identity \
   --gvc my-app-production --org my-org -o yaml > identity-db.yaml
 ```
 
 Edit `identity-db.yaml` and **append** the `networkResources` block — keep every other field exactly as
 exported:
 
+> ⚠️ **Verify field casing against your org before applying.** The field names below (`FQDN`, `IPs`,
+> `agentLink`, `resolverIP`) are sourced from public CPLN docs. If the live API uses different casing,
+> `cpln apply` will accept the file but silently ignore the resource — workloads will hit
+> `could not translate host name` with no obvious link to the identity YAML. Diff your edited file
+> against the original export from `cpln identity get` to confirm.
+
 ```yaml
 # identity-db.yaml (after edit — abbreviated, your file will have more fields)
 kind: identity
-name: my-app-production        # whatever your cpflow identity is actually called
-description: ...               # leave existing description alone
+name: my-app-production-identity   # output of `cpln identity list` for your app
+description: ...                   # leave existing description alone
 # … any other existing fields stay as-is …
 networkResources:
   - name: db-primary           # ← workload connects to this hostname
@@ -212,14 +220,15 @@ Confirm the identity now has the new `networkResources` and that the policy stil
 
 ```sh
 # 1. The identity itself should now list `networkResources`.
-cpln identity get my-app-production --gvc my-app-production --org my-org -o yaml \
+cpln identity get my-app-production-identity --gvc my-app-production --org my-org -o yaml \
   | grep -A 5 networkResources
 
 # 2. Policies are separate resources — they reference the identity by link, not by replacing it.
 #    Confirm the existing cpflow-generated policy (typically <app>-secrets) still grants
-#    `reveal` on the workload's secrets to this identity.
+#    `reveal` on the workload's secrets to this identity. The full identity link cpflow uses is
+#    /org/<org>/gvc/<app>/identity/<app>-identity (see Config#identity_link).
 cpln policy list --org my-org -o yaml \
-  | grep -B 1 -A 8 "//gvc/my-app-production/identity/my-app-production"
+  | grep -B 1 -A 8 "/org/my-org/gvc/my-app-production/identity/my-app-production-identity"
 ```
 
 If the policy block is gone or no longer contains the identity link, your workload won't be able to read
@@ -244,8 +253,10 @@ Schema notes (per CPLN's documented `networkResources` schema):
 ### IPs vs FQDN — which to use?
 
 - **FQDN** (recommended for Aurora and any RDS cluster with failover): set `FQDN` to the cluster endpoint
-  and `resolverIP` to the VPC's `.2` resolver. The agent re-resolves on connect, so Aurora's DNS-based
-  writer failover propagates within ~30 seconds without any identity changes.
+  and `resolverIP` to the VPC's `.2` resolver. The agent re-resolves on connect, so there is no identity
+  change required on failover — but plan for the full 60–120 s window (failure detection, replica
+  promotion, DNS update, propagation), not just Aurora's ~30 s DNS TTL. See
+  [Aurora failover](#aurora-failover) in Operations.
 - **IPs** (only when you control the target's IP stability): a single-instance RDS that you don't expect to
   recycle, or a static private IP behind a network appliance. The agent will route to exactly those IPs
   — if RDS recycles the underlying instance and the IP changes, you must update the identity manually.
@@ -269,13 +280,18 @@ will silently fall back to unencrypted.
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
 
-Create a dictionary secret holding the entire connection string. The CPLN UI is the safest place to enter
-credentials; the CLI form below is shown for reference but writes the password to your shell history and to
-the `cpln` request body in plaintext — at minimum, prefix the command with a space if `HISTCONTROL=ignorespace`
-is set, or use the UI instead.
+Create a dictionary secret holding the entire connection string. **Use the CPLN UI** (Secrets → New
+dictionary secret) — it's the safest place to enter credentials and avoids shell history, tty echo, and
+plaintext request bodies entirely.
+
+> ⚠️ **CLI form below is reference-only.** It writes credentials to your shell history and to the `cpln`
+> request body in plaintext. The common "prefix with a space" trick only works when `HISTCONTROL` includes
+> `ignorespace` or `ignoreboth`, which is **not** set by default on many stripped-down bastion/EC2 shells.
+> Prefer the UI for any real credential.
 
 ```sh
- cpln apply --file - <<'YAML'
+# Reference only — prefer the UI.
+cpln apply --file - <<'YAML'
 kind: secret
 name: my-app-database
 type: dictionary
@@ -306,10 +322,12 @@ spec:
 **Option B: keep the password in a secret, assemble the URL in app code.** Use this if you want the URL host
 to live in plaintext config so it's easy to grep for in templates.
 
-Create a secret holding just the password:
+Create a secret holding just the password. Again, **prefer the CPLN UI** to enter the credential; the
+CLI heredoc below is reference-only (same shell-history caveat as Option A).
 
 ```sh
- cpln apply --file - <<'YAML'
+# Reference only — prefer the UI.
+cpln apply --file - <<'YAML'
 kind: secret
 name: my-app-database
 type: dictionary
@@ -400,8 +418,15 @@ psql "$DATABASE_URL" -c 'select now(), version();'
 
 Expected: a current timestamp and the RDS Postgres version. Common failures:
 
-- `could not translate host name "db-primary" to address` — the identity isn't bound to the workload. Check
-  `spec.identityLink` on the workload, re-apply the template, and re-run.
+- `could not translate host name "db-primary" to address` — usually one of:
+  - The identity isn't bound to the workload: check `spec.identityLink` on the workload, re-apply the
+    template, and re-run.
+  - The workload was running **before** you added `networkResources` to the identity: existing replicas
+    don't pick up identity changes automatically. Recycle the workload (`cpln workload force-redeployment`
+    or re-apply the template) so new replicas start with the updated network resource map.
+  - Some runtimes need the GVC-suffixed form. If the bare `db-primary` won't resolve, try
+    `db-primary.<gvc>.cpln.local` (e.g. `db-primary.my-app-production.cpln.local`) in `DATABASE_URL` and
+    `database.yml` before assuming the identity is wrong.
 - `connection refused` or timeouts to the resource — the agent → RDS path is wrong. Verify the agent has a
   green heartbeat in the CPLN UI, the agent SG has egress to the RDS SG on `5432`, and the RDS SG accepts
   ingress from the agent SG.

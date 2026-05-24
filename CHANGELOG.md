@@ -18,7 +18,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
-- **Added `docs/rds-private-networking.md` covering how to reach a private RDS/Aurora cluster from Control Plane workloads via the Cloud Wormhole agent.** Closes [Issue 184](https://github.com/shakacode/control-plane-flow/issues/184) by [Justin Gordon](https://github.com/justin808). The new doc walks through agent setup on AWS (Launch Template + ASG), declaring `networkResources` on the identity, pointing `DATABASE_URL` at the resource name, verification, and Aurora failover trade-offs. README and `docs/postgres.md` now link to the new guide.
+- **Added `docs/rds-private-networking.md` covering how to reach a private RDS/Aurora cluster from Control Plane workloads via the Cloud Wormhole agent.** Closes [Issue 184](https://github.com/shakacode/control-plane-flow/issues/184) [PR 311](https://github.com/shakacode/control-plane-flow/pull/311) by [Justin Gordon](https://github.com/justin808). The new doc walks through agent setup on AWS (Launch Template + ASG), declaring `networkResources` on the identity, pointing `DATABASE_URL` at the resource name, verification, and Aurora failover trade-offs. README and `docs/postgres.md` now link to the new guide.
 
 ## [5.0.4] - 2026-05-27
 
