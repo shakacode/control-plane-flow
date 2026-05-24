@@ -14,7 +14,7 @@
    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
    - [Delete Abandoned Apps with `cleanup-stale-apps`](#delete-abandoned-apps-with-cleanup-stale-apps)
    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-   - [Non-Web Workloads Stay Running](#non-web-workloads-stay-running)
+   - [Pause Non-Web Workloads Too](#pause-non-web-workloads-too)
 9. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
@@ -158,7 +158,9 @@ workload runs full-time. `cpflow` already provides several knobs to manage this 
 
 `templates/rails.yml` ships with `type: standard`, `minScale: 1`, `maxScale: 1`. That's a safe default for production,
 but for review apps where cold-start latency is acceptable you can switch the web workload to a serverless type that
-scales to zero replicas when idle:
+scales to zero replicas when idle. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or
+create a review-app-specific template (for example `rails-review.yml`) and list it under `setup_app_templates` for the
+review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
 # Partial — only the fields that change from the default templates/rails.yml.
@@ -190,9 +192,9 @@ my-app-review:
   stale_app_image_deployed_days: 14
 ```
 
-Pick a threshold that matches your review cycle — `stale_app_image_deployed_days` measures from the image's push
-timestamp, not last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams with longer
-review cycles often use 14–30 days.
+Pick a threshold that matches your review cycle — `stale_app_image_deployed_days` measures from the image's creation
+date (set at build time, not the push timestamp), not last traffic or last comment, so 7 days will delete PRs waiting on
+QA for a week. Teams with longer review cycles often use 14–30 days.
 
 Then run:
 
@@ -202,7 +204,8 @@ cpflow cleanup-stale-apps -a my-app-review --yes
 
 This deletes the GVC, workloads, volumesets, and images for any review app whose latest image is older than the
 threshold. It also unbinds the app identity from the secrets policy when that binding exists. Wire it into a nightly CI
-cron — see [CI Automation](/docs/ci-automation.md) for an example workflow.
+cron — see [CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
+`cpflow-cleanup-stale-review-apps.yml` workflow.
 
 ### Pause and Resume with `ps:stop` / `ps:start`
 
@@ -225,7 +228,7 @@ Note: `ps:stop` overrides serverless auto-wake. If the web workload is already s
 it sets `defaultOptions.suspend: true`, and Control Plane will not bring it back on the next request — `ps:start` must
 be run explicitly first.
 
-### Non-Web Workloads Stay Running
+### Pause Non-Web Workloads Too
 
 The Sidekiq, Postgres, Redis, and Memcached templates all ship with `type: standard` and `minScale: 1`, and they don't
 auto-scale. They keep running while the web tier sleeps via `minScale: 0`, which can erode the cost savings.
