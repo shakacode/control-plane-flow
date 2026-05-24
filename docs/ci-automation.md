@@ -164,12 +164,16 @@ For a normal generated review-app setup, configure one repository secret:
 
 No GitHub repository variables are required for review apps when `.controlplane/controlplane.yml`
 has exactly one review app entry with `match_if_app_name_starts_with: true` and
-that entry has a `cpln_org`. Set these variables only when you need to override
-or disambiguate generated review-app config:
+that entry has a `cpln_org`. The inferred values come from that config file:
+the review-app prefix is the app key with `match_if_app_name_starts_with: true`,
+and the staging org is that app's `cpln_org` value. Set these variables only
+when you need to test a fork or clone against a different Control Plane org,
+choose a different review-app prefix, expose a different public workload, or
+disambiguate generated review-app config:
 
-- `CPLN_ORG_STAGING`: override the staging/review org name, for example `company-staging`
-- `REVIEW_APP_PREFIX`: required only when multiple review app prefixes exist in `controlplane.yml`
-- `PRIMARY_WORKLOAD`: optional workload name used to discover the public endpoint and do production health checks; defaults to `rails`
+- `CPLN_ORG_STAGING`: override the staging/review org inferred from `cpln_org`, for example `company-staging`
+- `REVIEW_APP_PREFIX`: override the inferred review-app prefix; required only when multiple review app prefixes exist in `controlplane.yml`
+- `PRIMARY_WORKLOAD`: override the public workload used to discover the public endpoint and do production health checks; defaults to `rails`
 
 For staging deploys, also configure:
 
