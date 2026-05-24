@@ -197,11 +197,11 @@ my-app-review:
   stale_app_image_deployed_days: 14
 ```
 
-Pick a threshold that matches your review cycle — `stale_app_image_deployed_days` measures from the image's creation
-date (typically set at build time, not the push timestamp; reproducible-build pipelines such as BuildKit `--timestamp=0`
-pin timestamps to epoch and make every image appear maximally old, so use a build/commit timestamp instead for review
-apps), not last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams with longer review
-cycles often use 14–30 days.
+Pick a threshold that matches your review cycle — when a matching app image exists,
+`stale_app_image_deployed_days` measures from the Control Plane image resource's `created` timestamp, typically when the
+image was pushed to Control Plane's registry. If no matching image exists, the command falls back to the GVC's `created`
+timestamp. It does not consider last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams
+with longer review cycles often use 14–30 days.
 
 Then run:
 
@@ -209,9 +209,10 @@ Then run:
 cpflow cleanup-stale-apps -a my-app-review --yes
 ```
 
-This deletes the GVC, workloads, volumesets, and images for any review app whose latest image is older than the
-threshold. It also unbinds the app identity from the secrets policy when that binding exists. Wire it into a nightly CI
-cron — see [CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
+This deletes the GVC, workloads, volumesets, and images for any review app whose latest matching image, or GVC when no
+matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy when that
+binding exists. Wire it into a nightly CI cron — see
+[CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
 `cpflow-cleanup-stale-review-apps.yml` workflow.
 
 ### Pause and Resume with `ps:stop` / `ps:start`
