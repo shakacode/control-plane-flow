@@ -282,7 +282,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location} -it"
     cmd += " --container #{container}" if container
     cmd += " -- #{command}"
-    perform!(cmd, output_mode: :all)
+    perform(cmd, output_mode: :all)
   end
 
   def start_cron_workload(workload, job_start_yaml, location:)
@@ -530,7 +530,9 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     kernel_system_with_pid_handling(cmd)
   end
 
-  # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing
+  # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing.
+  # Returns true on zero exit, false on non-zero exit, nil when the process was signal-killed.
+  # SystemCallError (e.g. cpln binary missing) propagates — startup checks ensure this is unreachable in practice.
   def kernel_system_with_pid_handling(cmd)
     pid = Process.spawn(cmd)
     $child_pids << pid # rubocop:disable Style/GlobalVars
@@ -539,8 +541,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     $child_pids.delete(pid) # rubocop:disable Style/GlobalVars
 
     status.exited? ? status.success? : nil
-  rescue SystemCallError
-    nil
   end
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)

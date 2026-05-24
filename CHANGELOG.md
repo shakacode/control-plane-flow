@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `cpflow run` interactive sessions printing a confusing "Command exited with non-zero status" error when `cpln workload exec` exits non-zero or is signal-killed on session close. cpflow now prints an actionable `cpflow ps:stop` hint instead; exit code 64 is returned for non-zero exits and 130 for signal termination so scripted callers can still detect failure. Fixes [issue 199](https://github.com/shakacode/control-plane-flow/issues/199). [PR 301](https://github.com/shakacode/control-plane-flow/pull/301) by [Justin Gordon](https://github.com/justin808).
+
 ## [5.0.0.rc.2] - 2026-05-23
 
 ### Added
