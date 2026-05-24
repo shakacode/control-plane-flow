@@ -203,7 +203,7 @@ image was pushed to Control Plane's registry. If no matching image exists, the c
 timestamp. It does not consider last traffic or last comment, so 7 days will delete PRs waiting on QA for a week. Teams
 with longer review cycles often use 14–30 days.
 
-Then run:
+Then run in delete mode:
 
 ```sh
 cpflow cleanup-stale-apps -a my-app-review --yes
@@ -214,6 +214,15 @@ matching image exists, is older than the threshold. It also unbinds the app iden
 binding exists. Wire it into a nightly CI cron — see
 [CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
 `cpflow-cleanup-stale-review-apps.yml` workflow.
+
+For reversible idle handling, use stop mode instead:
+
+```sh
+cpflow cleanup-stale-apps -a my-app-review --mode=stop --yes
+```
+
+This uses the same staleness threshold, but runs `cpflow ps:stop` for each stale app instead of deleting the GVC,
+volumesets, or images. Resume an app later with `cpflow ps:start -a $APP_NAME`.
 
 ### Pause and Resume with `ps:stop` / `ps:start`
 
@@ -243,9 +252,9 @@ be run explicitly first.
 The Sidekiq, Postgres, Redis, and Memcached templates all ship with `type: standard` and `minScale: 1`, and they don't
 auto-scale. They keep running while the web tier sleeps via `minScale: 0`, which can erode the cost savings.
 
-To pause them too, use `cpflow ps:stop -a $APP_NAME` — it suspends every configured workload, web included. A future
-`--mode=stop` flag on `cleanup-stale-apps` (see issue #295) will combine staleness detection with `ps:stop` for
-reversible idle handling.
+To pause them too, use `cpflow ps:stop -a $APP_NAME` — it suspends every configured workload, web included.
+`cleanup-stale-apps --mode=stop` combines staleness detection with `ps:stop` for reversible idle handling: no GVC or
+images are removed, and `cpflow ps:start -a $APP_NAME` resumes the app.
 
 ## Useful Links
 
