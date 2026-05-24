@@ -124,10 +124,9 @@ describe Command::CleanupStaleApps do
       expect(Shell).to have_received(:confirm).once
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Deleting app")
-      # ps:stop output does not echo the app name, so assert both apps appear in
-      # the stale-apps listing and that the stop step ran twice (once per app).
-      expect(result[:stderr]).to include("- #{app1}")
-      expect(result[:stderr]).to include("- #{app2}")
+      # Per-app header gives the workload-stop output app-name context in CI logs.
+      expect(result[:stderr]).to include("Stopping app '#{app1}'")
+      expect(result[:stderr]).to include("Stopping app '#{app2}'")
       stop_lines = result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/)
       expect(stop_lines.length).to eq(2),
                                    "expected exactly 2 'Stopping workload postgres' lines; got: #{result[:stderr]}"
@@ -177,10 +176,9 @@ describe Command::CleanupStaleApps do
       expect(Shell).not_to have_received(:confirm)
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Deleting app")
-      # ps:stop output does not echo the app name, so assert both apps appear in
-      # the stale-apps listing and that the stop step ran twice (once per app).
-      expect(result[:stderr]).to include("- #{app1}")
-      expect(result[:stderr]).to include("- #{app2}")
+      # Per-app header gives the workload-stop output app-name context in CI logs.
+      expect(result[:stderr]).to include("Stopping app '#{app1}'")
+      expect(result[:stderr]).to include("Stopping app '#{app2}'")
       stop_lines = result[:stderr].scan(/Stopping workload 'postgres'[.]+? done!/)
       expect(stop_lines.length).to eq(2),
                                    "expected exactly 2 'Stopping workload postgres' lines; got: #{result[:stderr]}"
