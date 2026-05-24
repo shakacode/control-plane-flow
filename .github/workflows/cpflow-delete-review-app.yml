@@ -98,7 +98,17 @@ jobs:
           require "yaml"
 
           config = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
-          apps = config.fetch("apps")
+          unless config.is_a?(Hash)
+            warn "::error::.controlplane/controlplane.yml must be a YAML mapping; got #{config.class}: #{config.inspect}"
+            exit 1
+          end
+
+          apps = config["apps"]
+          unless apps.is_a?(Hash)
+            warn "::error::.controlplane/controlplane.yml must define an apps mapping; got #{apps.class}: #{apps.inspect}"
+            exit 1
+          end
+
           review_apps = apps.select do |_name, app_config|
             app_config.is_a?(Hash) && app_config["match_if_app_name_starts_with"] == true
           end
