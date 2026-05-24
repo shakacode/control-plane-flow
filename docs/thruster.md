@@ -122,7 +122,7 @@ Dockerfile `CMD` is not invoking Thruster.
 ### Test HTTP connectivity through Thruster
 
 This hits Thruster on port 3000 — not Rails directly. A `200 OK` confirms the
-container-internal LB → Thruster → Rails path is healthy.
+Thruster → Rails path within the container is healthy.
 
 ```sh
 cpln workload exec <workload> --gvc <gvc> --org <org> --location <location> \
