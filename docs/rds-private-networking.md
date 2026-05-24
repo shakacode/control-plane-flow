@@ -7,7 +7,7 @@ path — not the public internet.
 This guide covers the recommended setup: **CPLN Cloud Wormhole via an Agent**.
 
 > **Sourcing note.** Field names, schema, and limits in this guide are sourced from the public Control Plane
-> documentation at <https://shakadocs.controlplane.com> as of the date this doc was written. The YAML and CLI snippets
+> documentation at <https://shakadocs.controlplane.com> as of May 2026. The YAML and CLI snippets
 > below have not been end-to-end verified against a live org. Before applying in production, sanity-check the
 > exact field names with `cpln agent get <name> -o yaml` and `cpln identity get <name> -o yaml` against your own
 > org, and consult `cpln <command> --help` for the latest CLI flags.
@@ -103,8 +103,12 @@ launch template's user data in step 2.
 > cpln apply --file agent.yaml
 > ```
 >
-> The bootstrap token is then retrieved separately via the UI or `cpln agent ...` (verify with
-> `cpln agent --help`).
+> The bootstrap token is shown by the UI immediately after creation and is **not retrievable
+> afterward** — if you miss it, delete the agent and recreate it. The closest CLI equivalents are
+> `cpln agent info <name>` (operational info, not the bootstrap) and `cpln agent manifest`
+> (consumes an existing bootstrap file, doesn't issue one). For IaC workflows that need a fresh
+> token without the UI, capture the output of `cpln agent create` (which issues the bootstrap as
+> part of creation) into your secrets store on the same run; you won't get a second chance.
 
 ## Step 2 — Launch the Agent on AWS
 
@@ -134,14 +138,26 @@ After the ASG is healthy, verify the agent registered:
 
 ## Step 3 — Security groups
 
-Two security groups, one rule on each:
+Two security groups. The RDS rule is the obvious one, but the agent also needs outbound paths for
+CPLN control-plane TLS and DNS, otherwise it can register-but-not-resolve (or fail to register at
+all) even when the DB rule is correct:
 
-- **Agent SG** (attached to the ASG instances): egress to the RDS SG on port `5432` (or `3306` for MySQL).
+- **Agent SG** (attached to the ASG instances):
+  - Egress to the **RDS SG** on port `5432` (or `3306` for MySQL) — the database traffic itself.
+  - Egress to `0.0.0.0/0` on **TCP `443`** — the agent dials out to CPLN over TLS to register and
+    tunnel traffic. If your environment forbids `0.0.0.0/0`, restrict to your CPLN region's
+    documented egress endpoints (or route via a NAT gateway / egress proxy with that allowlist).
+  - Egress to the **VPC DNS resolver** on **UDP/TCP `53`** — required when `networkResources` uses
+    `FQDN` + `resolverIP` so the agent can resolve the cluster endpoint. The VPC `.2` resolver lives
+    inside the VPC, so this is typically already permitted by default egress; lock it down to the
+    resolver IP if your default egress is restrictive.
 - **RDS SG** (attached to the DB cluster): ingress from the Agent SG on port `5432`.
 
 ```text
-Agent SG egress    ──►  RDS SG  port 5432
-RDS SG  ingress    ◄──  Agent SG port 5432
+Agent SG egress    ──►  RDS SG       port 5432    (database)
+Agent SG egress    ──►  0.0.0.0/0    TCP  443     (CPLN control plane)
+Agent SG egress    ──►  VPC .2 DNS   UDP/TCP 53   (FQDN resolution)
+RDS SG  ingress    ◄──  Agent SG     port 5432
 ```
 
 Reference the agent SG by ID, not by CIDR. That way, the rule stays correct as ASG instances are recycled.
@@ -152,24 +168,32 @@ cpflow already provisions one Identity per workload (used for binding secrets �
 `{{APP_IDENTITY_LINK}}` in `templates/rails.yml`). We need to add a `networkResources` entry to **that
 existing identity**, not create a new one.
 
-> **Important: `cpln apply` is a full replace, not a merge.** Applying a stripped-down identity YAML that
-> only contains `networkResources` will overwrite the entire identity, dropping any existing policy
-> bindings (which is how the workload reaches its secrets in the first place). Always **export the live
-> identity first**, edit it in place, then re-apply.
+> **Important: `cpln apply` is a full replace, not a merge.** Applying a stripped-down identity YAML
+> that only contains `networkResources` will silently drop any other fields already set on the
+> identity (tags, description, and any previously configured `networkResources`). Always **export
+> the live identity first**, edit it in place, then re-apply. (Policy bindings themselves live on
+> the Policy resource — not on the identity — so applying the identity won't touch them, but the
+> verification step below still checks the policy → identity link in case anything else recreated it.)
 
 First, find the identity name. cpflow's `Config#identity` defines this as `<app>-identity` and the
 `{{APP_IDENTITY}}` template variable expands to the same — so for an app named `my-app-production` the
-identity is `my-app-production-identity`. Confirm against your org:
+identity is `my-app-production-identity`. Confirm against your org (the `cpln` CLI exposes `get` and
+`query` for identities — there is no `list` subcommand):
 
 ```sh
-cpln identity list --gvc my-app-production --org my-org
+# `get` with no ref returns all identities in the GVC.
+cpln identity get --gvc my-app-production --org my-org
+
+# Or, to filter by name property:
+cpln identity query --gvc my-app-production --org my-org \
+  --property name=my-app-production-identity
 ```
 
 Export it and add the `networkResources` block. Look up your VPC's DNS resolver IP (typically the VPC CIDR
 base + 2, e.g. `10.0.0.2` for a `10.0.0.0/16` VPC) and your RDS cluster endpoint:
 
 ```sh
-# Replace my-app-production-identity with whatever `cpln identity list` shows for your app.
+# Replace my-app-production-identity with whatever `cpln identity get` shows for your app.
 cpln identity get my-app-production-identity \
   --gvc my-app-production --org my-org -o yaml > identity-db.yaml
 ```
@@ -186,7 +210,7 @@ exported:
 ```yaml
 # identity-db.yaml (after edit — abbreviated, your file will have more fields)
 kind: identity
-name: my-app-production-identity   # output of `cpln identity list` for your app
+name: my-app-production-identity   # output of `cpln identity get` for your app
 description: ...                   # leave existing description alone
 # … any other existing fields stay as-is …
 networkResources:
@@ -227,7 +251,8 @@ cpln identity get my-app-production-identity --gvc my-app-production --org my-or
 #    Confirm the existing cpflow-generated policy (typically <app>-secrets) still grants
 #    `reveal` on the workload's secrets to this identity. The full identity link cpflow uses is
 #    /org/<org>/gvc/<app>/identity/<app>-identity (see Config#identity_link).
-cpln policy list --org my-org -o yaml \
+#    (The `cpln` CLI exposes `policy get`/`policy query` — there is no `policy list` subcommand.)
+cpln policy get --org my-org -o yaml \
   | grep -B 1 -A 8 "/org/my-org/gvc/my-app-production/identity/my-app-production-identity"
 ```
 
@@ -466,8 +491,10 @@ Expected: a current timestamp and the RDS Postgres version. Common failures:
 
 ### Agent sizing and upgrades
 
-- Network throughput is the typical bottleneck — `t3.small` saturates around a few hundred Mbps. Scale up
-  the instance type before scaling out if you push significant traffic.
+- The CPLN agent process (not the NIC) is the typical throughput bottleneck. AWS `t3.small` provides up
+  to ~5 Gbps burst network bandwidth (≥250 Mbps baseline), which handles normal app database traffic
+  comfortably. Watch agent CPU and active connection count and scale up the instance type if CPU stays
+  above ~70% or connection-queue latency rises.
 - CPLN occasionally publishes new agent versions. The ASG + bootstrap script combination handles upgrades
   by re-rolling instances; let it do that during low-traffic windows.
 
