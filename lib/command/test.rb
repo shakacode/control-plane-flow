@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "debug"
-
 module Command
   class Test < Base
     NAME = "test"
@@ -15,7 +13,7 @@ module Command
 
     def call
       # Modify this method to trigger the code you want to test.
-      # You can use `debugger` to debug.
+      # Add `require "debug"` locally if you want to use `debugger`.
       # You can use `run_cpflow_command` to simulate a command
       # (e.g., `run_cpflow_command("deploy-image", "-a", "my-app-name")`).
     end
