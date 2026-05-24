@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- **Added `--mode=stop` to `cleanup-stale-apps` for reversible idle-app handling.** Suspends all workloads via `cpflow ps:stop` instead of deleting; restore with `cpflow ps:start`. Default `--mode=delete` preserves existing behavior. [Issue 295](https://github.com/shakacode/control-plane-flow/issues/295).
+
 ### Fixed
 
 - Fixed `cpflow run` interactive sessions printing a confusing "Command exited with non-zero status" error when `cpln workload exec` exits non-zero or is signal-killed on session close. cpflow now prints an actionable `cpflow ps:stop` hint instead; exit code 64 is returned for non-zero exits and 130 for signal termination so scripted callers can still detect failure. Fixes [issue 199](https://github.com/shakacode/control-plane-flow/issues/199). [PR 301](https://github.com/shakacode/control-plane-flow/pull/301) by [Justin Gordon](https://github.com/justin808).

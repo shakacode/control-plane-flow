@@ -502,6 +502,7 @@ module Command
         }
       }
     end
+
     # rubocop:enable Metrics/MethodLength
 
     def self.all_options

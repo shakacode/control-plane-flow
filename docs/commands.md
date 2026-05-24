@@ -78,15 +78,21 @@ cpflow cleanup-images -a $APP_NAME
 
 ### `cleanup-stale-apps`
 
-- Deletes the whole app (GVC with all workloads, all volumesets and all images) for all stale apps
-- Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
-- Stale apps are identified based on the creation date of the latest image, or the GVC if no images exist
+- Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
+- With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy as long as both the identity and the policy exist (and are bound)
+- With `--mode=stop`: suspends all workloads via `cpflow ps:stop` — no GVC, volumeset, or image is removed; resume with `cpflow ps:start`
+- `--mode=stop` only suspends workloads listed in `app_workloads` + `additional_workloads`; workloads present in the live GVC but missing from the config are skipped silently
+- `--mode=stop` returns once each workload is marked suspended; it does not wait for the workload to reach a not-ready state
 - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
-- If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will delete all stale apps that start with the name
+- If `match_if_app_name_starts_with` is `true` in the `.controlplane/controlplane.yml` file, it will act on all stale apps that start with the name
 - Will ask for explicit user confirmation
 
 ```sh
+# Deletes stale apps (default).
 cpflow cleanup-stale-apps -a $APP_NAME
+
+# Stops stale apps instead of deleting them; resume with `cpflow ps:start`.
+cpflow cleanup-stale-apps -a $APP_NAME --mode=stop
 ```
 
 ### `config`
