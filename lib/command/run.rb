@@ -197,7 +197,7 @@ module Command
       spec = nil
 
       step("Checking if runner workload '#{runner_workload}' needs to be updated") do # rubocop:disable Metrics/BlockLength
-        _, original_container_spec = base_workload_specs(original_workload)
+        original_spec, original_container_spec = base_workload_specs(original_workload)
         spec, container_spec = base_workload_specs(runner_workload)
 
         # Keep ENV synced between original and runner workloads
@@ -205,6 +205,16 @@ module Command
         env_str = container_spec["env"]&.sort_by { |env| env["name"] }.to_s
         if original_env_str != env_str
           container_spec["env"] = original_container_spec["env"] || []
+          should_update = true
+        end
+
+        # Keep the app identity in sync so runner jobs can resolve GVC-level secrets.
+        if spec["identityLink"] != original_spec["identityLink"]
+          if original_spec["identityLink"]
+            spec["identityLink"] = original_spec["identityLink"]
+          else
+            spec.delete("identityLink")
+          end
           should_update = true
         end
 

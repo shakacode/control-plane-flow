@@ -76,6 +76,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
         dockerfile_content = dockerfile_path.read
         app_template_content = app_template_path.read
         rails_template_content = rails_template_path.read
+        postgres_template_content = postgres_template_path.read
 
         expect(controlplane_content).to include("sample-project-staging")
         expect(controlplane_content).to include("sample-project-review")
@@ -88,6 +89,24 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(generated_ruby_arg).to eq("ARG RUBY_VERSION=3.3\n")
         expect(dockerfile_content).to include("FROM docker.io/library/node:22-bookworm-slim AS node")
         expect(dockerfile_content).to include("COPY --from=node /usr/local/bin/node /usr/local/bin/node")
+        expect(dockerfile_content).not_to include("COPY --from=node /usr/local/bin/npm")
+        expect(dockerfile_content).not_to include("COPY --from=node /usr/local/bin/npx")
+        expect(dockerfile_content).not_to include("COPY --from=node /usr/local/bin/corepack")
+        expect(dockerfile_content).to include(
+          "ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm"
+        )
+        expect(dockerfile_content).to include(
+          "ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx"
+        )
+        expect(dockerfile_content).to include(
+          "ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack"
+        )
+        expect(dockerfile_content).to match(
+          %r{chmod[ ]\+x[ ]/usr/local/lib/node_modules/npm/bin/npm-cli\.js[ ]\\\n\s+
+             /usr/local/lib/node_modules/npm/bin/npx-cli\.js[ ]\\\n\s+
+             /usr/local/lib/node_modules/corepack/dist/corepack\.js[ ]&&[ ]\\\n\s+
+             node[ ]--version[ ]&&[ ]npm[ ]--version[ ]&&[ ]corepack[ ]--version}x
+        )
         expect(dockerfile_content).not_to include("RUN apt-get update")
         expect(dockerfile_content).to include("bundle config set with 'production'")
         expect(dockerfile_content).not_to include("bundle config set with 'staging production'")
@@ -106,10 +125,21 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(dockerfile_content).to include("corepack pnpm install --frozen-lockfile")
         expect(dockerfile_content).to include("npm ci")
         expect(dockerfile_content).not_to include("react_on_rails:generate_packs")
+        expect(app_template_content).to include('name: "{{APP_NAME}}"')
+        expect(app_template_content).to include('"{{APP_LOCATION_LINK}}"')
         expect(app_template_content).to include("RAILS_LOG_TO_STDOUT")
         expect(app_template_content).to include("SECRET_KEY_BASE")
+        expect(rails_template_content).to include('image: "{{APP_IMAGE_LINK}}"')
+        expect(rails_template_content).to include('identityLink: "{{APP_IDENTITY_LINK}}"')
         expect(rails_template_content).to include("minScale: 1")
         expect(rails_template_content).to include("timeoutSeconds: 60")
+        expect(postgres_template_content).to include('name: "{{APP_NAME}}-pg"')
+        expect(postgres_template_content).to include('name: "{{APP_NAME}}-pg-vs"')
+        expect(postgres_template_content).to include('name: "{{APP_NAME}}-pg-identity"')
+        expect(postgres_template_content).to include('"cpln://volumeset/{{APP_NAME}}-pg-vs"')
+        expect(postgres_template_content).to include('"cpln://secret/{{APP_NAME}}-pg.password"')
+        expect(postgres_template_content).to include('"//identity/{{APP_NAME}}-pg-identity"')
+        expect(postgres_template_content).to include('- "{{APP_IDENTITY_LINK}}"')
         entrypoint_content = entrypoint_path.read
         expect(entrypoint_content).to include("set -e")
         expect(dockerfile_content).to include("RUN chmod +x /app/entrypoint.sh")
@@ -232,6 +262,11 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
         expect(app_template_path.read).not_to include("DATABASE_URL")
+        expect(app_template_path.read).to include('name: "{{APP_NAME}}"')
+        expect(app_template_path.read).to include('"{{APP_LOCATION_LINK}}"')
+        expect(app_template_path.read).to include('"cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE"')
+        expect(rails_template_path.read).to include('image: "{{APP_IMAGE_LINK}}"')
+        expect(rails_template_path.read).to include('identityLink: "{{APP_IDENTITY_LINK}}"')
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-storage")
         expect(release_script_path.read).to include("mkdir -p db storage")

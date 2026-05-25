@@ -6,7 +6,7 @@ spec:
     - name: rails
       cpu: 300m
       inheritEnv: true
-      image: {{APP_IMAGE_LINK}}
+      image: "{{APP_IMAGE_LINK}}"
       memory: 512Mi
       ports:
         - number: 3000
@@ -34,3 +34,5 @@ spec:
         - 0.0.0.0/0
       outboundAllowCIDR:
         - 0.0.0.0/0
+  # cpflow apply-template replaces {{APP_IDENTITY_LINK}} with the app workload identity link.
+  identityLink: "{{APP_IDENTITY_LINK}}"
