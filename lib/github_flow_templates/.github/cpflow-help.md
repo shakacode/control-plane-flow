@@ -88,6 +88,21 @@ checked-out upstream source. If you set `CPFLOW_VERSION`, it must match the
 release tag, for example `CPFLOW_VERSION=5.0.1` with a wrapper pinned to
 `uses: ...@v5.0.1`.
 
+After updating the `cpflow` gem in this repo, update the generated wrappers in
+the same PR:
+
+```sh
+cpflow update-github-actions
+bin/test-cpflow-github-flow
+```
+
+If `cpflow` is bundled by the app, use:
+
+```sh
+bundle exec cpflow update-github-actions
+bin/test-cpflow-github-flow bundle exec cpflow
+```
+
 Do not leave downstream apps pinned to a moving branch such as `main`. For a
 short-lived test of an unreleased upstream PR, pin to a full 40-character commit
 SHA and leave `CPFLOW_VERSION` unset:

@@ -218,6 +218,9 @@ Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
 Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
 other than `main` or `master`; the generator will bake that branch into the
 GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
+Pass `--force` to overwrite existing generated files. Prefer
+`cpflow update-github-actions` after bumping the cpflow gem in a downstream
+repo.
 
 ```sh
 # Creates thin .github/workflows wrappers for the Control Plane flow
@@ -225,6 +228,9 @@ cpflow generate-github-actions
 
 # Creates the flow with staging deploys triggered from develop
 cpflow generate-github-actions --staging-branch develop
+
+# Overwrites existing generated wrappers from the installed cpflow gem
+cpflow generate-github-actions --force
 ```
 
 ### `github-flow-readiness`
@@ -531,6 +537,28 @@ cpflow terraform generate
 
 ```sh
 cpflow terraform import
+```
+
+### `update-github-actions`
+
+Regenerates the generated cpflow GitHub Actions wrappers and helper files
+from the currently installed cpflow gem. Use this after updating the
+cpflow gem so checked-in workflow wrappers move to the matching upstream
+release tag, for example `v5.0.2`.
+
+If the existing generated staging workflow uses a custom single staging
+branch, the command preserves it. Pass `--staging-branch BRANCH` to set or
+replace the generated staging branch explicitly.
+
+```sh
+# After updating the cpflow gem, refresh generated GitHub Actions wrappers
+cpflow update-github-actions
+
+# When running cpflow through Bundler
+bundle exec cpflow update-github-actions
+
+# Preserve or set a custom staging branch
+cpflow update-github-actions --staging-branch develop
 ```
 
 ### `version`

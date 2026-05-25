@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- Added `cpflow update-github-actions`, `cpflow generate-github-actions --force`, RubyGems install guidance, and release-task follow-up output so downstream repositories remember to update checked-in generated GitHub Actions wrappers when the `cpflow` gem version changes.
+
 ## [5.0.2] - 2026-05-25
 
 ### Fixed

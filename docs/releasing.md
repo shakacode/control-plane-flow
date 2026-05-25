@@ -99,6 +99,8 @@ GEM_RELEASE_MAX_RETRIES=<n>
 9. Commits the version bump, tags `vX.Y.Z`, and pushes the commit and tags.
 10. Publishes the `cpflow` gem to RubyGems.org.
 11. Creates or updates the GitHub release from the matching changelog section.
+12. Prints the downstream GitHub Actions follow-up command:
+    `cpflow update-github-actions`.
 
 The older `bundle exec rake "create_release[4.2.0,false]"` task name remains as
 a compatibility alias, but new releases should use `bundle exec rake release`.

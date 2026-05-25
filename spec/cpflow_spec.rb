@@ -97,10 +97,18 @@ describe Cpflow do
   it "skips startup checks for local-only GitHub flow commands" do
     %w[
       generate-github-actions
+      update-github-actions
       github-flow-readiness
       ai-github-flow-prompt
     ].each do |command_name|
       expect(Cpflow::Cli.send(:requires_startup_checks?, [command_name])).to be(false)
     end
+  end
+
+  it "reminds gem installers to update generated GitHub Actions wrappers" do
+    spec = Gem::Specification.load(File.expand_path("../cpflow.gemspec", __dir__))
+
+    expect(spec.post_install_message).to include("cpflow update-github-actions")
+    expect(spec.post_install_message).to include("bin/test-cpflow-github-flow")
   end
 end

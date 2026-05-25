@@ -330,6 +330,17 @@ module Command
       }
     end
 
+    def self.force_option(required: false)
+      {
+        name: :force,
+        params: {
+          desc: "Overwrite existing generated files",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.logs_limit_option(required: false)
       {
         name: :limit,

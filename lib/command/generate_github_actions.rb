@@ -81,7 +81,7 @@ module Command
 
   class GenerateGithubActions < Base
     NAME = "generate-github-actions"
-    OPTIONS = [staging_branch_option].freeze
+    OPTIONS = [staging_branch_option, force_option].freeze
     DESCRIPTION = "Creates GitHub Actions templates for review apps, staging deploys, and production promotion"
     LONG_DESCRIPTION = <<~DESC
       Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
@@ -93,6 +93,9 @@ module Command
       Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
       other than `main` or `master`; the generator will bake that branch into the
       GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
+      Pass `--force` to overwrite existing generated files. Prefer
+      `cpflow update-github-actions` after bumping the cpflow gem in a downstream
+      repo.
     DESC
     EXAMPLES = <<~EX
       ```sh
@@ -101,6 +104,9 @@ module Command
 
       # Creates the flow with staging deploys triggered from develop
       cpflow generate-github-actions --staging-branch develop
+
+      # Overwrites existing generated wrappers from the installed cpflow gem
+      cpflow generate-github-actions --force
       ```
     EX
     WITH_INFO_HEADER = false
@@ -129,10 +135,11 @@ module Command
       self.class.ensure_template_root!
       branch = staging_branch
 
-      if (existing = existing_files).any?
+      if (existing = existing_files).any? && !force?
         files = existing.map { |path| "- #{path}" }.join("\n")
         Shell.warn("The following files already exist:\n#{files}\n\n" \
-                   "Remove or rename them before running `cpflow #{NAME}` again.")
+                   "Remove or rename them before running `cpflow #{NAME}` again, " \
+                   "or run `cpflow update-github-actions` after updating the cpflow gem.")
         return
       end
 
@@ -143,6 +150,10 @@ module Command
 
     def existing_files
       @existing_files ||= self.class.generated_files.select { |path| File.exist?(path) }
+    end
+
+    def force?
+      config.options[:force]
     end
 
     def staging_branch
