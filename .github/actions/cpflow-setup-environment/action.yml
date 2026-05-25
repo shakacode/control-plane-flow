@@ -115,7 +115,9 @@ runs:
         normalize_release_ref() {
           local ref="${1#refs/tags/}"
 
-          [[ "${ref}" == v* ]] || return 0 # Non-v refs intentionally produce empty output.
+          # Intentional: non-v refs return success with empty stdout; callers
+          # treat empty output as "not a release tag".
+          [[ "${ref}" == v* ]] || return 0
           normalize_version "${ref}"
         }
 
@@ -129,7 +131,7 @@ runs:
           [[ "${ref}" == v* ]] || return 1
 
           if ! tag_refs="$(git ls-remote --tags "${remote_url}" "refs/tags/${ref}" "refs/tags/${ref}^{}")"; then
-            echo "::error::Could not verify control_plane_flow_ref against ${remote_url}. Leave CPFLOW_VERSION unset when testing a commit SHA or branch."
+            echo "::error::Could not verify control_plane_flow_ref against ${remote_url}. Runners that set CPFLOW_VERSION need outbound HTTPS access to GitHub for this tag check. Leave CPFLOW_VERSION unset when testing a commit SHA or branch."
             exit 1
           fi
 

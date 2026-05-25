@@ -3,12 +3,25 @@ set -e
 # Runs before the main command
 
 is_rails_server_command() {
+  if [ "${1:-}" = "env" ]; then
+    shift
+    while [ "$#" -gt 0 ]; do
+      case "${1}" in
+        *=*) shift ;;
+        --) shift; break ;;
+        -*) return 1 ;;
+        *) break ;;
+      esac
+    done
+  fi
+
   if [ "${1:-}" = "bundle" ] && [ "${2:-}" = "exec" ]; then
     shift 2
   fi
 
-  # Matches generated, flag-free Thruster invocations. Hand-edited commands with
-  # env prefixes or Thruster flags before rails skip generated DB prep.
+  # Matches generated, optionally env-prefixed, flag-free Thruster invocations.
+  # Hand-edited commands with env flags or Thruster flags before rails skip
+  # generated DB prep.
   if [ "${1:-}" = "thrust" ] || [ "${1:-}" = "bin/thrust" ] || [ "${1:-}" = "./bin/thrust" ]; then
     shift
   fi

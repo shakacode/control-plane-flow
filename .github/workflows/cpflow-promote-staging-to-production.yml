@@ -60,6 +60,9 @@ jobs:
   promote-to-production:
     if: github.event.inputs.confirm_promotion == 'promote'
     runs-on: ubuntu-latest
+    # GitHub uses secrets from this protected Environment for jobs that declare
+    # it, so CPLN_TOKEN_PRODUCTION should be configured only there. The caller
+    # wrapper intentionally passes only CPLN_TOKEN_STAGING.
     environment: ${{ inputs.production_environment }}
     timeout-minutes: 45
 

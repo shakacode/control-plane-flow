@@ -49,13 +49,12 @@ runs:
 
         def safe_load_yaml_file(path)
           contents = File.read(path)
-          YAML.safe_load(contents, aliases: true)
-        rescue ArgumentError, TypeError => e
-          raise unless e.message.include?("unknown keyword") ||
-                       e.message.include?("wrong number of arguments") ||
-                       e.message.include?("no implicit conversion of Hash")
 
-          YAML.safe_load(contents, [], [], true)
+          if YAML.method(:safe_load).parameters.any? { |type, name| type == :key && name == :aliases }
+            YAML.safe_load(contents, aliases: true)
+          else
+            YAML.safe_load(contents, [], [], true)
+          end
         end
 
         def validate_github_env_value!(name, value)

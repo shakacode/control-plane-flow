@@ -202,6 +202,13 @@ sensitive production systems. The generated promotion reusable workflow declares
 through `production_environment`. GitHub waits for the `production`
 environment's protection rules before injecting `CPLN_TOKEN_PRODUCTION` into
 the upstream production job.
+
+GitHub's reusable-workflow syntax still requires the upstream workflow to
+declare `CPLN_TOKEN_PRODUCTION` as an optional `workflow_call` secret so static
+validation accepts `secrets.CPLN_TOKEN_PRODUCTION`, but the generated caller
+must not pass it. GitHub uses the secret from the reusable workflow job's
+`production` environment when that environment is configured.
+
 Generated caller workflows pass only the named secrets each reusable workflow
 needs. They do not use `secrets: inherit`; the production token is supplied by
 the protected `production` Environment after approval, not forwarded from a
@@ -415,9 +422,11 @@ use dot- or dash-separated prerelease suffixes, such as `v5.0.0.rc.1` or
 `v5.0.0-rc.1`; the gem version should still use dots. The action also checks
 the remote `control-plane-flow` tag and the checked-out action commit, so a
 moving branch named like `v5.0.0` cannot be used with `CPFLOW_VERSION=5.0.0`.
-When testing an unreleased upstream commit SHA, leave `CPFLOW_VERSION` unset so
-the workflow builds `cpflow` from the same source that supplies the reusable
-workflow and composite actions.
+That tag check uses outbound HTTPS to GitHub; restricted runners that cannot
+reach GitHub should leave `CPFLOW_VERSION` unset and build `cpflow` from the
+checked-out ref instead. When testing an unreleased upstream commit SHA, leave
+`CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same source that
+supplies the reusable workflow and composite actions.
 
 ## Testing Unreleased Upstream Changes Downstream
 
