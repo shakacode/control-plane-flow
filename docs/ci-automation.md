@@ -175,6 +175,11 @@ disambiguate generated review-app config:
 - `REVIEW_APP_PREFIX`: override the inferred review-app prefix; required only when multiple review app prefixes exist in `controlplane.yml`
 - `PRIMARY_WORKLOAD`: override the public workload used to discover the public endpoint and do production health checks; defaults to `rails`
 
+If `controlplane.yml` defines more than one app with
+`match_if_app_name_starts_with: true`, inference intentionally fails. Set
+`CPLN_ORG_STAGING` and `REVIEW_APP_PREFIX` to tell the workflow which review-app
+family to manage.
+
 For staging deploys, also configure:
 
 - `CPLN_ORG_STAGING`: staging org name, for example `company-staging`
@@ -193,8 +198,10 @@ For production promotion, also configure:
 
 Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
 sensitive production systems. The generated promotion reusable workflow declares
-`environment: production`, so GitHub waits for the `production` environment's
-protection rules before the job can access `CPLN_TOKEN_PRODUCTION`.
+`environment: production`; the generated caller passes that environment name
+through `production_environment`. GitHub waits for the `production`
+environment's protection rules before injecting `CPLN_TOKEN_PRODUCTION` into
+the upstream production job.
 Generated caller workflows pass only the named secrets each reusable workflow
 needs. They do not use `secrets: inherit`; the production token is supplied by
 the protected `production` Environment after approval, not forwarded from a
@@ -327,6 +334,16 @@ Generated review app names use `<review-app-prefix>-<PR number>`, for example
 workflow glue that created names like `<review-app-prefix>-pr-123`, delete those
 old review apps manually after merging the generated flow; the cleanup workflow
 only targets the current prefix convention.
+
+To inventory old-prefix review apps before cleanup, run:
+
+```sh
+cpln gvc query --org <staging-org> -o yaml --prop name~<review-app-prefix>-pr-
+```
+
+The PR-open help workflow posts the short command reference whenever the
+generated wrapper exists. Remove `.github/workflows/cpflow-review-app-help.yml`
+or add a wrapper-level `if:` guard if a repo should not advertise review apps.
 
 ## Upstream Reusable Workflows
 

@@ -222,6 +222,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "control_plane_flow_ref but no control-plane-flow reusable workflow"
       )
       expect(test_cpflow_flow_path.read).to include("uses secrets: inherit")
+      expect(test_cpflow_flow_path.read).to include("must set production_environment")
+      expect(test_cpflow_flow_path.read).to include("must not pass CPLN_TOKEN_PRODUCTION as a caller secret")
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
     end
 
@@ -634,6 +636,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       wrapper = promote_workflow_path.read
 
       expect(wrapper).to include("callers must grant the union of callee permissions")
+      expect(wrapper).to include("The caller passes the environment name")
       expect(wrapper).to include("production_environment: production")
       expect(wrapper).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
       expect(wrapper).not_to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
