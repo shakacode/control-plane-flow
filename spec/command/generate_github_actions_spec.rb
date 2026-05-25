@@ -608,6 +608,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       wrapper = pr_open_help_workflow_path.read
       expect(wrapper).to include("This is intentionally unconditional")
+      expect(wrapper).to include("vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''")
       expect(wrapper).not_to include("control_plane_flow_ref:")
       expect(wrapper).not_to include("secrets: inherit")
     end
@@ -619,6 +620,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("`+review-app-delete`")
       expect(help_md).to include("`+review-app-help`")
       expect(help_md).to include("A single trailing newline from GitHub's comment editor is accepted.")
+      expect(help_md).to include("vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''")
       expect(help_md).not_to include("control_plane_flow_ref")
     end
 

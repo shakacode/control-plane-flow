@@ -349,8 +349,11 @@ cpln gvc query --org <staging-org> -o yaml --prop name~<review-app-prefix>-pr-
 ```
 
 The PR-open help workflow posts the short command reference whenever the
-generated wrapper exists. Remove `.github/workflows/cpflow-review-app-help.yml`
-or add a wrapper-level `if:` guard if a repo should not advertise review apps.
+generated wrapper exists. That is intentional for configured demo repos. Forks
+or clones that copy the workflow before configuring Control Plane can remove
+`.github/workflows/cpflow-review-app-help.yml` or uncomment and adapt the
+wrapper-level `if:` guard shown in that file, for example
+`vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''`.
 
 ## Upstream Reusable Workflows
 
