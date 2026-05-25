@@ -12,6 +12,14 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.0.2] - 2026-05-25
+
+### Fixed
+
+- **Fixed generated Dockerfiles so Node package-manager shims (`npm`, `npx`, and `corepack`) remain working symlinks in the final Ruby image instead of broken dereferenced files.** [PR 322](https://github.com/shakacode/control-plane-flow/pull/322) by [Justin Gordon](https://github.com/justin808). Generated Dockerfiles now fail fast if the Node shim paths are no longer valid.
+- **Fixed generated Control Plane templates so app workloads receive app identity links, templated YAML scalars are parseable, and generated Postgres resources/secrets are app-scoped.** [PR 322](https://github.com/shakacode/control-plane-flow/pull/322) by [Justin Gordon](https://github.com/justin808). This lets review apps resolve `cpln://secret/...` values reliably from Rails, worker, renderer, and release jobs.
+- **Fixed `cpflow run` so existing runner workloads stay in sync with the source workload `identityLink`.** [PR 322](https://github.com/shakacode/control-plane-flow/pull/322) by [Justin Gordon](https://github.com/justin808). Existing runner jobs now gain or drop the app identity as the source workload changes.
+
 ## [5.0.1] - 2026-05-24
 
 ### Breaking Changes
@@ -374,7 +382,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.2...HEAD
+[5.0.2]: https://github.com/shakacode/control-plane-flow/compare/v5.0.1...v5.0.2
 [5.0.1]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0...v5.0.1
 [5.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.3...v5.0.0
 [5.0.0.rc.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...v5.0.0.rc.3
