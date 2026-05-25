@@ -43,6 +43,7 @@ ruby <<'RUBY'
 require "yaml"
 
 CONTROL_PLANE_FLOW_WORKFLOW = %r{\Ashakacode/control-plane-flow/\.github/workflows/[^@\s]+@([^\s]+)\z}
+PROMOTE_WORKFLOW = %r{\Ashakacode/control-plane-flow/\.github/workflows/cpflow-promote-staging-to-production\.yml@[^\s]+\z}
 
 refs = Hash.new { |hash, key| hash[key] = [] }
 
@@ -55,6 +56,10 @@ Dir[".github/workflows/cpflow-*.yml"].sort.each do |path|
     input_ref = with["control_plane_flow_ref"]
     uses_match = job["uses"].to_s.match(CONTROL_PLANE_FLOW_WORKFLOW)
 
+    if job["secrets"] == "inherit"
+      abort "#{path}:#{job_name} uses secrets: inherit; pass only the named secrets the upstream workflow needs"
+    end
+
     unless uses_match
       abort "#{path}:#{job_name} has control_plane_flow_ref but no control-plane-flow reusable workflow" if input_ref
 
@@ -64,11 +69,22 @@ Dir[".github/workflows/cpflow-*.yml"].sort.each do |path|
     uses_ref = uses_match[1]
     refs[uses_ref] << "#{path}:#{job_name}"
 
+    if job["uses"].to_s.match?(PROMOTE_WORKFLOW)
+      if with["production_environment"].to_s.strip.empty?
+        abort "#{path}:#{job_name} must set production_environment so GitHub can expose production environment secrets after approval"
+      end
+
+      secrets = job["secrets"].is_a?(Hash) ? job["secrets"] : {}
+      if secrets.key?("CPLN_TOKEN_PRODUCTION")
+        abort "#{path}:#{job_name} must not pass CPLN_TOKEN_PRODUCTION as a caller secret; store it on the protected production environment"
+      end
+    end
+
     if input_ref
       refs[input_ref] << "#{path}:#{job_name}"
       abort "#{path}:#{job_name} mismatched cpflow refs: #{uses_ref}, #{input_ref}" if uses_ref != input_ref
     elsif job.key?("secrets")
-      abort "#{path}:#{job_name} inherits secrets but is missing control_plane_flow_ref for #{uses_ref}"
+      abort "#{path}:#{job_name} passes secrets but is missing control_plane_flow_ref for #{uses_ref}"
     end
   end
 end

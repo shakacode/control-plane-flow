@@ -15,6 +15,13 @@ on:
         required: false
         type: string
         default: ""
+    secrets:
+      CPLN_TOKEN_STAGING:
+        description: Control Plane token for the staging org.
+        required: true
+      DOCKER_BUILD_SSH_KEY:
+        description: Optional SSH key used by Docker builds that fetch private dependencies.
+        required: false
 
 permissions:
   contents: read
@@ -107,6 +114,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       - name: Build Docker image
         uses: ./.cpflow/.github/actions/cpflow-build-docker-image
@@ -145,6 +153,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       - name: Detect release phase support
         id: release-phase

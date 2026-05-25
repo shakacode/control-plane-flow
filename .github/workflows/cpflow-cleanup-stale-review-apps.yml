@@ -8,6 +8,10 @@ on:
         required: false
         type: string
         default: main
+    secrets:
+      CPLN_TOKEN_STAGING:
+        description: Control Plane token for the staging org that owns review apps.
+        required: true
 
 permissions:
   contents: read
@@ -37,33 +41,40 @@ jobs:
         uses: ./.cpflow/.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
-          REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}
         with:
           required: |
             secret:CPLN_TOKEN_STAGING
-            variable:CPLN_ORG_STAGING
-            variable:REVIEW_APP_PREFIX
+
+      - name: Checkout caller repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          path: app
+          persist-credentials: false
+
+      - name: Resolve review app config
+        id: review-config
+        uses: ./.cpflow/.github/actions/cpflow-resolve-review-config
+        with:
+          working_directory: app
+          configured_cpln_org_staging: ${{ vars.CPLN_ORG_STAGING }}
+          configured_review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}
 
       - name: Setup environment
         uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
-          org: ${{ vars.CPLN_ORG_STAGING }}
+          org: ${{ steps.review-config.outputs.cpln_org }}
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
-
-      - name: Checkout caller repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          persist-credentials: false
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       - name: Remove stale review apps
+        working-directory: app
         env:
-          REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
+          REVIEW_APP_PREFIX: ${{ steps.review-config.outputs.review_app_prefix }}
+          CPLN_ORG: ${{ steps.review-config.outputs.cpln_org }}
         shell: bash
         run: |
           set -euo pipefail
-          cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}" --org "${CPLN_ORG_STAGING}" --yes
+          cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}" --org "${CPLN_ORG}" --yes

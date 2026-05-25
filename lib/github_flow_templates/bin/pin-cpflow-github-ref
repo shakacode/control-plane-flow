@@ -8,6 +8,8 @@ USAGE = <<~USAGE
 
   Use a release tag for normal operation, e.g. v5.0.0.
   Use a full 40-character commit SHA for temporary unreleased upstream testing.
+  This only updates generated wrapper refs; regenerate from the cpflow gem
+  when templates changed.
   Use --allow-moving-ref only for short-lived local branch/ref experiments.
 USAGE
 

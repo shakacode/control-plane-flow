@@ -153,6 +153,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = setup_action_path.read
       expect(contents).to include("cpln_cli_version:")
       expect(contents).to include('default_cpln_cli_version="3.10.2"')
+      expect(contents).to include("control_plane_flow_ref:")
       expect(reusable_staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
       expect(reusable_staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
     end
@@ -205,9 +206,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
       expect(contents).to include("control_plane_flow_ref: #{default_ref}")
       expect(contents).to include("Keep the @ref in `uses:` and `control_plane_flow_ref` below in sync")
-      expect(contents).to include("passes all caller repository secrets to the trusted")
-      expect(contents).to include("set CPFLOW_GITHUB_ACTIONS_REF to an immutable commit SHA")
-      expect(contents).to include("secrets: inherit")
+      expect(contents).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
+      expect(contents).to include("DOCKER_BUILD_SSH_KEY: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+      expect(contents).not_to include("secrets: inherit")
       expect(contents).not_to include("Create initial PR comment")
       expect(contents).not_to include("Build Docker image")
       expect(contents).not_to include("Deploy to Control Plane")
@@ -220,14 +221,30 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include(
         "control_plane_flow_ref but no control-plane-flow reusable workflow"
       )
+      expect(test_cpflow_flow_path.read).to include("uses secrets: inherit")
+      expect(test_cpflow_flow_path.read).to include("must set production_environment")
+      expect(test_cpflow_flow_path.read).to include("must not pass CPLN_TOKEN_PRODUCTION as a caller secret")
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
     end
 
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 
+      expect(contents).to include("CONTROL_PLANE_FLOW_REF: ${{ inputs.control_plane_flow_ref }}")
       expect(contents).to include("CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}")
       expect(contents).to include("CPFLOW_VERSION: ${{ inputs.cpflow_version }}")
+      expect(contents).to include("normalize_version")
+      expect(contents).to include("verify_release_ref_matches_checkout")
+      expect(contents).to include("git ls-remote --tags")
+      expect(contents).to include("timeout 20 git ls-remote")
+      expect(contents).to include("is_rubygems_version")
+      expect(contents).to include("CPFLOW_VERSION must be a RubyGems version usable by 'gem install cpflow -v'")
+      expect(contents).to include("validate_cpflow_version_pin")
+      expect(contents).to include("CPFLOW_VERSION must match control_plane_flow_ref")
+      expect(contents).to include("CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag")
+      expect(contents).to include("Use the real release tag ref, not a moving branch")
+      expect(contents).to include("outbound HTTPS access to GitHub")
+      expect(contents).not_to include("normalized CPFLOW_VERSION=${actual_version:-<unrecognized>}")
       expect(contents).to include("ruby/setup-ruby intentionally tracks the v1 tag")
       expect(contents).to include('default_ruby_version="3.2"')
       expect(contents).to include("minimum-supported Ruby advances")
@@ -250,6 +267,40 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "npm install -g @controlplane/cli@${{ inputs.cpln_cli_version }}"
       )
       expect(contents).not_to include("gem install cpflow -v ${{ inputs.cpflow_version }}")
+    end
+
+    it "passes control_plane_flow_ref to every setup action call for gem/ref validation" do
+      # This validates checked-in reusable workflows, not generated app wrappers.
+      Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s).each do |path|
+        workflow = YAML.load_file(path, aliases: true)
+        workflow_on = workflow["on"] || workflow[true]
+
+        expect(workflow_on).to have_key("workflow_call"), "#{path} must declare a workflow_call trigger"
+
+        workflow_inputs = workflow_on.dig("workflow_call", "inputs") || {}
+
+        expect(workflow_inputs).to(
+          have_key("control_plane_flow_ref"),
+          "#{path} must declare control_plane_flow_ref as a workflow_call input"
+        )
+
+        workflow.fetch("jobs").each_value do |job|
+          if job["uses"].to_s.include?("cpflow")
+            expect(job.fetch("with", {})).to include(
+              "control_plane_flow_ref" => "${{ inputs.control_plane_flow_ref }}"
+            ), "#{path} reusable job call must pass control_plane_flow_ref"
+          end
+
+          # Job-level `uses:` entries call reusable workflows; they cannot call composite actions directly.
+          Array(job["steps"]).each do |step|
+            next unless step["uses"] == "./.cpflow/.github/actions/cpflow-setup-environment"
+
+            expect(step.fetch("with")).to include(
+              "control_plane_flow_ref" => "${{ inputs.control_plane_flow_ref }}"
+            ), "#{path} setup action call must pass control_plane_flow_ref"
+          end
+        end
+      end
     end
 
     it "exposes Docker build action inputs" do
@@ -374,7 +425,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_review_workflow_path.read).to include("pull_request_target:")
       expect(delete_review_workflow_path.read).to include("pull_request_target is intentional")
       expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
-      expect(delete_review_workflow_path.read).to include("secrets: inherit")
+      expect(delete_review_workflow_path.read).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
+      expect(delete_review_workflow_path.read).not_to include("secrets: inherit")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
@@ -411,12 +463,36 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "uses shell env vars for stale review cleanup inputs" do
       contents = reusable_cleanup_stale_review_apps_workflow_path.read
+      wrapper = cleanup_stale_review_apps_workflow_path.read
+      action_contents = shared_action_path("cpflow-resolve-review-config").read
 
-      expect(contents).to include("REVIEW_APP_PREFIX: ${{ vars.REVIEW_APP_PREFIX }}")
-      expect(contents).to include("CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}")
+      expect(wrapper).to include("Cleanup targets the current inferred review-app prefix")
+      expect(contents).to include("Resolve review app config")
+      expect(contents).to include("uses: ./.cpflow/.github/actions/cpflow-resolve-review-config")
+      expect(contents).to include("configured_review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}")
+      expect(contents).to include("configured_cpln_org_staging: ${{ vars.CPLN_ORG_STAGING }}")
+      expect(action_contents).to include("def safe_load_yaml_file(path)")
+      expect(action_contents).to include("YAML.method(:safe_load).parameters")
+      expect(action_contents).to include("YAML.safe_load(contents, [], [], true)")
+      expect(action_contents).to include("omitted when pr_number is empty")
+      expect(action_contents).to include('config = safe_load_yaml_file(".controlplane/controlplane.yml")')
+      expect(action_contents).to include("unless config.is_a?(Hash)")
+      expect(action_contents).to include('apps = config["apps"]')
+      expect(action_contents).to include("unless apps.is_a?(Hash)")
+      expect(action_contents).to include("validate_github_env_value!")
+      expect(action_contents).to include("PR_NUMBER must be a positive integer")
+      expect(action_contents).to include("Could not resolve review app config")
+      expect(action_contents).to include("must contain only letters, numbers, and hyphens")
+      expect(action_contents).to include('File.open(ENV.fetch("GITHUB_ENV"), "a")')
+      expect(action_contents).to include('File.open(ENV.fetch("GITHUB_OUTPUT"), "a")')
       expect(contents).to include("Checkout caller repository")
+      expect(contents).to include("path: app")
+      expect(contents).to include("working_directory: app")
       expect(contents).to include('cpflow cleanup-stale-apps -a "${REVIEW_APP_PREFIX}"')
+      expect(contents).to include("working-directory: app\n        env:\n          REVIEW_APP_PREFIX:")
       expect(contents).not_to include('cpflow cleanup-stale-apps -a "${{ vars.REVIEW_APP_PREFIX }}"')
+      expect(contents).not_to include("variable:REVIEW_APP_PREFIX")
+      expect(contents).not_to include("variable:CPLN_ORG_STAGING")
       expect(contents).to include("persist-credentials: false")
       expect(contents).to include("working_directory: .cpflow")
     end
@@ -426,8 +502,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("contents: read")
       expect(contents).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
-      expect(contents).to include("secrets: inherit")
+      expect(contents).not_to include("secrets: inherit")
       expect(reusable_help_workflow_path.read).to include('fs.readFileSync(".github/cpflow-help.md"')
+      expect(reusable_pr_open_help_workflow_path.read).not_to include("vars.REVIEW_APP_PREFIX != ''")
     end
 
     it "pins the +review-app-* workflow trigger strings" do
@@ -503,6 +580,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(pr_open_help).to include('"# 🚀 Quick Review App Commands"')
       expect(pr_open_help).to include('"### `+review-app-deploy`"')
+      expect(pr_open_help).to include("`CPLN_TOKEN_STAGING` secret")
       expect(pr_open_help).to include('"Deploy your PR branch for testing."')
       expect(pr_open_help).to include('"### `+review-app-delete`"')
       expect(pr_open_help).to include('"Remove the review app when done."')
@@ -512,8 +590,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(pr_open_help).not_to include('"---"')
 
       wrapper = pr_open_help_workflow_path.read
+      expect(wrapper).to include("This is intentionally unconditional")
       expect(wrapper).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
-      expect(wrapper).to include("secrets: inherit")
+      expect(wrapper).not_to include("secrets: inherit")
     end
 
     it "pins the +review-app-* commands in the long-form help markdown" do
@@ -572,8 +651,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       wrapper = promote_workflow_path.read
 
       expect(wrapper).to include("callers must grant the union of callee permissions")
+      expect(wrapper).to include("The caller passes the environment name")
+      expect(wrapper).to include("production_environment: production")
+      expect(wrapper).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
+      expect(wrapper).not_to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(wrapper).not_to include("secrets: inherit")
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include("contents: read")
+      expect(contents).to include("production_environment:")
+      expect(contents).to include("default: production")
+      expect(contents).to include("environment: ${{ inputs.production_environment }}")
+      expect(contents).to include("Validate production token")
+      expect(contents).to include("CPLN_TOKEN_PRODUCTION is not set")
+      expect(contents).to include("wrapper intentionally passes only CPLN_TOKEN_STAGING")
       expect(contents).to include("create-github-release:")
       expect(contents).to include("contents: write")
       expect(contents).to include("working_directory: .cpflow")

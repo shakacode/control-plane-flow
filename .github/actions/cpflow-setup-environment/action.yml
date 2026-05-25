@@ -37,6 +37,12 @@ inputs:
       without publishing a release.
     required: false
     default: ""
+  control_plane_flow_ref:
+    description: >-
+      control-plane-flow GitHub ref used by the calling reusable workflow. When
+      cpflow_version is set, this must be the matching release tag.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -83,6 +89,7 @@ runs:
     - name: Install Control Plane CLI and cpflow gem
       shell: bash
       env:
+        CONTROL_PLANE_FLOW_REF: ${{ inputs.control_plane_flow_ref }}
         CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}
         CPFLOW_VERSION: ${{ inputs.cpflow_version }}
         CPFLOW_SOURCE_DIR: ${{ github.action_path }}/../../..
@@ -94,6 +101,108 @@ runs:
         default_cpln_cli_version="3.10.2"
 
         CPLN_CLI_VERSION="${CPLN_CLI_VERSION:-${default_cpln_cli_version}}"
+
+        normalize_version() {
+          local version="${1#v}"
+          version="${version//-/.}"
+
+          if [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9A-Za-z]+)*$ ]]; then
+            echo "${version}"
+          fi
+          # Empty output means an unrecognized format; callers check for that.
+        }
+
+        normalize_release_ref() {
+          local ref="${1#refs/tags/}"
+
+          # Intentional: non-v refs return success with empty stdout; callers
+          # treat empty output as "not a release tag".
+          [[ "${ref}" == v* ]] || return 0
+          normalize_version "${ref}"
+        }
+
+        verify_release_ref_matches_checkout() {
+          local ref="${1#refs/tags/}"
+          local remote_url="https://github.com/shakacode/control-plane-flow.git"
+          local tag_refs
+          local tag_commit=""
+          local checkout_commit
+
+          [[ "${ref}" == v* ]] || return 1
+
+          git_ls_remote_tag() {
+            if command -v timeout >/dev/null 2>&1; then
+              timeout 20 git ls-remote --tags "${remote_url}" "refs/tags/${ref}" "refs/tags/${ref}^{}"
+            else
+              git ls-remote --tags "${remote_url}" "refs/tags/${ref}" "refs/tags/${ref}^{}"
+            fi
+          }
+
+          if ! tag_refs="$(git_ls_remote_tag 2>&1)"; then
+            echo "::error::Could not verify control_plane_flow_ref against ${remote_url}. Runners that set CPFLOW_VERSION need outbound HTTPS access to GitHub for this tag check. Leave CPFLOW_VERSION unset when testing a commit SHA or branch. Details: ${tag_refs}"
+            exit 1
+          fi
+
+          if [[ -z "${tag_refs}" ]]; then
+            echo "::error::CPFLOW_VERSION can only be used with an existing control-plane-flow release tag. No remote tag found for control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF}."
+            exit 1
+          fi
+
+          while read -r sha tag_ref; do
+            if [[ "${tag_ref}" == "refs/tags/${ref}^{}" ]]; then
+              tag_commit="${sha}"
+              break
+            fi
+
+            if [[ "${tag_ref}" == "refs/tags/${ref}" ]]; then
+              tag_commit="${sha}"
+            fi
+          done <<< "${tag_refs}"
+
+          if [[ -z "${tag_commit}" ]]; then
+            echo "::error::Could not resolve the commit for release tag ${ref}."
+            exit 1
+          fi
+
+          checkout_commit="$(git -C "${CPFLOW_SOURCE_DIR}" rev-parse HEAD)"
+          if [[ "${checkout_commit}" != "${tag_commit}" ]]; then
+            echo "::error::control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF} resolved to ${checkout_commit}, but release tag ${ref} points to ${tag_commit}. Use the real release tag ref, not a moving branch, or leave CPFLOW_VERSION unset."
+            exit 1
+          fi
+        }
+
+        is_rubygems_version() {
+          [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9A-Za-z]+)*$ ]]
+        }
+
+        validate_cpflow_version_pin() {
+          [[ -z "${CPFLOW_VERSION}" ]] && return 0
+
+          local actual_version
+          local expected_version
+
+          if ! is_rubygems_version "${CPFLOW_VERSION}"; then
+            echo "::error::CPFLOW_VERSION must be a RubyGems version usable by 'gem install cpflow -v', such as 5.0.0 or 5.0.0.rc.1. Do not include a leading v, and use dot-separated prereleases instead of dash-separated prereleases."
+            exit 1
+          fi
+
+          actual_version="$(normalize_version "${CPFLOW_VERSION}")"
+          expected_version="$(normalize_release_ref "${CONTROL_PLANE_FLOW_REF}")"
+
+          if [[ -z "${expected_version}" ]]; then
+            echo "::error::CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag like v${CPFLOW_VERSION}. Dot and dash prerelease tags are accepted, for example v5.0.0.rc.1 or v5.0.0-rc.1. Current control_plane_flow_ref: ${CONTROL_PLANE_FLOW_REF:-<empty>}. Leave CPFLOW_VERSION unset when testing a commit SHA or branch so cpflow is built from the same source as the reusable workflow."
+            exit 1
+          fi
+
+          verify_release_ref_matches_checkout "${CONTROL_PLANE_FLOW_REF}"
+
+          if [[ "${actual_version}" != "${expected_version}" ]]; then
+            echo "::error::CPFLOW_VERSION must match control_plane_flow_ref. CPFLOW_VERSION=${CPFLOW_VERSION}, normalized CPFLOW_VERSION=${actual_version}, control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF}, expected CPFLOW_VERSION=${expected_version}."
+            exit 1
+          fi
+        }
+
+        validate_cpflow_version_pin
 
         npm_global_prefix="${HOME}/.npm-global"
         mkdir -p "${npm_global_prefix}"

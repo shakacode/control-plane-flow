@@ -8,6 +8,18 @@ on:
         required: false
         type: string
         default: main
+      production_environment:
+        description: GitHub Environment that protects production promotion and stores production-only secrets.
+        required: false
+        type: string
+        default: production
+    secrets:
+      CPLN_TOKEN_STAGING:
+        description: Control Plane token for reading the already-deployed staging image.
+        required: true
+      CPLN_TOKEN_PRODUCTION:
+        description: Production Control Plane token. Store it on the protected production Environment; do not pass it from a repository secret.
+        required: false
 
 permissions:
   contents: read
@@ -48,6 +60,10 @@ jobs:
   promote-to-production:
     if: github.event.inputs.confirm_promotion == 'promote'
     runs-on: ubuntu-latest
+    # GitHub uses secrets from this protected Environment for jobs that declare
+    # it, so CPLN_TOKEN_PRODUCTION should be configured only there. The caller
+    # wrapper intentionally passes only CPLN_TOKEN_STAGING.
+    environment: ${{ inputs.production_environment }}
     timeout-minutes: 45
 
     steps:
@@ -63,6 +79,19 @@ jobs:
           ref: ${{ inputs.control_plane_flow_ref }}
           path: .cpflow
           persist-credentials: false
+
+      - name: Validate production token
+        shell: bash
+        env:
+          CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
+          PRODUCTION_ENVIRONMENT: ${{ inputs.production_environment }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CPLN_TOKEN_PRODUCTION}" ]]; then
+            echo "::error::CPLN_TOKEN_PRODUCTION is not set. Add it as a secret on the '${PRODUCTION_ENVIRONMENT}' GitHub Environment."
+            exit 1
+          fi
 
       - name: Validate required secrets and variables
         uses: ./.cpflow/.github/actions/cpflow-validate-config
@@ -92,6 +121,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
 
       # Runs after Setup production environment so the pinned Ruby (>= 3.1) is on PATH.
       # YAML.load_file(..., aliases: true) is not supported on Ruby 3.0 (system Ruby on ubuntu-22.04).
