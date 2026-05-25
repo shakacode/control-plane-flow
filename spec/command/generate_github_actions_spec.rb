@@ -287,11 +287,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           "#{path} must not require downstream wrappers to pass control_plane_flow_ref"
         )
 
+        workflow_name = File.basename(path)
+        requires_cpflow_source = !%w[cpflow-help-command.yml cpflow-review-app-help.yml].include?(workflow_name)
+        saw_cpflow_checkout = false
+        saw_setup_environment = false
+
         workflow.fetch("jobs").each_value do |job|
           # Job-level `uses:` entries call reusable workflows; they cannot call composite actions directly.
           Array(job["steps"]).each do |step|
             if step["uses"] == "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" &&
                step.dig("with", "path") == ".cpflow"
+              saw_cpflow_checkout = true
               expect(step.fetch("with")).to include(
                 "repository" => "${{ job.workflow_repository }}",
                 "ref" => "${{ job.workflow_sha }}"
@@ -300,10 +306,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
             next unless step["uses"] == "./.cpflow/.github/actions/cpflow-setup-environment"
 
+            saw_setup_environment = true
             expect(step.fetch("with")).to include(
               "control_plane_flow_ref" => "${{ job.workflow_ref }}"
             ), "#{path} setup action call must pass job.workflow_ref"
           end
+        end
+
+        if requires_cpflow_source
+          expect(saw_cpflow_checkout).to be(true), "#{path} must checkout .cpflow from the called workflow source"
+          expect(saw_setup_environment).to be(true), "#{path} must invoke cpflow-setup-environment"
         end
       end
     end
@@ -607,6 +619,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("`+review-app-delete`")
       expect(help_md).to include("`+review-app-help`")
       expect(help_md).to include("A single trailing newline from GitHub's comment editor is accepted.")
+      expect(help_md).not_to include("control_plane_flow_ref")
     end
 
     it "documents Docker build vars in the help markdown" do
