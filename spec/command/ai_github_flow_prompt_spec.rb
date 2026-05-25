@@ -21,6 +21,8 @@ describe Command::AiGithubFlowPrompt, :enable_validations, :without_config_file 
       expect(result[:stdout]).to include("cpflow generate-github-actions")
       expect(result[:stdout]).to include("Do not hand-edit duplicated upstream refs")
       expect(result[:stdout]).to include("uses: ...@vX.Y.Z")
+      expect(result[:stdout]).to include("cpflow update-github-actions")
+      expect(result[:stdout]).to include("bin/test-cpflow-github-flow")
       expect(result[:stdout]).to include("cpflow setup-app --skip-post-creation-hook")
       expect(result[:stdout]).to include("cpflow apply-template")
       expect(result[:stdout]).to include("app secret policy")

@@ -455,6 +455,43 @@ That release tag should point to the same source that produced the RubyGems
 release. Downstream production automation should use release tags, not `main` or
 feature-branch refs.
 
+## Updating Generated GitHub Actions After Gem Updates
+
+Whenever a downstream repo updates the `cpflow` gem, update the checked-in
+GitHub Actions wrappers in the same PR. The gem version does not make GitHub load
+new reusable workflow YAML by itself; GitHub loads the `uses:` ref committed in
+`.github/workflows/cpflow-*.yml`.
+
+Use the installed gem to refresh the generated wrappers:
+
+```sh
+cpflow update-github-actions
+bin/test-cpflow-github-flow
+```
+
+If the app runs `cpflow` through Bundler, use:
+
+```sh
+bundle exec cpflow update-github-actions
+bin/test-cpflow-github-flow bundle exec cpflow
+```
+
+`cpflow update-github-actions` regenerates the generated wrapper and helper
+files from the installed gem, pins the wrapper `uses:` refs to `v<gem-version>`,
+and preserves a single custom staging branch from the existing generated staging
+workflow. Pass `--staging-branch BRANCH` when changing or restoring a custom
+staging branch explicitly.
+
+When keeping `cpflow` in an app Gemfile, leave a comment next to the gem entry
+so future dependency bumps include the wrapper update:
+
+```ruby
+# After bumping cpflow, run:
+#   bundle exec cpflow update-github-actions
+#   bin/test-cpflow-github-flow bundle exec cpflow
+gem "cpflow", "5.0.1"
+```
+
 `CPFLOW_VERSION` is a runtime override. If a downstream repository sets the
 `CPFLOW_VERSION` variable, the setup action runs `gem install cpflow -v
 <version>`. If it is unset, the setup action builds `cpflow` from the checked-out

@@ -214,6 +214,36 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("Deploy to Control Plane")
     end
 
+    it "updates existing generated wrappers to the installed cpflow release tag" do
+      old_ref = "v5.0.0"
+      current_ref = "v#{Cpflow::VERSION}"
+
+      File.write(review_app_workflow_path, review_app_workflow_path.read.gsub(current_ref, old_ref))
+
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:status]).to eq(0)
+        expect(result[:stdout]).to include("Updated cpflow GitHub Actions wrappers for cpflow #{Cpflow::VERSION}.")
+      end
+
+      expect(review_app_workflow_path.read).to include(
+        "uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{current_ref}"
+      )
+    end
+
+    it "preserves an existing custom staging branch while updating generated wrappers" do
+      inside_dir(playground) do
+        run_cpflow_command!("generate-github-actions", "--force", "--staging-branch", "develop")
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:status]).to eq(0)
+      end
+
+      expect(staging_workflow_path.read).to include('branches: ["develop"]')
+      expect(staging_workflow_path.read).to include('staging_app_branch_default: "develop"')
+    end
+
     it "generates local helpers for pinning and validating cpflow workflow refs" do
       expect(pin_cpflow_ref_path.read).to include("Use a full 40-character commit SHA")
       expect(pin_cpflow_ref_path.read).to include("Pathname.new(path).relative_path_from(root).to_s")

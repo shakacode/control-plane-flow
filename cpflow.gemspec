@@ -12,6 +12,20 @@ Gem::Specification.new do |spec|
   spec.description = "CLI for providing Heroku-like platform-as-a-service on Control Plane"
   spec.homepage    = "https://github.com/shakacode/control-plane-flow"
   spec.license     = "MIT"
+  spec.post_install_message = <<~MESSAGE
+    cpflow #{Cpflow::VERSION} installed.
+
+    If this repository uses generated cpflow GitHub Actions, update the checked-in
+    wrappers so GitHub loads the matching control-plane-flow release tag:
+
+      cpflow update-github-actions
+      bin/test-cpflow-github-flow
+
+    If you run cpflow through Bundler:
+
+      bundle exec cpflow update-github-actions
+      bin/test-cpflow-github-flow bundle exec cpflow
+  MESSAGE
 
   spec.required_ruby_version = ">= 3.0.0"
 

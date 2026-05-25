@@ -101,6 +101,8 @@ task :release, %i[version dry_run override_version_policy] do |_t, args|
     puts "RELEASE COMPLETE"
     puts "Published cpflow #{released_gem_version} to RubyGems.org."
   end
+
+  Release.print_github_actions_update_reminder(released_gem_version)
 end
 
 desc("Compatibility alias for the old release task. Prefer `bundle exec rake release`.")
@@ -450,6 +452,21 @@ module Release
     def verify_gem_release_available!
       output, status = Open3.capture2e("bundle", "exec", "gem", "bump", "--help")
       abort "gem-release is required. Run `bundle install`.\n\n#{output}" unless status.success?
+    end
+
+    def print_github_actions_update_reminder(version)
+      puts ""
+      puts "GitHub Actions follow-up:"
+      puts "  Downstream repos using generated cpflow GitHub Actions must update their checked-in wrappers."
+      puts "  Run this in each downstream repo after installing cpflow #{version}:"
+      puts ""
+      puts "    cpflow update-github-actions"
+      puts "    bin/test-cpflow-github-flow"
+      puts ""
+      puts "  If cpflow is bundled in the app:"
+      puts ""
+      puts "    bundle exec cpflow update-github-actions"
+      puts "    bin/test-cpflow-github-flow bundle exec cpflow"
     end
 
     def github_repo_slug(gem_root)
