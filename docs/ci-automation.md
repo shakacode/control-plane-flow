@@ -214,6 +214,56 @@ needs. They do not use `secrets: inherit`; the production token is supplied by
 the protected `production` Environment after approval, not forwarded from a
 repository secret.
 
+## First-Time Control Plane Bootstrap
+
+GitHub settings only give the workflows permission to act. They do not create
+the persistent staging or production GVCs for you on the first merge.
+
+Before the first staging deploy, bootstrap the staging app once:
+
+```sh
+cpflow setup-app -a my-app-staging --org my-org-staging --skip-post-creation-hook
+```
+
+`setup-app` reads the `setup_app_templates` list from
+`.controlplane/controlplane.yml`. It creates the persistent staging GVC,
+workloads, app identity, app secret dictionary, app secret policy, and policy
+binding that grants the app identity `reveal` permission on that dictionary.
+Use `--skip-post-creation-hook` for first-time bootstrap so a database hook does
+not try to run before the first image exists.
+
+After the persistent app exists, use `apply-template` for later template
+updates. Adjust the template list to match your repo, such as adding `worker`,
+`sidekiq`, `renderer`, `redis`, or other templates present under
+`.controlplane/templates`:
+
+```sh
+cpflow apply-template app postgres rails -a my-app-staging --org my-org-staging --yes --add-app-identity
+```
+
+If you use `apply-template` to create or repair an existing app, also confirm
+that the app identity has `reveal` permission on the app secret policy. Without
+that binding, workloads that reference `cpln://secret/<app-secrets>.*` stay
+paused until the policy is fixed.
+
+Before the first production promotion, run the same kind of bootstrap for the
+production app in the production org:
+
+```sh
+cpflow setup-app -a my-app-production --org my-org-production --skip-post-creation-hook
+```
+
+Use production-only runtime secrets and values for the production app. The
+protected GitHub Environment controls who can run the promotion workflow, but
+the production app resources still need to exist before the first promotion.
+
+Review apps are different: the generated `+review-app-deploy` workflow creates
+temporary PR apps as needed, including the identity and secret policy binding.
+You still need the shared review-app runtime secret values described by your
+templates, and the staging token must have access to create and update
+review-app GVCs, workloads, images, identities, policies, and secrets in the
+staging org.
+
 ### Production Promotion Safety
 
 `CPLN_TOKEN_PRODUCTION` can change live production workloads, images, releases,

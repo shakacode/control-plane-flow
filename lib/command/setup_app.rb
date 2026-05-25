@@ -13,7 +13,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Creates an app and all its workloads
       - Specify the templates for the app and workloads through `setup_app_templates` in the `.controlplane/controlplane.yml` file
-      - This should only be used for temporary apps like review apps, never for persistent apps like production or staging (to update workloads for those, use 'cpflow apply-template' instead)
+      - Use this for temporary apps like review apps and for first-time bootstrap of persistent staging or production apps; after a persistent app exists, use 'cpflow apply-template' for template updates
       - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
         using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
       - Creates identity for secrets if it does not exist

@@ -621,6 +621,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("`+review-app-help`")
       expect(help_md).to include("A single trailing newline from GitHub's comment editor is accepted.")
       expect(help_md).to include("vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''")
+      expect(help_md).to include("Before the first staging deploy")
+      expect(help_md).to include("cpflow setup-app -a")
+      expect(help_md).to include("app secret policy")
       expect(help_md).not_to include("control_plane_flow_ref")
     end
 
