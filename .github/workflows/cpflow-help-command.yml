@@ -2,12 +2,6 @@ name: Review App Help Command
 
 on:
   workflow_call:
-    inputs:
-      control_plane_flow_ref:
-        description: Accepted for generated wrapper consistency; unused because this workflow checks out caller content only.
-        required: false
-        type: string
-        default: main
 
 permissions:
   contents: read

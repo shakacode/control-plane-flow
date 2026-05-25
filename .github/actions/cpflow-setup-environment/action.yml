@@ -39,8 +39,9 @@ inputs:
     default: ""
   control_plane_flow_ref:
     description: >-
-      control-plane-flow GitHub ref used by the calling reusable workflow. When
-      cpflow_version is set, this must be the matching release tag.
+      Full GitHub workflow ref for the control-plane-flow reusable workflow, for
+      example shakacode/control-plane-flow/.github/workflows/deploy.yml@refs/tags/v5.0.1.
+      When cpflow_version is set, this must point at the matching release tag.
     required: false
     default: ""
 
@@ -112,8 +113,15 @@ runs:
           # Empty output means an unrecognized format; callers check for that.
         }
 
+        extract_ref_name() {
+          local ref="${1##*@}"
+          ref="${ref#refs/tags/}"
+          echo "${ref}"
+        }
+
         normalize_release_ref() {
-          local ref="${1#refs/tags/}"
+          local ref
+          ref="$(extract_ref_name "$1")"
 
           # Intentional: non-v refs return success with empty stdout; callers
           # treat empty output as "not a release tag".
@@ -122,12 +130,13 @@ runs:
         }
 
         verify_release_ref_matches_checkout() {
-          local ref="${1#refs/tags/}"
+          local ref
           local remote_url="https://github.com/shakacode/control-plane-flow.git"
           local tag_refs
           local tag_commit=""
           local checkout_commit
 
+          ref="$(extract_ref_name "$1")"
           [[ "${ref}" == v* ]] || return 1
 
           git_ls_remote_tag() {
@@ -139,12 +148,12 @@ runs:
           }
 
           if ! tag_refs="$(git_ls_remote_tag 2>&1)"; then
-            echo "::error::Could not verify control_plane_flow_ref against ${remote_url}. Runners that set CPFLOW_VERSION need outbound HTTPS access to GitHub for this tag check. Leave CPFLOW_VERSION unset when testing a commit SHA or branch. Details: ${tag_refs}"
+            echo "::error::Could not verify the control-plane-flow workflow ref against ${remote_url}. Runners that set CPFLOW_VERSION need outbound HTTPS access to GitHub for this tag check. Leave CPFLOW_VERSION unset when testing a commit SHA or branch. Details: ${tag_refs}"
             exit 1
           fi
 
           if [[ -z "${tag_refs}" ]]; then
-            echo "::error::CPFLOW_VERSION can only be used with an existing control-plane-flow release tag. No remote tag found for control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF}."
+            echo "::error::CPFLOW_VERSION can only be used with an existing control-plane-flow release tag. No remote tag found for workflow ref ${CONTROL_PLANE_FLOW_REF}."
             exit 1
           fi
 
@@ -166,7 +175,7 @@ runs:
 
           checkout_commit="$(git -C "${CPFLOW_SOURCE_DIR}" rev-parse HEAD)"
           if [[ "${checkout_commit}" != "${tag_commit}" ]]; then
-            echo "::error::control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF} resolved to ${checkout_commit}, but release tag ${ref} points to ${tag_commit}. Use the real release tag ref, not a moving branch, or leave CPFLOW_VERSION unset."
+            echo "::error::control-plane-flow workflow ref ${CONTROL_PLANE_FLOW_REF} resolved to ${checkout_commit}, but release tag ${ref} points to ${tag_commit}. Use the real release tag ref, not a moving branch, or leave CPFLOW_VERSION unset."
             exit 1
           fi
         }
@@ -190,14 +199,14 @@ runs:
           expected_version="$(normalize_release_ref "${CONTROL_PLANE_FLOW_REF}")"
 
           if [[ -z "${expected_version}" ]]; then
-            echo "::error::CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag like v${CPFLOW_VERSION}. Dot and dash prerelease tags are accepted, for example v5.0.0.rc.1 or v5.0.0-rc.1. Current control_plane_flow_ref: ${CONTROL_PLANE_FLOW_REF:-<empty>}. Leave CPFLOW_VERSION unset when testing a commit SHA or branch so cpflow is built from the same source as the reusable workflow."
+            echo "::error::CPFLOW_VERSION can only be used when the control-plane-flow reusable workflow is pinned to a release tag like v${CPFLOW_VERSION}. Dot and dash prerelease tags are accepted, for example v5.0.0.rc.1 or v5.0.0-rc.1. Current workflow ref: ${CONTROL_PLANE_FLOW_REF:-<empty>}. Leave CPFLOW_VERSION unset when testing a commit SHA or branch so cpflow is built from the same source as the reusable workflow."
             exit 1
           fi
 
           verify_release_ref_matches_checkout "${CONTROL_PLANE_FLOW_REF}"
 
           if [[ "${actual_version}" != "${expected_version}" ]]; then
-            echo "::error::CPFLOW_VERSION must match control_plane_flow_ref. CPFLOW_VERSION=${CPFLOW_VERSION}, normalized CPFLOW_VERSION=${actual_version}, control_plane_flow_ref=${CONTROL_PLANE_FLOW_REF}, expected CPFLOW_VERSION=${expected_version}."
+            echo "::error::CPFLOW_VERSION must match the control-plane-flow reusable workflow tag. CPFLOW_VERSION=${CPFLOW_VERSION}, normalized CPFLOW_VERSION=${actual_version}, workflow ref=${CONTROL_PLANE_FLOW_REF}, expected CPFLOW_VERSION=${expected_version}."
             exit 1
           fi
         }

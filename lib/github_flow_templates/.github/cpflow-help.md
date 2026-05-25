@@ -55,13 +55,18 @@ the environment approval gate passes.
 
 ## Version Locking
 
-Generated wrappers pin both the reusable workflow `uses:` ref and
-`control_plane_flow_ref` to `__CPFLOW_GITHUB_ACTIONS_REF__`. For stable
-releases, this ref should be a release tag. Leave `CPFLOW_VERSION` unset so the
-workflow builds cpflow from the same checked-out upstream source. If you set
-`CPFLOW_VERSION`, it must match the release tag, for example
-`CPFLOW_VERSION=5.0.1` with
-`control_plane_flow_ref: v5.0.1`.
+Generated wrappers pin Control Plane Flow once with the reusable workflow
+`uses:` ref, for example `@__CPFLOW_GITHUB_ACTIONS_REF__`. For stable releases,
+this ref should be a release tag. The upstream reusable workflow automatically
+loads its matching shared actions from GitHub's workflow context, so downstream
+wrappers should not pass a duplicate Control Plane Flow ref input. If your
+generated wrappers still include a `with:` block whose only purpose is to repeat
+the same ref, regenerate them with a newer `cpflow`.
+
+Leave `CPFLOW_VERSION` unset so the workflow builds cpflow from the same
+checked-out upstream source. If you set `CPFLOW_VERSION`, it must match the
+release tag, for example `CPFLOW_VERSION=5.0.1` with a wrapper pinned to
+`uses: ...@v5.0.1`.
 
 Do not leave downstream apps pinned to a moving branch such as `main`. For a
 short-lived test of an unreleased upstream PR, pin to a full 40-character commit

@@ -16,11 +16,8 @@ permissions:
 
 jobs:
   deploy-staging:
-    # Keep the @ref in `uses:` and `control_plane_flow_ref` below in sync: the
-    # first selects the reusable workflow, the second selects its shared actions.
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-staging.yml@__CPFLOW_GITHUB_ACTIONS_REF__
     with:
-      control_plane_flow_ref: __CPFLOW_GITHUB_ACTIONS_REF__
       staging_app_branch_default: "__STAGING_BRANCH_DEFAULT__"
     secrets:
       CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}

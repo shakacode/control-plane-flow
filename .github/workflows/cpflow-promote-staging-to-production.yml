@@ -3,11 +3,6 @@ name: Promote Staging to Production
 on:
   workflow_call:
     inputs:
-      control_plane_flow_ref:
-        description: Git ref used to load shared cpflow composite actions.
-        required: false
-        type: string
-        default: main
       production_environment:
         description: GitHub Environment that protects production promotion and stores production-only secrets.
         required: false
@@ -75,8 +70,8 @@ jobs:
       - name: Checkout control-plane-flow actions
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          repository: shakacode/control-plane-flow
-          ref: ${{ inputs.control_plane_flow_ref }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           path: .cpflow
           persist-credentials: false
 
@@ -121,7 +116,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
-          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
+          control_plane_flow_ref: ${{ job.workflow_ref }}
 
       # Runs after Setup production environment so the pinned Ruby (>= 3.1) is on PATH.
       # YAML.load_file(..., aliases: true) is not supported on Ruby 3.0 (system Ruby on ubuntu-22.04).

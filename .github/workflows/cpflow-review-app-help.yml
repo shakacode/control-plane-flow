@@ -2,12 +2,6 @@ name: Show Review App Commands on PR Open
 
 on:
   workflow_call:
-    inputs:
-      control_plane_flow_ref:
-        description: Accepted for generated wrapper consistency; unused because this workflow does not check out shared actions.
-        required: false
-        type: string
-        default: main
 
 permissions:
   issues: write

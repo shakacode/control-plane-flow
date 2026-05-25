@@ -371,16 +371,13 @@ GitHub ref:
 
 ```yaml
 uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@<ref>
-with:
-  control_plane_flow_ref: <ref>
 ```
 
-Those two pins must stay in sync:
-
-- `uses: ...@<ref>` chooses the upstream reusable workflow file.
-- `control_plane_flow_ref: <ref>` tells that reusable workflow which
-  `control-plane-flow` checkout to use for shared composite actions and, when
-  `CPFLOW_VERSION` is empty, for building and installing the `cpflow` gem.
+That single `uses:` ref is the downstream lock. GitHub exposes the reusable
+workflow's own repository, ref, and SHA to the called job, so the upstream
+workflow checks out the matching `control-plane-flow` source automatically from
+that context. Downstream wrappers should not pass `control_plane_flow_ref`; if
+you see that input in generated wrappers, regenerate with a newer `cpflow`.
 
 There are two locks, and they protect different things:
 
@@ -408,25 +405,26 @@ feature-branch refs.
 `CPFLOW_VERSION` is a runtime override. If a downstream repository sets the
 `CPFLOW_VERSION` variable, the setup action runs `gem install cpflow -v
 <version>`. If it is unset, the setup action builds `cpflow` from the checked-out
-`control-plane-flow` ref. For normal releases, leave `CPFLOW_VERSION` unset while
-pinning the wrappers to the matching `v<version>` tag, or set
-`CPFLOW_VERSION` to that same released gem version without the leading `v`.
+`control-plane-flow` source selected by the reusable workflow's own SHA. For
+normal releases, leave `CPFLOW_VERSION` unset while pinning the wrappers to the
+matching `v<version>` tag, or set `CPFLOW_VERSION` to that same released gem
+version without the leading `v`.
 When setting `CPFLOW_VERSION`, use RubyGems version syntax, for example
 `5.0.0` or `5.0.0.rc.1`; do not use `v5.0.0` or dash-separated prereleases
 because the value is passed directly to `gem install cpflow -v`.
 
-The setup action fails early when `CPFLOW_VERSION` and `control_plane_flow_ref`
-are out of sync. `CPFLOW_VERSION=5.0.0` is accepted only when
-`control_plane_flow_ref` is `v5.0.0` (or `refs/tags/v5.0.0`). Release tags may
-use dot- or dash-separated prerelease suffixes, such as `v5.0.0.rc.1` or
-`v5.0.0-rc.1`; the gem version should still use dots. The action also checks
-the remote `control-plane-flow` tag and the checked-out action commit, so a
-moving branch named like `v5.0.0` cannot be used with `CPFLOW_VERSION=5.0.0`.
-That tag check uses outbound HTTPS to GitHub; restricted runners that cannot
-reach GitHub should leave `CPFLOW_VERSION` unset and build `cpflow` from the
-checked-out ref instead. When testing an unreleased upstream commit SHA, leave
-`CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same source that
-supplies the reusable workflow and composite actions.
+The setup action fails early when `CPFLOW_VERSION` and the reusable workflow tag
+are out of sync. `CPFLOW_VERSION=5.0.0` is accepted only when the wrapper uses a
+release tag such as `@v5.0.0` (or GitHub resolves it to `refs/tags/v5.0.0`).
+Release tags may use dot- or dash-separated prerelease suffixes, such as
+`v5.0.0.rc.1` or `v5.0.0-rc.1`; the gem version should still use dots. The
+action also checks the remote `control-plane-flow` tag and the checked-out
+action commit, so a moving branch named like `v5.0.0` cannot be used with
+`CPFLOW_VERSION=5.0.0`. That tag check uses outbound HTTPS to GitHub; restricted
+runners that cannot reach GitHub should leave `CPFLOW_VERSION` unset and build
+`cpflow` from the checked-out ref instead. When testing an unreleased upstream
+commit SHA, leave `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the
+same source that supplies the reusable workflow and composite actions.
 
 ## Testing Unreleased Upstream Changes Downstream
 
@@ -447,7 +445,7 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
 
 3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same
    upstream SHA that supplies the reusable workflow and composite actions. If
-   `CPFLOW_VERSION` is set while `control_plane_flow_ref` is a SHA, the setup
+   `CPFLOW_VERSION` is set while the wrapper is pinned to a SHA, the setup
    action fails before deployment because the gem and action code cannot be
    proven to match.
 4. Run:
@@ -493,9 +491,11 @@ bin/test-cpflow-github-flow
 The helper runs `cpflow github-flow-readiness`, parses generated workflow YAML,
 checks composite action metadata for literal GitHub expressions in descriptions,
 checks that all generated wrappers use one upstream ref consistently, rejects
-broad `secrets: inherit` usage in generated cpflow wrappers, requires
-secret-passing reusable workflows to pass `control_plane_flow_ref`, and runs
-`actionlint -ignore "SC2129" .github/workflows/cpflow-*.yml`.
+broad `secrets: inherit` usage in generated cpflow wrappers, rejects obsolete
+`control_plane_flow_ref` wrapper inputs, and runs
+`actionlint` against `.github/workflows/cpflow-*.yml`. Its `actionlint` command
+keeps the existing shellcheck ignore and also ignores stale local `actionlint`
+false positives for GitHub's newer reusable-workflow `job.workflow_*` fields.
 
 ## Applying This to React on Rails Demo Apps
 
