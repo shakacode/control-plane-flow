@@ -166,13 +166,16 @@ This repo does **not** have an `update_changelog` rake task — the slash comman
      ```
 
      Note: this repo uses `...HEAD`, not `...main`. Match the existing convention.
-   - Add a new compare link for the stamped version, comparing the previous tag to the new one:
+   - Add a new compare link for the stamped version:
 
      ```markdown
      [4.3.0]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v4.3.0
      ```
 
-3. **For `rc`/`beta` modes**: collapse prior prerelease sections of the same base version into a single section (see "For Prerelease Versions" below). Remove the orphaned compare links for the collapsed prerelease versions.
+     - **For stable releases**, skip prerelease tags — compare from the previous **stable** tag. A stable release that coalesces prior RCs (e.g., `v5.0.0.rc.0`, `v5.0.0.rc.1`) still uses the last stable tag as the left side (e.g., `v4.2.0...v5.0.0`), not the latest RC tag.
+     - **For prereleases**, compare from the immediately previous tag (which may be a prior RC/beta or the last stable tag).
+
+3. **For `rc`/`beta` modes**: Insert the new RC/beta section above any prior prereleases — do NOT collapse them. Each RC/beta is a separately-tagged release that users install, and they need to see what changed between, say, `rc.0` and `rc.1`. See "For Prerelease Versions" below. Coalescing happens only at the stable release.
 
 The `rake release` task reads the first `## [VERSION]` header (skipping `Unreleased`) and uses it as the target version when newer than the current gem version. So once the changelog PR merges, `bundle exec rake release` (no args) will pick up the version automatically.
 
@@ -267,9 +270,11 @@ If the user passed `release`, `rc`, `beta`, or an explicit version string as an 
    - Update `[Unreleased]` to compare from the new tag to `HEAD`
    - Add a new compare link for the stamped version
 
-5. **For `rc`/`beta`**: collapse prior prerelease sections of the same base version (see below) and remove their orphaned compare links.
+5. **For `rc`/`beta`**: Do NOT collapse prior prerelease sections — each RC/beta gets its own section so users can see what changed between prereleases. Just insert the new section above the prior ones and add a new compare link. See "For Prerelease Versions" below.
 
-6. **Verify** the stamped header and diff links match the requested version. If anything looks off, fix it before continuing.
+6. **For stable `release` (or explicit stable version) when prior `rc`/`beta` sections exist for the same base version**: Do NOT just stamp `## [5.0.0]` above the prior RC sections. Instead, follow the "For Prerelease to Stable Version Release" process below — it replaces steps 3–4 here with the coalesce + curate flow (combine all RC sections into the new stable section, move any matching `[Unreleased]` entries in, drop prerelease-only noise, and use the previous **stable** tag in the compare link).
+
+7. **Verify** the stamped header and diff links match the requested version. If anything looks off, fix it before continuing.
 
 If no argument was passed, skip this step -- entries stay in `## [Unreleased]`.
 
@@ -310,32 +315,92 @@ When the user passes `rc` or `beta` as an argument:
 
 2. **Auto-compute the next prerelease version** using the process in "Auto-Computing the Next Version" above. Use RubyGems format (`5.0.0.rc.0`), not `5.0.0-rc.0`.
 
-3. **Always collapse prior prereleases into the current prerelease** (this is the default behavior):
-   - Combine all prior prerelease changelog entries into the new prerelease version section
-   - Remove previous prerelease version sections (e.g., remove `## [5.0.0.rc.0]` when creating `## [5.0.0.rc.1]`)
-   - When collapsing, **consolidate duplicate category headings** — if both the Unreleased section and a prior prerelease section have `### Fixed`, merge all entries under a single `### Fixed` heading
-   - **Remove orphaned version diff links** at the bottom of the file for collapsed prerelease sections
-   - Add any new user-visible changes from commits since the last prerelease
-   - Update version diff links to point from the last stable version to the new prerelease
-   - This keeps the changelog clean with a single prerelease section that accumulates all changes since the last stable release
+3. **Do NOT collapse prior prereleases.** Each RC/beta is a separately-tagged release that users install — they need to see what changed between, for example, `rc.0` and `rc.1` (especially when diagnosing a regression in a specific RC). Each successive `bundle exec rake release` reads only the top-most `## [VERSION]` section (the RC you just stamped — see the "Version Stamping" section above), so as long as each RC has its own section the corresponding GitHub release gets its own focused notes. Instead:
 
-**Note**: The new version header must be inserted **immediately after `## [Unreleased]`** (see Step 4). This ensures correct ordering of version headers.
+   - Insert the new prerelease version section immediately after `## [Unreleased]`, **above** any prior prerelease sections (preserves newest-first ordering)
+   - Move any entries from `## [Unreleased]` that belong to this prerelease into the new section
+   - Leave prior prerelease sections (e.g., `## [5.0.0.rc.0]`) untouched — keep their entries and their compare links at the bottom of the file
+   - Add any new user-visible changes from commits since the last prerelease tag to the new section only
+   - Add a new compare link at the bottom comparing the previous prerelease tag (or the last stable tag if this is the first RC) to the new prerelease tag
+   - Update the `[Unreleased]` compare link to point from the new prerelease tag to `HEAD`
+
+**Resulting structure** after stamping `5.0.0.rc.1` (with `5.0.0.rc.0` already shipped on top of stable `4.2.0`):
+
+```markdown
+## [Unreleased]
+
+## [5.0.0.rc.1] - 2026-05-25
+
+### Fixed
+
+- **Fix regression introduced in rc.0**. [PR 320](https://github.com/shakacode/control-plane-flow/pull/320) by [Justin Gordon](https://github.com/justin808).
+
+## [5.0.0.rc.0] - 2026-05-10
+
+### Added
+
+- **New feature**. [PR 315](https://github.com/shakacode/control-plane-flow/pull/315) by [Justin Gordon](https://github.com/justin808).
+
+## [4.2.0] - 2026-04-01
+
+...
+
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...HEAD
+[5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.0...v5.0.0.rc.1
+[5.0.0.rc.0]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.0
+[4.2.0]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...v4.2.0
+```
+
+Both RC sections remain intact with their own compare links until the stable release coalesces them.
+
+**Coalescing happens only at the stable release** — see "For Prerelease to Stable Version Release" below.
+
+**Note**: The new version header must be inserted **immediately after `## [Unreleased]`** (see Step 4). This ensures correct newest-first ordering of version headers.
 
 ### For Prerelease to Stable Version Release
 
-When releasing from prerelease to a stable version (e.g., `v5.0.0.rc.1` -> `v5.0.0`):
+When releasing from prerelease to a stable version (e.g., `v5.0.0.rc.2` -> `v5.0.0`), this is where the accumulated prerelease sections get coalesced into one stable section. **Curate carefully** — users landing on the stable version don't care about intermediate prerelease state, and noise here makes the upgrade story harder to read.
 
-1. **Remove all prerelease version labels** from the changelog:
-   - Change `## [5.0.0.rc.0]`, `## [5.0.0.rc.1]`, etc. to a single `## [5.0.0]` section
-   - Also handle beta versions: `## [5.0.0.beta.1]` etc.
-   - Combine all prerelease entries into the stable release section
+#### Step 1: Coalesce all prerelease sections into one stable section
 
-2. **Consolidate duplicate entries**:
-   - If bug fixes or changes were made to features introduced in earlier prereleases, keep only the final state
-   - Remove redundant changelog entries for fixes to prerelease features
-   - Keep the most recent/accurate description of each change
+- Replace `## [5.0.0.rc.0]`, `## [5.0.0.rc.1]`, `## [5.0.0.beta.1]`, etc. with a single `## [5.0.0] - YYYY-MM-DD` section
+- **Move any remaining entries from `## [Unreleased]` into the new stable section** — anything still under `[Unreleased]` at stable-release time is shipping in this stable version. Leave `## [Unreleased]` with only its header (no entries).
+- Combine entries from all prerelease sections and the moved `[Unreleased]` entries, consolidating duplicate category headings (e.g., merge multiple `### Fixed` sections into one under the preferred order from "Category Organization")
+- Remove the orphaned compare links at the bottom of the file for the coalesced prerelease versions
+- Add the `[5.0.0]` compare link pointing from the previous stable tag (e.g., `v4.2.0`) to `v5.0.0` — **not** from the latest RC tag
+- Update the `[Unreleased]` compare link to point from `v5.0.0` to `HEAD`
 
-3. **Update version diff links** at the bottom to point to the stable version (and remove the orphaned prerelease compare links)
+#### Step 2: Curate the entries — REMOVE these
+
+1. **Prerelease-only fixes** — bugs introduced during the prerelease cycle and fixed in a later RC. If the bug never shipped in a stable release, the fix is noise to stable users.
+   - Investigate when a bug was introduced: `git log --oneline v<last_stable>..v<rc_that_fixed_the_bug>` — if this commit range doesn't contain the bug's introduction (i.e., the introducing commit predates the RC cycle), the bug was already in the last stable release and the fix belongs in the stable section. If the introduction *is* in this range, the bug never shipped in stable, so drop the fix.
+   - Check the PR description for what was broken and when
+
+2. **Refinements to prerelease-only features** — if a new feature was introduced in `rc.0` and then iterated in `rc.1`/`rc.2`, keep only the final description and drop the iteration history
+
+3. **Internal/contributor-only tooling** — CI tweaks, build script changes, generator handling of prerelease version formats, local-dev tooling fixes. These don't belong in a user-facing changelog.
+
+#### Step 3: Curate the entries — KEEP these
+
+1. **User-facing fixes for bugs that existed in the previous stable** — if `rc.2` fixes a bug that was in `4.2.0`, that fix matters to stable users upgrading
+
+2. **Compatibility fixes** — Ruby/Rails version support, dependency relaxations, etc.
+
+3. **All breaking changes** — API/CLI changes, removed methods, configuration changes, exit code changes, generator output changes. Even if a breaking change was introduced and refined across multiple prereleases, the final breaking change description belongs in stable.
+
+4. **Performance/security improvements affecting all users**
+
+#### Step 4: Investigation process for each entry
+
+For each entry from a prerelease section, ask:
+
+- Was this bug present in the last stable release? If no, drop.
+- Was this feature introduced in an earlier prerelease and then superseded? If yes, keep only the final state.
+- Does this matter to someone upgrading from the last stable to this stable? If no, drop.
+
+#### Step 5: Final read-through
+
+Read the resulting stable section as if you're a user upgrading from the previous stable. Every entry should be something you'd want to know about. If an entry only makes sense to someone who tracked the RC cycle, drop it.
 
 ## Examples
 
