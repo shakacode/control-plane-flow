@@ -77,6 +77,19 @@ jobs:
           path: .cpflow
           persist-credentials: false
 
+      - name: Validate production token
+        shell: bash
+        env:
+          CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
+          PRODUCTION_ENVIRONMENT: ${{ inputs.production_environment }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CPLN_TOKEN_PRODUCTION}" ]]; then
+            echo "::error::CPLN_TOKEN_PRODUCTION is not set. Add it as a secret on the '${PRODUCTION_ENVIRONMENT}' GitHub Environment."
+            exit 1
+          fi
+
       - name: Validate required secrets and variables
         uses: ./.cpflow/.github/actions/cpflow-validate-config
         # Pass secrets via env so the composite action checks indirect shell

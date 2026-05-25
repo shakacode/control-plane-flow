@@ -47,6 +47,17 @@ runs:
         ruby <<'RUBY'
         require "yaml"
 
+        def safe_load_yaml_file(path)
+          contents = File.read(path)
+          YAML.safe_load(contents, aliases: true)
+        rescue ArgumentError, TypeError => e
+          raise unless e.message.include?("unknown keyword") ||
+                       e.message.include?("wrong number of arguments") ||
+                       e.message.include?("no implicit conversion of Hash")
+
+          YAML.safe_load(contents, [], [], true)
+        end
+
         def validate_github_env_value!(name, value)
           return if value.match?(/\A[A-Za-z0-9-]+\z/)
 
@@ -55,7 +66,7 @@ runs:
         end
 
         begin
-          config = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
+          config = safe_load_yaml_file(".controlplane/controlplane.yml")
           unless config.is_a?(Hash)
             warn "::error::.controlplane/controlplane.yml must be a YAML mapping; got #{config.class}: #{config.inspect}"
             exit 1
@@ -98,6 +109,11 @@ runs:
           end
 
           pr_number = ENV.fetch("PR_NUMBER", "").strip
+          unless pr_number.empty? || pr_number.match?(/\A[1-9][0-9]*\z/)
+            warn "::error::PR_NUMBER must be a positive integer; got: #{pr_number.inspect}"
+            exit 1
+          end
+
           app_name = pr_number.empty? ? "" : "#{prefix}-#{pr_number}"
 
           validate_github_env_value!("REVIEW_APP_PREFIX", prefix)

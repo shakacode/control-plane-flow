@@ -412,10 +412,12 @@ The setup action fails early when `CPFLOW_VERSION` and `control_plane_flow_ref`
 are out of sync. `CPFLOW_VERSION=5.0.0` is accepted only when
 `control_plane_flow_ref` is `v5.0.0` (or `refs/tags/v5.0.0`). Release tags may
 use dot- or dash-separated prerelease suffixes, such as `v5.0.0.rc.1` or
-`v5.0.0-rc.1`; the gem version should still use dots. When testing an unreleased
-upstream commit SHA, leave `CPFLOW_VERSION` unset so the workflow builds
-`cpflow` from the same source that supplies the reusable workflow and composite
-actions.
+`v5.0.0-rc.1`; the gem version should still use dots. The action also checks
+the remote `control-plane-flow` tag and the checked-out action commit, so a
+moving branch named like `v5.0.0` cannot be used with `CPFLOW_VERSION=5.0.0`.
+When testing an unreleased upstream commit SHA, leave `CPFLOW_VERSION` unset so
+the workflow builds `cpflow` from the same source that supplies the reusable
+workflow and composite actions.
 
 ## Testing Unreleased Upstream Changes Downstream
 
