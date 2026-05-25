@@ -12,22 +12,21 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-### Breaking Changes
+## [5.0.1] - 2026-05-24
 
-- Generated `cpflow-review-app-help.yml` now posts the review-app command quick reference whenever the wrapper exists and a pull request opens. Repositories that want no automatic PR-open help comment should remove that generated wrapper or add their own wrapper-level `if:` guard.
+### Changed
 
-### Added
-
-- Added a generated workflow guard that fails early when `CPFLOW_VERSION` does not match the `control_plane_flow_ref` release tag. The guard also verifies that the checked-out action code matches the remote tag commit, preventing a moving branch named like a release tag from being paired with a fixed RubyGems release.
-- Added review-app workflow config inference so generated deploy/delete/cleanup workflows can derive the review app prefix and staging Control Plane org from `.controlplane/controlplane.yml`. In the normal generated case, testing review apps now requires only the `CPLN_TOKEN_STAGING` GitHub secret.
-- Added `production` GitHub Environment protection to the generated production promotion reusable workflow so production-only secrets can be stored as environment secrets behind required reviewers.
-- Added a shared `cpflow-resolve-review-config` composite action so generated review-app deploy/delete/cleanup workflows use one review-app config parser.
+- Improved the generated PR-open review-app help workflow so the command quick reference appears whenever a repository has committed the wrapper and a pull request opens. This keeps setup visible even when review-app configuration is inferred from `.controlplane/controlplane.yml` instead of a `REVIEW_APP_PREFIX` variable. Repositories that do not want the automatic PR-open help comment can remove `cpflow-review-app-help.yml` or add a repository-specific `if:` guard.
+- Improved generated GitHub Actions ref/gem alignment checks so `CPFLOW_VERSION` must match the `control_plane_flow_ref` release tag. The setup action also verifies that the checked-out action code matches the remote tag commit, preventing a moving branch named like a release tag from being paired with a fixed RubyGems release.
+- Improved review-app workflow config inference so generated deploy/delete/cleanup workflows can derive the review-app prefix and staging Control Plane org from `.controlplane/controlplane.yml`. In the normal generated case, testing review apps now requires only the `CPLN_TOKEN_STAGING` GitHub secret.
+- Improved production promotion safety docs and generated workflow validation for using a protected `production` GitHub Environment with required reviewers and a production-only `CPLN_TOKEN_PRODUCTION` environment secret.
 
 ### Fixed
 
 - Fixed generated Control Plane entrypoints so database preparation runs through `./bin/rails`, stops the container on failure, and only runs for generated Rails server commands instead of every workload sharing the image. Generated Dockerfiles run from `WORKDIR /app`; apps with custom Dockerfiles that run the entrypoint from another directory should adjust the `./bin/rails db:prepare` path after regenerating. Apps with hand-edited `.controlplane/entrypoint.sh` files should audit custom commands when regenerating, especially Thruster invocations with custom flags and startup paths that relied on continuing after a failed database connection.
 - Fixed generated Dockerfiles so copied Control Plane entrypoints are marked executable inside the image even if the source file mode is lost.
-- Fixed production promotion so `CPLN_TOKEN_PRODUCTION` is read only from the protected GitHub Environment and is not declared as a caller-passable reusable-workflow secret.
+- Fixed generated review-app deploy/delete/cleanup workflows so they use one shared `cpflow-resolve-review-config` composite action instead of duplicated YAML parsing logic.
+- Fixed generated production promotion caller wrappers so they pass only `CPLN_TOKEN_STAGING`; `CPLN_TOKEN_PRODUCTION` should stay on the protected GitHub Environment where GitHub exposes it after approval.
 
 ## [5.0.0] - 2026-05-23
 
@@ -370,7 +369,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.1...HEAD
+[5.0.1]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0...v5.0.1
 [5.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.3...v5.0.0
 [5.0.0.rc.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...v5.0.0.rc.3
 [5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.1
