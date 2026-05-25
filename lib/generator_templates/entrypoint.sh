@@ -26,6 +26,8 @@ is_rails_server_command() {
     shift
   fi
 
+  # Thruster may be wrapped with its own `bundle exec`, and the Rails command
+  # it proxies may also be wrapped with `bundle exec`.
   if [ "${1:-}" = "bundle" ] && [ "${2:-}" = "exec" ]; then
     shift 2
   fi

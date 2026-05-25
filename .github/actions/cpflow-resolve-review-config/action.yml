@@ -27,7 +27,7 @@ outputs:
     description: Resolved Control Plane org.
     value: ${{ steps.resolve.outputs.cpln_org }}
   app_name:
-    description: Resolved review app name when pr_number is present.
+    description: Resolved review app name when pr_number is present; omitted when pr_number is empty.
     value: ${{ steps.resolve.outputs.app_name }}
 
 runs:

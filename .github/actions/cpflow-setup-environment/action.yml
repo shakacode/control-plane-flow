@@ -130,8 +130,16 @@ runs:
 
           [[ "${ref}" == v* ]] || return 1
 
-          if ! tag_refs="$(git ls-remote --tags "${remote_url}" "refs/tags/${ref}" "refs/tags/${ref}^{}")"; then
-            echo "::error::Could not verify control_plane_flow_ref against ${remote_url}. Runners that set CPFLOW_VERSION need outbound HTTPS access to GitHub for this tag check. Leave CPFLOW_VERSION unset when testing a commit SHA or branch."
+          git_ls_remote_tag() {
+            if command -v timeout >/dev/null 2>&1; then
+              timeout 20 git ls-remote --tags "${remote_url}" "refs/tags/${ref}" "refs/tags/${ref}^{}"
+            else
+              git ls-remote --tags "${remote_url}" "refs/tags/${ref}" "refs/tags/${ref}^{}"
+            fi
+          }
+
+          if ! tag_refs="$(git_ls_remote_tag 2>&1)"; then
+            echo "::error::Could not verify control_plane_flow_ref against ${remote_url}. Runners that set CPFLOW_VERSION need outbound HTTPS access to GitHub for this tag check. Leave CPFLOW_VERSION unset when testing a commit SHA or branch. Details: ${tag_refs}"
             exit 1
           fi
 

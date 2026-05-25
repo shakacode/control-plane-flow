@@ -116,6 +116,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(entrypoint_content).to match(%r{^\s*\./bin/rails db:prepare$})
         expect(entrypoint_content).to include("is_rails_server_command")
         expect(entrypoint_content).to include("env-prefixed, flag-free Thruster invocations")
+        expect(entrypoint_content).to include("Thruster may be wrapped with its own `bundle exec`")
         expect(entrypoint_content).to include('[ "${1:-}" = "env" ]')
         expect(entrypoint_content).to include('"rails" ] || [')
         expect(entrypoint_content).to include('"bin/rails" ] || [')
