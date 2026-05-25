@@ -14,21 +14,24 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [5.0.1] - 2026-05-24
 
+### Breaking Changes
+
+- BREAKING CHANGE: Generated GitHub Actions wrappers now pin Control Plane Flow only through the `uses: shakacode/control-plane-flow/...@<ref>` line and no longer accept downstream `control_plane_flow_ref` inputs. Repositories with older generated wrappers must regenerate or remove `control_plane_flow_ref` from `with:` blocks to avoid validation failures. [PR 321](https://github.com/shakacode/control-plane-flow/pull/321) by [Justin Gordon](https://github.com/justin808).
+
 ### Changed
 
-- Simplified generated GitHub Actions wrappers so downstream repos pin Control Plane Flow once with `uses: shakacode/control-plane-flow/...@vX.Y.Z`. Upstream reusable workflows now check out their matching shared actions from GitHub's called-workflow context, and generated validators reject obsolete `control_plane_flow_ref` wrapper inputs.
-- Improved the generated PR-open review-app help workflow so the command quick reference appears whenever a repository has committed the wrapper and a pull request opens. This keeps setup visible even when review-app configuration is inferred from `.controlplane/controlplane.yml` instead of a `REVIEW_APP_PREFIX` variable. Repositories that do not want the automatic PR-open help comment can remove `cpflow-review-app-help.yml` or add a repository-specific `if:` guard.
-- Clarified generated PR-open help docs so forks and clones can keep review-app command comments quiet until Control Plane is configured.
-- Improved generated GitHub Actions ref/gem alignment checks so `CPFLOW_VERSION` must match the `control_plane_flow_ref` release tag. The setup action also verifies that the checked-out action code matches the remote tag commit, preventing a moving branch named like a release tag from being paired with a fixed RubyGems release.
-- Improved review-app workflow config inference so generated deploy/delete/cleanup workflows can derive the review-app prefix and staging Control Plane org from `.controlplane/controlplane.yml`. In the normal generated case, testing review apps now requires only the `CPLN_TOKEN_STAGING` GitHub secret.
-- Improved production promotion safety docs and generated workflow validation for using a protected `production` GitHub Environment with required reviewers and a production-only `CPLN_TOKEN_PRODUCTION` environment secret.
+- **Simplified generated review-app help docs to a compact command/setup reference and moved extended guidance to upstream CI automation docs.** [PR 319](https://github.com/shakacode/control-plane-flow/pull/319) by [Justin Gordon](https://github.com/justin808).
+- **Clarified generated PR-open help opt-out guidance for forks and clones, including a sample job `if:` guard in generated wrappers.** [PR 323](https://github.com/shakacode/control-plane-flow/pull/323) by [Justin Gordon](https://github.com/justin808).
+- **Improved generated GitHub Actions ref/gem alignment checks so `CPFLOW_VERSION` must match the `control_plane_flow_ref` release tag and setup validates the checked-out action code against the remote tag commit.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808).
+- **Improved review-app workflow config inference so generated deploy/delete/cleanup workflows can derive the review-app prefix and staging Control Plane org from `.controlplane/controlplane.yml`.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808). In the normal generated case, testing review apps now requires only the `CPLN_TOKEN_STAGING` GitHub secret.
+- **Improved production promotion safety docs and generated workflow validation for using a protected `production` GitHub Environment with required reviewers and a production-only `CPLN_TOKEN_PRODUCTION` environment secret.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 
-- Fixed generated Control Plane entrypoints so database preparation runs through `./bin/rails`, stops the container on failure, and only runs for generated Rails server commands instead of every workload sharing the image. Generated Dockerfiles run from `WORKDIR /app`; apps with custom Dockerfiles that run the entrypoint from another directory should adjust the `./bin/rails db:prepare` path after regenerating. Apps with hand-edited `.controlplane/entrypoint.sh` files should audit custom commands when regenerating, especially Thruster invocations with custom flags and startup paths that relied on continuing after a failed database connection.
-- Fixed generated Dockerfiles so copied Control Plane entrypoints are marked executable inside the image even if the source file mode is lost.
-- Fixed generated review-app deploy/delete/cleanup workflows so they use one shared `cpflow-resolve-review-config` composite action instead of duplicated YAML parsing logic.
-- Fixed generated production promotion caller wrappers so they pass only `CPLN_TOKEN_STAGING`; `CPLN_TOKEN_PRODUCTION` should stay on the protected GitHub Environment where GitHub exposes it after approval.
+- **Fixed generated Control Plane entrypoints so database preparation runs through `./bin/rails`, fails fast, and runs only for generated Rails server commands instead of every workload sharing the image.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808). Generated Dockerfiles run from `WORKDIR /app`; apps with custom Dockerfiles that run the entrypoint from another directory should adjust the `./bin/rails db:prepare` path after regenerating.
+- **Fixed generated Dockerfiles so copied Control Plane entrypoints are marked executable inside the image even if the source file mode is lost.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808).
+- **Fixed generated review-app deploy/delete/cleanup workflows so they use one shared `cpflow-resolve-review-config` composite action instead of duplicated YAML parsing logic.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808).
+- **Fixed generated production-promotion caller wrappers so they pass only `CPLN_TOKEN_STAGING`; `CPLN_TOKEN_PRODUCTION` remains on the protected GitHub Environment where GitHub exposes it after approval.** [PR 318](https://github.com/shakacode/control-plane-flow/pull/318) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.0.0] - 2026-05-23
 
