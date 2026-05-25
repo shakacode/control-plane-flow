@@ -140,11 +140,6 @@ runs:
           actual_version="$(normalize_version "${CPFLOW_VERSION}")"
           expected_version="$(normalize_release_ref "${CONTROL_PLANE_FLOW_REF}")"
 
-          if [[ -z "${actual_version}" ]]; then
-            echo "::error::CPFLOW_VERSION='${CPFLOW_VERSION}' is not a recognized semver format. Use X.Y.Z or X.Y.Z-prerelease, such as 5.0.0 or 5.0.0.rc.1."
-            exit 1
-          fi
-
           if [[ -z "${expected_version}" ]]; then
             echo "::error::CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag like v${CPFLOW_VERSION}. Dot and dash prerelease tags are accepted, for example v5.0.0.rc.1 or v5.0.0-rc.1. Current control_plane_flow_ref: ${CONTROL_PLANE_FLOW_REF:-<empty>}. Leave CPFLOW_VERSION unset when testing a commit SHA or branch so cpflow is built from the same source as the reusable workflow."
             exit 1

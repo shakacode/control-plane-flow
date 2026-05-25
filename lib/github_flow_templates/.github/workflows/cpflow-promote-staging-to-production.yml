@@ -25,8 +25,8 @@ jobs:
       # Environment. Required reviewers approve the job before GitHub exposes
       # environment secrets to the upstream reusable workflow.
       production_environment: production
-    # `secrets: inherit` passes all caller repository secrets to the trusted
-    # upstream workflow. The upstream workflow only reads the named secrets it
-    # references, but GitHub does not enforce that boundary. Strict consumers can
-    # set CPFLOW_GITHUB_ACTIONS_REF to an immutable commit SHA.
-    secrets: inherit
+    # Only pass the staging token explicitly. CPLN_TOKEN_PRODUCTION must live on
+    # the protected production Environment, where GitHub exposes it only after
+    # the required reviewers approve this job.
+    secrets:
+      CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}

@@ -13,6 +13,13 @@ on:
         required: false
         type: string
         default: production
+    secrets:
+      CPLN_TOKEN_STAGING:
+        description: Control Plane token for reading the already-deployed staging image.
+        required: true
+      CPLN_TOKEN_PRODUCTION:
+        description: Production Control Plane token. Store it on the protected production Environment; do not pass it from a repository secret.
+        required: false
 
 permissions:
   contents: read

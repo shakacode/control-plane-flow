@@ -15,6 +15,13 @@ on:
         required: false
         type: string
         default: ""
+    secrets:
+      CPLN_TOKEN_STAGING:
+        description: Control Plane token for the staging org.
+        required: true
+      DOCKER_BUILD_SSH_KEY:
+        description: Optional SSH key used by Docker builds that fetch private dependencies.
+        required: false
 
 permissions:
   contents: read

@@ -8,6 +8,10 @@ on:
         required: false
         type: string
         default: main
+    secrets:
+      CPLN_TOKEN_STAGING:
+        description: Control Plane token for the staging org that owns review apps.
+        required: true
 
 permissions:
   contents: read
@@ -60,6 +64,13 @@ jobs:
           ruby <<'RUBY' | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_ENV"
           require "yaml"
 
+          def validate_github_env_value!(name, value)
+            return if value.match?(/\A[A-Za-z0-9_.-]+\z/)
+
+            warn "::error::#{name} must contain only letters, numbers, underscores, dots, and hyphens so it can be safely written to GitHub environment files."
+            exit 1
+          end
+
           config = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
           unless config.is_a?(Hash)
             warn "::error::.controlplane/controlplane.yml must be a YAML mapping; got #{config.class}: #{config.inspect}"
@@ -101,6 +112,9 @@ jobs:
             warn "::error::Set CPLN_ORG_STAGING or cpln_org for review app prefix '#{prefix}' in .controlplane/controlplane.yml."
             exit 1
           end
+
+          validate_github_env_value!("REVIEW_APP_PREFIX", prefix)
+          validate_github_env_value!("CPLN_ORG", cpln_org)
 
           puts "REVIEW_APP_PREFIX=#{prefix}"
           puts "CPLN_ORG=#{cpln_org}"

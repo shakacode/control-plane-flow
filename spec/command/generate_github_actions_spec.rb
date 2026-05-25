@@ -206,9 +206,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
       expect(contents).to include("control_plane_flow_ref: #{default_ref}")
       expect(contents).to include("Keep the @ref in `uses:` and `control_plane_flow_ref` below in sync")
-      expect(contents).to include("passes all caller repository secrets to the trusted")
-      expect(contents).to include("set CPFLOW_GITHUB_ACTIONS_REF to an immutable commit SHA")
-      expect(contents).to include("secrets: inherit")
+      expect(contents).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
+      expect(contents).to include("DOCKER_BUILD_SSH_KEY: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
+      expect(contents).not_to include("secrets: inherit")
       expect(contents).not_to include("Create initial PR comment")
       expect(contents).not_to include("Build Docker image")
       expect(contents).not_to include("Deploy to Control Plane")
@@ -221,6 +221,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include(
         "control_plane_flow_ref but no control-plane-flow reusable workflow"
       )
+      expect(test_cpflow_flow_path.read).to include("uses secrets: inherit")
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
     end
 
@@ -417,7 +418,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_review_workflow_path.read).to include("pull_request_target:")
       expect(delete_review_workflow_path.read).to include("pull_request_target is intentional")
       expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
-      expect(delete_review_workflow_path.read).to include("secrets: inherit")
+      expect(delete_review_workflow_path.read).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
+      expect(delete_review_workflow_path.read).not_to include("secrets: inherit")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
@@ -462,6 +464,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("unless config.is_a?(Hash)")
       expect(contents).to include('apps = config["apps"]')
       expect(contents).to include("unless apps.is_a?(Hash)")
+      expect(contents).to include("validate_github_env_value!")
+      expect(contents).to include("must contain only letters, numbers, underscores, dots, and hyphens")
       expect(contents).to include("Checkout caller repository")
       expect(contents).to include("path: app")
       expect(contents).to include("working-directory: app")
@@ -479,7 +483,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("contents: read")
       expect(contents).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
-      expect(contents).to include("secrets: inherit")
+      expect(contents).not_to include("secrets: inherit")
       expect(reusable_help_workflow_path.read).to include('fs.readFileSync(".github/cpflow-help.md"')
       expect(reusable_pr_open_help_workflow_path.read).not_to include("vars.REVIEW_APP_PREFIX != ''")
     end
@@ -567,7 +571,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       wrapper = pr_open_help_workflow_path.read
       expect(wrapper).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
-      expect(wrapper).to include("secrets: inherit")
+      expect(wrapper).not_to include("secrets: inherit")
     end
 
     it "pins the +review-app-* commands in the long-form help markdown" do
@@ -627,6 +631,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(wrapper).to include("callers must grant the union of callee permissions")
       expect(wrapper).to include("production_environment: production")
+      expect(wrapper).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
+      expect(wrapper).not_to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(wrapper).not_to include("secrets: inherit")
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include("contents: read")
       expect(contents).to include("production_environment:")

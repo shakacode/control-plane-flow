@@ -195,6 +195,10 @@ Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
 sensitive production systems. The generated promotion reusable workflow declares
 `environment: production`, so GitHub waits for the `production` environment's
 protection rules before the job can access `CPLN_TOKEN_PRODUCTION`.
+Generated caller workflows pass only the named secrets each reusable workflow
+needs. They do not use `secrets: inherit`; the production token is supplied by
+the protected `production` Environment after approval, not forwarded from a
+repository secret.
 
 ### Production Promotion Safety
 
@@ -274,6 +278,9 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 `cpflow-review-app-help.yml`
 
 - Posts a quick reference when a pull request opens, including on fork-based PRs.
+- This is an onboarding comment only; it does not checkout PR code or receive
+  Control Plane secrets. Remove this wrapper if a repo does not want automatic
+  review-app command help on every new PR.
 
 `cpflow-help-command.yml`
 
@@ -314,6 +321,12 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 
 - Runs nightly and on demand.
 - Deletes stale review apps using `cpflow cleanup-stale-apps`.
+
+Generated review app names use `<review-app-prefix>-<PR number>`, for example
+`my-app-review-123`. If an existing repository is migrating from older local
+workflow glue that created names like `<review-app-prefix>-pr-123`, delete those
+old review apps manually after merging the generated flow; the cleanup workflow
+only targets the current prefix convention.
 
 ## Upstream Reusable Workflows
 
@@ -451,8 +464,9 @@ bin/test-cpflow-github-flow
 
 The helper runs `cpflow github-flow-readiness`, parses generated workflow YAML,
 checks composite action metadata for literal GitHub expressions in descriptions,
-checks that all generated wrappers use one upstream ref consistently, requires
-secret-inheriting reusable workflows to pass `control_plane_flow_ref`, and runs
+checks that all generated wrappers use one upstream ref consistently, rejects
+broad `secrets: inherit` usage in generated cpflow wrappers, requires
+secret-passing reusable workflows to pass `control_plane_flow_ref`, and runs
 `actionlint -ignore "SC2129" .github/workflows/cpflow-*.yml`.
 
 ## Applying This to React on Rails Demo Apps
