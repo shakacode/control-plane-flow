@@ -171,9 +171,11 @@ Reference the agent SG by ID, not by CIDR. That way, the rule stays correct as A
 
 ## Step 4 — Declare the Network Resource on the Identity
 
-cpflow already provisions one Identity per workload (used for binding secrets — see
-`{{APP_IDENTITY_LINK}}` in `templates/rails.yml`). We need to add a `networkResources` entry to **that
-existing identity**, not create a new one.
+cpflow provisions a **single identity per app**, named `<app>-identity`, that is shared by every
+workload in the app (see `Config#identity` and the same `{{APP_IDENTITY_LINK}}` referenced by
+`templates/rails.yml`, `templates/sidekiq.yml`, and `templates/daily-task.yml`). We need to add a
+`networkResources` entry to **that existing identity**, not create a new one — and not a separate
+identity per workload.
 
 > **Important: `cpln apply` is a full replace, not a merge.** Use `yaml-slim` for manifests you plan
 > to re-apply; full `yaml` output can include server-managed metadata such as IDs, versions, and
@@ -250,8 +252,9 @@ Confirm the identity now has the new `networkResources` and that the policy stil
 
 ```sh
 # 1. The identity itself should now list `networkResources`.
+#    Use -A 15 so the full block (name, agentLink, FQDN, resolverIP, ports) is visible without re-running.
 cpln identity get my-app-production-identity --gvc my-app-production --org my-org -o yaml \
-  | grep -A 5 networkResources
+  | grep -A 15 networkResources
 
 # 2. Policies are separate resources — they reference the identity by link, not by replacing it.
 #    Confirm the existing cpflow-generated policy (typically <app>-secrets-policy) has `reveal`
@@ -322,13 +325,13 @@ CPLN's `cpln://secret/<name>.<key>` syntax substitutes the **entire env var valu
 is not a substring interpolation. So you have two options for assembling a `DATABASE_URL` that includes a
 secret password:
 
-**TLS to RDS:** RDS and Aurora require TLS by default in current parameter groups. Always include
-`sslmode=require` in the connection string or `database.yml`. Without it, newer clusters will refuse the
-connection and older ones will silently fall back to unencrypted. For stricter certificate verification
-(`verify-ca` / `verify-full`), the AWS RDS CA bundle must be present in the container image and referenced
-with `sslrootcert=/path/to/rds-ca.pem` in the connection string or `PGSSLROOTCERT`; otherwise those modes fail
-even though `sslmode=require` works. See the
-[AWS RDS SSL/TLS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
+> **TLS requirement.** RDS and Aurora require TLS by default in current parameter groups. Always
+> include `sslmode=require` in the connection string or `database.yml`. Without it, newer clusters
+> will refuse the connection and older ones will silently fall back to unencrypted. For stricter
+> certificate verification (`verify-ca` / `verify-full`), the AWS RDS CA bundle must be present in
+> the container image and referenced with `sslrootcert=/path/to/rds-ca.pem` in the connection string
+> or `PGSSLROOTCERT`; otherwise those modes fail even though `sslmode=require` works. See the
+> [AWS RDS SSL/TLS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
 
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
