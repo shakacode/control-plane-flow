@@ -2,8 +2,8 @@
 # https://github.com/controlplane-com/examples/blob/main/examples/postgres/manifest.yaml
 
 kind: volumeset
-name: postgres-poc-vs
-description: postgres-poc-vs
+name: "{{APP_NAME}}-pg-vs"
+description: "{{APP_NAME}}-pg-vs"
 spec:
   autoscaling:
     maxCapacity: 1000
@@ -18,7 +18,7 @@ spec:
 
 ---
 kind: secret
-name: postgres-poc-credentials
+name: "{{APP_NAME}}-pg"
 description: ''
 type: dictionary
 data:
@@ -27,7 +27,7 @@ data:
 
 ---
 kind: secret
-name: postgres-poc-entrypoint-script
+name: "{{APP_NAME}}-pg-script"
 type: opaque
 data:
   encoding: base64
@@ -92,13 +92,13 @@ data:
 
 ---
 kind: identity
-name: postgres-poc-identity
-description: postgres-poc-identity
+name: "{{APP_NAME}}-pg-identity"
+description: "{{APP_NAME}}-pg-identity"
 
 ---
 kind: policy
-name: postgres-poc-access
-description: postgres-poc-access
+name: "{{APP_NAME}}-pg-access"
+description: "{{APP_NAME}}-pg-access"
 bindings:
   - permissions:
       - reveal
@@ -106,11 +106,14 @@ bindings:
 #      - use
 #      - view
     principalLinks:
-      - //gvc/{{APP_NAME}}/identity/postgres-poc-identity
+      - "//gvc/{{APP_NAME}}/identity/{{APP_NAME}}-pg-identity"
+      # cpflow apply-template replaces {{APP_IDENTITY_LINK}} with the full app workload identity link.
+      # Example: //gvc/{{APP_NAME}}/identity/{{APP_NAME}}-identity.
+      - "{{APP_IDENTITY_LINK}}"
 targetKind: secret
 targetLinks:
-  - //secret/postgres-poc-credentials
-  - //secret/postgres-poc-entrypoint-script
+  - "//secret/{{APP_NAME}}-pg"
+  - "//secret/{{APP_NAME}}-pg-script"
 
 ---
 kind: workload
@@ -130,9 +133,9 @@ spec:
         - name: PGDATA #The location postgres stores the db. This can be anything other than /var/lib/postgresql/data, but it must be inside the mount point for the volume set
           value: "/var/lib/postgresql/data/pg_data"
         - name: POSTGRES_PASSWORD #The password for the default user
-          value: cpln://secret/postgres-poc-credentials.password
+          value: "cpln://secret/{{APP_NAME}}-pg.password"
         - name: POSTGRES_USER #The name of the default user
-          value: cpln://secret/postgres-poc-credentials.username
+          value: "cpln://secret/{{APP_NAME}}-pg.username"
       name: postgres
       image: postgres:15
       command: /bin/bash
@@ -146,10 +149,10 @@ spec:
         - number: 5432
           protocol: tcp
       volumes:
-        - uri: cpln://volumeset/postgres-poc-vs
+        - uri: "cpln://volumeset/{{APP_NAME}}-pg-vs"
           path: "/var/lib/postgresql/data"
         # Make the ENV value for the entry script a file
-        - uri: cpln://secret/postgres-poc-entrypoint-script
+        - uri: "cpln://secret/{{APP_NAME}}-pg-script"
           path: "/usr/local/bin/cpln-entrypoint.sh"
       inheritEnv: false
       livenessProbe:
@@ -160,7 +163,7 @@ spec:
         tcpSocket:
           port: 5432
         failureThreshold: 1
-  identityLink: //identity/postgres-poc-identity
+  identityLink: "//identity/{{APP_NAME}}-pg-identity"
   defaultOptions:
     capacityAI: false
     autoscaling:

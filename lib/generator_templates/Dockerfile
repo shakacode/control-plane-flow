@@ -17,11 +17,16 @@ WORKDIR /app
 # rely on ExecJS in production. Narrowed to just what the node stage actually
 # ships under /usr/local so we don't drag in unused Debian libs from that image.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
-COPY --from=node /usr/local/bin/npm /usr/local/bin/npm
-COPY --from=node /usr/local/bin/npx /usr/local/bin/npx
-COPY --from=node /usr/local/bin/corepack /usr/local/bin/corepack
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=node /usr/local/include/node /usr/local/include/node
+
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+    ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack && \
+    chmod +x /usr/local/lib/node_modules/npm/bin/npm-cli.js \
+             /usr/local/lib/node_modules/npm/bin/npx-cli.js \
+             /usr/local/lib/node_modules/corepack/dist/corepack.js && \
+    node --version && npm --version && corepack --version
 
 # Expose Corepack-managed shims so later build steps can call yarn/pnpm
 # directly during asset precompilation hooks.

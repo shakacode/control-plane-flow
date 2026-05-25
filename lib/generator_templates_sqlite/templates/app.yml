@@ -1,5 +1,5 @@
 kind: gvc
-name: {{APP_NAME}}
+name: "{{APP_NAME}}"
 spec:
   env:
     - name: RAILS_ENV
@@ -9,7 +9,7 @@ spec:
     - name: RAILS_SERVE_STATIC_FILES
       value: "true"
     - name: SECRET_KEY_BASE
-      value: cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE
+      value: "cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE"
   staticPlacement:
     locationLinks:
-      - {{APP_LOCATION_LINK}}
+      - "{{APP_LOCATION_LINK}}"
