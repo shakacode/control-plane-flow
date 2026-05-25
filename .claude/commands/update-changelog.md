@@ -166,11 +166,14 @@ This repo does **not** have an `update_changelog` rake task — the slash comman
      ```
 
      Note: this repo uses `...HEAD`, not `...main`. Match the existing convention.
-   - Add a new compare link for the stamped version, comparing the previous tag to the new one:
+   - Add a new compare link for the stamped version:
 
      ```markdown
      [4.3.0]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v4.3.0
      ```
+
+     - **For stable releases**, skip prerelease tags — compare from the previous **stable** tag. A stable release that coalesces prior RCs (e.g., `v5.0.0.rc.0`, `v5.0.0.rc.1`) still uses the last stable tag as the left side (e.g., `v4.2.0...v5.0.0`), not the latest RC tag.
+     - **For prereleases**, compare from the immediately previous tag (which may be a prior RC/beta or the last stable tag).
 
 3. **For `rc`/`beta` modes**: Insert the new RC/beta section above any prior prereleases — do NOT collapse them. Each RC/beta is a separately-tagged release that users install, and they need to see what changed between, say, `rc.0` and `rc.1`. See "For Prerelease Versions" below. Coalescing happens only at the stable release.
 
@@ -269,7 +272,9 @@ If the user passed `release`, `rc`, `beta`, or an explicit version string as an 
 
 5. **For `rc`/`beta`**: Do NOT collapse prior prerelease sections — each RC/beta gets its own section so users can see what changed between prereleases. Just insert the new section above the prior ones and add a new compare link. See "For Prerelease Versions" below.
 
-6. **Verify** the stamped header and diff links match the requested version. If anything looks off, fix it before continuing.
+6. **For stable `release` (or explicit stable version) when prior `rc`/`beta` sections exist for the same base version**: Do NOT just stamp `## [5.0.0]` above the prior RC sections. Instead, follow the "For Prerelease to Stable Version Release" process below — it replaces steps 3–4 here with the coalesce + curate flow (combine all RC sections into the new stable section, move any matching `[Unreleased]` entries in, drop prerelease-only noise, and use the previous **stable** tag in the compare link).
+
+7. **Verify** the stamped header and diff links match the requested version. If anything looks off, fix it before continuing.
 
 If no argument was passed, skip this step -- entries stay in `## [Unreleased]`.
 
@@ -310,7 +315,7 @@ When the user passes `rc` or `beta` as an argument:
 
 2. **Auto-compute the next prerelease version** using the process in "Auto-Computing the Next Version" above. Use RubyGems format (`5.0.0.rc.0`), not `5.0.0-rc.0`.
 
-3. **Do NOT collapse prior prereleases.** Each RC/beta is a separately-tagged release that users install — they need to see what changed between, for example, `rc.0` and `rc.1` (especially when diagnosing a regression in a specific RC). The rake task reads each `## [VERSION]` section independently, so each RC's GitHub release gets its own focused notes. Instead:
+3. **Do NOT collapse prior prereleases.** Each RC/beta is a separately-tagged release that users install — they need to see what changed between, for example, `rc.0` and `rc.1` (especially when diagnosing a regression in a specific RC). Each successive `bundle exec rake release` reads only the top-most `## [VERSION]` section (the RC you just stamped — see the "Version Stamping" section above), so as long as each RC has its own section the corresponding GitHub release gets its own focused notes. Instead:
 
    - Insert the new prerelease version section immediately after `## [Unreleased]`, **above** any prior prerelease sections (preserves newest-first ordering)
    - Move any entries from `## [Unreleased]` that belong to this prerelease into the new section
@@ -318,6 +323,35 @@ When the user passes `rc` or `beta` as an argument:
    - Add any new user-visible changes from commits since the last prerelease tag to the new section only
    - Add a new compare link at the bottom comparing the previous prerelease tag (or the last stable tag if this is the first RC) to the new prerelease tag
    - Update the `[Unreleased]` compare link to point from the new prerelease tag to `HEAD`
+
+**Resulting structure** after stamping `5.0.0.rc.1` (with `5.0.0.rc.0` already shipped on top of stable `4.2.0`):
+
+```markdown
+## [Unreleased]
+
+## [5.0.0.rc.1] - 2026-05-25
+
+### Fixed
+
+- **Fix regression introduced in rc.0**. [PR 320](https://github.com/shakacode/control-plane-flow/pull/320) by [Justin Gordon](https://github.com/justin808).
+
+## [5.0.0.rc.0] - 2026-05-10
+
+### Added
+
+- **New feature**. [PR 315](https://github.com/shakacode/control-plane-flow/pull/315) by [Justin Gordon](https://github.com/justin808).
+
+## [4.2.0] - 2026-04-01
+
+...
+
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.1...HEAD
+[5.0.0.rc.1]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.0...v5.0.0.rc.1
+[5.0.0.rc.0]: https://github.com/shakacode/control-plane-flow/compare/v4.2.0...v5.0.0.rc.0
+[4.2.0]: https://github.com/shakacode/control-plane-flow/compare/v4.1.1...v4.2.0
+```
+
+Both RC sections remain intact with their own compare links until the stable release coalesces them.
 
 **Coalescing happens only at the stable release** — see "For Prerelease to Stable Version Release" below.
 
@@ -330,15 +364,16 @@ When releasing from prerelease to a stable version (e.g., `v5.0.0.rc.2` -> `v5.0
 #### Step 1: Coalesce all prerelease sections into one stable section
 
 - Replace `## [5.0.0.rc.0]`, `## [5.0.0.rc.1]`, `## [5.0.0.beta.1]`, etc. with a single `## [5.0.0] - YYYY-MM-DD` section
-- Combine entries from all prerelease sections, consolidating duplicate category headings (e.g., merge multiple `### Fixed` sections into one under the preferred order from "Category Organization")
+- **Move any remaining entries from `## [Unreleased]` into the new stable section** — anything still under `[Unreleased]` at stable-release time is shipping in this stable version. Leave `## [Unreleased]` with only its header (no entries).
+- Combine entries from all prerelease sections and the moved `[Unreleased]` entries, consolidating duplicate category headings (e.g., merge multiple `### Fixed` sections into one under the preferred order from "Category Organization")
 - Remove the orphaned compare links at the bottom of the file for the coalesced prerelease versions
-- Add the `[5.0.0]` compare link pointing from the previous stable tag (e.g., `v4.2.0`) to `v5.0.0`
+- Add the `[5.0.0]` compare link pointing from the previous stable tag (e.g., `v4.2.0`) to `v5.0.0` — **not** from the latest RC tag
 - Update the `[Unreleased]` compare link to point from `v5.0.0` to `HEAD`
 
 #### Step 2: Curate the entries — REMOVE these
 
 1. **Prerelease-only fixes** — bugs introduced during the prerelease cycle and fixed in a later RC. If the bug never shipped in a stable release, the fix is noise to stable users.
-   - Investigate when a bug was introduced: `git log --oneline v<last_stable>..v<current_prerelease> -- <file>`
+   - Investigate when a bug was introduced: `git log --oneline v<last_stable>..v<rc_that_fixed_the_bug>` — if this commit range doesn't contain the bug's introduction (i.e., the introducing commit predates the RC cycle), the bug was already in the last stable release and the fix belongs in the stable section. If the introduction *is* in this range, the bug never shipped in stable, so drop the fix.
    - Check the PR description for what was broken and when
 
 2. **Refinements to prerelease-only features** — if a new feature was introduced in `rc.0` and then iterated in `rc.1`/`rc.2`, keep only the final description and drop the iteration history
