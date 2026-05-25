@@ -14,7 +14,8 @@ permissions:
 
 jobs:
   show-help:
-    # This is intentionally unconditional: adding this wrapper opts the repo in
-    # to PR-open help. Remove the wrapper or add a repo-specific `if:` guard if
-    # review apps should not be advertised before Control Plane is configured.
+    # This is intentionally unconditional: committing this wrapper opts the repo in
+    # to PR-open help. Remove it, or uncomment and adapt this guard, if forks or
+    # clones should stay quiet until Control Plane is configured:
+    #   if: vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-review-app-help.yml@__CPFLOW_GITHUB_ACTIONS_REF__
