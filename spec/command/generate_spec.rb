@@ -112,8 +112,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(rails_template_content).to include("timeoutSeconds: 60")
         entrypoint_content = entrypoint_path.read
         expect(entrypoint_content).to include("set -e")
-        expect(entrypoint_content).to include("./bin/rails db:prepare")
-        expect(entrypoint_content).to include("WORKDIR /app")
+        expect(entrypoint_content).to match(%r{^\s*\./bin/rails db:prepare$})
         expect(entrypoint_content).to include("is_rails_server_command")
         expect(entrypoint_content).to include("flag-free Thruster invocations")
         expect(entrypoint_content).to include('"rails" ] || [')

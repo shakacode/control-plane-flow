@@ -16,6 +16,9 @@ jobs:
   show-help:
     # control_plane_flow_ref is accepted by the upstream workflow for wrapper
     # consistency; this helper does not check out shared actions.
+    # This is intentionally unconditional: adding this wrapper opts the repo in
+    # to PR-open help. Remove the wrapper or add a repo-specific `if:` guard if
+    # review apps should not be advertised before Control Plane is configured.
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-review-app-help.yml@__CPFLOW_GITHUB_ACTIONS_REF__
     with:
       control_plane_flow_ref: __CPFLOW_GITHUB_ACTIONS_REF__

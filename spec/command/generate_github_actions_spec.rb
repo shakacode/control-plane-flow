@@ -472,7 +472,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(action_contents).to include("unless apps.is_a?(Hash)")
       expect(action_contents).to include("validate_github_env_value!")
       expect(action_contents).to include("Could not resolve review app config")
-      expect(action_contents).to include("must contain only letters, numbers, underscores, dots, and hyphens")
+      expect(action_contents).to include("must contain only letters, numbers, and hyphens")
       expect(action_contents).to include('File.open(ENV.fetch("GITHUB_ENV"), "a")')
       expect(action_contents).to include('File.open(ENV.fetch("GITHUB_OUTPUT"), "a")')
       expect(contents).to include("Checkout caller repository")
@@ -580,6 +580,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(pr_open_help).not_to include('"---"')
 
       wrapper = pr_open_help_workflow_path.read
+      expect(wrapper).to include("This is intentionally unconditional")
       expect(wrapper).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
       expect(wrapper).not_to include("secrets: inherit")
     end
