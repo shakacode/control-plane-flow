@@ -204,8 +204,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include(
         "uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{default_ref}"
       )
-      expect(contents).to include("control_plane_flow_ref: #{default_ref}")
-      expect(contents).to include("Keep the @ref in `uses:` and `control_plane_flow_ref` below in sync")
+      expect(contents).not_to include("control_plane_flow_ref:")
+      expect(contents).not_to include("Keep the @ref in `uses:`")
       expect(contents).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
       expect(contents).to include("DOCKER_BUILD_SSH_KEY: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
       expect(contents).not_to include("secrets: inherit")
@@ -219,12 +219,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(pin_cpflow_ref_path.read).to include("Pathname.new(path).relative_path_from(root).to_s")
       expect(test_cpflow_flow_path.read).to include("cpflow github-flow-readiness")
       expect(test_cpflow_flow_path.read).to include(
-        "control_plane_flow_ref but no control-plane-flow reusable workflow"
+        "passes obsolete control_plane_flow_ref"
       )
       expect(test_cpflow_flow_path.read).to include("uses secrets: inherit")
       expect(test_cpflow_flow_path.read).to include("must set production_environment")
       expect(test_cpflow_flow_path.read).to include("must not pass CPLN_TOKEN_PRODUCTION as a caller secret")
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
+      expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
     end
 
     it "passes setup action versions through env before using them in shell commands" do
@@ -238,10 +239,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("git ls-remote --tags")
       expect(contents).to include("timeout 20 git ls-remote")
       expect(contents).to include("is_rubygems_version")
+      expect(contents).to include("extract_ref_name")
       expect(contents).to include("CPFLOW_VERSION must be a RubyGems version usable by 'gem install cpflow -v'")
       expect(contents).to include("validate_cpflow_version_pin")
-      expect(contents).to include("CPFLOW_VERSION must match control_plane_flow_ref")
-      expect(contents).to include("CPFLOW_VERSION can only be used when control_plane_flow_ref is a release tag")
+      expect(contents).to include("CPFLOW_VERSION must match the control-plane-flow reusable workflow tag")
+      expect(contents).to include("CPFLOW_VERSION can only be used when the control-plane-flow reusable workflow")
       expect(contents).to include("Use the real release tag ref, not a moving branch")
       expect(contents).to include("outbound HTTPS access to GitHub")
       expect(contents).not_to include("normalized CPFLOW_VERSION=${actual_version:-<unrecognized>}")
@@ -269,7 +271,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("gem install cpflow -v ${{ inputs.cpflow_version }}")
     end
 
-    it "passes control_plane_flow_ref to every setup action call for gem/ref validation" do
+    it "lets reusable workflows derive their own upstream checkout and gem/ref validation ref" do
       # This validates checked-in reusable workflows, not generated app wrappers.
       Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s).each do |path|
         workflow = YAML.load_file(path, aliases: true)
@@ -277,27 +279,30 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         expect(workflow_on).to have_key("workflow_call"), "#{path} must declare a workflow_call trigger"
 
-        workflow_inputs = workflow_on.dig("workflow_call", "inputs") || {}
+        workflow_call = workflow_on.fetch("workflow_call") || {}
+        workflow_inputs = workflow_call.fetch("inputs", {})
 
-        expect(workflow_inputs).to(
+        expect(workflow_inputs).not_to(
           have_key("control_plane_flow_ref"),
-          "#{path} must declare control_plane_flow_ref as a workflow_call input"
+          "#{path} must not require downstream wrappers to pass control_plane_flow_ref"
         )
 
         workflow.fetch("jobs").each_value do |job|
-          if job["uses"].to_s.include?("cpflow")
-            expect(job.fetch("with", {})).to include(
-              "control_plane_flow_ref" => "${{ inputs.control_plane_flow_ref }}"
-            ), "#{path} reusable job call must pass control_plane_flow_ref"
-          end
-
           # Job-level `uses:` entries call reusable workflows; they cannot call composite actions directly.
           Array(job["steps"]).each do |step|
+            if step["uses"] == "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" &&
+               step.dig("with", "path") == ".cpflow"
+              expect(step.fetch("with")).to include(
+                "repository" => "${{ job.workflow_repository }}",
+                "ref" => "${{ job.workflow_sha }}"
+              ), "#{path} cpflow checkout must use the called workflow source"
+            end
+
             next unless step["uses"] == "./.cpflow/.github/actions/cpflow-setup-environment"
 
             expect(step.fetch("with")).to include(
-              "control_plane_flow_ref" => "${{ inputs.control_plane_flow_ref }}"
-            ), "#{path} setup action call must pass control_plane_flow_ref"
+              "control_plane_flow_ref" => "${{ job.workflow_ref }}"
+            ), "#{path} setup action call must pass job.workflow_ref"
           end
         end
       end
@@ -357,8 +362,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "keeps trusted generated actions separate from PR-controlled app code" do
       contents = reusable_review_app_workflow_path.read
 
-      expect(contents).to include("repository: shakacode/control-plane-flow")
-      expect(contents).to include("ref: ${{ inputs.control_plane_flow_ref }}")
+      expect(contents).to include("repository: ${{ job.workflow_repository }}")
+      expect(contents).to include("ref: ${{ job.workflow_sha }}")
       expect(contents).to include("path: .cpflow")
       expect(contents).to include("path: app")
       expect(contents).to include("persist-credentials: false")
@@ -501,7 +506,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = help_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("contents: read")
-      expect(contents).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
+      expect(contents).not_to include("control_plane_flow_ref:")
       expect(contents).not_to include("secrets: inherit")
       expect(reusable_help_workflow_path.read).to include('fs.readFileSync(".github/cpflow-help.md"')
       expect(reusable_pr_open_help_workflow_path.read).not_to include("vars.REVIEW_APP_PREFIX != ''")
@@ -591,7 +596,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       wrapper = pr_open_help_workflow_path.read
       expect(wrapper).to include("This is intentionally unconditional")
-      expect(wrapper).to include("control_plane_flow_ref: v#{Cpflow::VERSION}")
+      expect(wrapper).not_to include("control_plane_flow_ref:")
       expect(wrapper).not_to include("secrets: inherit")
     end
 
@@ -829,7 +834,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_app_workflow_path.read).to include(
         "shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{default_ref}"
       )
-      expect(review_app_workflow_path.read).to include("control_plane_flow_ref: #{default_ref}")
+      expect(review_app_workflow_path.read).not_to include("control_plane_flow_ref:")
     end
   end
 

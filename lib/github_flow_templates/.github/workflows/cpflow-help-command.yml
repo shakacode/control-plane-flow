@@ -23,8 +23,4 @@ jobs:
        contains(fromJson('["+review-app-help","+review-app-help\n","+review-app-help\r\n"]'), github.event.comment.body) &&
        contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
       github.event_name == 'workflow_dispatch'
-    # control_plane_flow_ref is accepted by the upstream workflow for wrapper
-    # consistency; this helper checks out caller content only.
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-help-command.yml@__CPFLOW_GITHUB_ACTIONS_REF__
-    with:
-      control_plane_flow_ref: __CPFLOW_GITHUB_ACTIONS_REF__

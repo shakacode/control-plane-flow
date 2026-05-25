@@ -31,10 +31,6 @@ jobs:
       github.event_name == 'workflow_dispatch'
     # This `if:` mirrors the upstream job guard to avoid a billable workflow_call
     # when the event does not match. Keep both conditions in sync.
-    # Keep the @ref in `uses:` and `control_plane_flow_ref` below in sync: the
-    # first selects the reusable workflow, the second selects its shared actions.
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-delete-review-app.yml@__CPFLOW_GITHUB_ACTIONS_REF__
-    with:
-      control_plane_flow_ref: __CPFLOW_GITHUB_ACTIONS_REF__
     secrets:
       CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}

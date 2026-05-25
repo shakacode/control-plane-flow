@@ -2,12 +2,6 @@ name: Cleanup Stale Review Apps
 
 on:
   workflow_call:
-    inputs:
-      control_plane_flow_ref:
-        description: Git ref used to load shared cpflow composite actions.
-        required: false
-        type: string
-        default: main
     secrets:
       CPLN_TOKEN_STAGING:
         description: Control Plane token for the staging org that owns review apps.
@@ -32,8 +26,8 @@ jobs:
       - name: Checkout control-plane-flow actions
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          repository: shakacode/control-plane-flow
-          ref: ${{ inputs.control_plane_flow_ref }}
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           path: .cpflow
           persist-credentials: false
 
@@ -67,7 +61,7 @@ jobs:
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
-          control_plane_flow_ref: ${{ inputs.control_plane_flow_ref }}
+          control_plane_flow_ref: ${{ job.workflow_ref }}
 
       - name: Remove stale review apps
         working-directory: app
