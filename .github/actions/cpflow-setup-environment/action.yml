@@ -104,13 +104,10 @@ runs:
 
         normalize_version() {
           local version="${1#v}"
+          version="${version//-/.}"
 
-          if [[ "${version}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)([.-](test|beta|alpha|rc|pre|dev|snapshot|nightly)([.-]?([0-9]+))?)?$ ]]; then
-            if [[ -n "${BASH_REMATCH[3]}" ]]; then
-              echo "${BASH_REMATCH[1]}.${BASH_REMATCH[3]}${BASH_REMATCH[5]:+.${BASH_REMATCH[5]}}"
-            else
-              echo "${BASH_REMATCH[1]}"
-            fi
+          if [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9A-Za-z]+)*$ ]]; then
+            echo "${version}"
           fi
           # Empty output means an unrecognized format; callers check for that.
         }
@@ -123,7 +120,7 @@ runs:
         }
 
         is_rubygems_version() {
-          [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.(test|beta|alpha|rc|pre|dev|snapshot|nightly)(\.([0-9]+))?)?$ ]]
+          [[ "${1}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9A-Za-z]+)*$ ]]
         }
 
         validate_cpflow_version_pin() {
