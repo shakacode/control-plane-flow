@@ -22,6 +22,8 @@ is_rails_server_command() {
 }
 
 # Match generated Rails server commands; workers and renderers skip DB prep.
+# Generated Dockerfiles use WORKDIR /app; adjust this path if your hand-edited
+# image runs the entrypoint from a different working directory.
 if is_rails_server_command "$@"; then
   echo " -- Preparing database"
   ./bin/rails db:prepare

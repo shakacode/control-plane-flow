@@ -25,7 +25,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- Fixed generated Control Plane entrypoints so database preparation runs through `./bin/rails`, stops the container on failure, and only runs for generated Rails server commands instead of every workload sharing the image. Apps with hand-edited `.controlplane/entrypoint.sh` files should audit custom commands when regenerating, especially commands prefixed with `env`, Thruster invocations with custom flags, and startup paths that relied on continuing after a failed database connection.
+- Fixed generated Control Plane entrypoints so database preparation runs through `./bin/rails`, stops the container on failure, and only runs for generated Rails server commands instead of every workload sharing the image. Generated Dockerfiles run from `WORKDIR /app`; apps with custom Dockerfiles that run the entrypoint from another directory should adjust the `./bin/rails db:prepare` path after regenerating. Apps with hand-edited `.controlplane/entrypoint.sh` files should audit custom commands when regenerating, especially commands prefixed with `env`, Thruster invocations with custom flags, and startup paths that relied on continuing after a failed database connection.
 
 ## [5.0.0] - 2026-05-23
 

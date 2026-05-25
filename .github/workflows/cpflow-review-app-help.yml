@@ -26,6 +26,7 @@ jobs:
               "# 🚀 Quick Review App Commands",
               "",
               "Welcome! Here are the commands you can use in this PR:",
+              "They require the repository to have cpflow review apps configured, including the `CPLN_TOKEN_STAGING` secret.",
               "",
               "### `+review-app-deploy`",
               "Deploy your PR branch for testing.",

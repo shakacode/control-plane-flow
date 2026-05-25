@@ -458,8 +458,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "uses shell env vars for stale review cleanup inputs" do
       contents = reusable_cleanup_stale_review_apps_workflow_path.read
+      wrapper = cleanup_stale_review_apps_workflow_path.read
       action_contents = shared_action_path("cpflow-resolve-review-config").read
 
+      expect(wrapper).to include("Cleanup targets the current inferred review-app prefix")
       expect(contents).to include("Resolve review app config")
       expect(contents).to include("uses: ./.cpflow/.github/actions/cpflow-resolve-review-config")
       expect(contents).to include("configured_review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}")
@@ -469,6 +471,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(action_contents).to include('apps = config["apps"]')
       expect(action_contents).to include("unless apps.is_a?(Hash)")
       expect(action_contents).to include("validate_github_env_value!")
+      expect(action_contents).to include("Could not resolve review app config")
       expect(action_contents).to include("must contain only letters, numbers, underscores, dots, and hyphens")
       expect(action_contents).to include('File.open(ENV.fetch("GITHUB_ENV"), "a")')
       expect(action_contents).to include('File.open(ENV.fetch("GITHUB_OUTPUT"), "a")')
@@ -567,6 +570,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(pr_open_help).to include('"# 🚀 Quick Review App Commands"')
       expect(pr_open_help).to include('"### `+review-app-deploy`"')
+      expect(pr_open_help).to include("`CPLN_TOKEN_STAGING` secret")
       expect(pr_open_help).to include('"Deploy your PR branch for testing."')
       expect(pr_open_help).to include('"### `+review-app-delete`"')
       expect(pr_open_help).to include('"Remove the review app when done."')

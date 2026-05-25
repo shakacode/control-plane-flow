@@ -54,6 +54,7 @@ runs:
           exit 1
         end
 
+        begin
         config = YAML.safe_load(File.read(".controlplane/controlplane.yml"), aliases: true)
         unless config.is_a?(Hash)
           warn "::error::.controlplane/controlplane.yml must be a YAML mapping; got #{config.class}: #{config.inspect}"
@@ -113,5 +114,9 @@ runs:
           file.puts "review_app_prefix=#{prefix}"
           file.puts "cpln_org=#{cpln_org}"
           file.puts "app_name=#{app_name}" unless app_name.empty?
+        end
+        rescue StandardError => e
+          warn "::error::Could not resolve review app config from .controlplane/controlplane.yml: #{e.class}: #{e.message}"
+          exit 1
         end
         RUBY
