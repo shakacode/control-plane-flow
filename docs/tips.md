@@ -164,7 +164,7 @@ review-app entry in `.controlplane/controlplane.yml`.
 ```yaml
 # Only `type` and `minScale` change from templates/rails.yml; `capacityAI` and `timeoutSeconds`
 # are shown for context so the full `defaultOptions` block reaches the destination intact.
-# Merge into your full templates/rails.yml (or a review-app-specific template); keep
+# Update the relevant fields in your full templates/rails.yml (or a review-app-specific template); keep
 # containers, firewallConfig, identityLink, and everything else from that file intact.
 kind: workload
 name: rails
