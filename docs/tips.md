@@ -162,7 +162,7 @@ create a review-app-specific template (for example `rails-review.yml`) and list 
 review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Only `type` and `minScale` change from templates/rails.yml; `capacityAI` and `timeoutSeconds`
+# Only `type` and `minScale` change from templates/rails.yml; `maxScale`, `capacityAI` and `timeoutSeconds`
 # are shown for context so the full `defaultOptions` block reaches the destination intact.
 # Update the relevant fields in your full templates/rails.yml (or a review-app-specific template); keep
 # containers, firewallConfig, identityLink, and everything else from that file intact.
