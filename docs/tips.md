@@ -162,8 +162,10 @@ create a review-app-specific template (for example `rails-review.yml`) and list 
 review-app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Fields to override — merge into your full templates/rails.yml (or a review-app-specific template);
-# keep containers, firewallConfig, identityLink, and everything else from that file intact.
+# Only `type` and `minScale` change from templates/rails.yml; `capacityAI` and `timeoutSeconds`
+# are shown for context so the full `defaultOptions` block reaches the destination intact.
+# Merge into your full templates/rails.yml (or a review-app-specific template); keep
+# containers, firewallConfig, identityLink, and everything else from that file intact.
 kind: workload
 name: rails
 spec:
@@ -182,8 +184,9 @@ See [`templates/rails.yml`](/templates/rails.yml) for the full default — `cont
 Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
 `type: standard` always keeps at least one replica running.
 
-Tradeoff: the first request after a quiet period pays the cold-start cost (typically a few seconds for a Rails image).
-For review apps that's usually fine; for production it usually isn't.
+Tradeoff: the first request after a quiet period pays the cold-start cost (typically 15–60 seconds for a Rails
+image, depending on app size and boot configuration). For review apps that's usually fine; for production it
+usually isn't.
 
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See
@@ -215,7 +218,9 @@ cpflow cleanup-stale-apps -a my-app-review --yes
 ```
 
 The `--yes` flag skips the interactive confirmation prompt; keep it for CI jobs, or omit it when running manually and
-you want to review the prompt.
+you want to review the prompt. Because `match_if_app_name_starts_with: true` is set, `-a my-app-review` here matches
+every app whose name starts with that prefix — by contrast, the `cpflow ps:stop -a my-app-review-123` examples below
+target a single concrete app name.
 
 This deletes the GVC, workloads, volumesets, and images for any review app whose latest matching image, or GVC when no
 matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy when that
