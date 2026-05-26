@@ -174,8 +174,8 @@ spec:
     autoscaling:
       minScale: 0
       maxScale: 1
-    capacityAI: false
-    timeoutSeconds: 60
+    capacityAI: false    # keep your existing value
+    timeoutSeconds: 60   # keep your existing value
 ```
 
 See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
