@@ -15,8 +15,8 @@ Gem::Specification.new do |spec|
   spec.post_install_message = <<~MESSAGE
     cpflow #{Cpflow::VERSION} installed.
 
-    If this repository uses generated cpflow GitHub Actions, update the checked-in
-    wrappers so GitHub loads the matching control-plane-flow release tag:
+    If this repository already uses generated cpflow GitHub Actions, update the
+    checked-in wrappers so GitHub loads the matching control-plane-flow release tag:
 
       cpflow update-github-actions
       bin/test-cpflow-github-flow
@@ -25,6 +25,9 @@ Gem::Specification.new do |spec|
 
       bundle exec cpflow update-github-actions
       bin/test-cpflow-github-flow bundle exec cpflow
+
+    New repository? Run `cpflow generate-github-actions` first to create the
+    wrappers (and the `bin/test-cpflow-github-flow` script referenced above).
   MESSAGE
 
   spec.required_ruby_version = ">= 3.0.0"

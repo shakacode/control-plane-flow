@@ -244,6 +244,34 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(staging_workflow_path.read).to include('staging_app_branch_default: "develop"')
     end
 
+    it "treats a reversed default branch list as the default during update" do
+      staging_workflow_path.write(
+        staging_workflow_path.read.gsub('branches: ["main", "master"]', 'branches: ["master", "main"]')
+      )
+
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:status]).to eq(0)
+        expect(result[:stderr]).not_to include("multiple custom push branches")
+      end
+
+      expect(staging_workflow_path.read).to include('branches: ["main", "master"]')
+      expect(staging_workflow_path.read).to include('staging_app_branch_default: ""')
+    end
+
+    it "regenerates wrappers without crashing when the staging workflow is empty" do
+      staging_workflow_path.write("")
+
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:status]).to eq(0)
+      end
+
+      expect(staging_workflow_path.read).to include('branches: ["main", "master"]')
+    end
+
     it "generates local helpers for pinning and validating cpflow workflow refs" do
       expect(pin_cpflow_ref_path.read).to include("Use a full 40-character commit SHA")
       expect(pin_cpflow_ref_path.read).to include("Pathname.new(path).relative_path_from(root).to_s")
@@ -847,6 +875,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
                      .sort
 
       expect(generated).to eq(expected)
+    end
+  end
+
+  context "when update-github-actions runs in a fresh repository" do
+    it "aborts with a clear message instead of silently bootstrapping wrappers" do
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:status]).to eq(ExitCode::ERROR_DEFAULT)
+        expect(result[:stderr]).to include("No generated cpflow GitHub Actions files")
+        expect(result[:stderr]).to include("cpflow generate-github-actions")
+        expect(playground.join(".github")).not_to exist
+      end
     end
   end
 

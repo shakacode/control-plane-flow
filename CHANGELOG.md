@@ -16,6 +16,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - Added `cpflow update-github-actions`, `cpflow generate-github-actions --force`, RubyGems install guidance, and release-task follow-up output so downstream repositories remember to update checked-in generated GitHub Actions wrappers when the `cpflow` gem version changes.
 
+### Fixed
+
+- Fixed `cpflow update-github-actions` so a manually-reordered `branches: ["master", "main"]` staging workflow is still treated as the default (no spurious "multiple custom push branches" warning, no silent drop of the staging branch), and an empty or non-hash staging workflow no longer crashes the command. The command now aborts with a clear message instead of silently bootstrapping wrappers when run in a repository that has never run `generate-github-actions`. Clarified the RubyGems post-install message so first-time installers see the `generate-github-actions` path.
+
 ## [5.0.2] - 2026-05-25
 
 ### Fixed
