@@ -226,7 +226,8 @@ This deletes the GVC, workloads, volumesets, and images for any review app whose
 matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy when that
 binding exists. Wire it into a nightly CI cron — see
 [CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
-`cpflow-cleanup-stale-review-apps.yml` workflow.
+`cpflow-cleanup-stale-review-apps.yml` workflow, which runs in delete mode by default; customize the workflow
+to pass `--mode=stop` if you prefer reversible pausing in CI.
 
 For reversible idle handling under the same stale-app scan, use stop mode instead:
 
@@ -235,7 +236,10 @@ cpflow cleanup-stale-apps -a my-app-review --mode=stop --yes
 ```
 
 This uses the same staleness threshold, but runs `cpflow ps:stop` for each stale app instead of deleting the GVC,
-volumesets, or images. Resume an app later with `cpflow ps:start -a $APP_NAME`.
+volumesets, or images. Resume an app later with `cpflow ps:start -a $APP_NAME`. `cpflow ps:stop` only suspends
+workloads listed under `app_workloads` / `additional_workloads` in `.controlplane/controlplane.yml`; workloads
+created outside that config (for example through the Control Plane UI) are left alone — see
+[Pause and Resume](#pause-and-resume-with-psstop--psstart) for details.
 
 ### Pause and Resume with `ps:stop` / `ps:start`
 
