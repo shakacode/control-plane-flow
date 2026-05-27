@@ -27,7 +27,7 @@ pattern. Don't run a production database that way.
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                            Control Plane (CPLN)                              │
 │                                                                              │
@@ -332,6 +332,15 @@ secret password:
 > the container image and referenced with `sslrootcert=/path/to/rds-ca.pem` in the connection string
 > or `PGSSLROOTCERT`; otherwise those modes fail even though `sslmode=require` works. See the
 > [AWS RDS SSL/TLS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
+>
+> With the name-based wormhole pattern shown here (`db-primary`, `db-readers`), `verify-full` will
+> fail because Postgres validates the certificate hostname against the host in `DATABASE_URL`, and
+> the RDS/Aurora certificate is issued for the actual AWS endpoint rather than `db-primary`.
+> Use `sslmode=require` for encrypted transport, or `verify-ca` as the strongest mode with this
+> stable alias pattern. If your security policy requires `verify-full`, the workload-facing
+> hostname must match the certificate name: use the actual RDS/Aurora endpoint as the
+> `networkResources[].name` (after confirming CPLN accepts that hostname as a resource name), then
+> use that same endpoint hostname in `DATABASE_URL`.
 
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
@@ -459,7 +468,9 @@ cpflow apply-template rails -a my-app-production
 
 Open an interactive shell in a one-off copy of the rails workload (with the identity, env, and image of
 the live workload), then run `psql` from inside it. `cpflow run` flattens argv with `join(" ")` and does
-no shell escaping (see `lib/command/base.rb`), so quoted multi-arg commands like
+no shell escaping (see
+[`Command::Base.args_join`](https://github.com/shakacode/control-plane-flow/blob/800cc6aa62aef406e699086b9d48f1559a8ba470/lib/command/base.rb#L532-L533)),
+so quoted multi-arg commands like
 `-- bash -c 'psql "$DATABASE_URL" -c "select 1"'` won't survive round-tripping — running `psql` from
 inside the interactive shell sidesteps the issue entirely.
 
