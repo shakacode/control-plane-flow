@@ -12,13 +12,15 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.0.3] - 2026-05-26
+
 ### Added
 
-- Added `cpflow update-github-actions`, `cpflow generate-github-actions --force`, RubyGems install guidance, and release-task follow-up output so downstream repositories remember to update checked-in generated GitHub Actions wrappers when the `cpflow` gem version changes.
+- **Added `cpflow update-github-actions`, `cpflow generate-github-actions --force`, RubyGems install guidance, and release-task follow-up output so downstream repositories remember to update checked-in generated GitHub Actions wrappers when the `cpflow` gem version changes.** [PR 328](https://github.com/shakacode/control-plane-flow/pull/328) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 
-- Fixed `cpflow update-github-actions` so a manually-reordered `branches: ["master", "main"]` staging workflow is still treated as the default (no spurious "multiple custom push branches" warning, no silent drop of the staging branch), and an empty or non-hash staging workflow no longer crashes the command. The command now aborts with a clear message instead of silently bootstrapping wrappers when run in a repository that has never run `generate-github-actions`. Clarified the RubyGems post-install message so first-time installers see the `generate-github-actions` path.
+- **Fixed `cpflow update-github-actions` so reordered default staging branches remain defaults, empty or non-hash staging workflow YAML no longer crashes, and fresh repos fail with a clear `generate-github-actions` instruction instead of silently creating wrappers.** [PR 331](https://github.com/shakacode/control-plane-flow/pull/331) by [Justin Gordon](https://github.com/justin808). Clarified the RubyGems post-install message so first-time installers see the `generate-github-actions` path.
 
 ## [5.0.2] - 2026-05-25
 
@@ -390,7 +392,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.2...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.3...HEAD
+[5.0.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.2...v5.0.3
 [5.0.2]: https://github.com/shakacode/control-plane-flow/compare/v5.0.1...v5.0.2
 [5.0.1]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0...v5.0.1
 [5.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0.rc.3...v5.0.0
