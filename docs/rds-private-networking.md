@@ -80,39 +80,40 @@ Key properties:
   permissions.
 - `cpln` CLI installed and authenticated against the target org.
 
-## Step 1 — Create the Agent in the CPLN UI
+## Step 1 — Create the Agent and AWS user-data script
 
-The CPLN UI generates a bootstrap script containing the agent's credentials. You'll paste this into the EC2
-launch template's user data in step 2.
+The CPLN UI first generates a **bootstrap config** for the agent, then uses that config to generate the
+cloud-provider script. For AWS, the EC2 Launch Template needs the generated **Userdata Script** — not the
+raw bootstrap config JSON.
 
 1. In the CPLN UI, go to **Agents** → **New**.
 2. Give it a stable name (e.g. `aws-us-east-2-prod`). The org-scoped link will be
    `//agent/aws-us-east-2-prod`.
 3. Pick **AWS** as the platform.
-4. Copy the **bootstrap script** displayed by the UI. Treat it like a secret — it contains a one-time
-   registration token.
+4. Click **Create**, then save the bootstrap config JSON manually or with **Download Config File**.
+   Treat this like a secret. It is not retrievable after you close the modal — if you lose it, delete
+   the agent and recreate it.
+5. Click **Next** and copy or download the AWS **Userdata Script**. This is the script you paste into the
+   EC2 Launch Template in step 2.
+
+If you already created the agent but still have the bootstrap config, open the agent's page, choose
+**Actions** → **Download Scripts**, paste/import the bootstrap config, and copy the YAML from the
+**Userdata Script** tab.
 
 > **CLI creation note:** do not use `cpln apply --file agent.yaml` for this step. It can create the
-> Agent object, but it does not give you the bootstrap config/token needed by the EC2 host. Use the
-> Console path above unless you have verified the CLI creation output in your org:
+> Agent object, but it does not produce the bootstrap config needed by the EC2 host. Use the Console
+> path above, or use `cpln agent create` and capture stdout to a bootstrap config file:
 >
 > ```sh
 > cpln agent create \
 >   --name aws-us-east-2-prod \
 >   --description "Wormhole agent in customer AWS VPC, us-east-2." \
->   --org my-org -o yaml
+>   --org my-org > bootstrap-config.json
 > ```
 >
-> The bootstrap token is shown by the UI immediately after creation and is **not retrievable
-> afterward** — if you miss it, delete the agent and recreate it. The closest CLI equivalents are
-> `cpln agent info <name>` (operational status, not the bootstrap token) and `cpln agent manifest`
-> (takes an existing `--bootstrap-file` as input and renders host manifests; it does not generate,
-> recover, or print a new token).
->
-> **Unverified CLI note:** `cpln agent create` exists, but this guide has not verified whether it
-> emits the bootstrap payload on stdout for every CLI/org version. For IaC workflows, verify that
-> behavior in your org first and capture any bootstrap output into your secrets store on the same
-> run; you won't get a second chance.
+> Do not paste `bootstrap-config.json` directly into EC2 user data. Render an AWS Userdata Script from
+> that config first (Console **Download Scripts**, or a CLI/scripted equivalent that you have verified
+> in your org), then use the rendered script in the Launch Template.
 
 ## Step 2 — Launch the Agent on AWS
 
@@ -121,16 +122,17 @@ Recommended baseline:
 - **AMI:** Ubuntu Server 24.04 LTS.
 - **Instance type:** `t3.small` for testing; `t3.medium` or larger for production (CPLN recommends a minimum of
   2 vCPU / 4 GiB).
-- **Launch Template:** set the user data to the bootstrap script from step 1.
+- **Launch Template:** set the user data to the AWS **Userdata Script** generated in step 1.
   - **Security note:** EC2 user data is visible to anyone with `ec2:DescribeLaunchTemplates` /
     `ec2:DescribeInstanceAttribute`, and readable from the instance itself at
-    `http://169.254.169.254/latest/user-data` via IMDS. For production, prefer storing the bootstrap script
-    in AWS Secrets Manager or SSM Parameter Store and having a small bootstrap snippet in user data fetch
-    and execute it at startup (granting the instance role `secretsmanager:GetSecretValue` or `ssm:GetParameter`
-    on that specific resource ARN). That requires an IAM instance profile: create or reuse one, attach only
-    the narrowly scoped `GetSecretValue` / `GetParameter` permission on the specific secret or parameter ARN,
-    and set the profile in the Launch Template under **Advanced details** → **IAM instance profile** before
-    relying on the user-data fetch. At minimum, audit who has those `Describe*` permissions in the account.
+    `http://169.254.169.254/latest/user-data` via IMDS. For production, prefer storing the generated
+    Userdata Script (or the bootstrap config plus a verified render step) in AWS Secrets Manager or SSM
+    Parameter Store and having a small bootstrap snippet in user data fetch and execute it at startup
+    (granting the instance role `secretsmanager:GetSecretValue` or `ssm:GetParameter` on that specific
+    resource ARN). That requires an IAM instance profile: create or reuse one, attach only the narrowly
+    scoped `GetSecretValue` / `GetParameter` permission on the specific secret or parameter ARN, and set
+    the profile in the Launch Template under **Advanced details** → **IAM instance profile** before relying
+    on the user-data fetch. At minimum, audit who has those `Describe*` permissions in the account.
 - **Auto Scaling Group:**
   - Testing: desired 1 / min 1 / max 1.
   - Production: desired 2 / min 2 / max 4 across at least two availability zones. Two agents give you
