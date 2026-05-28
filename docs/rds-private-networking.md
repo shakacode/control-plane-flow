@@ -62,6 +62,8 @@ Key properties:
 
 - The Agent **dials out** to CPLN over TLS. No inbound from CPLN to your VPC is required, so RDS stays fully
   private.
+- Traffic through the wormhole is **encrypted in transit** — the agent uses WireGuard for the tunnel between
+  your VPC and CPLN.
 - The workload connects to the resource by its **name**, not by RDS's hostname — CPLN routes the connection
   through the agent.
 - The Agent is **org-scoped** — one agent can serve workloads in any GVC in the org.
@@ -121,7 +123,11 @@ Recommended baseline:
 
 - **AMI:** Ubuntu Server 24.04 LTS.
 - **Instance type:** `t3.small` for testing; `t3.medium` or larger for production (CPLN recommends a minimum of
-  2 vCPU / 4 GiB).
+  2 vCPU / 4 GiB). In practice the binding constraint is **network bandwidth**, not CPU/RAM, so size on the
+  instance's *baseline* (not burst) bandwidth for your expected DB throughput. The agent ships in both Intel
+  (x86-64) and ARM (Graviton) builds, so ARM families cost less for the same capability — use `t4g` for
+  burstable workloads (e.g. `t4g.medium` in place of `t3.medium`) and `c7g`/`c6g` when you need sustained
+  bandwidth at higher load.
 - **Launch Template:** set the user data to the AWS **Userdata Script** generated in step 1.
   - **Security note:** EC2 user data is visible to anyone with `ec2:DescribeLaunchTemplates` /
     `ec2:DescribeInstanceAttribute`, and readable from the instance itself at
@@ -139,6 +145,9 @@ Recommended baseline:
     a rolling-restart path during upgrades and survive a single-AZ outage.
 - **Subnets:** subnets must have outbound internet access (public subnet with auto-assign IPv4, or private
   subnet with NAT). The agent dials CPLN over TLS; it does *not* need any inbound rule from the internet.
+  When choosing AZs, note that not every EC2 instance type is offered in every AZ — confirm your chosen type
+  is available in the AZ(s) you target, especially if you co-locate the agent with the RDS writer's AZ to
+  avoid cross-AZ data-transfer charges (see [Cost](#cost)).
 
 After the ASG is healthy, verify the agent registered:
 
@@ -170,6 +179,12 @@ RDS SG  ingress    ◄──  Agent SG     port 5432
 ```
 
 Reference the agent SG by ID, not by CIDR. That way, the rule stays correct as ASG instances are recycled.
+
+> **Simpler alternative: share the RDS SG.** Instead of managing a separate egress/ingress rule pair, you can
+> attach the **RDS SG itself** to the agent instances. Each agent then carries two security groups — its own
+> (egress to CPLN on `443` and the VPC DNS resolver on `53`) plus the RDS SG. If the RDS SG already has a
+> self-referencing rule that allows ingress from itself on `5432`, this removes the need to maintain a
+> dedicated Agent-SG → RDS-SG rule.
 
 ## Step 4 — Declare the Network Resource on the Identity
 
@@ -259,11 +274,11 @@ cpln identity get my-app-production-identity --gvc my-app-production --org my-or
   | grep -A 15 networkResources
 
 # 2. Policies are separate resources — they reference the identity by link, not by replacing it.
-#    Confirm the existing cpflow-generated policy (typically <app>-secrets-policy) has `reveal`
+#    Confirm the existing cpflow-generated policy (typically <app-prefix>-secrets-policy) has `reveal`
 #    and the identity link in the same binding block. The full identity link cpflow uses is
 #    /org/<org>/gvc/<app>/identity/<app>-identity (see Config#identity_link).
 #    (The `cpln` CLI exposes `policy get`/`policy query` — there is no `policy list` subcommand.)
-cpln policy get my-app-production-secrets-policy --org my-org -o yaml
+cpln policy get my-app-secrets-policy --org my-org -o yaml
 ```
 
 Look for a binding shaped like this; both `reveal` and the identity link must be in the same item:
@@ -280,7 +295,8 @@ If the policy block is gone, no longer contains the identity link, or does not g
 won't be able to read its secrets — re-bind the identity to the secrets policy directly with the CPLN CLI:
 
 ```sh
-cpln policy add-binding my-app-production-secrets-policy --org my-org \
+# Verify this subcommand exists in your installed cpln version first: cpln policy --help
+cpln policy add-binding my-app-secrets-policy --org my-org \
   --identity /org/my-org/gvc/my-app-production/identity/my-app-production-identity \
   --permission reveal
 ```
@@ -289,6 +305,12 @@ This is the same call `cpflow setup-app` makes internally (see `Controlplane#bin
 `cpflow apply-template app` does **not** recreate the binding — its `app` template only defines the
 GVC, and `--add-app-identity` only inserts an identity object, not the policy binding. Adjust the
 policy name if you've overridden `secrets_policy_name` in `controlplane.yml`.
+
+> **Naming note.** The secret and policy default to `<app-prefix>-secrets` / `<app-prefix>-secrets-policy`,
+> where the prefix is the matched `controlplane.yml` entry name (`Config#secrets`). That prefix can be
+> **shorter than the full app name** used for the GVC and identity — e.g. an app `my-app-production` matched
+> by a `my-app` entry has identity `my-app-production-identity` but secret `my-app-secrets` and policy
+> `my-app-secrets-policy`. Confirm yours with `cpln secret get --gvc <app> --org <org>` if unsure.
 
 Schema notes (per CPLN's documented `networkResources` schema):
 
@@ -324,7 +346,7 @@ the rare case where you want to pin to a specific IP.
 The workload's `DATABASE_URL` uses the **resource `name`** as the hostname, not the RDS endpoint.
 
 CPLN's `cpln://secret/<name>.<key>` syntax substitutes the **entire env var value** at workload startup — it
-is not a substring interpolation. So you have two options for assembling a `DATABASE_URL` that includes a
+is not a substring interpolation. So you have three options for assembling a `DATABASE_URL` that includes a
 secret password:
 
 > **TLS requirement.** RDS and Aurora require TLS by default in current parameter groups. Always
@@ -444,6 +466,31 @@ production:
   sslmode: require
 ```
 
+**Option C: compose the URL at the CPLN env layer with `$(VAR)` interpolation.** Use this to keep credentials
+as separate secret keys *and* avoid touching `database.yml` — the workload still receives a single
+`DATABASE_URL`.
+
+While `cpln://secret/...` replaces a whole value, CPLN *also* supports `$(VAR)` references that interpolate
+**other env vars** defined on the same workload. Combine the two: back each component with a secret, then
+assemble `DATABASE_URL` from those env vars.
+
+```yaml
+env:
+  - name: DATABASE_USER
+    value: cpln://secret/my-app-secrets.DATABASE_USER
+  - name: DATABASE_PASSWORD
+    value: cpln://secret/my-app-secrets.DATABASE_PASSWORD
+  - name: DATABASE_HOST
+    value: db-primary            # the networkResources[].name from step 4
+  - name: DATABASE_URL
+    value: postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):5432/myapp_production?sslmode=require
+```
+
+With this form, `config/database.yml` can read `DATABASE_URL` directly
+(`url: <%= ENV.fetch("DATABASE_URL") %>`) — no host/user/password plumbing required. cpflow template
+variables such as `{{APP_NAME}}` also expand inside the value if you want the database name to track the app
+name.
+
 Either way:
 
 - `db-primary` / `db-readers` are the `networkResources[].name` values from step 4 and serve as the
@@ -483,7 +530,7 @@ cpflow apply-template rails -a my-app-production
 Open an interactive shell in a one-off copy of the rails workload (with the identity, env, and image of
 the live workload), then run `psql` from inside it. `cpflow run` flattens argv with `join(" ")` and does
 no shell escaping (see
-[`Command::Base.args_join`](https://github.com/shakacode/control-plane-flow/blob/800cc6aa62aef406e699086b9d48f1559a8ba470/lib/command/base.rb#L532-L533)),
+[`Command::Base.args_join`](https://github.com/shakacode/control-plane-flow/blob/main/lib/command/base.rb)),
 so quoted multi-arg commands like
 `-- bash -c 'psql "$DATABASE_URL" -c "select 1"'` won't survive round-tripping — running `psql` from
 inside the interactive shell sidesteps the issue entirely.
@@ -552,8 +599,12 @@ Expected: a current timestamp and the RDS Postgres version. Common failures:
 
 - Two `t3.medium` instances 24/7 in `us-east-2`: roughly $60/month before data transfer; check current EC2
   pricing for your region and instance family.
-- Cross-AZ data transfer between agent and RDS: typically negligible for normal app traffic; significant
-  for bulk loads (consider placing the agent in the same AZ as the RDS writer for big migrations).
+- Cross-AZ data transfer between agent and RDS is **billed per-GB in each direction** even within one region,
+  so steady query traffic — not just bulk loads — accumulates a charge whenever the agent and the RDS writer
+  sit in different AZs. To minimize it, place an agent in the **same AZ as the RDS writer**. This trades off
+  against the multi-AZ HA recommended above: for cost-sensitive setups, co-locate with the writer's AZ; for
+  HA, spread across AZs and accept the cross-AZ transfer cost. Either way, keep the agent in the **same
+  region** as RDS.
 
 ## Alternatives — when not to use an Agent
 
