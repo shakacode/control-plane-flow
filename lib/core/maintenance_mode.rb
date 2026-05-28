@@ -3,6 +3,14 @@
 class MaintenanceMode
   extend Forwardable
 
+  DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT = 30
+  DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT = 1
+  DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS = {
+    retry_on_failure: true,
+    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT,
+    wait: DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT
+  }.freeze
+
   def_delegators :@command, :config, :progress, :cp, :step, :run_cpflow_command
 
   def initialize(command)
@@ -82,14 +90,28 @@ class MaintenanceMode
   end
 
   def switch_domain_workload(to:)
-    step("Switching workload for domain '#{domain_data['name']}' to '#{to}'") do
-      cp.set_domain_workload(domain_data, to)
+    domain_name = domain_data["name"]
+    update_requested = false
 
-      # Give it a bit of time for the domain to update
-      Kernel.sleep(30)
+    step("Switching workload for domain '#{domain_name}' to '#{to}'", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
+      unless update_requested
+        request_domain_workload_update(to)
+        update_requested = true
+      end
+
+      domain_workload_update_confirmed?(domain_name, to)
     end
 
     progress.puts
+  end
+
+  def request_domain_workload_update(workload)
+    cp.set_domain_workload(domain_data, workload)
+  end
+
+  def domain_workload_update_confirmed?(domain_name, workload)
+    @domain_data = cp.fetch_domain(domain_name)
+    @domain_data && cp.domain_workload_matches?(@domain_data, workload)
   end
 
   def domain_data
