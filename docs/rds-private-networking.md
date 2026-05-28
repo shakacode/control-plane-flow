@@ -51,7 +51,7 @@ pattern. Don't run a production database that way.
 │                                                                              │
 │   ┌─────────────────────────────────┐         ┌─────────────────────────┐    │
 │   │  Auto Scaling Group (Agents)    │  ────►  │   RDS / Aurora cluster  │    │
-│   │  - 2× EC2 (t3.small+)           │  5432   │   private subnets only  │    │
+│   │  - 2× EC2 (t3.medium+ prod)     │  5432   │   private subnets only  │    │
 │   │  - Ubuntu 24.04 LTS             │         │   SG: allow from agent  │    │
 │   │  - SG: egress to RDS SG:5432    │         │   SG only               │    │
 │   └─────────────────────────────────┘         └─────────────────────────┘    │
@@ -347,29 +347,41 @@ secret password:
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
 
-Create a dictionary secret holding the entire connection string. **Use the CPLN UI** (Secrets → New
-dictionary secret) — it's the safest place to enter credentials and avoids shell history, tty echo, and
-plaintext request bodies entirely.
+Add the connection string to the existing app dictionary secret created by `cpflow setup-app`
+(`my-app-secrets` in these examples). **Use the CPLN UI** (Secrets → select the app secret → add keys) —
+it's the safest place to enter credentials and avoids shell history, tty echo, and plaintext request bodies
+entirely.
 
-> ⚠️ **CLI form below is reference-only.** It writes credentials to your shell history and to the `cpln`
-> request body in plaintext. The common "prefix with a space" trick only works when `HISTCONTROL` includes
-> `ignorespace` or `ignoreboth`, which is **not** set by default on many stripped-down bastion/EC2 shells.
-> Prefer the UI for any real credential.
+> ⚠️ **CLI form below is reference-only.** It writes credentials to your shell history, local disk, and the
+> `cpln` request body in plaintext. The common "prefix with a space" trick only works when `HISTCONTROL`
+> includes `ignorespace` or `ignoreboth`, which is **not** set by default on many stripped-down bastion/EC2
+> shells. Prefer the UI for any real credential.
 
 ```sh
 # Reference only — prefer the UI.
-cpln apply --file - <<'YAML'
-kind: secret
-name: my-app-database
-type: dictionary
-data:
-  url: "postgres://app:supersecret@db-primary:5432/myapp_production?sslmode=require"
-  url_readers: "postgres://app_readonly:readsecret@db-readers:5432/myapp_production?sslmode=require"
-YAML
+cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml
+# Edit /tmp/my-app-secrets.yml and add these keys under data, preserving existing entries:
+#   url: "postgres://app:supersecret@db-primary:5432/myapp_production?sslmode=require"
+#   url_readers: "postgres://app_readonly:readsecret@db-readers:5432/myapp_production?sslmode=require"
+cpln apply --file /tmp/my-app-secrets.yml
+rm /tmp/my-app-secrets.yml
 ```
 
-Make sure the existing app policy grants `reveal` on this new secret — see
-[secrets-and-env-values.md](./secrets-and-env-values.md).
+> **Secret policy target.** `cpflow setup-app` creates the app secret (`my-app-secrets`) and a secrets
+> policy that targets only that secret. If you instead store database values in a separate secret such as
+> `my-app-database`, add `//secret/my-app-database` to the existing policy's `targetLinks` while preserving
+> `//secret/my-app-secrets`; otherwise `cpln://secret/my-app-database...` references will fail at workload
+> startup even if the identity has a `reveal` binding.
+>
+> ```sh
+> cpln policy get my-app-secrets-policy --org my-org -o yaml > /tmp/my-app-secrets-policy.yml
+> # Edit targetLinks to include both:
+> # - //secret/my-app-secrets
+> # - //secret/my-app-database
+> cpln apply --file /tmp/my-app-secrets-policy.yml
+> ```
+>
+> See [secrets-and-env-values.md](./secrets-and-env-values.md) for the generated app secret/policy flow.
 
 Then in your workload template:
 
@@ -380,27 +392,27 @@ spec:
     - name: rails
       env:
         - name: DATABASE_URL
-          value: cpln://secret/my-app-database.url
+          value: cpln://secret/my-app-secrets.url
         # Optional, for read replicas:
         - name: DATABASE_REPLICA_URL
-          value: cpln://secret/my-app-database.url_readers
+          value: cpln://secret/my-app-secrets.url_readers
 ```
 
 **Option B: keep the password in a secret, assemble the URL in app code.** Use this if you want the URL host
 to live in plaintext config so it's easy to grep for in templates.
 
-Create a secret holding just the password. Again, **prefer the CPLN UI** to enter the credential; the
-CLI heredoc below is reference-only (same shell-history caveat as Option A).
+Add just the password to the existing app secret. Again, **prefer the CPLN UI** to enter the credential; the
+CLI heredoc below is reference-only (same shell-history caveat as Option A). If you create
+`my-app-database` instead of adding the password to `my-app-secrets`, update the app secrets policy
+`targetLinks` as shown in Option A.
 
 ```sh
 # Reference only — prefer the UI.
-cpln apply --file - <<'YAML'
-kind: secret
-name: my-app-database
-type: dictionary
-data:
-  password: "supersecret"
-YAML
+cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml
+# Edit /tmp/my-app-secrets.yml and add this key under data, preserving existing entries:
+#   password: "supersecret"
+cpln apply --file /tmp/my-app-secrets.yml
+rm /tmp/my-app-secrets.yml
 ```
 
 Then set the workload env:
@@ -416,7 +428,7 @@ env:
   - name: DATABASE_USER
     value: app
   - name: DATABASE_PASSWORD
-    value: cpln://secret/my-app-database.password
+    value: cpln://secret/my-app-secrets.password
 ```
 
 …and in `config/database.yml`:
@@ -528,16 +540,18 @@ Expected: a current timestamp and the RDS Postgres version. Common failures:
 
 ### Agent sizing and upgrades
 
-- The CPLN agent process (not the NIC) is the typical throughput bottleneck. AWS `t3.small` provides up
-  to ~5 Gbps burst network bandwidth (≥250 Mbps baseline), which handles normal app database traffic
-  comfortably. Watch agent CPU and active connection count and scale up the instance type if CPU stays
-  above ~70% or connection-queue latency rises.
+- For production, start with `t3.medium` or larger so the agent has at least 2 vCPU / 4 GiB, matching the
+  CPLN recommendation from Step 2. Capacity-plan on the instance's baseline network bandwidth, not burst
+  bandwidth; `t3.small` is fine for testing, but its lower baseline makes it the wrong default for production
+  database connectivity. Watch agent CPU and active connection count and scale up the instance type if CPU
+  stays above ~70% or connection-queue latency rises.
 - CPLN occasionally publishes new agent versions. The ASG + bootstrap script combination handles upgrades
   by re-rolling instances; let it do that during low-traffic windows.
 
 ### Cost
 
-- Two `t3.small` instances 24/7 in `us-east-2`: ~$30/month.
+- Two `t3.medium` instances 24/7 in `us-east-2`: roughly $60/month before data transfer; check current EC2
+  pricing for your region and instance family.
 - Cross-AZ data transfer between agent and RDS: typically negligible for normal app traffic; significant
   for bulk loads (consider placing the agent in the same AZ as the RDS writer for big migrations).
 
