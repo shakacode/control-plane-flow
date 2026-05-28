@@ -14,9 +14,9 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [5.0.3] - 2026-05-26
 
-### Added
+### Changed
 
-- **Added `cpflow update-github-actions`, `cpflow generate-github-actions --force`, RubyGems install guidance, and release-task follow-up output so downstream repositories remember to update checked-in generated GitHub Actions wrappers when the `cpflow` gem version changes.** [PR 328](https://github.com/shakacode/control-plane-flow/pull/328) by [Justin Gordon](https://github.com/justin808).
+- **Changed `cpflow update-github-actions`, `cpflow generate-github-actions --force`, RubyGems install guidance, and release-task follow-up output so downstream repositories remember to update checked-in generated GitHub Actions wrappers when the `cpflow` gem version changes.** [PR 328](https://github.com/shakacode/control-plane-flow/pull/328) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 
