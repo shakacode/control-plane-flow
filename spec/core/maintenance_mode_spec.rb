@@ -5,7 +5,13 @@ require "spec_helper"
 describe MaintenanceMode do
   let(:config) { instance_double(Config, app: "my-app", domain: nil, current: { maintenance_workload: "maintenance" }) }
   let(:command) { Command::Base.new(config) }
-  let(:cp) { instance_double(Controlplane) }
+  let(:cp) do
+    Controlplane.allocate.tap do |controlplane|
+      controlplane.instance_variable_set(:@api, instance_double(ControlplaneApi, update_domain: true))
+      controlplane.instance_variable_set(:@gvc, "my-app")
+      controlplane.instance_variable_set(:@org, "my-org")
+    end
+  end
   let(:progress) { StringIO.new }
   let(:command_calls) { [] }
 
@@ -15,10 +21,7 @@ describe MaintenanceMode do
     allow(command).to receive(:run_cpflow_command) { |*args| command_calls << args }
     allow(Kernel).to receive(:sleep).and_return(0)
     allow(cp).to receive(:fetch_workload!)
-    allow(cp).to receive(:set_domain_workload).and_return(true)
-    allow(cp).to receive(:domain_workload_matches?) do |data, workload|
-      domain_routed_to_workload?(data, workload)
-    end
+    allow(cp).to receive(:set_domain_workload).and_call_original
   end
 
   describe "#enable!" do
@@ -29,7 +32,7 @@ describe MaintenanceMode do
 
       expect_domain_update_requested_for("maintenance")
       expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
-      expect(command_calls).to eq(expected_enable_commands)
+      expect(command_calls).to eq(expected_workload_commands)
     end
 
     it "continues polling when the fetched domain temporarily has no routable route" do
@@ -39,7 +42,7 @@ describe MaintenanceMode do
 
       expect_domain_update_requested_for("maintenance")
       expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
-      expect(command_calls).to eq(expected_enable_commands)
+      expect(command_calls).to eq(expected_workload_commands)
     end
 
     it "stops after the bounded retry count when the domain route never updates" do
@@ -48,7 +51,8 @@ describe MaintenanceMode do
       expect { described_class.new(command).enable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
 
       expect_domain_update_requested_for("maintenance")
-      expect(cp).to have_received(:fetch_domain).with("my-app.example.com").exactly(31).times
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com")
+                                                .exactly(MaintenanceMode::DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS).times
       expect(command_calls).to eq([["ps:start", "-a", "my-app", "-w", "maintenance", "--wait"]])
     end
 
@@ -72,7 +76,7 @@ describe MaintenanceMode do
 
       expect_domain_update_requested_for("web")
       expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
-      expect(command_calls).to eq(expected_disable_commands)
+      expect(command_calls).to eq(expected_workload_commands)
     end
 
     it "skips work when maintenance mode is already disabled" do
@@ -87,14 +91,12 @@ describe MaintenanceMode do
     end
   end
 
-  it "keeps cached domain data when a poll temporarily returns no routable domain" do
+  it "keeps cached domain data when polling never returns a routable domain" do
     maintenance_mode = described_class.new(command)
 
-    allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
-    allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_return(nil)
-    allow(command).to receive(:step).and_yield
+    stub_domain_switch(from: "web", to: "maintenance", polls: [nil])
 
-    maintenance_mode.send(:switch_domain_workload, to: "maintenance")
+    expect { maintenance_mode.enable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
 
     expect(maintenance_mode.disabled?).to be(true)
     expect(cp).to have_received(:find_domain_for).once
@@ -114,26 +116,11 @@ describe MaintenanceMode do
     end
   end
 
-  def expected_enable_commands
+  def expected_workload_commands
     [
       ["ps:start", "-a", "my-app", "-w", "maintenance", "--wait"],
       ["ps:stop", "-a", "my-app", "--wait"]
     ]
-  end
-
-  def expected_disable_commands
-    [
-      ["ps:start", "-a", "my-app", "-w", "maintenance", "--wait"],
-      ["ps:stop", "-a", "my-app", "--wait"]
-    ]
-  end
-
-  def domain_routed_to_workload?(data, workload)
-    data.dig("spec", "ports").any? do |port|
-      port["routes"].any? do |route|
-        route["prefix"] == "/" && route["workloadLink"].end_with?("/workload/#{workload}")
-      end
-    end
   end
 
   def domain_routed_to(workload)

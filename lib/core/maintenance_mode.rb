@@ -3,12 +3,12 @@
 class MaintenanceMode
   extend Forwardable
 
-  DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT = 30
-  DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT = 1
+  DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS = 30
+  DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS = 1
   DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS = {
     retry_on_failure: true,
-    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT,
-    wait: DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT
+    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS - 1,
+    wait: DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS
   }.freeze
 
   def_delegators :@command, :config, :progress, :cp, :step, :run_cpflow_command
@@ -93,7 +93,8 @@ class MaintenanceMode
     domain_name = domain_data["name"]
 
     step("Requesting workload switch for domain '#{domain_name}' to '#{to}'") do
-      request_domain_workload_update(to)
+      domain_data_for_update = Marshal.load(Marshal.dump(domain_data))
+      cp.set_domain_workload(domain_data_for_update, to)
     end
 
     step("Waiting for domain '#{domain_name}' workload to switch to '#{to}'", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
@@ -102,10 +103,6 @@ class MaintenanceMode
     end
 
     progress.puts
-  end
-
-  def request_domain_workload_update(workload)
-    cp.set_domain_workload(domain_data, workload)
   end
 
   def refresh_domain_data(domain_name)
