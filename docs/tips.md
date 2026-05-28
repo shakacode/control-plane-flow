@@ -99,14 +99,22 @@ cpln image docker-login
 Grafana Loki's [`logcli`](https://grafana.com/docs/loki/latest/query/logcli/) directly against the Control Plane logs
 endpoint for larger historical exports.
 
-Install `logcli`:
+Install `logcli` with Homebrew when available:
 
 ```sh
 brew install logcli
 ```
 
+If Homebrew reports that the formula is unavailable, use Grafana's tap:
+
+```sh
+brew tap grafana/grafana
+brew install grafana/grafana/logcli
+```
+
 For Linux, CI, or other environments without Homebrew, see the [`logcli` installation
-docs](https://grafana.com/docs/loki/latest/query/logcli/#installation).
+docs](https://grafana.com/docs/loki/latest/query/logcli/getting-started/#install-logcli) for binary downloads or source
+builds.
 
 Configure it with your Control Plane org and current profile token:
 
@@ -115,8 +123,8 @@ export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG
 export LOKI_BEARER_TOKEN=$(cpln profile token)
 ```
 
-`LOKI_BEARER_TOKEN` is a short-lived bearer credential. Keep it out of logs and rerun the token export if `logcli`
-returns an authentication error.
+`LOKI_BEARER_TOKEN` is a short-lived bearer credential. Keep it out of logs; because it is exported, child processes can
+read it from their environment. Rerun the token export if `logcli` returns a 401 or another authentication error.
 
 Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
 labels as needed:
@@ -129,6 +137,16 @@ For cleaner bulk exports, strip label metadata from each output line and redirec
 
 ```sh
 logcli query '{gvc="my-app", workload="rails"}' --since 24h --limit 50000 --no-labels > rails.log
+```
+
+For historical incidents, use absolute UTC timestamps instead of a relative `--since` window:
+
+```sh
+logcli query '{gvc="my-app"}' \
+  --from="2026-05-27T00:00:00Z" \
+  --to="2026-05-27T06:00:00Z" \
+  --limit 50000 \
+  --no-labels > incident.log
 ```
 
 ## Memcached
