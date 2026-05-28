@@ -27,10 +27,15 @@ describe Cpflow do
 
       require "cpflow"
       puts Cpflow::VERSION
+      puts Command::UpdateGithubActions::LONG_DESCRIPTION.length
     RUBY
 
+    child_env = ENV.each_key.grep(/\ABUNDLE/).to_h { |key| [key, nil] }
+    child_env["RUBYLIB"] = nil
+    child_env["RUBYOPT"] = nil
+
     stdout, stderr, status = Open3.capture3(
-      { "RUBYOPT" => nil },
+      child_env,
       RbConfig.ruby,
       "-I",
       File.expand_path("../lib", __dir__),
@@ -39,7 +44,9 @@ describe Cpflow do
     )
 
     expect(status).to be_success, stderr
-    expect(stdout).to include(Cpflow::VERSION)
+    stdout_lines = stdout.lines.map(&:chomp)
+    expect(stdout_lines).to include(Cpflow::VERSION)
+    expect(Integer(stdout_lines.fetch(1))).to be_positive
   end
 
   non_boolean_options_by_key_name.each do |option_key_name, option|
