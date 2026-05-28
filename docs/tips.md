@@ -123,20 +123,23 @@ export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG
 export LOKI_BEARER_TOKEN=$(cpln profile token)
 ```
 
-`LOKI_BEARER_TOKEN` is a short-lived bearer credential. Avoid echoing it, committing it to scripts, or letting it
-appear in shell history or CI logs. Rerun the token export if `logcli` returns a 401 or another authentication error.
+`LOKI_BEARER_TOKEN` is a short-lived bearer credential. The `$(cpln profile token)` capture above keeps the literal
+token out of shell history, but any later command that prints it (`echo $LOKI_BEARER_TOKEN`, `env | grep LOKI`) will
+expose it; avoid those, don't commit the value to scripts, and watch for it in CI logs. Rerun the token export if
+`logcli` returns a 401 or another authentication error.
 
 Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
-labels as needed:
+labels as needed. The `--forward` flag returns results oldest-first (chronological), which is almost always what you
+want for incident investigation or sequential reading; omit it to get the `logcli` default of newest-first:
 
 ```sh
-logcli query '{gvc="my-app", workload="rails"}' --since 1h --limit 10000
+logcli query '{gvc="my-app", workload="rails"}' --since 1h --limit 10000 --forward
 ```
 
 For cleaner bulk exports, strip label metadata from each output line and redirect the output:
 
 ```sh
-logcli query '{gvc="my-app", workload="rails"}' --since 24h --limit 50000 --no-labels > rails.log
+logcli query '{gvc="my-app", workload="rails"}' --since 24h --limit 50000 --no-labels --forward > rails.log
 ```
 
 For historical incidents, use absolute UTC timestamps instead of a relative `--since` window:
@@ -146,12 +149,14 @@ logcli query '{gvc="my-app"}' \
   --from="2026-05-27T00:00:00Z" \
   --to="2026-05-27T06:00:00Z" \
   --limit 50000 \
-  --no-labels > incident.log
+  --no-labels \
+  --forward > incident.log
 ```
 
-`logcli` silently truncates results once `--limit` is reached, so a partial export looks the same as a complete one. If
-the output appears cut off, narrow the time window or raise `--limit` (the maximum may depend on your Control Plane
-plan).
+`logcli` silently truncates results once `--limit` is reached, so a partial export looks the same as a complete one.
+To check for truncation, compare line count to the limit: `wc -l < incident.log` near `--limit` means the export was
+likely cut off. Prefer narrowing the time window (and concatenating the sub-ranges) over raising `--limit`, since the
+server-side cap may be lower than the flag value.
 
 ## Memcached
 
