@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fixed `cpflow` CLI boot order so packaged gems load `cpflow/version` before command modules, preventing a load-time `NameError` on `Cpflow::VERSION` from constants like `Command::UpdateGithubActions::LONG_DESCRIPTION`.** [PR 338](https://github.com/shakacode/control-plane-flow/pull/338) by [Justin Gordon](https://github.com/justin808). Fixes [issue 335](https://github.com/shakacode/control-plane-flow/issues/335).
+
 ## [5.0.3] - 2026-05-26
 
 ### Changed
