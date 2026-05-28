@@ -105,12 +105,18 @@ Install `logcli`:
 brew install logcli
 ```
 
+For Linux, CI, or other environments without Homebrew, see the [`logcli` installation
+docs](https://grafana.com/docs/loki/latest/query/logcli/#installation).
+
 Configure it with your Control Plane org and current profile token:
 
 ```sh
 export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG
 export LOKI_BEARER_TOKEN=$(cpln profile token)
 ```
+
+`LOKI_BEARER_TOKEN` is a short-lived bearer credential. Keep it out of logs and rerun the token export if `logcli`
+returns an authentication error.
 
 Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
 labels as needed:
@@ -119,7 +125,7 @@ labels as needed:
 logcli query '{gvc="my-app", workload="rails"}' --since 1h --limit 10000
 ```
 
-For cleaner bulk exports, omit labels and redirect the output:
+For cleaner bulk exports, strip label metadata from each output line and redirect the output:
 
 ```sh
 logcli query '{gvc="my-app", workload="rails"}' --since 24h --limit 50000 --no-labels > rails.log
