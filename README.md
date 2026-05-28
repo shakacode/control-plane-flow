@@ -565,17 +565,21 @@ cpflow --help
 
 ## Mapping of Heroku Commands to `cpflow` and `cpln`
 
-| Heroku Command                                                                                                 | `cpflow` or `cpln`                 |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpflow ps`                        |
-| [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | ?                               |
-| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | `cpflow maintenance`               |
-| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpflow logs`                      |
-| [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | ?                               |
-| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpflow promote-app-from-upstream` |
-| [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | ?                               |
-| [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | ?                               |
-| [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | ?                               |
+| Heroku Command                                                                                                 | `cpflow` or `cpln`                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [heroku ps](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-ps-type-type)                     | `cpflow ps`                                                                                                                                                                           |
+| [heroku config](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-config)                       | `cpflow env -a APP_NAME` displays Control Plane app environment variables; `cpflow config -a APP_NAME` displays local `.controlplane/controlplane.yml` settings                     |
+| [heroku maintenance](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-maintenance)             | `cpflow maintenance`, `cpflow maintenance:on`, `cpflow maintenance:off`, and `cpflow maintenance:set-page`                                                                            |
+| [heroku logs](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-logs)                           | `cpflow logs -a APP_NAME`; add `-w WORKLOAD_NAME` to filter by workload, or `-w WORKLOAD_NAME -r REPLICA_NAME` to narrow to a specific replica                                        |
+| [heroku pg](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pg-database)                      | No direct `cpflow` add-on wrapper. Use an external Postgres provider, the Control Plane Template Catalog, or project templates such as `.controlplane/templates/postgres.yml`.        |
+| [heroku pipelines:promote](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-pipelines-promote) | `cpflow promote-app-from-upstream`                                                                                                                                                    |
+| [heroku psql](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-psql-database)                  | No direct `cpflow` equivalent. Connect with your provider's `psql` flow, or run `cpflow run -a APP_NAME -- psql "$DATABASE_URL"` when `psql` is available in the application image. |
+| [heroku redis](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-redis-database)                | No direct `cpflow` add-on wrapper. Use an external Redis provider, the Control Plane Template Catalog, or project templates such as `.controlplane/templates/redis.yml`.              |
+| [heroku releases](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-releases)                   | `cpflow latest-image -a APP_NAME` for the latest image tag; `cpflow deploy-image -a APP_NAME` deploys that image. No `cpflow` equivalent for browsing full release history.          |
+
+Unlike Heroku add-ons, Control Plane database and cache services are usually managed as provider resources or workload
+templates. `cpflow` focuses on the application deployment flow and leaves provider-specific database administration to
+the provider tooling, Control Plane templates, or direct `cpln` operations.
 
 ## Examples
 
