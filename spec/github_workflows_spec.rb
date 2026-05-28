@@ -14,9 +14,13 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     let(:job) { workflow.fetch("jobs").fetch("rspec") }
 
-    it "queues jobs that share the CI Control Plane org" do
+    it "prevents unrelated PRs from canceling each other in the CI Control Plane org queue" do
+      expected_group =
+        "cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}-" \
+        "${{ github.event.pull_request.number || github.ref }}"
+
       expect(job.fetch("concurrency")).to eq(
-        "group" => "cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}",
+        "group" => expected_group,
         "cancel-in-progress" => false
       )
     end
