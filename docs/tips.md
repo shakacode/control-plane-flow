@@ -5,16 +5,17 @@
 3. [Remote IP](#remote-ip)
 4. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
 5. [CI](#ci)
-6. [Memcached](#memcached)
-7. [Sidekiq](#sidekiq)
+6. [Logs](#logs)
+7. [Memcached](#memcached)
+8. [Sidekiq](#sidekiq)
    - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
    - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
    - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-8. [Minimizing Review App Costs](#minimizing-review-app-costs)
+9. [Minimizing Review App Costs](#minimizing-review-app-costs)
    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
    - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-9. [Useful Links](#useful-links)
+10. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -90,6 +91,38 @@ Also, log in to the Control Plane Docker repository if building and pushing an i
 
 ```sh
 cpln image docker-login
+```
+
+## Logs
+
+`cpflow logs` is a lightweight live-tail command. When you hit `cpln`/`cpflow` line-count or response-size limits, use
+Grafana Loki's [`logcli`](https://grafana.com/docs/loki/latest/query/logcli/) directly against the Control Plane logs
+endpoint for larger historical exports.
+
+Install `logcli`:
+
+```sh
+brew install logcli
+```
+
+Configure it with your Control Plane org and current profile token:
+
+```sh
+export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG
+export LOKI_BEARER_TOKEN=$(cpln profile token)
+```
+
+Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
+labels as needed:
+
+```sh
+logcli query '{gvc="my-app", workload="rails"}' --since 1h --limit 10000
+```
+
+For cleaner bulk exports, omit labels and redirect the output:
+
+```sh
+logcli query '{gvc="my-app", workload="rails"}' --since 24h --limit 50000 --no-labels > rails.log
 ```
 
 ## Memcached
