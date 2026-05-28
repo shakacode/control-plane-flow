@@ -3,9 +3,13 @@
 RSpec.describe "README Heroku command mapping" do # rubocop:disable RSpec/DescribeClass
   let(:readme) { File.read("README.md") }
   let(:table) do
-    readme.match(
+    match = readme.match(
       /## Mapping of Heroku Commands to `cpflow` and `cpln`\n\n(?<table>(?:\|.*\n)+)/
-    )[:table]
+    )
+
+    raise "Could not locate Heroku mapping table in README.md" unless match
+
+    match[:table]
   end
 
   it "does not leave placeholder mappings for Heroku commands" do
@@ -14,7 +18,7 @@ RSpec.describe "README Heroku command mapping" do # rubocop:disable RSpec/Descri
     expect(command_rows).not_to be_empty
 
     placeholders = command_rows.select do |line|
-      line.split("|").map(&:strip).fetch(2) == "?"
+      line.split("|").map(&:strip).fetch(2, "") == "?"
     end
 
     expect(placeholders).to be_empty
