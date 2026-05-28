@@ -46,7 +46,7 @@ describe Cpflow do
     expect(status).to be_success, stderr
     stdout_lines = stdout.lines.map(&:chomp)
     expect(stdout_lines).to include(Cpflow::VERSION)
-    expect(stdout_lines.last.to_i).to be_positive
+    expect(Integer(stdout_lines.fetch(1))).to be_positive
   end
 
   non_boolean_options_by_key_name.each do |option_key_name, option|
