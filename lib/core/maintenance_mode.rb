@@ -91,15 +91,14 @@ class MaintenanceMode
 
   def switch_domain_workload(to:)
     domain_name = domain_data["name"]
-    update_requested = false
 
-    step("Switching workload for domain '#{domain_name}' to '#{to}'", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
-      unless update_requested
-        request_domain_workload_update(to)
-        update_requested = true
-      end
+    step("Requesting workload switch for domain '#{domain_name}' to '#{to}'") do
+      request_domain_workload_update(to)
+    end
 
-      domain_workload_update_confirmed?(domain_name, to)
+    step("Waiting for domain '#{domain_name}' workload to switch to '#{to}'", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
+      refreshed_domain_data = refresh_domain_data(domain_name)
+      refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, to)
     end
 
     progress.puts
@@ -109,9 +108,10 @@ class MaintenanceMode
     cp.set_domain_workload(domain_data, workload)
   end
 
-  def domain_workload_update_confirmed?(domain_name, workload)
-    @domain_data = cp.fetch_domain(domain_name)
-    @domain_data && cp.domain_workload_matches?(@domain_data, workload)
+  def refresh_domain_data(domain_name)
+    cp.fetch_domain(domain_name).tap do |refreshed_domain_data|
+      @domain_data = refreshed_domain_data if refreshed_domain_data
+    end
   end
 
   def domain_data
