@@ -12,6 +12,8 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.0.4] - 2026-05-27
+
 ### Fixed
 
 - **Fixed `cpflow` CLI boot order so packaged gems load `cpflow/version` before command modules, preventing a load-time `NameError` on `Cpflow::VERSION` from constants like `Command::UpdateGithubActions::LONG_DESCRIPTION`.** [PR 338](https://github.com/shakacode/control-plane-flow/pull/338) by [Justin Gordon](https://github.com/justin808). Fixes [issue 335](https://github.com/shakacode/control-plane-flow/issues/335).
@@ -396,7 +398,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.3...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.4...HEAD
+[5.0.4]: https://github.com/shakacode/control-plane-flow/compare/v5.0.3...v5.0.4
 [5.0.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.2...v5.0.3
 [5.0.2]: https://github.com/shakacode/control-plane-flow/compare/v5.0.1...v5.0.2
 [5.0.1]: https://github.com/shakacode/control-plane-flow/compare/v5.0.0...v5.0.1
