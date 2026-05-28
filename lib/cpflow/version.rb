@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
 module Cpflow
-  VERSION = "5.0.2"
+  VERSION = "5.0.3"
   MIN_CPLN_VERSION = "3.1.0"
 end
