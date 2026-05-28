@@ -123,8 +123,8 @@ export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG
 export LOKI_BEARER_TOKEN=$(cpln profile token)
 ```
 
-`LOKI_BEARER_TOKEN` is a short-lived bearer credential. Keep it out of logs; because it is exported, child processes can
-read it from their environment. Rerun the token export if `logcli` returns a 401 or another authentication error.
+`LOKI_BEARER_TOKEN` is a short-lived bearer credential. Avoid echoing it, committing it to scripts, or letting it
+appear in shell history or CI logs. Rerun the token export if `logcli` returns a 401 or another authentication error.
 
 Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
 labels as needed:
@@ -148,6 +148,10 @@ logcli query '{gvc="my-app"}' \
   --limit 50000 \
   --no-labels > incident.log
 ```
+
+`logcli` silently truncates results once `--limit` is reached, so a partial export looks the same as a complete one. If
+the output appears cut off, narrow the time window or raise `--limit` (the maximum may depend on your Control Plane
+plan).
 
 ## Memcached
 
