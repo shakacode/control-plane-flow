@@ -13,6 +13,7 @@ require "tempfile"
 require "thor"
 require "yaml"
 
+# Load version before command files because command constants interpolate Cpflow::VERSION at load time.
 require_relative "cpflow/version"
 require_relative "constants/exit_code"
 

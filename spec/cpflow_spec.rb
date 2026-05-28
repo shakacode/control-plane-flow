@@ -27,6 +27,7 @@ describe Cpflow do
 
       require "cpflow"
       puts Cpflow::VERSION
+      puts Command::UpdateGithubActions::LONG_DESCRIPTION.length
     RUBY
 
     child_env = ENV.each_key.grep(/\ABUNDLE/).to_h { |key| [key, nil] }
@@ -43,7 +44,9 @@ describe Cpflow do
     )
 
     expect(status).to be_success, stderr
-    expect(stdout).to include(Cpflow::VERSION)
+    stdout_lines = stdout.lines.map(&:chomp)
+    expect(stdout_lines).to include(Cpflow::VERSION)
+    expect(stdout_lines.last.to_i).to be_positive
   end
 
   non_boolean_options_by_key_name.each do |option_key_name, option|
