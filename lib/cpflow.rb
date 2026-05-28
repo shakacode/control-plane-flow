@@ -13,6 +13,7 @@ require "tempfile"
 require "thor"
 require "yaml"
 
+require_relative "cpflow/version"
 require_relative "constants/exit_code"
 
 # We need to require base before all commands, since the commands inherit from it

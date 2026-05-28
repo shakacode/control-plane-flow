@@ -29,8 +29,12 @@ describe Cpflow do
       puts Cpflow::VERSION
     RUBY
 
+    child_env = ENV.each_key.grep(/\ABUNDLE/).to_h { |key| [key, nil] }
+    child_env["RUBYLIB"] = nil
+    child_env["RUBYOPT"] = nil
+
     stdout, stderr, status = Open3.capture3(
-      { "RUBYOPT" => nil },
+      child_env,
       RbConfig.ruby,
       "-I",
       File.expand_path("../lib", __dir__),
