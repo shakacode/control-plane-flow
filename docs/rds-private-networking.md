@@ -387,7 +387,7 @@ cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secret
 # Edit /tmp/my-app-secrets.yml and add these keys under data, preserving existing entries:
 #   url: "postgres://app:supersecret@db-primary:5432/myapp_production?sslmode=require"
 #   url_readers: "postgres://app_readonly:readsecret@db-readers:5432/myapp_production?sslmode=require"
-cpln apply --file /tmp/my-app-secrets.yml
+cpln apply --file /tmp/my-app-secrets.yml --org my-org
 rm /tmp/my-app-secrets.yml
 ```
 
@@ -402,7 +402,7 @@ rm /tmp/my-app-secrets.yml
 > # Edit targetLinks to include both:
 > # - //secret/my-app-secrets
 > # - //secret/my-app-database
-> cpln apply --file /tmp/my-app-secrets-policy.yml
+> cpln apply --file /tmp/my-app-secrets-policy.yml --org my-org
 > ```
 >
 > See [secrets-and-env-values.md](./secrets-and-env-values.md) for the generated app secret/policy flow.
@@ -435,7 +435,7 @@ CLI heredoc below is reference-only (same shell-history caveat as Option A). If 
 cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml
 # Edit /tmp/my-app-secrets.yml and add this key under data, preserving existing entries:
 #   password: "supersecret"
-cpln apply --file /tmp/my-app-secrets.yml
+cpln apply --file /tmp/my-app-secrets.yml --org my-org
 rm /tmp/my-app-secrets.yml
 ```
 
