@@ -260,6 +260,7 @@ Apply it back:
 
 ```sh
 cpln apply --file identity-db.yaml --gvc my-app-production --org my-org
+rm identity-db.yaml   # optional: the live identity is the source of truth; re-export anytime with `cpln identity get`
 ```
 
 (Use whatever `--org` / `--gvc` flags your team uses, or rely on the org/GVC defaults set by `cpln profile`.)
