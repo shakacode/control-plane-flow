@@ -7,9 +7,9 @@ class MaintenanceMode
   DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS = 1
   DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS = {
     retry_on_failure: true,
-    # `step`'s `max_retry_count` is inclusive of the initial attempt, so total
-    # poll attempts == max_retry_count + 1. Subtract 1 to get exactly the
-    # configured number of attempts.
+    # `with_retry` runs the block while `retry_count <= max_retry_count`, where
+    # `retry_count` starts at 0, so total attempts == max_retry_count + 1. Pass
+    # MAX_POLL_ATTEMPTS - 1 to get exactly MAX_POLL_ATTEMPTS attempts.
     max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS - 1,
     wait: DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS
   }.freeze
@@ -96,27 +96,36 @@ class MaintenanceMode
     domain_name = domain_data["name"]
 
     step("Requesting workload switch for domain '#{domain_name}' to '#{to}'") do
-      # `set_domain_workload` mutates the route in place, so update a deep copy
-      # to keep the cached `@domain_data` intact for the polling check below.
-      domain_data_for_update = Marshal.load(Marshal.dump(domain_data))
+      # `set_domain_workload` mutates the route in place, so send a deep copy
+      # (round-tripped through JSON, since the domain is plain API data) to keep
+      # the cached `@domain_data` intact for the polling check below.
+      domain_data_for_update = JSON.parse(JSON.generate(domain_data))
       cp.set_domain_workload(domain_data_for_update, to)
     end
 
     # If the route never switches within the bounded poll window, this step aborts
     # (abort_on_error) before any workloads are stopped, so traffic stays on the
-    # current workload. Re-run the command to retry the switch.
-    step("Waiting for domain '#{domain_name}' workload to switch to '#{to}'", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
-      refreshed_domain_data = refresh_domain_data(domain_name)
-      refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, to)
+    # current workload. The label tells the user how to recover, since an exhausted
+    # poll has no error message of its own to print.
+    step("Waiting for domain '#{domain_name}' workload to switch to '#{to}' " \
+         "(re-run this command if it times out)", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
+      domain_workload_update_confirmed?(domain_name, to)
     end
 
     progress.puts
   end
 
-  def refresh_domain_data(domain_name)
-    cp.fetch_domain(domain_name).tap do |refreshed_domain_data|
-      @domain_data = refreshed_domain_data if refreshed_domain_data
-    end
+  # Refetches the domain, refreshes the cached `@domain_data` when the fetch
+  # returns a routable domain, and reports whether the route now points at
+  # `workload`. A transient API error (e.g. a 5xx while the route is still
+  # propagating) is treated as "not switched yet" so the bounded poll keeps
+  # retrying instead of aborting on the first blip.
+  def domain_workload_update_confirmed?(domain_name, workload)
+    refreshed_domain_data = cp.fetch_domain(domain_name)
+    @domain_data = refreshed_domain_data if refreshed_domain_data
+    refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, workload)
+  rescue RuntimeError
+    false
   end
 
   def domain_data

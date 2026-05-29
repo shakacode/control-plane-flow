@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Changed `cpflow maintenance:on` and `cpflow maintenance:off` to confirm the domain route has switched by polling the Control Plane API (bounded retry, 30 attempts, 1 second apart) instead of sleeping a fixed 30 seconds.** [PR 337](https://github.com/shakacode/control-plane-flow/pull/337) by [Justin Gordon](https://github.com/justin808). Fixes [issue 157](https://github.com/shakacode/control-plane-flow/issues/157). If the route never updates within the poll window, the command aborts before stopping workloads so traffic stays on the current workload, and transient API errors during polling are retried rather than aborting the switch.
+
 ### Fixed
 
 - **Fixed `cpflow run` so short non-interactive runner jobs no longer hang when the Control Plane cron job finishes before a runner replica is visible.** This prevents generated deploy workflows with release-phase commands from waiting until the GitHub Actions job timeout even though the release job already completed successfully.

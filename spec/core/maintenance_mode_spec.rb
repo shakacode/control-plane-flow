@@ -45,6 +45,18 @@ describe MaintenanceMode do
       expect(command_calls).to eq(expected_workload_commands)
     end
 
+    it "continues polling when a transient API error is raised mid-switch" do
+      allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
+      poll_responses = [->(*) { raise "transient API error" }, ->(*) { domain_routed_to("maintenance") }]
+      allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_invoke(*poll_responses)
+
+      described_class.new(command).enable!
+
+      expect_domain_update_requested_for("maintenance")
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
+      expect(command_calls).to eq(expected_workload_commands)
+    end
+
     it "stops after the bounded retry count when the domain route never updates" do
       stub_domain_switch(from: "web", to: "maintenance", polls: [domain_routed_to("web")])
 
@@ -100,10 +112,25 @@ describe MaintenanceMode do
       expect(command_calls).to be_empty
       expect(progress.string).to include("Maintenance mode is already disabled for app 'my-app'.")
     end
+
+    it "stops after the bounded retry count when the domain route never updates" do
+      stub_domain_switch(from: "maintenance", to: "web", polls: [domain_routed_to("maintenance")])
+
+      expect { described_class.new(command).disable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect_domain_update_requested_for("web")
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com")
+                                                .exactly(MaintenanceMode::DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS).times
+      expect(command_calls).to eq([["ps:start", "-a", "my-app", "-w", "maintenance", "--wait"]])
+    end
   end
 
   def stub_domain_switch(from:, to:, polls: nil)
     allow(cp).to receive(:find_domain_for).and_return(domain_routed_to(from))
+    # Default polls: the first fetch still sees the old route (simulates one
+    # in-flight propagation delay) and the second sees the new route. RSpec
+    # repeats the final value on any further calls, so this also covers polls
+    # that exhaust the retry budget on a single repeated value.
     allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_return(
       *(polls || [domain_routed_to(from), domain_routed_to(to)])
     )
