@@ -66,6 +66,17 @@ describe MaintenanceMode do
       expect(command_calls).to be_empty
       expect(progress.string).to include("Maintenance mode is already enabled for app 'my-app'.")
     end
+
+    it "keeps cached domain data when polling never returns a routable domain" do
+      maintenance_mode = described_class.new(command)
+
+      stub_domain_switch(from: "web", to: "maintenance", polls: [nil])
+
+      expect { maintenance_mode.enable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(maintenance_mode.disabled?).to be(true)
+      expect(cp).to have_received(:find_domain_for).once
+    end
   end
 
   describe "#disable!" do
@@ -89,17 +100,6 @@ describe MaintenanceMode do
       expect(command_calls).to be_empty
       expect(progress.string).to include("Maintenance mode is already disabled for app 'my-app'.")
     end
-  end
-
-  it "keeps cached domain data when polling never returns a routable domain" do
-    maintenance_mode = described_class.new(command)
-
-    stub_domain_switch(from: "web", to: "maintenance", polls: [nil])
-
-    expect { maintenance_mode.enable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
-
-    expect(maintenance_mode.disabled?).to be(true)
-    expect(cp).to have_received(:find_domain_for).once
   end
 
   def stub_domain_switch(from:, to:, polls: nil)
