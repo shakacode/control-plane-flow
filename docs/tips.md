@@ -205,7 +205,7 @@ Instead, you can run a single long-lived Postgres instance and give each review 
 
 ```yaml
 - name: DATABASE_URL
-  value: postgres://postgres:password123@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}
+  value: postgres://the_user:the_password@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}
 ```
 
 `{{APP_NAME}}` expands to the concrete app name (for example `my-app-review-123`), so the host points at a per-app
@@ -216,6 +216,21 @@ Postgres workload and the database is named after the app. To share, change only
    `my-app-shared-db`), created from the standard `postgres` template. Because it is not a review app, it is never
    removed by `cleanup-stale-apps`.
 
+   Then open its firewall for cross-GVC access. The standard `postgres` template restricts inbound traffic to the
+   same GVC (`firewallConfig.internal.inboundAllowType: same-gvc`), and every `cpflow` app — including each review
+   app — is its own GVC. Left at the default, review-app workloads cannot reach the shared database. Relax the
+   shared Postgres workload's firewall to accept the other GVCs in your org:
+
+   ```yaml
+   firewallConfig:
+     internal:
+       inboundAllowType: same-org   # was: same-gvc — lets review-app GVCs reach the shared database
+   ```
+
+   Use `workload-list` with `inboundAllowWorkload` instead if you prefer to allow only specific workloads. Because
+   both `.cpln.local` resolution and `same-org` access are scoped to a single org, the shared database and every
+   review app must live in the **same CPLN org**.
+
 2. Create a review-only app template (for example `.controlplane/templates/app-review.yml`) identical to `app.yml`
    except the `DATABASE_URL` host points at the shared instance while the database name stays `{{APP_NAME}}`:
 
@@ -223,6 +238,10 @@ Postgres workload and the database is named after the app. To share, change only
    - name: DATABASE_URL
      value: postgres://USER:PASSWORD@postgres.my-app-shared-db.cpln.local:5432/{{APP_NAME}}
    ```
+
+   `USER:PASSWORD` are placeholders. This template is normally committed to version control, so don't hardcode real
+   credentials in it — point the whole value at a CPLN secret (`value: cpln://secret/my-app-shared-db-url`, the
+   pattern the standard `postgres` template already uses for its own credentials) or inject it at deploy time.
 
 3. Point the review-app entry at that template and drop the per-PR `postgres` workload:
 
@@ -235,12 +254,15 @@ Postgres workload and the database is named after the app. To share, change only
      additional_workloads: []   # was: [postgres]
      hooks:
        post_creation: bundle exec rails db:prepare   # creates database `my-app-review-123` on the shared server
-       pre_deletion: bundle exec rails db:drop       # drops only that app's database
+       pre_deletion: DISABLE_DATABASE_ENVIRONMENT_CHECK=1 bundle exec rails db:drop   # drops only that app's database
    ```
 
 The hooks are what make this safe. Because the database name is still unique per app (`{{APP_NAME}}`), the
 `post_creation` hook creates a fresh database for each PR on the shared server, and the `pre_deletion` hook's
 `rails db:drop` removes only that PR's database — the shared server and every other review app's data are left intact.
+Review apps inherit `RAILS_ENV=production` from `app.yml`, and Rails refuses to drop a database in a non-development
+environment unless `DISABLE_DATABASE_ENVIRONMENT_CHECK=1` is set. Without it the `pre_deletion` hook exits non-zero and
+`cpflow delete` stops before removing the GVC, leaving the per-PR database behind on the shared server.
 
 A few things to keep in mind:
 
