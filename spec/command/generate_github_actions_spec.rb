@@ -692,6 +692,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
     end
 
+    # Issue #341: the version-locking example must not emit a concrete release number.
+    # A literal version (e.g. 5.0.1) goes stale against the @v#{VERSION} wrapper refs in
+    # the same generated file and reads like a required old runtime override.
+    it "uses a placeholder version in the CPFLOW_VERSION example" do
+      help_md = playground.join(".github/cpflow-help.md").read
+
+      expect(help_md).to include("CPFLOW_VERSION=5.0.x")
+      expect(help_md).to include("uses: ...@v5.0.x")
+      expect(help_md).not_to match(/CPFLOW_VERSION=\d+\.\d+\.\d+/)
+    end
+
     it "documents the review-app deploying icon override in the help markdown" do
       help_md = playground.join(".github/cpflow-help.md").read
 
