@@ -698,8 +698,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "uses a placeholder version in the CPFLOW_VERSION example" do
       help_md = playground.join(".github/cpflow-help.md").read
 
-      expect(help_md).to include("CPFLOW_VERSION=5.0.x")
-      expect(help_md).to include("uses: ...@v5.0.x")
+      expect(help_md).to match(/CPFLOW_VERSION=\d+\.\d+\.x\b/)
+      expect(help_md).to match(/uses: \.\.\.@v\d+\.\d+\.x\b/)
       expect(help_md).not_to match(/CPFLOW_VERSION=\d+\.\d+\.\d+/)
     end
 
