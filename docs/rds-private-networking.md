@@ -319,10 +319,11 @@ Schema notes (per CPLN's documented `networkResources` schema):
 - `agentLink` — `//agent/<agent-name>` (org-scoped).
 - Exactly one of `IPs` or `FQDN` is required per resource:
   - `IPs` — array of **1 to 5** IPv4 addresses. The agent routes to exactly those IPs.
-  - `FQDN` — a fully qualified domain name. Requires `resolverIP` to also be set so the agent knows which
-    DNS server to ask.
-- `resolverIP` — IPv4 of a DNS server reachable from the agent (typically the VPC's `.2` resolver, e.g.
-  `10.0.0.2`).
+  - `FQDN` — a fully qualified domain name; the agent resolves it from inside your VPC. Pair it with
+    `resolverIP` (below) unless the agent can already resolve the FQDN on its own.
+- `resolverIP` — **optional** IPv4 of a DNS server the agent uses to resolve the `FQDN` from inside the
+  private VPC (typically the VPC's `.2` resolver, e.g. `10.0.0.2`). Not needed if the agent can already
+  resolve the FQDN; when set, the agent queries this resolver for the FQDN.
 - `ports` — array of **1 to 10** ports, each `0–65535`. Required.
 - One identity may declare **up to 50** `networkResources`.
 - For native AWS PrivateLink, an alternative `awsPrivateLink` field exists on identities (see
@@ -330,9 +331,9 @@ Schema notes (per CPLN's documented `networkResources` schema):
 
 ### IPs vs FQDN — which to use?
 
-- **FQDN** (recommended for Aurora and any RDS cluster with failover): set `FQDN` to the cluster endpoint
-  and `resolverIP` to the VPC's `.2` resolver. The agent re-resolves on connect, so there is no identity
-  change required on failover — but plan for the full 60–120 s window (failure detection, replica
+- **FQDN** (recommended for Aurora and any RDS cluster with failover): set `FQDN` to the cluster endpoint,
+  and set `resolverIP` to the VPC's `.2` resolver unless the agent can already resolve the endpoint on its
+  own. The agent re-resolves on connect, so there is no identity change required on failover — but plan for the full 60–120 s window (failure detection, replica
   promotion, DNS update, propagation), not just Aurora's ~30 s DNS TTL. See
   [Aurora failover](#aurora-failover) in Operations.
 - **IPs** (only when you control the target's IP stability): a single-instance RDS that you don't expect to
