@@ -12,6 +12,7 @@
    - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
 8. [Minimizing Review App Costs](#minimizing-review-app-costs)
    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
+   - [Share One Database Across Review Apps](#share-one-database-across-review-apps)
    - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
 9. [Useful Links](#useful-links)
@@ -191,6 +192,68 @@ usually isn't.
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See
 > [Pause and Resume](#pause-and-resume-with-psstop--psstart).
+
+### Share One Database Across Review Apps
+
+Scaling the web tier to zero only addresses the web workload. By default each review app also provisions its own
+`postgres` workload (it ships in `setup_app_templates` and `additional_workloads`), and that workload runs at
+`type: standard`, `minScale: 1` — always on, even while the web tier sleeps. Across many long-tail PRs, those per-app
+databases are usually the dominant cost.
+
+Instead, you can run a single long-lived Postgres instance and give each review app its own logical database on it.
+`cpflow`'s template interpolation makes the isolation automatic. The default `templates/app.yml` sets:
+
+```yaml
+- name: DATABASE_URL
+  value: postgres://postgres:password123@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}
+```
+
+`{{APP_NAME}}` expands to the concrete app name (for example `my-app-review-123`), so the host points at a per-app
+Postgres workload and the database is named after the app. To share, change only the **host** and keep the
+**database name** templated.
+
+1. Provision one shared Postgres app once, as a normal long-lived app in your staging org (for example
+   `my-app-shared-db`), created from the standard `postgres` template. Because it is not a review app, it is never
+   removed by `cleanup-stale-apps`.
+
+2. Create a review-only app template (for example `.controlplane/templates/app-review.yml`) identical to `app.yml`
+   except the `DATABASE_URL` host points at the shared instance while the database name stays `{{APP_NAME}}`:
+
+   ```yaml
+   - name: DATABASE_URL
+     value: postgres://USER:PASSWORD@postgres.my-app-shared-db.cpln.local:5432/{{APP_NAME}}
+   ```
+
+3. Point the review-app entry at that template and drop the per-PR `postgres` workload:
+
+   ```yaml
+   my-app-review:
+     match_if_app_name_starts_with: true
+     setup_app_templates:
+       - app-review   # was: app
+       - rails        # `postgres` removed — no per-PR database workload is created
+     additional_workloads: []   # was: [postgres]
+     hooks:
+       post_creation: bundle exec rails db:prepare   # creates database `my-app-review-123` on the shared server
+       pre_deletion: bundle exec rails db:drop       # drops only that app's database
+   ```
+
+The hooks are what make this safe. Because the database name is still unique per app (`{{APP_NAME}}`), the
+`post_creation` hook creates a fresh database for each PR on the shared server, and the `pre_deletion` hook's
+`rails db:drop` removes only that PR's database — the shared server and every other review app's data are left intact.
+
+A few things to keep in mind:
+
+- **Keep the database name unique per app.** The `{{APP_NAME}}` segment is load-bearing. If you hardcode a single
+  shared database name instead, the `pre_deletion` `rails db:drop` hook will drop the database out from under every
+  other review app.
+- **Noisy neighbor.** All review apps now share one server's CPU, RAM, disk, and connection pool. A runaway query or
+  `max_connections` exhaustion in one PR affects the others; PgBouncer and a per-app connection cap mitigate this.
+- **The shared server is yours to operate.** Provisioning, backups, and access control become your responsibility, and
+  that instance is the always-on cost you are consolidating rather than eliminating.
+- The same pattern extends to Redis and Memcached — `app.yml` templates their URLs with `{{APP_NAME}}` too, so a
+  review-only template can point them at shared instances (use a per-app key prefix or Redis logical-database index to
+  keep PRs isolated). Postgres is usually where the savings concentrate.
 
 ### Delete or Pause Abandoned Apps with `cleanup-stale-apps`
 
