@@ -10,7 +10,11 @@
    - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
    - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
    - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-8. [Useful Links](#useful-links)
+8. [Minimizing Review App Costs](#minimizing-review-app-costs)
+   - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
+   - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
+   - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
+9. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -143,6 +147,126 @@ To do this:
 ### Setting Up a Liveness Probe
 
 To set up a liveness probe on port 7433, see: https://github.com/arturictus/sidekiq_alive
+
+## Minimizing Review App Costs
+
+Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
+workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
+
+### Scale the Web Workload to Zero
+
+`templates/rails.yml` ships with `type: standard`, `minScale: 1`, `maxScale: 1`. That's a safe default for production,
+but for review apps where cold-start latency is acceptable you can switch the web workload to a serverless type that
+scales to zero replicas when idle. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or
+create a review-app-specific template (for example `rails-review.yml`) and list it under `setup_app_templates` for the
+review-app entry in `.controlplane/controlplane.yml`.
+
+```yaml
+# Only `type` and `minScale` change from templates/rails.yml; `maxScale`, `capacityAI` and `timeoutSeconds`
+# are shown for context so the full `defaultOptions` block reaches the destination intact.
+# Update the relevant fields in your full templates/rails.yml (or a review-app-specific template); keep
+# containers, firewallConfig, identityLink, and everything else from that file intact.
+kind: workload
+name: rails
+spec:
+  type: serverless
+  defaultOptions:
+    autoscaling:
+      minScale: 0
+      maxScale: 1
+    capacityAI: false    # keep your existing value
+    timeoutSeconds: 60   # keep your existing value
+```
+
+See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
+`identityLink`, and the other required fields must be preserved when you copy the snippet above.
+
+Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
+`type: standard` always keeps at least one replica running.
+
+Tradeoff: the first request after a quiet period pays the cold-start cost (typically 15–60 seconds for a Rails
+image, depending on app size and boot configuration). For review apps that's usually fine; for production it
+usually isn't.
+
+> **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
+> request. Run `cpflow ps:start` explicitly first. See
+> [Pause and Resume](#pause-and-resume-with-psstop--psstart).
+
+### Delete or Pause Abandoned Apps with `cleanup-stale-apps`
+
+For PRs that are clearly done — merged, closed, or untouched for weeks — deleting beats scaling. Set
+`stale_app_image_deployed_days` in `.controlplane/controlplane.yml`:
+
+```yaml
+my-app-review:
+  match_if_app_name_starts_with: true
+  stale_app_image_deployed_days: 14
+```
+
+Pick a threshold that fits your review cycle — 7 days can catch PRs still in QA; teams with longer review cycles often
+use 14–30 days.
+
+> **How staleness is measured:** `stale_app_image_deployed_days` uses the Control Plane image resource's `created`
+> timestamp, typically when the image was pushed to Control Plane's registry. If no matching image exists, it falls back
+> to the GVC's `created` timestamp. It does not consider last traffic or last PR comment.
+> The same stale-app scan applies to both delete and stop modes below.
+
+Then run in delete mode:
+
+```sh
+cpflow cleanup-stale-apps -a my-app-review --yes
+```
+
+The `--yes` flag skips the interactive confirmation prompt; keep it for CI jobs, or omit it when running manually and
+you want to review the prompt. Because `match_if_app_name_starts_with: true` is set, `-a my-app-review` here matches
+every app whose name starts with that prefix — by contrast, the `cpflow ps:stop -a my-app-review-123` examples below
+target a single concrete app name.
+
+This deletes the GVC, workloads, volumesets, and images for any review app whose latest matching image, or GVC when no
+matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy when that
+binding exists. Wire it into a nightly CI cron — see
+[CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
+`cpflow-cleanup-stale-review-apps.yml` workflow, which runs in delete mode by default; customize the workflow
+to pass `--mode=stop` if you prefer reversible pausing in CI.
+
+For reversible idle handling under the same stale-app scan, use stop mode instead:
+
+```sh
+cpflow cleanup-stale-apps -a my-app-review --mode=stop --yes
+```
+
+This uses the same staleness threshold, but runs `cpflow ps:stop` for each stale app instead of deleting the GVC,
+volumesets, or images. Resume an app later with `cpflow ps:start -a $APP_NAME`. `cpflow ps:stop` only suspends
+workloads listed under `app_workloads` / `additional_workloads` in `.controlplane/controlplane.yml`; workloads
+created outside that config (for example through the Control Plane UI) are left alone — see
+[Pause and Resume](#pause-and-resume-with-psstop--psstart) for details.
+
+### Pause and Resume with `ps:stop` / `ps:start`
+
+For review apps you want to keep but pause — for example, a long-running QA branch a tester will come back to — suspend
+all workloads with:
+
+```sh
+cpflow ps:stop -a my-app-review-123
+```
+
+This sets `defaultOptions.suspend: true` on every workload listed under `app_workloads` or `additional_workloads` in
+`.controlplane/controlplane.yml`. Workloads created outside that config (for example through the Control Plane UI) are
+left alone. Resume with:
+
+```sh
+cpflow ps:start -a my-app-review-123
+```
+
+No re-deploy is needed; the workloads come back with the same images they had before.
+
+> **Note:** `ps:stop` overrides serverless auto-wake. If the web workload is already serverless (`minScale: 0`),
+> suspending it sets `defaultOptions.suspend: true`, and Control Plane will not bring it back on the next request —
+> `ps:start` must be run explicitly first.
+>
+> **Note:** Sidekiq, Postgres, Redis, and Memcached templates default to `type: standard` and `minScale: 1`, so they
+> keep running while only the web tier sleeps. `cpflow ps:stop -a $APP_NAME` suspends every configured workload, web
+> included, and `cleanup-stale-apps --mode=stop` applies the same pause behavior to stale review apps.
 
 ## Useful Links
 
