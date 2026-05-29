@@ -5,16 +5,17 @@
 3. [Remote IP](#remote-ip)
 4. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
 5. [CI](#ci)
-6. [Memcached](#memcached)
-7. [Sidekiq](#sidekiq)
+6. [Logs](#logs)
+7. [Memcached](#memcached)
+8. [Sidekiq](#sidekiq)
    - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
    - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
    - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-8. [Minimizing Review App Costs](#minimizing-review-app-costs)
+9. [Minimizing Review App Costs](#minimizing-review-app-costs)
    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
    - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-9. [Useful Links](#useful-links)
+10. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -91,6 +92,71 @@ Also, log in to the Control Plane Docker repository if building and pushing an i
 ```sh
 cpln image docker-login
 ```
+
+## Logs
+
+`cpflow logs` is a lightweight live-tail command. When you hit `cpln`/`cpflow` line-count or response-size limits, use
+Grafana Loki's [`logcli`](https://grafana.com/docs/loki/latest/query/logcli/) directly against the Control Plane logs
+endpoint for larger historical exports.
+
+Install `logcli` with Homebrew when available:
+
+```sh
+brew install logcli
+```
+
+If Homebrew reports that the formula is unavailable, use Grafana's tap:
+
+```sh
+brew tap grafana/grafana
+brew install grafana/grafana/logcli
+```
+
+For Linux, CI, or other environments without Homebrew, see the [`logcli` installation
+docs](https://grafana.com/docs/loki/latest/query/logcli/getting-started/#install-logcli) for binary downloads or source
+builds.
+
+Configure it with your Control Plane org and current profile token:
+
+```sh
+export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG  # run `cpln org get` to find your org name
+export LOKI_BEARER_TOKEN=$(cpln profile token)
+```
+
+`LOKI_BEARER_TOKEN` is a short-lived bearer credential (it typically expires after roughly 15–60 minutes). The
+`$(cpln profile token)` capture above keeps the literal token out of shell history, but any later command that prints
+it (`echo $LOKI_BEARER_TOKEN`, `env | grep LOKI`) will expose it; avoid those, don't commit the value to scripts, and
+watch for it in CI logs. Rerun the token export if `logcli` returns a 401 or another authentication error.
+
+Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
+labels as needed. The `--forward` flag returns results oldest-first (chronological), which is almost always what you
+want for incident investigation or sequential reading; omit it to get the `logcli` default of newest-first:
+
+```sh
+logcli query '{gvc="my-app", workload="rails"}' --since 1h --limit 10000 --forward
+```
+
+For cleaner bulk exports, strip label metadata from each output line and redirect the output:
+
+```sh
+logcli query '{gvc="my-app", workload="rails"}' --since 24h --limit 50000 --no-labels --forward > rails.log
+```
+
+For historical incidents, use absolute UTC timestamps instead of a relative `--since` window:
+
+```sh
+logcli query '{gvc="my-app"}' \
+  --from="2026-05-27T00:00:00Z" \
+  --to="2026-05-27T06:00:00Z" \
+  --limit 50000 \
+  --no-labels \
+  --forward > incident.log
+```
+
+`logcli` silently truncates results once `--limit` is reached, so a partial export looks the same as a complete one.
+To check for truncation, compare line count to the limit: `wc -l < incident.log` near `--limit` means the export was
+likely cut off. Prefer narrowing the time window (and concatenating the sub-ranges) over raising `--limit`, since the
+server-side cap may be lower than the flag value.
 
 ## Memcached
 
