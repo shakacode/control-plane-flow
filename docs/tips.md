@@ -119,14 +119,14 @@ builds.
 Configure it with your Control Plane org and current profile token:
 
 ```sh
-export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG
+export LOKI_ADDR=https://logs.cpln.io/logs/org/YOUR_ORG  # run `cpln org get` to find your org name
 export LOKI_BEARER_TOKEN=$(cpln profile token)
 ```
 
-`LOKI_BEARER_TOKEN` is a short-lived bearer credential. The `$(cpln profile token)` capture above keeps the literal
-token out of shell history, but any later command that prints it (`echo $LOKI_BEARER_TOKEN`, `env | grep LOKI`) will
-expose it; avoid those, don't commit the value to scripts, and watch for it in CI logs. Rerun the token export if
-`logcli` returns a 401 or another authentication error.
+`LOKI_BEARER_TOKEN` is a short-lived bearer credential (it typically expires after roughly 15–60 minutes). The
+`$(cpln profile token)` capture above keeps the literal token out of shell history, but any later command that prints
+it (`echo $LOKI_BEARER_TOKEN`, `env | grep LOKI`) will expose it; avoid those, don't commit the value to scripts, and
+watch for it in CI logs. Rerun the token export if `logcli` returns a 401 or another authentication error.
 
 Then query logs by label. A Control Plane app is a GVC, so set `gvc` to the app name and narrow by workload or other
 labels as needed. The `--forward` flag returns results oldest-first (chronological), which is almost always what you
