@@ -6,11 +6,14 @@ path — not the public internet.
 
 This guide covers the recommended setup: **CPLN Cloud Wormhole via an Agent**.
 
-> **Sourcing note.** Field names, schema, and limits in this guide are sourced from the public Control Plane
-> documentation at <https://shakadocs.controlplane.com> as of May 2026. The YAML and CLI snippets
-> below have not been end-to-end verified against a live org. Before applying in production, sanity-check the
-> exact field names with `cpln agent get <name> -o yaml` and `cpln identity get <name> -o yaml-slim` against
-> your own org, and consult `cpln <command> --help` for the latest CLI flags.
+> **Sourcing note — verify field casing before you apply.** Field names, schema, and limits in this guide
+> are sourced from the public Control Plane documentation at <https://shakadocs.controlplane.com> as of
+> May 2026 and have **not** been end-to-end verified against a live org. This matters because a casing
+> mismatch **fails silently**: `cpln apply` accepts the file, ignores the unrecognized field, and the
+> workload then can't reach the database — with no error pointing back to the YAML. Before applying in
+> production, diff your edited files against a fresh `cpln identity get <name> -o yaml-slim` (and
+> `cpln agent get <name> -o yaml`) export to confirm the exact field names, and consult
+> `cpln <command> --help` for the latest CLI flags.
 
 ## Why private networking
 
@@ -228,7 +231,7 @@ cpln identity get my-app-production-identity \
   --gvc my-app-production --org my-org -o yaml-slim > identity-db.yaml
 ```
 
-Edit `identity-db.yaml` and **append** the `networkResources` block — keep every other apply-safe field
+Edit `identity-db.yaml` and **add** the `networkResources` block — keep every other apply-safe field
 exactly as exported:
 
 > ⚠️ **Verify field casing against your org before applying.** The field names below (`FQDN`, `IPs`,
@@ -389,13 +392,15 @@ entirely.
 > shells. Prefer the UI for any real credential.
 
 ```sh
-# Reference only — prefer the UI. The umask 077 keeps the temp file owner-only (/tmp is world-readable).
-( umask 077 && cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml )
-# Edit /tmp/my-app-secrets.yml and add these keys under data, preserving existing entries:
+# Reference only — prefer the UI. mktemp gives an unpredictable, owner-only (mode 600) file —
+# safer than a fixed path under world-readable /tmp.
+secret_file=$(mktemp)
+cpln secret reveal my-app-secrets --org my-org -o yaml-slim > "$secret_file"
+# Edit "$secret_file" and add these keys under data, preserving existing entries:
 #   url: "postgres://app:supersecret@myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com:5432/myapp_production?sslmode=require"
 #   url_readers: "postgres://app_readonly:readsecret@myapp-prod.cluster-ro-xxxxx.us-east-2.rds.amazonaws.com:5432/myapp_production?sslmode=require"
-cpln apply --file /tmp/my-app-secrets.yml --org my-org
-rm -f /tmp/my-app-secrets.yml
+cpln apply --file "$secret_file" --org my-org
+rm -f "$secret_file"
 ```
 
 > **Secret policy target.** `cpflow setup-app` creates the app secret (`my-app-secrets`) and a secrets
@@ -438,12 +443,14 @@ CLI heredoc below is reference-only (same shell-history caveat as Option A). If 
 `targetLinks` as shown in Option A.
 
 ```sh
-# Reference only — prefer the UI. The umask 077 keeps the temp file owner-only (/tmp is world-readable).
-( umask 077 && cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml )
-# Edit /tmp/my-app-secrets.yml and add this key under data, preserving existing entries:
+# Reference only — prefer the UI. mktemp gives an unpredictable, owner-only (mode 600) file —
+# safer than a fixed path under world-readable /tmp.
+secret_file=$(mktemp)
+cpln secret reveal my-app-secrets --org my-org -o yaml-slim > "$secret_file"
+# Edit "$secret_file" and add this key under data, preserving existing entries:
 #   password: "supersecret"
-cpln apply --file /tmp/my-app-secrets.yml --org my-org
-rm -f /tmp/my-app-secrets.yml
+cpln apply --file "$secret_file" --org my-org
+rm -f "$secret_file"
 ```
 
 Then set the workload env:
