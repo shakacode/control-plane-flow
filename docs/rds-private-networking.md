@@ -355,10 +355,8 @@ concrete and for the rare case where you want to pin to a specific IP.
 ## Step 5 — Point the workload at the resource
 
 The workload's `DATABASE_URL` uses the **RDS/Aurora endpoint** (the `FQDN` you declared in step 4) as the
-hostname — not the short resource `name`. RDS and Aurora present a TLS certificate issued for that endpoint,
-so connecting through the `name` alias fails the TLS handshake unless certificate validation is disabled
-(which you should not do in production). CPLN still routes the endpoint through the agent because it's
-declared in `networkResources`.
+hostname, not the short resource `name` — see the TLS note below for why. CPLN still routes the endpoint
+through the agent because it's declared in `networkResources`.
 
 CPLN's `cpln://secret/<name>.<key>` syntax substitutes the **entire env var value** at workload startup — it
 is not a substring interpolation. So you have three options for assembling a `DATABASE_URL` that includes a
@@ -588,8 +586,8 @@ Expected: a current timestamp and the RDS Postgres version. Common failures:
 ### Aurora failover
 
 - With **IPs** in `networkResources`: failover swaps which underlying instance the writer endpoint resolves
-  to. The IPs you've allowlisted may now point at the wrong instance. For Aurora specifically, prefer the
-  **FQDN** form so the agent re-resolves on each connect.
+  to. The IPs you declared are routing targets, so they may now forward to the wrong instance. For Aurora
+  specifically, prefer the **FQDN** form so the agent re-resolves on each connect.
 - With **FQDN**: the agent re-resolves the cluster endpoint. Aurora's DNS TTL is ~30 seconds, but the full
   failover window (detection → replica promotion → DNS update → propagation to your VPC resolver) is
   typically **60–120 seconds** in practice. Size connection-pool timeouts and circuit breakers for the
