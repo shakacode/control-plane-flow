@@ -865,6 +865,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         template = template_root.join(relative_path).read
         expected = template
                    .gsub("__CPFLOW_GITHUB_ACTIONS_REF__", "v#{Cpflow::VERSION}")
+                   .gsub("__CPFLOW_MINOR_SERIES__", "#{Cpflow::VERSION.split('.').first(2).join('.')}.x")
                    .gsub("__STAGING_BRANCH_FILTER__", %("main", "master"))
                    .gsub("__STAGING_BRANCH_DEFAULT__", "")
         actual = playground.join(relative_path).read

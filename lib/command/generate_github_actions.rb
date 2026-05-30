@@ -42,6 +42,7 @@ module Command
     def template_variables
       {
         "__CPFLOW_GITHUB_ACTIONS_REF__" => cpflow_github_actions_ref,
+        "__CPFLOW_MINOR_SERIES__" => cpflow_minor_series,
         "__STAGING_BRANCH_FILTER__" => staging_branch_filter,
         "__STAGING_BRANCH_DEFAULT__" => staging_branch_default
       }
@@ -77,6 +78,14 @@ module Command
 
     def default_cpflow_github_actions_ref
       "v#{::Cpflow::VERSION}"
+    end
+
+    # The illustrative version-locking example in cpflow-help.md tracks the installed
+    # gem's minor series (e.g. "5.0.x") so it never drifts into a stale concrete
+    # release the way a hardcoded number does (see issue #341).
+    def cpflow_minor_series
+      major, minor = ::Cpflow::VERSION.split(".")
+      "#{major}.#{minor}.x"
     end
   end
 

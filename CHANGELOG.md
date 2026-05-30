@@ -14,7 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- **Fixed `cpflow generate-github-actions` so the generated `.github/cpflow-help.md` version-locking example uses a `CPFLOW_VERSION=5.0.x` placeholder instead of a hardcoded release that goes stale against the `@v<version>` wrapper refs in the same file.** [PR 343](https://github.com/shakacode/control-plane-flow/pull/343) by [Justin Gordon](https://github.com/justin808). Fixes [issue 341](https://github.com/shakacode/control-plane-flow/issues/341).
+- **Fixed `cpflow generate-github-actions` so the generated `.github/cpflow-help.md` version-locking example derives a `CPFLOW_VERSION=<major>.<minor>.x` placeholder from the installed gem version instead of a hardcoded release that goes stale against the `@v<version>` wrapper refs in the same file.** [PR 343](https://github.com/shakacode/control-plane-flow/pull/343) by [Justin Gordon](https://github.com/justin808). Fixes [issue 341](https://github.com/shakacode/control-plane-flow/issues/341).
 
 ## [5.0.4] - 2026-05-27
 

@@ -85,8 +85,8 @@ the same ref, regenerate them with a newer `cpflow`.
 
 Leave `CPFLOW_VERSION` unset so the workflow builds cpflow from the same
 checked-out upstream source. If you set `CPFLOW_VERSION`, it must match the
-release tag your wrappers are pinned to: a `CPFLOW_VERSION=5.0.x` runtime
-override goes with a wrapper pinned to `uses: ...@v5.0.x` (substitute the
+release tag your wrappers are pinned to: a `CPFLOW_VERSION=__CPFLOW_MINOR_SERIES__` runtime
+override goes with a wrapper pinned to `uses: ...@v__CPFLOW_MINOR_SERIES__` (substitute the
 release you pinned above).
 
 After updating the `cpflow` gem in this repo, update the generated wrappers in
