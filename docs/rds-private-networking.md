@@ -34,11 +34,11 @@ pattern. Don't run a production database that way.
 │   ┌──────────────┐         ┌──────────────────────┐                          │
 │   │   Workload   │ ──────► │       Identity       │                          │
 │   │  (rails app) │         │   networkResources:  │                          │
-│   │              │         │     - name: db-prod  │                          │
+│   │              │         │   - name: db-primary │                          │
 │   │  DATABASE_URL│         │       FQDN: db.rds…  │                          │
 │   │  = postgres://         │       resolverIP:    │                          │
 │   │    user:pwd@           │         10.0.0.2     │                          │
-│   │    db-prod:5432/myapp  │       ports: [5432]  │                          │
+│   │    db.rds…:5432/myapp  │       ports: [5432]  │                          │
 │   │                        │       agentLink:     │                          │
 │   │                        │         //agent/vpc1 │                          │
 │   └──────────────┘         └──────────┬───────────┘                          │
@@ -64,8 +64,10 @@ Key properties:
   private.
 - Traffic through the wormhole is **encrypted in transit** — the agent uses WireGuard for the tunnel between
   your VPC and CPLN.
-- The workload connects to the resource by its **name**, not by RDS's hostname — CPLN routes the connection
-  through the agent.
+- The workload reaches the resource through the wormhole. For a **TLS** database like RDS/Aurora, connect by
+  the cluster's **FQDN** (the real endpoint) so the certificate matches; CPLN routes that FQDN through the
+  agent because it's declared in `networkResources`. The short `name` is the resource's identifier — usable
+  as the host only for non-TLS targets.
 - The Agent is **org-scoped** — one agent can serve workloads in any GVC in the org.
 - The Identity (and its `networkResources`) is **GVC-scoped** — an org with staging and production GVCs
   needs the same `networkResources` declared in each GVC's identity, but can share a single agent.
@@ -139,6 +141,10 @@ Recommended baseline:
     scoped `GetSecretValue` / `GetParameter` permission on the specific secret or parameter ARN, and set
     the profile in the Launch Template under **Advanced details** → **IAM instance profile** before relying
     on the user-data fetch. At minimum, audit who has those `Describe*` permissions in the account.
+  - **Enforce IMDSv2.** Set the Launch Template's metadata options to require a session token
+    (`HttpTokens: required`, a low `HttpPutResponseHopLimit` such as `1`) so a server-side request forgery
+    (SSRF) bug in a workload can't read the user data or instance role credentials from `169.254.169.254`
+    without a token. IMDSv1 leaves that endpoint open to any unauthenticated in-instance request.
 - **Auto Scaling Group:**
   - Testing: desired 1 / min 1 / max 1.
   - Production: desired 2 / min 2 / max 4 across at least two availability zones. Two agents give you
@@ -238,9 +244,9 @@ name: my-app-production-identity   # output of `cpln identity get` for your app
 description: ...                   # leave existing description alone
 # … any other existing fields stay as-is …
 networkResources:
-  - name: db-primary           # ← workload connects to this hostname
+  - name: db-primary           # resource identifier (TLS workloads connect via the FQDN below)
     agentLink: //agent/aws-us-east-2-prod
-    FQDN: myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com
+    FQDN: myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com   # ← workload connects to this endpoint
     resolverIP: 10.0.0.2       # your VPC's .2 resolver, reachable from the agent
     ports:
       - 5432
@@ -315,7 +321,9 @@ policy name if you've overridden `secrets_policy_name` in `controlplane.yml`.
 
 Schema notes (per CPLN's documented `networkResources` schema):
 
-- `name` — the hostname the workload will use. Pick something short and stable (`db-primary`, `db-readers`).
+- `name` — a short, stable identifier for the resource (`db-primary`, `db-readers`). A workload may address
+  the resource by this name **or** by its `FQDN` — but a **TLS** target like RDS/Aurora must be reached by
+  the `FQDN` (see Step 5), so the name serves mainly as the resource label here.
 - `agentLink` — `//agent/<agent-name>` (org-scoped).
 - Exactly one of `IPs` or `FQDN` is required per resource:
   - `IPs` — array of **1 to 5** IPv4 addresses. The agent routes to exactly those IPs.
@@ -340,33 +348,34 @@ Schema notes (per CPLN's documented `networkResources` schema):
   recycle, or a static private IP behind a network appliance. The agent will route to exactly those IPs
   — if RDS recycles the underlying instance and the IP changes, you must update the identity manually.
 
-For most ShakaCode setups, use FQDN. The IPs form is shown here mainly to make the schema concrete and for
-the rare case where you want to pin to a specific IP.
+For most ShakaCode setups, use FQDN — and a TLS RDS/Aurora connection needs the FQDN as the `DATABASE_URL`
+host anyway so the certificate matches (see Step 5). The IPs form is shown here mainly to make the schema
+concrete and for the rare case where you want to pin to a specific IP.
 
 ## Step 5 — Point the workload at the resource
 
-The workload's `DATABASE_URL` uses the **resource `name`** as the hostname, not the RDS endpoint.
+The workload's `DATABASE_URL` uses the **RDS/Aurora endpoint** (the `FQDN` you declared in step 4) as the
+hostname — not the short resource `name`. RDS and Aurora present a TLS certificate issued for that endpoint,
+so connecting through the `name` alias fails the TLS handshake unless certificate validation is disabled
+(which you should not do in production). CPLN still routes the endpoint through the agent because it's
+declared in `networkResources`.
 
 CPLN's `cpln://secret/<name>.<key>` syntax substitutes the **entire env var value** at workload startup — it
 is not a substring interpolation. So you have three options for assembling a `DATABASE_URL` that includes a
 secret password:
 
-> **TLS requirement.** RDS and Aurora require TLS by default in current parameter groups. Always
-> include `sslmode=require` in the connection string or `database.yml`. Without it, newer clusters
-> will refuse the connection and older ones will silently fall back to unencrypted. For stricter
-> certificate verification (`verify-ca` / `verify-full`), the AWS RDS CA bundle must be present in
-> the container image and referenced with `sslrootcert=/path/to/rds-ca.pem` in the connection string
-> or `PGSSLROOTCERT`; otherwise those modes fail even though `sslmode=require` works. See the
-> [AWS RDS SSL/TLS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
+> **TLS requirement — use the FQDN endpoint as the host.** RDS and Aurora require TLS by default in current
+> parameter groups, and their certificate is issued for the **actual cluster endpoint**. Per Control Plane,
+> a TLS resource must be reached by its FQDN: connecting through the short `networkResources` name
+> (`db-primary`) fails the TLS handshake unless you disable certificate validation. So use the real endpoint
+> (e.g. `myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com`) as the `DATABASE_URL` host in every example
+> below. CPLN routes it through the agent because that FQDN is declared in `networkResources`.
 >
-> With the name-based wormhole pattern shown here (`db-primary`, `db-readers`), `verify-full` will
-> fail because Postgres validates the certificate hostname against the host in `DATABASE_URL`, and
-> the RDS/Aurora certificate is issued for the actual AWS endpoint rather than `db-primary`.
-> Use `sslmode=require` for encrypted transport, or `verify-ca` as the strongest mode with this
-> stable alias pattern. If your security policy requires `verify-full`, the workload-facing
-> hostname must match the certificate name: use the actual RDS/Aurora endpoint as the
-> `networkResources[].name` (after confirming CPLN accepts that hostname as a resource name), then
-> use that same endpoint hostname in `DATABASE_URL`.
+> Always include `sslmode=require` so the connection is encrypted; without it, newer clusters refuse the
+> connection and older ones silently fall back to unencrypted. Because the host now matches the certificate,
+> the stricter `verify-ca` / `verify-full` modes also work — add the AWS RDS CA bundle to the container image
+> and reference it with `sslrootcert=/path/to/rds-ca.pem` (or `PGSSLROOTCERT`). See the
+> [AWS RDS SSL/TLS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
 
 **Option A: store the full URL in a secret (simpler).** Recommended for production where the DB credentials
 rarely change.
@@ -385,8 +394,8 @@ entirely.
 # Reference only — prefer the UI.
 cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml
 # Edit /tmp/my-app-secrets.yml and add these keys under data, preserving existing entries:
-#   url: "postgres://app:supersecret@db-primary:5432/myapp_production?sslmode=require"
-#   url_readers: "postgres://app_readonly:readsecret@db-readers:5432/myapp_production?sslmode=require"
+#   url: "postgres://app:supersecret@myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com:5432/myapp_production?sslmode=require"
+#   url_readers: "postgres://app_readonly:readsecret@myapp-prod.cluster-ro-xxxxx.us-east-2.rds.amazonaws.com:5432/myapp_production?sslmode=require"
 cpln apply --file /tmp/my-app-secrets.yml --org my-org
 rm /tmp/my-app-secrets.yml
 ```
@@ -444,7 +453,7 @@ Then set the workload env:
 ```yaml
 env:
   - name: DATABASE_HOST
-    value: db-primary
+    value: myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com   # the networkResources[].FQDN from step 4
   - name: DATABASE_PORT
     value: "5432"
   - name: DATABASE_NAME
@@ -483,7 +492,7 @@ env:
   - name: DATABASE_PASSWORD
     value: cpln://secret/my-app-secrets.DATABASE_PASSWORD
   - name: DATABASE_HOST
-    value: db-primary            # the networkResources[].name from step 4
+    value: myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com   # the networkResources[].FQDN from step 4
   - name: DATABASE_URL
     value: postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):5432/myapp_production?sslmode=require
 ```
@@ -495,10 +504,12 @@ name.
 
 Either way:
 
-- `db-primary` / `db-readers` are the `networkResources[].name` values from step 4 and serve as the
-  workload-facing hostnames per the CPLN docs.
-- If your workload can't resolve `db-primary`, diagnose with
-  `cpln workload exec <workload> -- nslookup db-primary`. The Verification section below covers the
+- The host in `DATABASE_URL` is the **`FQDN`** from step 4 (e.g.
+  `myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com`), so the TLS certificate matches. The short
+  `networkResources` `name` (`db-primary` / `db-readers`) is the resource's identifier, not the connection
+  host for a TLS database.
+- If your workload can't reach the endpoint, diagnose with
+  `cpln workload exec <workload> -- nslookup <endpoint>`. The Verification section below covers the
   most common resolution and connectivity failures.
 
 ## Step 6 — Bind the identity to the workload
@@ -548,7 +559,7 @@ psql "$DATABASE_URL" -c 'select now(), version();'
 
 Expected: a current timestamp and the RDS Postgres version. Common failures:
 
-- `could not translate host name "db-primary" to address` — usually one of:
+- `could not translate host name "<rds-endpoint>" to address` — usually one of:
   - The identity isn't bound to the workload: check `spec.identityLink` on the workload, re-apply the
     template, and re-run.
   - The workload was running **before** you added `networkResources` to the identity: existing replicas
@@ -557,9 +568,9 @@ Expected: a current timestamp and the RDS Postgres version. Common failures:
     for one workload; lower-level equivalent:
     `cpln workload force-redeployment <workload> --gvc <gvc> --org <org>`) so new replicas start with the
     updated network resource map.
-  - Some runtimes need the GVC-suffixed form. If the bare `db-primary` won't resolve, try
-    `db-primary.<gvc>.cpln.local` (e.g. `db-primary.my-app-production.cpln.local`) in `DATABASE_URL` and
-    `database.yml` before assuming the identity is wrong.
+  - The agent can't resolve the endpoint: confirm the `FQDN` in `networkResources` exactly matches the RDS
+    endpoint in `DATABASE_URL`, and that `resolverIP` (if set) points at a DNS server the agent can reach
+    (the VPC `.2` resolver), with the agent SG allowing egress on `53`.
 - `connection refused` or timeouts to the resource — the agent → RDS path is wrong. Verify the agent has a
   green heartbeat in the CPLN UI, the agent SG has egress to the RDS SG on `5432`, and the RDS SG accepts
   ingress from the agent SG.
