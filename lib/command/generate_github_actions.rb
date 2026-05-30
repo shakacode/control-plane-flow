@@ -80,12 +80,9 @@ module Command
       "v#{::Cpflow::VERSION}"
     end
 
-    # The illustrative version-locking example in cpflow-help.md tracks the installed
-    # gem's minor series (e.g. "5.0.x") so it never drifts into a stale concrete
-    # release the way a hardcoded number does (see issue #341).
+    # Returns e.g. "5.0.x" for the version-locking example in cpflow-help.md (issue #341).
     def cpflow_minor_series
-      major, minor = ::Cpflow::VERSION.split(".")
-      "#{major}.#{minor}.x"
+      "#{::Cpflow::VERSION.split('.').first(2).join('.')}.x"
     end
   end
 
