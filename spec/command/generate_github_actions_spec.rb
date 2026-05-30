@@ -692,6 +692,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
     end
 
+    # Issue #341: the version-locking example must not emit a concrete release number.
+    # A literal version (e.g. 5.0.1) goes stale against the @v#{VERSION} wrapper refs in
+    # the same generated file and reads like a required old runtime override.
+    it "uses a placeholder version in the CPFLOW_VERSION example" do
+      help_md = playground.join(".github/cpflow-help.md").read
+
+      expect(help_md).to match(/CPFLOW_VERSION=\d+\.\d+\.x\b/)
+      expect(help_md).to match(/uses: \.\.\.@v\d+\.\d+\.x\b/)
+      expect(help_md).not_to match(/CPFLOW_VERSION=\d+\.\d+\.\d+/)
+    end
+
     it "documents the review-app deploying icon override in the help markdown" do
       help_md = playground.join(".github/cpflow-help.md").read
 
@@ -852,8 +863,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       relative_paths.each do |relative_path|
         template = template_root.join(relative_path).read
+        # Re-derive __CPFLOW_MINOR_SERIES__ here rather than calling cpflow_minor_series,
+        # so this snapshot guard stays independent of the code under test.
         expected = template
                    .gsub("__CPFLOW_GITHUB_ACTIONS_REF__", "v#{Cpflow::VERSION}")
+                   .gsub("__CPFLOW_MINOR_SERIES__", "#{Cpflow::VERSION.split('.').first(2).join('.')}.x")
                    .gsub("__STAGING_BRANCH_FILTER__", %("main", "master"))
                    .gsub("__STAGING_BRANCH_DEFAULT__", "")
         actual = playground.join(relative_path).read

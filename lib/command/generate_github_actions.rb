@@ -42,6 +42,7 @@ module Command
     def template_variables
       {
         "__CPFLOW_GITHUB_ACTIONS_REF__" => cpflow_github_actions_ref,
+        "__CPFLOW_MINOR_SERIES__" => cpflow_minor_series,
         "__STAGING_BRANCH_FILTER__" => staging_branch_filter,
         "__STAGING_BRANCH_DEFAULT__" => staging_branch_default
       }
@@ -77,6 +78,11 @@ module Command
 
     def default_cpflow_github_actions_ref
       "v#{::Cpflow::VERSION}"
+    end
+
+    # Returns e.g. "5.0.x" for the version-locking placeholder in cpflow-help.md.
+    def cpflow_minor_series
+      "#{::Cpflow::VERSION.split('.').first(2).join('.')}.x"
     end
   end
 
