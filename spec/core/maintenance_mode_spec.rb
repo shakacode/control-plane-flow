@@ -145,6 +145,17 @@ describe MaintenanceMode do
                                                 .exactly(MaintenanceMode::DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS).times
       expect(command_calls).to eq([["ps:start", "-a", "my-app", "-w", "maintenance", "--wait"]])
     end
+
+    it "keeps cached domain data when polling never returns a routable domain" do
+      maintenance_mode = described_class.new(command)
+
+      stub_domain_switch(from: "maintenance", to: "web", polls: [nil])
+
+      expect { maintenance_mode.disable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(maintenance_mode.enabled?).to be(true)
+      expect(cp).to have_received(:find_domain_for).once
+    end
   end
 
   def stub_domain_switch(from:, to:, polls: nil)

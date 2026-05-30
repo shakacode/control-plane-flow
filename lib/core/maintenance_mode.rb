@@ -5,12 +5,14 @@ class MaintenanceMode
 
   DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS = 30
   DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS = 1
+  # `with_retry` runs the block while `retry_count <= max_retry_count`, where
+  # `retry_count` starts at 0, so total attempts == max_retry_count + 1. Subtract
+  # 1 here so the bounded poll runs exactly MAX_POLL_ATTEMPTS times. Naming the
+  # value keeps that off-by-one explicit if `with_retry`'s loop ever changes.
+  DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT = DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS - 1
   DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS = {
     retry_on_failure: true,
-    # `with_retry` runs the block while `retry_count <= max_retry_count`, where
-    # `retry_count` starts at 0, so total attempts == max_retry_count + 1. Pass
-    # MAX_POLL_ATTEMPTS - 1 to get exactly MAX_POLL_ATTEMPTS attempts.
-    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS - 1,
+    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT,
     wait: DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS
   }.freeze
 
@@ -117,14 +119,15 @@ class MaintenanceMode
 
   # Refetches the domain, refreshes the cached `@domain_data` when the fetch
   # returns a routable domain, and reports whether the route now points at
-  # `workload`. A transient API error (e.g. a 5xx while the route is still
-  # propagating) is treated as "not switched yet" so the bounded poll keeps
+  # `workload`. Any API error (a 5xx while the route is still propagating, or a
+  # transient 403 — `ControlplaneApiDirect::ForbiddenError < StandardError`, not
+  # a `RuntimeError`) is treated as "not switched yet" so the bounded poll keeps
   # retrying instead of aborting on the first blip.
   def domain_workload_update_confirmed?(domain_name, workload)
     refreshed_domain_data = cp.fetch_domain(domain_name)
     @domain_data = refreshed_domain_data if refreshed_domain_data
     refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, workload)
-  rescue RuntimeError
+  rescue StandardError
     false
   end
 
