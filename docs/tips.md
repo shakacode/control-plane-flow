@@ -1,21 +1,23 @@
 # Tips
 
 1. [GVCs vs. Orgs](#gvcs-vs-orgs)
-2. [RAM](#ram)
-3. [Remote IP](#remote-ip)
-4. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
-5. [CI](#ci)
-6. [Logs](#logs)
-7. [Memcached](#memcached)
-8. [Sidekiq](#sidekiq)
-   - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
-   - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
-   - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-9. [Minimizing Review App Costs](#minimizing-review-app-costs)
-   - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
-   - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
-   - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-10. [Useful Links](#useful-links)
+2. [Heroku Mappings](#heroku-mappings)
+3. [RAM](#ram)
+4. [CPU](#cpu)
+5. [Remote IP](#remote-ip)
+6. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
+7. [CI](#ci)
+8. [Logs](#logs)
+9. [Memcached](#memcached)
+10. [Sidekiq](#sidekiq)
+    - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
+    - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
+    - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
+11. [Minimizing Review App Costs](#minimizing-review-app-costs)
+    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
+    - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
+    - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
+12. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -24,6 +26,23 @@
 - Multiple GVCs within an org can use the same image.
 - You can have different images within a GVC and even within a workload. This flexibility is one of the key differences
   compared to Heroku apps.
+
+## Heroku Mappings
+
+If you're coming from Heroku, these concepts map roughly as follows:
+
+| Heroku           | Control Plane                       |
+| ---------------- | ----------------------------------- |
+| App              | GVC                                 |
+| Dyno             | Replica                             |
+| Procfile Process | Workload                            |
+| Config Var       | Secret / Environment Variable       |
+| Add-on           | Managed Service or External Service |
+| Release Phase    | Deployment Workflow                 |
+
+These are conceptual equivalents rather than exact matches — see [GVCs vs. Orgs](#gvcs-vs-orgs) above for one key
+difference. For a mapping of Heroku _CLI commands_ to `cpflow`/`cpln`, see
+[Mapping of Heroku Commands](/README.md#mapping-of-heroku-commands-to-cpflow-and-cpln).
 
 ## RAM
 
@@ -64,6 +83,23 @@ The steps for configuring an alert for workload restarts are almost identical, b
 
 For more information on Grafana alerts, see: https://grafana.com/docs/grafana/latest/alerting/
 
+## CPU
+
+Control Plane workloads can be configured with CPU reservations and limits. If a workload consistently operates near its
+CPU limit, request latency may increase. If CPU is configured as the workload's autoscaling metric (with `maxScale`
+greater than `minScale`), Control Plane will add replicas in response — but the default `templates/rails.yml` pins
+`minScale: 1`, `maxScale: 1`, so it holds a single replica until you configure autoscaling.
+
+Worth monitoring:
+
+- CPU utilization
+- Request latency
+- Replica count
+- Container restarts
+
+Consider configuring an alert for sustained CPU utilization above 80%. You can set this up with the same Grafana
+alerting steps described under [RAM](#ram) above, substituting a CPU utilization query for the memory one.
+
 ## Remote IP
 
 The actual remote IP of the workload container is in the 127.0.0.x network, so that will be the value of the
@@ -74,6 +110,9 @@ https://shakadocs.controlplane.com/concepts/security#headers). On Rails, the `Ac
 pick those up and automatically populate `request.remote_ip`.
 
 So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
+
+> **Warning:** Do not use `REMOTE_ADDR` for authentication, rate limiting, auditing, or IP allowlists. Always use
+> framework-specific mechanisms that understand proxy headers (such as Rails' `request.remote_ip`).
 
 ## CI
 
@@ -86,6 +125,11 @@ Make sure to create a profile on CI before running any `cpln` or `cpflow` comman
 CPLN_TOKEN=...
 cpln profile create default --token ${CPLN_TOKEN}
 ```
+
+The `CPLN_TOKEN=...` line above is illustrative. In CI, don't write the literal token into your workflow file — store it
+in your provider's secret store and let CI inject it as the `CPLN_TOKEN` environment variable, which
+`cpln profile create ... --token ${CPLN_TOKEN}` then reads. See [`examples/circleci.yml`](/examples/circleci.yml) for the
+recommended pattern.
 
 Also, log in to the Control Plane Docker repository if building and pushing an image.
 
@@ -163,6 +207,11 @@ server-side cap may be lower than the flag value.
 On the workload container for Memcached (using the `memcached:alpine` image), configure the command with the args
 `-l 0.0.0.0`.
 
+This makes Memcached listen on all network interfaces so other workloads in the GVC can reach it at
+`memcached.APP_GVC.cpln.local`. The `memcached` image already defaults to all interfaces, but passing `-l 0.0.0.0`
+explicitly keeps the intent clear and guards against the listen address being restricted by a future base-image or
+config change.
+
 To do this:
 
 1. Navigate to the workload container for Memcached
@@ -183,6 +232,9 @@ There's no need to unquiet the workers, as that will happen automatically after 
 ```sh
 cpflow run 'rails runner "Sidekiq::ProcessSet.new.each { |w| w.quiet! unless w[%q(hostname)].start_with?(%q(criticalworker.)) }"' -a my-app
 ```
+
+> **Note:** This assumes critical workers share a consistent hostname prefix (the check matches `hostname`, not
+> Sidekiq's `tag` attribute). If you use a custom naming convention, adjust the `start_with?` check accordingly.
 
 ### Setting Up a Pre Stop Hook
 
@@ -218,6 +270,10 @@ To set up a liveness probe on port 7433, see: https://github.com/arturictus/side
 
 Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
 workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
+
+> **Note:** Scaling workloads to zero or stopping review apps does not reduce costs from external databases, managed
+> Redis instances, object storage, or other third-party services. Those continue to bill independently of Control Plane
+> workload state.
 
 ### Scale the Web Workload to Zero
 
