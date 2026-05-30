@@ -80,7 +80,7 @@ module Command
       "v#{::Cpflow::VERSION}"
     end
 
-    # Returns e.g. "5.0.x" for the version-locking example in cpflow-help.md (issue #341).
+    # Returns e.g. "5.0.x" for the version-locking placeholder in cpflow-help.md.
     def cpflow_minor_series
       "#{::Cpflow::VERSION.split('.').first(2).join('.')}.x"
     end
