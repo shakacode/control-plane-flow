@@ -17,7 +17,14 @@
     - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-12. [Useful Links](#useful-links)
+12. [Right-Sizing Non-Production Workloads](#right-sizing-non-production-workloads)
+    - [Enable Capacity AI on Idle Workloads](#enable-capacity-ai-on-idle-workloads)
+    - [Don't Autoscale Idle Workloads on CPU](#dont-autoscale-idle-workloads-on-cpu)
+    - [Right-Size Reserved CPU and Memory](#right-size-reserved-cpu-and-memory)
+    - [Drop Workloads You Don't Use](#drop-workloads-you-dont-use)
+    - [Share One Postgres Across Non-Production Apps](#share-one-postgres-across-non-production-apps)
+    - [Keep Templates as the Source of Truth](#keep-templates-as-the-source-of-truth)
+13. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -389,6 +396,115 @@ No re-deploy is needed; the workloads come back with the same images they had be
 > **Note:** Sidekiq, Postgres, Redis, and Memcached templates default to `type: standard` and `minScale: 1`, so they
 > keep running while only the web tier sleeps. `cpflow ps:stop -a $APP_NAME` suspends every configured workload, web
 > included, and `cleanup-stale-apps --mode=stop` applies the same pause behavior to stale review apps.
+
+## Right-Sizing Non-Production Workloads
+
+[Minimizing Review App Costs](#minimizing-review-app-costs) above targets ephemeral PRs.
+Staging and demo apps — long-lived, low-traffic, and non-production — are the other common
+source of avoidable Control Plane spend: they tend to keep generously-sized workloads
+running full-time. The levers below apply to any non-production environment (staging,
+demos, and review apps alike).
+
+### Enable Capacity AI on Idle Workloads
+
+Control Plane bills the CPU and memory a running replica *reserves*. With `minScale: 1` and
+Capacity AI off, a workload reserves its full `cpu`/`memory` around the clock, even when the
+app is idle. **Capacity AI** lets Control Plane right-size that reservation toward actual
+usage, so an idle non-production workload costs a fraction of its ceiling.
+
+Set it in `defaultOptions`:
+
+```yaml
+kind: workload
+name: rails
+spec:
+  defaultOptions:
+    capacityAI: true
+```
+
+Tradeoff: Control Plane reprovisions the replica when it adjusts the reservation. For
+stateless web/renderer workloads that's negligible. For stateful workloads (Postgres,
+Redis) a scale event briefly interrupts connections — fine for non-production, not for
+production.
+
+### Don't Autoscale Idle Workloads on CPU
+
+CPU-utilization autoscaling adds nothing for an idle non-production app and works against
+Capacity AI. Disable it and let Capacity AI handle right-sizing:
+
+```yaml
+spec:
+  defaultOptions:
+    capacityAI: true
+    autoscaling:
+      metric: disabled
+      minScale: 1
+      maxScale: 1
+```
+
+(For the web tier you can go further and scale to zero — see
+[Scale the Web Workload to Zero](#scale-the-web-workload-to-zero).)
+
+### Right-Size Reserved CPU and Memory
+
+The shipped templates use production-leaning defaults. Check each workload's reserved
+`cpu`/`memory` against its real usage — the workload's **Metrics** tab in Control Plane
+shows Grafana CPU/memory graphs — because non-production workloads are routinely
+over-provisioned.
+
+Postgres is the usual offender: a demo or staging database does **not** need a full core.
+Pinning `cpu: 1000m` keeps a whole reserved CPU running 24/7, while an idle Postgres
+typically sits at single-digit millicores. Something like `cpu: 128m` / `memory: 1Gi` is
+plenty for non-production:
+
+```yaml
+kind: workload
+name: postgres
+spec:
+  containers:
+    - name: postgres
+      cpu: 128m
+      memory: 1Gi
+```
+
+### Drop Workloads You Don't Use
+
+Every workload listed under `app_workloads` / `additional_workloads` is another full-time
+container. Remove the ones a non-production app doesn't actually need.
+
+A common one is a separate background-job worker when the app has no jobs to run. On Rails
+8, [Solid Queue](https://github.com/rails/solid_queue) can run inside Puma instead of as its
+own workload — set `SOLID_QUEUE_IN_PUMA=true` (the default Rails 8 `config/puma.rb` starts
+the Solid Queue supervisor when this is set). Then drop the `worker` workload from
+`app_workloads` and `setup_app_templates` in `.controlplane/controlplane.yml`, and delete
+its template. Solid Queue is database-backed, so this needs no Redis.
+
+### Share One Postgres Across Non-Production Apps
+
+Running a dedicated Postgres workload — and its SSD volume — for every staging and review
+app multiplies standing cost. For non-production, several apps can share a single Postgres
+server, each using its own database:
+
+- Point each app's `DATABASE_HOST` (in `templates/app.yml`) at the shared instance's
+  internal address, and give each app a distinct database name on that server.
+- Expose the database port at **exactly one** level (org *or* GVC, never both) to avoid
+  Control Plane routing conflicts.
+- A Capacity AI scale event on a shared Postgres briefly interrupts every app pointed at
+  it — acceptable for non-production.
+
+A managed alternative is a single small RDS instance hosting many databases; see
+[migrating from Heroku Postgres to RDS](https://pelle.io/posts/hetzner-rds-postgres).
+
+### Keep Templates as the Source of Truth
+
+It's tempting to tune `cpu`, `capacityAI`, or autoscaling directly in the Control Plane UI.
+Don't: `cpflow deploy` reconciles every workload from your `.controlplane/templates/`, so
+console edits are silently overwritten on the next deploy and your live configuration drifts
+from the repo. Make cost changes in the templates and deploy them.
+
+If you want drift caught automatically, manage long-lived environments with Terraform via
+[`cpflow terraform`](/docs/terraform/overview.md) — `terraform plan` reports any difference
+between the repo and live infrastructure before you apply.
 
 ## Useful Links
 

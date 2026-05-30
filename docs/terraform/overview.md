@@ -15,6 +15,17 @@ You can continue working with CPLN configuration files in YAML format and start 
 3. **Multi-Cloud Support**: With Terraform, you can manage resources across multiple cloud providers seamlessly, allowing for a more flexible architecture.
 4. **Plan and Apply**: Terraform provides a clear plan of what changes will be made before applying them, reducing the risk of unintended modifications.
 
+## Terraform and `cpflow` Are Complementary
+
+Generating Terraform does not replace `cpflow`. The two cover different parts of the workflow, and most teams use both:
+
+- **`cpflow` YAML + `cpflow deploy`** fits **ephemeral, fast-moving environments** — Heroku-style review apps in particular. Dynamic per-PR app names, [`cleanup-stale-apps`](/docs/tips.md#delete-or-pause-abandoned-apps-with-cleanup-stale-apps), [`ps:stop`/`ps:start`](/docs/tips.md#pause-and-resume-with-psstop--psstart), and the build → release → deploy flow are first-class, and there is no Terraform state to manage for apps that come and go.
+- **Generated Terraform + `terraform apply`** fits **long-lived, stable environments** (staging and production) where you want a tracked state file, drift detection, explicit dependency ordering, and integration with other Terraform-managed infrastructure.
+
+Because `cpflow terraform generate` produces the Terraform from the same `.controlplane/templates/`, adopting Terraform for your stable environments does not mean maintaining two separate configurations — the YAML templates remain the source of truth, and you regenerate when they change.
+
+A practical split: keep review apps on the `cpflow deploy` flow, and manage staging and production with the generated Terraform. `terraform plan` then surfaces any drift between your repo and live infrastructure before you apply — see [Tips → Keep Templates as the Source of Truth](/docs/tips.md#keep-templates-as-the-source-of-truth).
+
 ## Usage
 
 Let's take a look at how to deploy a [simple Rails application](https://github.com/shakacode/control-plane-flow/tree/main/docs/terraform/example/.controlplane/controlplane.yml) on CPLN using Terraform:
