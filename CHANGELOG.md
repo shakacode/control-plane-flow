@@ -16,6 +16,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - **Fixed `cpflow generate-github-actions` so the generated `.github/cpflow-help.md` version-locking example derives a `CPFLOW_VERSION=<major>.<minor>.x` placeholder from the installed gem version instead of a hardcoded release that goes stale against the `@v<version>` wrapper refs in the same file.** [PR 343](https://github.com/shakacode/control-plane-flow/pull/343) by [Justin Gordon](https://github.com/justin808). Fixes [issue 341](https://github.com/shakacode/control-plane-flow/issues/341).
 
+### Added
+
+- **Added `docs/rds-private-networking.md` covering how to reach a private RDS/Aurora cluster from Control Plane workloads via the Cloud Wormhole agent.** [PR 311](https://github.com/shakacode/control-plane-flow/pull/311) by [Justin Gordon](https://github.com/justin808). Fixes [issue 184](https://github.com/shakacode/control-plane-flow/issues/184). The new doc walks through agent setup on AWS (Launch Template + ASG), declaring `networkResources` on the identity, pointing `DATABASE_URL` at the resource name, verification, and Aurora failover trade-offs. README and `docs/postgres.md` now link to the new guide.
+
 ## [5.0.4] - 2026-05-27
 
 ### Fixed

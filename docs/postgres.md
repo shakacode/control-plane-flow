@@ -1,5 +1,11 @@
 # Migrating Postgres database from Heroku infrastructure
 
+> **Networking note.** This guide is written against a *publicly reachable* RDS instance for simplicity of the
+> Bucardo migration steps. For production, you almost certainly want RDS/Aurora in private subnets reached from
+> Control Plane workloads via the Cloud Wormhole agent — see
+> [Connecting Control Plane workloads to a private AWS RDS/Aurora database](./rds-private-networking.md). The
+> Bucardo migration here still works against a private RDS once the network path is set up.
+
 If you are replacing Heroku Postgres or another pre-provisioned database service, also review the
 [Control Plane PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres). The
 catalog template covers a single-instance PostgreSQL workload with persistent storage, optional PgBouncer, and optional
