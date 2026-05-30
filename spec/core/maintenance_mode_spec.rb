@@ -102,6 +102,28 @@ describe MaintenanceMode do
       expect(command_calls).to eq(expected_workload_commands)
     end
 
+    it "continues polling when the fetched domain temporarily has no routable route" do
+      stub_domain_switch(from: "maintenance", to: "web", polls: [nil, domain_routed_to("web")])
+
+      described_class.new(command).disable!
+
+      expect_domain_update_requested_for("web")
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
+      expect(command_calls).to eq(expected_workload_commands)
+    end
+
+    it "continues polling when a transient API error is raised mid-switch" do
+      allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("maintenance"))
+      poll_responses = [->(*) { raise "transient API error" }, ->(*) { domain_routed_to("web") }]
+      allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_invoke(*poll_responses)
+
+      described_class.new(command).disable!
+
+      expect_domain_update_requested_for("web")
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
+      expect(command_calls).to eq(expected_workload_commands)
+    end
+
     it "skips work when maintenance mode is already disabled" do
       allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
 
