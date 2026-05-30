@@ -391,13 +391,13 @@ entirely.
 > shells. Prefer the UI for any real credential.
 
 ```sh
-# Reference only — prefer the UI.
-cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml
+# Reference only — prefer the UI. The umask 077 keeps the temp file owner-only (/tmp is world-readable).
+( umask 077 && cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml )
 # Edit /tmp/my-app-secrets.yml and add these keys under data, preserving existing entries:
 #   url: "postgres://app:supersecret@myapp-prod.cluster-xxxxx.us-east-2.rds.amazonaws.com:5432/myapp_production?sslmode=require"
 #   url_readers: "postgres://app_readonly:readsecret@myapp-prod.cluster-ro-xxxxx.us-east-2.rds.amazonaws.com:5432/myapp_production?sslmode=require"
 cpln apply --file /tmp/my-app-secrets.yml --org my-org
-rm /tmp/my-app-secrets.yml
+rm -f /tmp/my-app-secrets.yml
 ```
 
 > **Secret policy target.** `cpflow setup-app` creates the app secret (`my-app-secrets`) and a secrets
@@ -440,12 +440,12 @@ CLI heredoc below is reference-only (same shell-history caveat as Option A). If 
 `targetLinks` as shown in Option A.
 
 ```sh
-# Reference only — prefer the UI.
-cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml
+# Reference only — prefer the UI. The umask 077 keeps the temp file owner-only (/tmp is world-readable).
+( umask 077 && cpln secret reveal my-app-secrets --org my-org -o yaml-slim > /tmp/my-app-secrets.yml )
 # Edit /tmp/my-app-secrets.yml and add this key under data, preserving existing entries:
 #   password: "supersecret"
 cpln apply --file /tmp/my-app-secrets.yml --org my-org
-rm /tmp/my-app-secrets.yml
+rm -f /tmp/my-app-secrets.yml
 ```
 
 Then set the workload env:
