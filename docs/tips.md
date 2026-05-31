@@ -287,15 +287,16 @@ Use separate logical databases per app or review app. Do not point multiple Rail
 they intentionally share migrations and data. For example:
 
 ```text
-staging-shared-postgres
-  postgres workload
-  shared-postgres-vs volume
+Shared GVC (in the staging org):
+  staging-shared-postgres
+    postgres workload
+    shared-postgres-vs volume
 
+Client GVCs (each points to a separate logical database):
   react-webpack-rails-tutorial-staging
   react-webpack-rails-tutorial-review-pr-123
-  react_on_rails_starter_tanstack_production
-  react_on_rails_starter_tanstack_production_queue
-  react_on_rails_starter_tanstack_review_pr_123
+  react-on-rails-starter-staging
+  react-on-rails-starter-review-pr-123
 ```
 
 The shared Postgres workload must accept internal traffic from other GVCs. `same-gvc` is not enough when the database
@@ -338,21 +339,20 @@ spec:
       volumes:
         - uri: cpln://volumeset/shared-postgres-vs
           path: /var/lib/postgresql/data
+          recoveryPolicy: retain
   defaultOptions:
     autoscaling:
-      metric: cpu
+      metric: disabled
       minScale: 1
       maxScale: 1
-      target: 95
     capacityAI: false
   firewallConfig:
-    external:
-      inboundAllowCIDR: []
-      outboundAllowCIDR:
-        - 0.0.0.0/0
     internal:
       inboundAllowType: same-org
 ```
+
+`POSTGRES_DB: postgres` initializes the administrative database for the server. Apps should use their own logical
+databases, not the administrative `postgres` database.
 
 Field note: `100m` CPU and `256Mi` memory were enough for tiny Rails migrations, but a real staging seed that inserted
 hundreds of thousands of rows caused Postgres to log `server process ... terminated by signal 9: Killed`. `250m` and
@@ -382,9 +382,18 @@ Suggested cutover order:
 5. Force redeploy app workloads so live replicas pick up the new GVC env.
 6. Stop the old per-app Postgres workloads and smoke test the apps.
 7. Delete the old Postgres workloads and volumes only after smoke tests pass.
+8. When a review app is deleted, drop its logical database from the shared instance so orphaned review databases do not
+   accumulate. For example:
+
+   ```sh
+   cpln workload exec postgres --org ORG --gvc staging-shared-postgres -- \
+     psql -U postgres -c "DROP DATABASE IF EXISTS my_app_review_pr_123 WITH (FORCE);"
+   ```
 
 When updating URL-like env values through `cpln gvc update --set`, quote the entire `path=value` expression. Otherwise
-the CLI can leave the old value in place while the command appears superficially successful.
+the CLI can leave the old value in place while the command appears superficially successful. The `spec.env.NAME.value`
+path relies on env-array lookup by name, so verify against your installed CLI version before relying on it. If in doubt,
+apply a full GVC YAML update with `cpln apply`, then re-read the GVC env with a non-secret host/password-match check.
 
 ```sh
 cpln gvc update my-app-review-pr-123 \
