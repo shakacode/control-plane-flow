@@ -14,6 +14,7 @@
     - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
 11. [Minimizing Review App Costs](#minimizing-review-app-costs)
+    - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
     - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
@@ -274,6 +275,121 @@ workload runs full-time. `cpflow` already provides several knobs to manage this 
 > **Note:** Scaling workloads to zero or stopping review apps does not reduce costs from external databases, managed
 > Redis instances, object storage, or other third-party services. Those continue to bill independently of Control Plane
 > workload state.
+
+### Share One Control Plane Postgres for Staging and Review Apps
+
+For non-production Rails apps, a per-GVC Postgres workload is often the largest avoidable review-app cost. Each app can
+end up with its own always-on Postgres replica and its own volume. If staging/review data can be reset, create one
+shared Postgres GVC in the staging org, then point staging and review app GVCs at separate logical databases inside that
+single Postgres instance.
+
+Use separate logical databases per app or review app. Do not point multiple Rails apps at the same database/schema unless
+they intentionally share migrations and data. For example:
+
+```text
+staging-shared-postgres
+  postgres workload
+  shared-postgres-vs volume
+
+  react-webpack-rails-tutorial-staging
+  react-webpack-rails-tutorial-review-pr-123
+  react_on_rails_starter_tanstack_production
+  react_on_rails_starter_tanstack_production_queue
+  react_on_rails_starter_tanstack_review_pr_123
+```
+
+The shared Postgres workload must accept internal traffic from other GVCs. `same-gvc` is not enough when the database
+lives in a separate GVC; use `same-org`, or `workload-list` if you can keep an explicit allowlist current.
+
+```yaml
+kind: volumeset
+name: shared-postgres-vs
+spec:
+  fileSystemType: ext4
+  initialCapacity: 10
+  performanceClass: general-purpose-ssd
+  snapshots:
+    createFinalSnapshot: true
+    retentionDuration: 7d
+
+---
+kind: workload
+name: postgres
+spec:
+  type: stateful
+  containers:
+    - name: postgres
+      image: postgres:15
+      cpu: 250m
+      memory: 512Mi
+      env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pg_data
+        - name: POSTGRES_DB
+          value: postgres
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          # For team setups, prefer a secret reference plus an identity/policy binding.
+          value: replace-with-non-production-password
+      ports:
+        - number: 5432
+          protocol: tcp
+      volumes:
+        - uri: cpln://volumeset/shared-postgres-vs
+          path: /var/lib/postgresql/data
+  defaultOptions:
+    autoscaling:
+      metric: cpu
+      minScale: 1
+      maxScale: 1
+      target: 95
+    capacityAI: false
+  firewallConfig:
+    external:
+      inboundAllowCIDR: []
+      outboundAllowCIDR:
+        - 0.0.0.0/0
+    internal:
+      inboundAllowType: same-org
+```
+
+Field note: `100m` CPU and `256Mi` memory were enough for tiny Rails migrations, but a real staging seed that inserted
+hundreds of thousands of rows caused Postgres to log `server process ... terminated by signal 9: Killed`. `250m` and
+`512Mi` handled the same seed while still replacing multiple always-on per-app Postgres workloads.
+
+Rails apps with one database can usually use one `DATABASE_URL`:
+
+```yaml
+spec:
+  env:
+    - name: DATABASE_URL
+      value: postgres://app_user:PASSWORD@postgres.staging-shared-postgres.cpln.local:5432/my_app_review_pr_123
+```
+
+Rails apps with multiple production databases need each connection isolated. Either set connection-specific URLs such as
+`CACHE_DATABASE_URL`, `QUEUE_DATABASE_URL`, and `CABLE_DATABASE_URL`, or make the database names in `config/database.yml`
+derive from an app-specific environment variable. If the database names are hard-coded, every review app for that repo
+will collide inside the shared Postgres instance.
+
+Suggested cutover order:
+
+1. Create the shared Postgres GVC, workload, and volume.
+2. Create the app roles and logical databases, or make sure the app role has `CREATEDB` and let `rails db:prepare`
+   create them.
+3. Update staging/review GVC environment values to the shared host.
+4. Run `cpflow run -a APP -- bin/rails db:prepare` for each app.
+5. Force redeploy app workloads so live replicas pick up the new GVC env.
+6. Stop the old per-app Postgres workloads and smoke test the apps.
+7. Delete the old Postgres workloads and volumes only after smoke tests pass.
+
+When updating URL-like env values through `cpln gvc update --set`, quote the entire `path=value` expression. Otherwise
+the CLI can leave the old value in place while the command appears superficially successful.
+
+```sh
+cpln gvc update my-app-review-pr-123 \
+  --set "spec.env.DATABASE_URL.value=postgres://app_user:PASSWORD@postgres.staging-shared-postgres.cpln.local:5432/my_app_review_pr_123"
+```
 
 ### Scale the Web Workload to Zero
 
