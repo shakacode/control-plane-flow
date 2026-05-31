@@ -137,7 +137,6 @@ apps:
     match_if_app_name_starts_with: true
     hooks:
       post_creation: bundle exec rails db:prepare
-      pre_deletion: bundle exec rails db:drop
 
   my-app-production:
     <<: *common

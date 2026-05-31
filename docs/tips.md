@@ -358,14 +358,76 @@ Field note: `100m` CPU and `256Mi` memory were enough for tiny Rails migrations,
 hundreds of thousands of rows caused Postgres to log `server process ... terminated by signal 9: Killed`. `250m` and
 `512Mi` handled the same seed while still replacing multiple always-on per-app Postgres workloads.
 
-Rails apps with one database can usually use one `DATABASE_URL`:
+For review apps, keep the logical database name unique per app. `cpflow`'s default app template uses `{{APP_NAME}}` in
+both the Postgres host and database name:
+
+```yaml
+- name: DATABASE_URL
+  value: postgres://the_user:the_password@postgres.{{APP_NAME}}.cpln.local:5432/{{APP_NAME}}
+```
+
+Create a review-only app template by copying `.controlplane/templates/app.yml` to
+`.controlplane/templates/app-review.yml`. In that copy, change the host to the shared Postgres GVC, but keep
+`{{APP_NAME}}` in the database name. Avoid committing plaintext credentials in the review template. For review apps that
+need credential isolation, have trusted automation create one DB secret per review app, then assemble `DATABASE_URL` from
+secret-backed env vars:
 
 ```yaml
 spec:
   env:
+    - name: DATABASE_USER
+      value: cpln://secret/{{APP_NAME}}-database.DATABASE_USER
+    - name: DATABASE_PASSWORD
+      value: cpln://secret/{{APP_NAME}}-database.DATABASE_PASSWORD
+    - name: DATABASE_HOST
+      value: postgres.staging-shared-postgres.cpln.local
     - name: DATABASE_URL
-      value: postgres://app_user:PASSWORD@postgres.staging-shared-postgres.cpln.local:5432/my_app_review_pr_123
+      value: postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):5432/{{APP_NAME}}
 ```
+
+Control Plane's `cpln://secret/...` syntax replaces the entire env value; it is not substring interpolation. The
+`$(VAR)` references above are what let the final URL keep secret credentials while still using the templated app name.
+Because `{{APP_NAME}}-database` is a separate secret from the app dictionary secret, trusted automation must create that
+secret and add it to the app identity's reveal policy before the workload starts; otherwise workloads cannot resolve the
+`cpln://secret/...` values. If you instead store the full `DATABASE_URL` as one secret, create a separate URL secret per
+review app or use another per-app database-name mechanism. For trusted staging/review apps where a single shared
+database role is acceptable, the same pattern can read `DATABASE_USER` and `DATABASE_PASSWORD` from `{{APP_SECRETS}}`,
+but every matching review app will receive that shared role.
+
+`{{APP_NAME}}` keeps databases separate by convention, not by itself as a security boundary. If review apps can run
+untrusted PR code, do not give every review app the same database role with `CREATEDB` or ownership of every review
+database. Prefer one of these safer models:
+
+1. Create a database and role per review app, store that app's credentials in its app secret, and grant the role only to
+   its own database.
+2. Keep review app database roles low-privilege and run create/drop cleanup from trusted admin automation against the
+   shared Postgres workload.
+
+A single shared role/password is acceptable only for trusted staging apps or review apps where database separation is a
+cost-control convenience rather than a security boundary. The hook example below assumes the review app role is allowed
+to create its own logical database; if you choose admin-owned cleanup, run create/drop steps from trusted automation
+instead of from the review app workload.
+
+Then point the review-app entry at the review-only template and remove the per-PR Postgres workload:
+
+```yaml
+my-app-review:
+  match_if_app_name_starts_with: true
+  setup_app_templates:
+    - app-review   # was: app
+    - redis
+    - rails        # postgres removed, so no per-PR database workload is created
+  additional_workloads:
+    - redis        # postgres removed
+  hooks:
+    post_creation: bundle exec rails db:prepare
+```
+
+The `post_creation` hook creates only that review app's logical database because the database name is still
+`{{APP_NAME}}`. Do not rely on a generic `pre_deletion: rails db:drop` hook for shared databases: `cpflow delete` runs
+the pre-deletion hook before it removes or suspends the app workloads, so live Rails/worker processes can still hold
+connections and make PostgreSQL reject the drop. Stop the review app workloads first, or run trusted admin cleanup
+against the shared Postgres workload with `DROP DATABASE ... WITH (FORCE)`.
 
 Rails apps with multiple production databases need each connection isolated. Either set connection-specific URLs such as
 `CACHE_DATABASE_URL`, `QUEUE_DATABASE_URL`, and `CABLE_DATABASE_URL`, or make the database names in `config/database.yml`
@@ -383,11 +445,13 @@ Suggested cutover order:
 6. Stop the old per-app Postgres workloads and smoke test the apps.
 7. Delete the old Postgres workloads and volumes only after smoke tests pass.
 8. When a review app is deleted, drop its logical database from the shared instance so orphaned review databases do not
-   accumulate. For example:
+   accumulate. For the most reliable cleanup, stop the app workloads first, then run the drop from trusted admin
+   automation or directly against the shared Postgres workload. Use `WITH (FORCE)` on PostgreSQL 13+ to terminate
+   remaining sessions:
 
    ```sh
    cpln workload exec postgres --org ORG --gvc staging-shared-postgres -- \
-     psql -U postgres -c "DROP DATABASE IF EXISTS my_app_review_pr_123 WITH (FORCE);"
+     psql -U postgres -c 'DROP DATABASE IF EXISTS "my-app-review-pr-123" WITH (FORCE);'
    ```
 
 When updating URL-like env values through `cpln gvc update --set`, quote the entire `path=value` expression. Otherwise
@@ -397,8 +461,17 @@ apply a full GVC YAML update with `cpln apply`, then re-read the GVC env with a 
 
 ```sh
 cpln gvc update my-app-review-pr-123 \
-  --set "spec.env.DATABASE_URL.value=postgres://app_user:PASSWORD@postgres.staging-shared-postgres.cpln.local:5432/my_app_review_pr_123"
+  --set "spec.env.DATABASE_URL.value=postgres://app_user:PASSWORD@postgres.staging-shared-postgres.cpln.local:5432/my-app-review-pr-123"
 ```
+
+A few tradeoffs remain even after the cost savings:
+
+- **Noisy neighbor risk.** All staging/review apps share one server's CPU, RAM, disk, and connection pool. A runaway
+  query or connection leak in one app can affect the others; per-app connection caps or PgBouncer can help.
+- **Operational ownership.** Backups, restores, password rotation, sizing, and access control move to the shared server.
+- **Other trusted services can use the same pattern.** Redis and Memcached can also be shared for trusted apps, but a
+  per-app key prefix or logical database index is only conventional separation when apps share credentials. If review
+  app code is not trusted, use enforced isolation such as per-app ACL users/credentials or separate instances.
 
 ### Scale the Web Workload to Zero
 
