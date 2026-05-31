@@ -301,8 +301,9 @@ Client GVCs (each points to a separate logical database):
 
 The shared Postgres workload must accept internal traffic from other GVCs. `same-gvc` is not enough when the database
 lives in a separate GVC; use `same-org`, or `workload-list` if you can keep an explicit allowlist current. `same-org` is
-convenient for trusted staging orgs, but every workload in the org can reach the database port. Use `workload-list` for a
-tighter blast radius if you can automate entries as review apps appear and disappear.
+convenient for trusted staging orgs, but every workload in the org can reach the database port, including production
+workloads if production GVCs share the same org. Use `workload-list` for a tighter blast radius if you can automate
+entries as review apps appear and disappear.
 
 ```yaml
 kind: volumeset
@@ -336,7 +337,8 @@ spec:
           # Recommended after adding the workload identity/policy binding:
           # value: cpln://secret/shared-postgres-password.password
           # Plain-value fallback for disposable non-production experiments only.
-          value: replace-with-non-production-password
+          # Do not commit this file with a real password in place.
+          value: REPLACE_WITH_NON_PRODUCTION_PASSWORD
       ports:
         - number: 5432
           protocol: tcp
@@ -371,38 +373,30 @@ both the Postgres host and database name:
 ```
 
 Create a review-only app template by copying `.controlplane/templates/app.yml` to
-`.controlplane/templates/app-review.yml`. In that copy, change the host to the shared Postgres GVC, but keep
-`{{APP_NAME}}` in the database name. Avoid committing plaintext credentials in the review template. For review apps that
-need credential isolation, have trusted automation create one DB secret per review app, then assemble `DATABASE_URL` from
-secret-backed env vars:
+`.controlplane/templates/app-review.yml`. In that copy, point `DATABASE_URL` at a per-review-app Control Plane secret.
+Trusted automation should create the secret with a full URL whose database name is still that review app's
+`{{APP_NAME}}`:
 
 ```yaml
 spec:
   env:
-    - name: DATABASE_USER
-      value: cpln://secret/{{APP_NAME}}-database.DATABASE_USER
-    - name: DATABASE_PASSWORD
-      value: cpln://secret/{{APP_NAME}}-database.DATABASE_PASSWORD
-    - name: DATABASE_HOST
-      value: postgres.staging-shared-postgres.cpln.local
     - name: DATABASE_URL
-      value: postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):5432/{{APP_NAME}}
+      value: cpln://secret/{{APP_NAME}}-database.DATABASE_URL
 ```
 
-Control Plane's `cpln://secret/...` syntax replaces the entire env value; it is not substring interpolation. The
-`$(VAR)` references above are what let the final URL keep secret credentials while still using the templated app name.
-Because `{{APP_NAME}}-database` is a separate secret from the app dictionary secret, trusted automation must create that
-secret and add it to the app identity's reveal policy before the workload starts; otherwise workloads cannot resolve the
-`cpln://secret/...` values. If you instead store the full `DATABASE_URL` as one secret, create a separate URL secret per
-review app or use another per-app database-name mechanism. For trusted staging/review apps where a single shared
-database role is acceptable, the same pattern can read `DATABASE_USER` and `DATABASE_PASSWORD` from `{{APP_SECRETS}}`,
-but every matching review app will receive that shared role.
+Control Plane's `cpln://secret/...` syntax replaces the entire env value; it is not substring interpolation, so avoid
+forms such as `postgres://cpln://secret/...@...`. A full per-app URL secret also avoids depending on any runtime
+ordering between secret resolution and `$(VAR)` env-var expansion. Because `{{APP_NAME}}-database` is a separate secret
+from the app dictionary secret, trusted automation must create that secret and add it to the app identity's reveal policy
+before the workload starts; otherwise workloads cannot resolve the `cpln://secret/...` value. For trusted staging/review
+apps where a single shared database role is acceptable, you can still create one URL secret per app that reuses the same
+database user/password while keeping the database name unique.
 
 `{{APP_NAME}}` keeps databases separate by convention, not by itself as a security boundary. If review apps can run
 untrusted PR code, do not give every review app the same database role with `CREATEDB` or ownership of every review
 database. Prefer one of these safer models:
 
-1. Create a database and role per review app, store that app's credentials in its app secret, and grant the role only to
+1. Create a database and role per review app, store that app's URL/credentials in its DB secret, and grant the role only to
    its own database.
 2. Keep review app database roles low-privilege and run create/drop cleanup from trusted admin automation against the
    shared Postgres workload.
@@ -485,7 +479,7 @@ apply a full GVC YAML update with `cpln apply`, then re-read the GVC env with a 
 
 ```sh
 cpln gvc update my-app-review-pr-123 \
-  --set 'spec.env.DATABASE_URL.value=postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@postgres.staging-shared-postgres.cpln.local:5432/my-app-review-pr-123'
+  --set 'spec.env.DATABASE_URL.value=cpln://secret/my-app-review-pr-123-database.DATABASE_URL'
 ```
 
 A few tradeoffs remain even after the cost savings:
