@@ -300,7 +300,9 @@ Client GVCs (each points to a separate logical database):
 ```
 
 The shared Postgres workload must accept internal traffic from other GVCs. `same-gvc` is not enough when the database
-lives in a separate GVC; use `same-org`, or `workload-list` if you can keep an explicit allowlist current.
+lives in a separate GVC; use `same-org`, or `workload-list` if you can keep an explicit allowlist current. `same-org` is
+convenient for trusted staging orgs, but every workload in the org can reach the database port. Use `workload-list` for a
+tighter blast radius if you can automate entries as review apps appear and disappear.
 
 ```yaml
 kind: volumeset
@@ -331,7 +333,9 @@ spec:
         - name: POSTGRES_USER
           value: postgres
         - name: POSTGRES_PASSWORD
-          # For team setups, prefer a secret reference plus an identity/policy binding.
+          # Recommended after adding the workload identity/policy binding:
+          # value: cpln://secret/shared-postgres-password.password
+          # Plain-value fallback for disposable non-production experiments only.
           value: replace-with-non-production-password
       ports:
         - number: 5432
@@ -438,7 +442,27 @@ Suggested cutover order:
 
 1. Create the shared Postgres GVC, workload, and volume.
 2. Create the app roles and logical databases, or make sure the app role has `CREATEDB` and let `rails db:prepare`
-   create them.
+   create them. For admin-created databases, generate the password in trusted automation, store it in the matching app DB
+   secret, then run the setup from an interactive `psql` session so the password is not written into shell history or
+   process arguments:
+
+   ```sh
+   cpln workload exec postgres --org ORG --gvc staging-shared-postgres --stdin --tty -- psql -U postgres
+   ```
+
+   Then enter the SQL in `psql`:
+
+   ```sql
+   CREATE ROLE "my-app-staging" LOGIN;
+   \password "my-app-staging"
+   CREATE DATABASE "my-app-staging" OWNER "my-app-staging";
+   \connect "my-app-staging"
+   GRANT ALL ON SCHEMA public TO "my-app-staging";
+   ```
+
+   In CI, run equivalent SQL through a secret-aware step that does not echo the password, add it to process arguments, or
+   persist it in logs.
+
 3. Update staging/review GVC environment values to the shared host.
 4. Run `cpflow run -a APP -- bin/rails db:prepare` for each app.
 5. Force redeploy app workloads so live replicas pick up the new GVC env.
@@ -461,7 +485,7 @@ apply a full GVC YAML update with `cpln apply`, then re-read the GVC env with a 
 
 ```sh
 cpln gvc update my-app-review-pr-123 \
-  --set "spec.env.DATABASE_URL.value=postgres://app_user:PASSWORD@postgres.staging-shared-postgres.cpln.local:5432/my-app-review-pr-123"
+  --set 'spec.env.DATABASE_URL.value=postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@postgres.staging-shared-postgres.cpln.local:5432/my-app-review-pr-123'
 ```
 
 A few tradeoffs remain even after the cost savings:
