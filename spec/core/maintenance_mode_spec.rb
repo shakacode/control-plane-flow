@@ -68,6 +68,15 @@ describe MaintenanceMode do
       expect(command_calls).to eq([["ps:start", "-a", "my-app", "-w", "maintenance", "--wait"]])
     end
 
+    it "surfaces an unexpected error in the failure output when the poll times out" do
+      allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
+      allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_raise(NoMethodError.new("boom"))
+
+      expect { described_class.new(command).enable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(progress.string).to include("NoMethodError: boom")
+    end
+
     it "skips work when maintenance mode is already enabled" do
       allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("maintenance"))
 

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class MaintenanceMode
+class MaintenanceMode # rubocop:disable Metrics/ClassLength
   extend Forwardable
 
   DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS = 30
@@ -119,15 +119,17 @@ class MaintenanceMode
 
   # Refetches the domain, refreshes the cached `@domain_data` when the fetch
   # returns a routable domain, and reports whether the route now points at
-  # `workload`. Any API error (a 5xx while the route is still propagating, or a
-  # transient 403 — `ControlplaneApiDirect::ForbiddenError < StandardError`, not
-  # a `RuntimeError`) is treated as "not switched yet" so the bounded poll keeps
-  # retrying instead of aborting on the first blip.
+  # `workload`. Any error — a 5xx mid-propagation, a transient 403
+  # (`ForbiddenError < StandardError`, not a `RuntimeError`), or a network blip —
+  # is treated as "not switched yet" so the poll keeps retrying. The broad rescue
+  # logs each error to the step's stderr, so a latent bug (e.g. `NoMethodError`)
+  # surfaces in the "failed!" output on timeout instead of being swallowed.
   def domain_workload_update_confirmed?(domain_name, workload)
     refreshed_domain_data = cp.fetch_domain(domain_name)
     @domain_data = refreshed_domain_data if refreshed_domain_data
     refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, workload)
-  rescue StandardError
+  rescue StandardError => e
+    Shell.write_to_tmp_stderr("#{e.class}: #{e.message}\n")
     false
   end
 
