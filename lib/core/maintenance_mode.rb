@@ -35,6 +35,7 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   def enable!
     if enabled?
       progress.puts("Maintenance mode is already enabled for app '#{config.app}'.")
+      ensure_workloads_stopped
     else
       enable_maintenance_mode
     end
@@ -43,6 +44,7 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   def disable!
     if disabled?
       progress.puts("Maintenance mode is already disabled for app '#{config.app}'.")
+      ensure_workloads_stopped
     else
       disable_maintenance_mode
     end
@@ -80,6 +82,15 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
 
   def validate_maintenance_workload_exists!
     cp.fetch_workload!(maintenance_workload)
+  end
+
+  # A run that already switched the route but hit the poll timeout aborts before
+  # `start_or_stop_all_workloads(:stop)` runs, leaving the app workloads up. The
+  # next `enable!`/`disable!` short-circuits on the route check, so stop the
+  # workloads here too — that lets a re-run finish what the timed-out run started.
+  # `ps:stop` is idempotent, so it is a no-op once the workloads are stopped.
+  def ensure_workloads_stopped
+    start_or_stop_all_workloads(:stop)
   end
 
   def start_or_stop_all_workloads(action)

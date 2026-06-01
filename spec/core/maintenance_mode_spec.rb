@@ -77,14 +77,16 @@ describe MaintenanceMode do
       expect(progress.string).to include("NoMethodError: boom")
     end
 
-    it "skips work when maintenance mode is already enabled" do
+    it "stops app workloads when the route is already on maintenance, completing a timed-out run" do
       allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("maintenance"))
 
       described_class.new(command).enable!
 
-      expect(cp).not_to have_received(:fetch_workload!)
+      # The route is already correct, so it is not re-switched, but the app
+      # workloads are stopped idempotently so a run that timed out before
+      # stopping them can recover on re-run.
       expect(cp).not_to have_received(:set_domain_workload)
-      expect(command_calls).to be_empty
+      expect(command_calls).to eq([["ps:stop", "-a", "my-app", "--wait"]])
       expect(progress.string).to include("Maintenance mode is already enabled for app 'my-app'.")
     end
 
@@ -133,14 +135,16 @@ describe MaintenanceMode do
       expect(command_calls).to eq(expected_workload_commands)
     end
 
-    it "skips work when maintenance mode is already disabled" do
+    it "stops app workloads when the route is already on the app workload, completing a timed-out run" do
       allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
 
       described_class.new(command).disable!
 
-      expect(cp).not_to have_received(:fetch_workload!)
+      # The route is already correct, so it is not re-switched, but the app
+      # workloads are stopped idempotently so a run that timed out before
+      # stopping them can recover on re-run.
       expect(cp).not_to have_received(:set_domain_workload)
-      expect(command_calls).to be_empty
+      expect(command_calls).to eq([["ps:stop", "-a", "my-app", "--wait"]])
       expect(progress.string).to include("Maintenance mode is already disabled for app 'my-app'.")
     end
 
