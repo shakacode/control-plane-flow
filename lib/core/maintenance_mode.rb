@@ -108,10 +108,16 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   def switch_domain_workload(to:)
     domain_name = domain_data["name"]
 
+    # Unlike the polling step below, the switch request is intentionally not
+    # retried: if it fails, nothing has changed yet, so aborting and letting the
+    # user re-run is the safe outcome. (Retrying would not help here anyway —
+    # `with_retry` retries on a falsy return, and `set_domain_workload` raises
+    # rather than returning false.)
     step("Requesting workload switch for domain '#{domain_name}' to '#{to}'") do
       # `set_domain_workload` mutates the route in place, so send a deep copy
-      # (round-tripped through JSON, since the domain is plain API data) to keep
-      # the cached `@domain_data` intact for the polling check below.
+      # (round-tripped through JSON, since the domain is plain parsed-API data
+      # with string keys and JSON-native values) to keep the cached
+      # `@domain_data` intact for the polling check below.
       domain_data_for_update = JSON.parse(JSON.generate(domain_data))
       cp.set_domain_workload(domain_data_for_update, to)
     end
@@ -140,7 +146,7 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
     @domain_data = refreshed_domain_data if refreshed_domain_data
     refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, workload)
   rescue StandardError => e
-    Shell.write_to_tmp_stderr("#{e.class}: #{e.message}\n")
+    Shell.write_to_tmp_stderr("#{e.class}: #{e.message} (#{e.backtrace&.first})\n")
     false
   end
 
