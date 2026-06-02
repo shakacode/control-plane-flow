@@ -17,16 +17,32 @@ module Command
       - The release script is run in the context of `cpflow run` with the latest image
       - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest
+      - Repairs missing `shared_secret_grants` policy bindings before running a release phase or updating workloads
     DESC
 
-    def call # rubocop:disable Metrics/MethodLength
-      run_release_script if config.options[:run_release_phase]
-
-      deployed_endpoints = {}
+    def call
+      release_script = release_script_to_run
       image = resolve_image_to_deploy
+      shared_secret_policy_grant_pairs = resolve_shared_secret_policy_grants
+      workload_data_by_name = app_workload_data
 
-      config[:app_workloads].each do |workload|
-        workload_data = cp.fetch_workload!(workload)
+      bind_shared_secret_policy_grants(shared_secret_policy_grant_pairs)
+      run_release_script(release_script) if release_script
+      deploy_image_to_workloads(image, workload_data_by_name)
+    end
+
+    private
+
+    def app_workload_data
+      config[:app_workloads].to_h do |workload|
+        [workload, cp.fetch_workload!(workload)]
+      end
+    end
+
+    def deploy_image_to_workloads(image, workload_data_by_name) # rubocop:disable Metrics/MethodLength
+      deployed_endpoints = {}
+
+      workload_data_by_name.each do |workload, workload_data|
         workload_data.dig("spec", "containers").each do |container|
           next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}[:@]})
 
@@ -46,8 +62,6 @@ module Command
         progress.puts("  - #{workload}: #{endpoint}")
       end
     end
-
-    private
 
     def resolve_image_to_deploy
       image = cp.latest_image
@@ -93,8 +107,16 @@ module Command
       deployments.dig("items", 0, "status", "endpoint")
     end
 
-    def run_release_script
+    def release_script_to_run
+      return unless config.options[:run_release_phase]
+
       release_script = config[:release_script]
+      return release_script if release_script.is_a?(String) && !release_script.strip.empty?
+
+      raise "release_script must be configured when --run-release-phase is provided."
+    end
+
+    def run_release_script(release_script)
       run_command_in_latest_image(release_script, title: "release script")
     end
   end
