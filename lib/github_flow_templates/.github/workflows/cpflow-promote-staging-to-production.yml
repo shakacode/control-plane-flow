@@ -140,7 +140,7 @@ jobs:
             if ! [[ "${value}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
               local display_value
               display_value="$(printf '%q' "${value}")"
-              echo "::error::${label} (${display_value}) must be a valid Control Plane org name; use lowercase alphanumeric characters and hyphens only, with no leading or trailing hyphen."
+              echo "::error::${label} (${display_value}) must be a valid Control Plane org name; use lowercase alphanumeric characters and hyphens only, with no leading or trailing hyphen." >&2
               exit 1
             fi
           }
@@ -382,10 +382,12 @@ jobs:
 
           echo "image=${staging_image}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Copy image from staging
         id: copy-image
         env:
-          # Pass the upstream token via env rather than `-t` so it doesn't appear in /proc/<pid>/cmdline.
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
           CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
@@ -410,19 +412,27 @@ jobs:
           copy_image_attempts=$((copy_image_retries + 1))
           copy_image_retry_interval=$((10#${COPY_IMAGE_RETRY_INTERVAL}))
 
-          if ! CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${STAGING_IMAGE}" --org "${CPLN_ORG_STAGING}" -o json >/dev/null; then
+          staging_image="${STAGING_IMAGE%%@*}"
+          if [[ -z "${staging_image}" ]]; then
+            echo "::error::Staging image '${STAGING_IMAGE}' did not contain a usable image tag."
+            exit 1
+          fi
+
+          if ! CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image}" --org "${CPLN_ORG_STAGING}" -o json >/dev/null; then
             echo "::error::Staging image '${STAGING_IMAGE}' was not found in org '${CPLN_ORG_STAGING}'; aborting promotion."
             exit 1
           fi
 
-          staging_commit="${STAGING_IMAGE##*_}"
-          if [[ "${staging_commit}" == "${STAGING_IMAGE}" || -z "${staging_commit}" ]]; then
-            echo "::error::Staging image '${STAGING_IMAGE}' does not include the expected '_<commit>' suffix."
-            exit 1
+          staging_tag="${staging_image##*:}"
+          staging_commit=""
+          if [[ "${staging_tag}" == *_* ]]; then
+            staging_commit="${staging_tag##*_}"
           fi
 
+          # The workflow-level concurrency group serializes this sequence so two
+          # production promotions cannot derive and publish the same next tag.
           latest_number="$(
-            cpln image query --org "${CPLN_ORG_PRODUCTION}" --prop "name~${PRODUCTION_APP_NAME}:" -o json |
+            cpln image query --org "${CPLN_ORG_PRODUCTION}" --prop "name~${PRODUCTION_APP_NAME}:" --max 0 -o json |
               jq -r --arg prefix "${PRODUCTION_APP_NAME}:" \
                 '[.items[].name | select(startswith($prefix)) | (try capture("^[^:]+:(?<number>[0-9]+)") catch empty) | .number | tonumber] | max // 0'
           )"
@@ -431,11 +441,15 @@ jobs:
             exit 1
           fi
 
-          production_image="${PRODUCTION_APP_NAME}:$((latest_number + 1))_${staging_commit}"
+          production_image="${PRODUCTION_APP_NAME}:$((latest_number + 1))"
+          if [[ -n "${staging_commit}" ]]; then
+            production_image="${production_image}_${staging_commit}"
+          fi
+
           staging_registry="${CPLN_ORG_STAGING}.registry.cpln.io"
           production_registry="${CPLN_ORG_PRODUCTION}.registry.cpln.io"
-          source_image_ref="${CPLN_ORG_STAGING}.registry.cpln.io/${STAGING_IMAGE}"
-          production_image_ref="${CPLN_ORG_PRODUCTION}.registry.cpln.io/${production_image}"
+          source_image_ref="${staging_registry}/${STAGING_IMAGE}"
+          production_image_ref="${production_registry}/${production_image}"
 
           docker_config_dir="$(mktemp -d)"
           cleanup_copy_credentials() {
@@ -445,16 +459,27 @@ jobs:
 
           export DOCKER_CONFIG="${docker_config_dir}"
 
+          if ! printf '%s' "${CPLN_TOKEN_STAGING}" |
+            docker login "${staging_registry}" -u '<token>' --password-stdin >/dev/null; then
+            echo "::error::Failed to authenticate to staging registry '${staging_registry}'."
+            exit 1
+          fi
+
+          if ! printf '%s' "${CPLN_TOKEN_PRODUCTION}" |
+            docker login "${production_registry}" -u '<token>' --password-stdin >/dev/null; then
+            echo "::error::Failed to authenticate to production registry '${production_registry}'."
+            exit 1
+          fi
+
+          if docker buildx imagetools inspect "${production_image_ref}" >/dev/null 2>&1; then
+            echo "::error::Production image '${production_image}' already exists in org '${CPLN_ORG_PRODUCTION}'; aborting to avoid overwriting it."
+            exit 1
+          fi
+
           copy_status=1
           for attempt in $(seq 1 "${copy_image_attempts}"); do
-            if printf '%s' "${CPLN_TOKEN_STAGING}" |
-              docker login "${staging_registry}" -u '<token>' --password-stdin >/dev/null &&
-              printf '%s' "${CPLN_TOKEN_PRODUCTION}" |
-              docker login "${production_registry}" -u '<token>' --password-stdin >/dev/null &&
-              docker manifest inspect "${source_image_ref}" >/dev/null &&
-              docker pull "${source_image_ref}" &&
-              docker tag "${source_image_ref}" "${production_image_ref}" &&
-              docker push "${production_image_ref}"; then
+            if docker buildx imagetools inspect "${source_image_ref}" >/dev/null &&
+              docker buildx imagetools create --prefer-index=false --tag "${production_image_ref}" "${source_image_ref}"; then
               copy_status=0
               break
             else

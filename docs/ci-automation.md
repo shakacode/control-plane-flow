@@ -203,6 +203,16 @@ accidental leading/trailing whitespace and line endings from Control Plane org
 names before building registry URLs, but embedded line breaks are rejected
 because they could change the target org name after normalization.
 
+Production promotion copies the exact image currently deployed on the selected
+staging workload. If that staging image is digest-pinned, the digest is used for
+the source copy while the production tag is derived from the tag portion. Tags
+with a `_<commit>` suffix keep that suffix in production; plain numeric tags are
+also valid and promote to the next plain production tag. The copy step uses
+`docker buildx imagetools create --prefer-index=false --tag` with isolated
+Docker credentials, which preserves multi-architecture manifests, preserves
+single-platform manifest format when supported, and avoids pulling image layers
+onto the GitHub Actions runner.
+
 Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
 sensitive production systems. Production promotion intentionally runs as a
 normal caller-repo workflow job with `environment: production`, then checks out
@@ -326,6 +336,9 @@ The standard path is:
 8. Keep GitHub variable values single-line; a pasted trailing newline is trimmed
    for Control Plane org names, but embedded line breaks are rejected before
    deployment, copy, health-check, or rollback steps run.
+9. Expect promotion to preserve the selected staging image reference. Digest
+   references are copied by digest, commit-suffixed tags keep the commit suffix,
+   and plain numeric tags remain valid.
 
 GitHub only exposes environment secrets to jobs that reference the environment
 after configured protection rules pass. GitHub does not allow a caller job that
