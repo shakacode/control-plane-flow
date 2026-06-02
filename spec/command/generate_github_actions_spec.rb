@@ -682,6 +682,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("Before the first staging deploy")
       expect(help_md).to include("cpflow setup-app -a")
       expect(help_md).to include("app secret policy")
+      expect(help_md).to include("Add it as a secret on the 'production' GitHub Environment")
+      expect(help_md).to include("gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production")
       expect(help_md).not_to include("control_plane_flow_ref")
     end
 

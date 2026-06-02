@@ -214,6 +214,17 @@ needs. They do not use `secrets: inherit`; the production token is supplied by
 the protected `production` Environment after approval, not forwarded from a
 repository secret.
 
+If promotion fails in the `Validate production token` step with
+`CPLN_TOKEN_PRODUCTION is not set. Add it as a secret on the 'production' GitHub Environment.`,
+check the environment scope first. A repository or organization secret with the
+same name is not enough for this reusable workflow. Create or verify the
+environment secret with:
+
+```sh
+gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production
+gh secret list --repo OWNER/REPO --env production
+```
+
 ## First-Time Control Plane Bootstrap
 
 GitHub settings only give the workflows permission to act. They do not create
