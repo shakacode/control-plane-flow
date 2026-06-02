@@ -23,8 +23,8 @@ module Command
     def call
       release_script = release_script_to_run
       image = resolve_image_to_deploy
+      shared_secret_policy_grants = resolve_shared_secret_policy_grants
       workload_data_by_name = app_workload_data
-      shared_secret_policy_grants = validate_shared_secret_policy_grants
 
       bind_shared_secret_policy_grants(shared_secret_policy_grants)
       run_release_script(release_script) if release_script

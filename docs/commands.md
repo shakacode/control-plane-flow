@@ -82,7 +82,7 @@ cpflow cleanup-images -a $APP_NAME
 ### `cleanup-stale-apps`
 
 - Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
-  - With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy and any configured `shared_secret_grants` policies as long as both the identity and each policy exist (and are bound)
+- With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy and any configured `shared_secret_grants` policies as long as both the identity and each policy exist (and are bound)
 - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` — no GVC, volumeset, or image is removed; resume with `cpflow ps:start`
 - `--mode=stop` only suspends workloads listed in `app_workloads` + `additional_workloads`; workloads present in the live GVC but missing from the config are skipped silently
 - `--mode=stop` returns once each workload is marked suspended; it does not wait for the workload to reach a not-ready state

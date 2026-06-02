@@ -55,6 +55,8 @@ module Command
       check_images
       return unless confirm_delete(config.app)
 
+      # Snapshot policy state before the pre-deletion hook, so config errors surface
+      # before hook side effects while the hook can still use bound shared secrets.
       policy_unbinds = secret_policy_unbinds
       run_pre_deletion_hook unless config.options[:skip_pre_deletion_hook]
       unbind_identity_from_policy(policy_unbinds)
@@ -158,6 +160,9 @@ module Command
       policy_name = grant.fetch(:policy_name)
       policy = cp.fetch_policy(policy_name)
       return if policy.nil?
+
+      # cpflow only grants reveal on shared policies, so that is the only
+      # permission we remove from shared grants during cleanup.
       return unless identity_bound_to_policy_with_reveal?(policy)
 
       unless shared_secret_policy_targets_secret?(grant, policy)

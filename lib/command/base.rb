@@ -587,19 +587,19 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def bind_shared_secret_policy_grants(validated_grants = validate_shared_secret_policy_grants)
+    def bind_shared_secret_policy_grants(validated_grants)
       validated_grants.each do |grant, policy|
         bind_shared_secret_policy_grant(grant, policy)
       end
     end
 
-    def validate_shared_secret_policy_grants
+    def resolve_shared_secret_policy_grants
       config.shared_secret_grants.map do |grant|
-        [grant, validate_shared_secret_policy_grant(grant)]
+        [grant, resolve_shared_secret_policy_grant(grant)]
       end
     end
 
-    def validate_shared_secret_policy_grant(grant)
+    def resolve_shared_secret_policy_grant(grant)
       policy = cp.fetch_policy(grant.fetch(:policy_name))
       raise shared_secret_policy_missing_message(grant) if policy.nil?
 
@@ -620,7 +620,7 @@ module Command
       return if shared_secret_policy_targets_secret?(grant, policy)
 
       raise "Shared secret policy '#{grant.fetch(:policy_name)}' for shared_secret_grants entry " \
-            "'#{grant.fetch(:name)}' must target secret '#{grant.fetch(:secret_name)}'."
+            "'#{grant.fetch(:name)}' must target only secret '#{grant.fetch(:secret_name)}'."
     end
 
     def shared_secret_policy_targets_secret?(grant, policy)

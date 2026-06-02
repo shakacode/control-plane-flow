@@ -38,7 +38,7 @@ module Command
 
       skip_secrets_setup = skip_secrets_setup?
 
-      shared_secret_policy_grants = validate_shared_secret_policy_grants unless skip_secrets_setup
+      shared_secret_policy_grants = resolve_shared_secret_policy_grants unless skip_secrets_setup
       create_secret_and_policy_if_not_exist unless skip_secrets_setup
 
       args = []
