@@ -226,6 +226,7 @@ gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production
 # Paste the token value when prompted.
 gh secret list --repo OWNER/REPO --env production
 gh secret list --repo OWNER/REPO
+gh secret list --org OWNER | grep '^CPLN_TOKEN_PRODUCTION[[:space:]]' || true
 ```
 
 ## First-Time Control Plane Bootstrap

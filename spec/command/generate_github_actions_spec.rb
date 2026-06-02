@@ -285,6 +285,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include("must not call the cross-repo production reusable workflow")
       expect(test_cpflow_flow_path.read).to include("must run as a normal caller-repo job")
       expect(test_cpflow_flow_path.read).to include("must declare environment: production")
+      expect(test_cpflow_flow_path.read).to include("EXPECTED_CPFLOW_CHECKOUT_ACTION")
+      expect(test_cpflow_flow_path.read).to include("must check out")
       expect(test_cpflow_flow_path.read).to include("must pin the Checkout control-plane-flow actions step")
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
       expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
@@ -755,6 +757,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(wrapper).to include("This normal caller-repo job declares the protected production Environment")
       expect(wrapper).to include("environment: production")
+      expect(wrapper).to include("HEALTH_CHECK_RETRIES: ${{ vars.HEALTH_CHECK_RETRIES || '24' }}")
+      expect(wrapper).to include("ROLLBACK_READINESS_RETRIES: ${{ vars.ROLLBACK_READINESS_RETRIES || '24' }}")
       expect(wrapper).to include("repository: shakacode/control-plane-flow")
       expect(wrapper).to include("ref: #{default_ref}")
       expect(wrapper).to include("control_plane_flow_ref: #{production_workflow_ref}@#{default_ref}")
