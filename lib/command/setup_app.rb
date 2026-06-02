@@ -17,7 +17,7 @@ module Command
       - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
         using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
-      - Binds the app identity to any configured `shared_secret_grants` policies
+      - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` is provided or `skip_secrets_setup` is set
       - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
         or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
@@ -38,7 +38,7 @@ module Command
 
       skip_secrets_setup = skip_secrets_setup?
 
-      validate_shared_secret_policy_grants unless skip_secrets_setup
+      shared_secret_policy_grants = validate_shared_secret_policy_grants unless skip_secrets_setup
       create_secret_and_policy_if_not_exist unless skip_secrets_setup
 
       args = []
@@ -46,7 +46,7 @@ module Command
       run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
 
       bind_identity_to_policy unless skip_secrets_setup
-      bind_shared_secret_policy_grants unless skip_secrets_setup
+      bind_shared_secret_policy_grants(shared_secret_policy_grants) unless skip_secrets_setup
       run_post_creation_hook unless config.options[:skip_post_creation_hook]
     end
 

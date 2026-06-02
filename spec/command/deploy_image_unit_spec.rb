@@ -86,6 +86,11 @@ describe Command::DeployImage do
             name: "database",
             secret_name: "shared-database-secrets",
             policy_name: "shared-database-secrets-policy"
+          },
+          {
+            name: "uploads",
+            secret_name: "shared-uploads-secrets",
+            policy_name: "shared-uploads-secrets-policy"
           }
         ]
       )
@@ -127,8 +132,19 @@ describe Command::DeployImage do
       allow(cp).to receive(:fetch_policy)
         .with("shared-database-secrets-policy")
         .and_return(policy_data)
+      allow(cp).to receive(:fetch_policy)
+        .with("shared-uploads-secrets-policy")
+        .and_return(uploads_policy_data)
       allow(command).to receive(:cp).and_return(cp)
       allow(Resolv).to receive(:getaddress).and_return("1.2.3.4")
+    end
+
+    def uploads_policy_data
+      {
+        "targetKind" => "secret",
+        "targetLinks" => ["//secret/shared-uploads-secrets"],
+        "bindings" => []
+      }
     end
 
     it "binds configured shared secret policies before deploying workloads" do
@@ -136,6 +152,8 @@ describe Command::DeployImage do
 
       expect(cp).to have_received(:bind_identity_to_policy)
         .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+      expect(cp).to have_received(:bind_identity_to_policy)
+        .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-uploads-secrets-policy")
     end
 
     context "when the identity is bound to the shared policy without reveal permission" do
@@ -161,7 +179,7 @@ describe Command::DeployImage do
     end
 
     context "when the shared policy does not target the configured shared secret" do
-      def policy_data
+      def uploads_policy_data
         {
           "targetKind" => "secret",
           "targetLinks" => ["//secret/other-shared-secret"],
@@ -172,18 +190,18 @@ describe Command::DeployImage do
       it "raises before granting reveal on the wrong policy" do
         expect { command.call }
           .to raise_error(
-            "Shared secret policy 'shared-database-secrets-policy' for shared_secret_grants entry " \
-            "'database' must target secret 'shared-database-secrets'."
+            "Shared secret policy 'shared-uploads-secrets-policy' for shared_secret_grants entry " \
+            "'uploads' must target secret 'shared-uploads-secrets'."
           )
         expect(cp).not_to have_received(:bind_identity_to_policy)
       end
     end
 
     context "when the shared policy also targets another secret" do
-      def policy_data
+      def uploads_policy_data
         {
           "targetKind" => "secret",
-          "targetLinks" => ["//secret/shared-database-secrets", "//secret/other-shared-secret"],
+          "targetLinks" => ["//secret/shared-uploads-secrets", "//secret/other-shared-secret"],
           "bindings" => []
         }
       end
@@ -191,8 +209,8 @@ describe Command::DeployImage do
       it "raises before granting reveal on the broader policy" do
         expect { command.call }
           .to raise_error(
-            "Shared secret policy 'shared-database-secrets-policy' for shared_secret_grants entry " \
-            "'database' must target secret 'shared-database-secrets'."
+            "Shared secret policy 'shared-uploads-secrets-policy' for shared_secret_grants entry " \
+            "'uploads' must target secret 'shared-uploads-secrets'."
           )
         expect(cp).not_to have_received(:bind_identity_to_policy)
       end

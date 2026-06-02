@@ -158,29 +158,40 @@ module Command
       policy_name = grant.fetch(:policy_name)
       policy = cp.fetch_policy(policy_name)
       return if policy.nil?
-      return unless identity_bound_to_policy?(policy)
+      return unless identity_bound_to_policy_with_reveal?(policy)
 
       ensure_shared_secret_policy_targets_secret!(grant, policy)
 
       {
         policy_name: policy_name,
-        message: "Unbinding identity from shared secret policy '#{policy_name}' for app '#{config.app}'"
+        message: "Unbinding identity from shared secret policy '#{policy_name}' for app '#{config.app}'",
+        permissions: ["reveal"]
       }
     end
 
     def policy_unbind_for(policy_name, message)
       policy = cp.fetch_policy(policy_name)
-      return if policy.nil? || !identity_bound_to_policy?(policy)
+      return if policy.nil?
+
+      permissions = identity_policy_permissions(policy)
+      return if permissions.empty?
 
       {
         policy_name: policy_name,
-        message: message
+        message: message,
+        permissions: permissions
       }
     end
 
     def unbind_identity_from_secret_policy(policy_unbind)
-      step(policy_unbind.fetch(:message)) do
-        cp.unbind_identity_from_policy(config.identity_link, policy_unbind.fetch(:policy_name))
+      policy_unbind.fetch(:permissions).each do |permission|
+        step(policy_unbind.fetch(:message)) do
+          cp.unbind_identity_from_policy(
+            config.identity_link,
+            policy_unbind.fetch(:policy_name),
+            permission: permission
+          )
+        end
       end
     end
 

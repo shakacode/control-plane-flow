@@ -587,15 +587,15 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def bind_shared_secret_policy_grants
-      config.shared_secret_grants.each do |grant|
-        bind_shared_secret_policy_grant(grant)
+    def bind_shared_secret_policy_grants(validated_grants = validate_shared_secret_policy_grants)
+      validated_grants.each do |grant, policy|
+        bind_shared_secret_policy_grant(grant, policy)
       end
     end
 
     def validate_shared_secret_policy_grants
-      config.shared_secret_grants.each do |grant|
-        validate_shared_secret_policy_grant(grant)
+      config.shared_secret_grants.map do |grant|
+        [grant, validate_shared_secret_policy_grant(grant)]
       end
     end
 
@@ -604,15 +604,12 @@ module Command
       raise shared_secret_policy_missing_message(grant) if policy.nil?
 
       ensure_shared_secret_policy_targets_secret!(grant, policy)
+      policy
     end
 
-    def bind_shared_secret_policy_grant(grant)
+    def bind_shared_secret_policy_grant(grant, policy)
       policy_name = grant.fetch(:policy_name)
-      policy = cp.fetch_policy(policy_name)
-      raise shared_secret_policy_missing_message(grant) if policy.nil?
-
-      ensure_shared_secret_policy_targets_secret!(grant, policy)
-      return if identity_bound_to_policy?(policy)
+      return if identity_bound_to_policy_with_reveal?(policy)
 
       step("Binding identity '#{config.identity}' to shared secret policy '#{policy_name}'") do
         cp.bind_identity_to_policy(config.identity_link, policy_name)
@@ -633,11 +630,16 @@ module Command
         Array(policy["targetLinks"]) == [target_link]
     end
 
-    def identity_bound_to_policy?(policy)
-      Array(policy["bindings"]).any? do |binding|
-        Array(binding["permissions"]).include?("reveal") &&
-          Array(binding["principalLinks"]).any? { |link| link == config.identity_link }
-      end
+    def identity_bound_to_policy_with_reveal?(policy)
+      identity_policy_permissions(policy).include?("reveal")
+    end
+
+    def identity_policy_permissions(policy)
+      Array(policy["bindings"]).flat_map do |binding|
+        next [] unless Array(binding["principalLinks"]).include?(config.identity_link)
+
+        Array(binding["permissions"])
+      end.uniq
     end
 
     def shared_secret_policy_missing_message(grant)

@@ -55,9 +55,39 @@ describe Command::Delete do
       command.send(:unbind_identity_from_policy)
 
       expect(cp).to have_received(:unbind_identity_from_policy)
-        .with(identity_link, "test-review-secrets-policy")
+        .with(identity_link, "test-review-secrets-policy", permission: "reveal")
       expect(cp).to have_received(:unbind_identity_from_policy)
-        .with(identity_link, "shared-database-secrets-policy")
+        .with(identity_link, "shared-database-secrets-policy", permission: "reveal")
+    end
+
+    context "when the app secret policy is bound without reveal permission" do
+      def app_secret_policy
+        {
+          "bindings" => [
+            {
+              "permissions" => %w[view],
+              "principalLinks" => [identity_link]
+            }
+          ]
+        }
+      end
+
+      def shared_secret_policy
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["//secret/shared-database-secrets"],
+          "bindings" => []
+        }
+      end
+
+      it "still unbinds the app identity from the app secret policy" do
+        command.send(:unbind_identity_from_policy)
+
+        expect(cp).to have_received(:unbind_identity_from_policy)
+          .with(identity_link, "test-review-secrets-policy", permission: "view")
+        expect(cp).not_to have_received(:unbind_identity_from_policy)
+          .with(identity_link, "shared-database-secrets-policy", permission: "reveal")
+      end
     end
 
     context "when shared secret grant config is invalid" do
@@ -103,9 +133,9 @@ describe Command::Delete do
         command.send(:unbind_identity_from_policy)
 
         expect(cp).to have_received(:unbind_identity_from_policy)
-          .with(identity_link, "test-review-secrets-policy")
+          .with(identity_link, "test-review-secrets-policy", permission: "reveal")
         expect(cp).not_to have_received(:unbind_identity_from_policy)
-          .with(identity_link, "shared-database-secrets-policy")
+          .with(identity_link, "shared-database-secrets-policy", permission: "reveal")
       end
     end
   end
