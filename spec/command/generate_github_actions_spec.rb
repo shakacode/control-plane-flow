@@ -780,6 +780,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("environment: ${{ inputs.production_environment }}")
       expect(contents).to include("Validate production token")
       expect(contents).to include("CPLN_TOKEN_PRODUCTION is not set")
+      expect(contents).to include("Normalize Control Plane org names")
+      expect(contents).to include("contains embedded line endings")
+      expect(contents).to include("steps.cpln-orgs.outputs.production")
+      expect(wrapper).to include("Normalize Control Plane org names")
+      expect(wrapper).to include("contains embedded line endings")
+      expect(wrapper).to include("steps.cpln-orgs.outputs.production")
       expect(contents).to include("wrapper intentionally passes only CPLN_TOKEN_STAGING")
       expect(contents).to include("create-github-release:")
       expect(contents).to include("contents: write")
@@ -802,6 +808,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
+      expect(contents).to include("workflow-level concurrency group keeps production promotion copy")
       expect(contents).to include(
         "failure() && steps.capture-current.outputs.rollback_state != '' && " \
         "steps.capture-current.outputs.rollback_state != '{}'"
@@ -821,6 +828,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include('selected_workload="${PRIMARY_WORKLOAD:-}"')
       expect(contents).to include("staging_image=\"${staging_image_ref##*/image/}\"")
       expect(contents).to include("STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}")
+      expect(contents).to include(
+        'staging_org="$(sanitize_control_plane_name "CPLN_ORG_STAGING" ' \
+        '"${CPLN_ORG_STAGING}")"'
+      )
+      expect(contents).to include(
+        'production_org="$(sanitize_control_plane_name "CPLN_ORG_PRODUCTION" ' \
+        '"${CPLN_ORG_PRODUCTION}")"'
+      )
+      expect(contents).to include("use lowercase alphanumeric characters and hyphens only")
+      expect(contents).to include("CPLN_ORG_STAGING: ${{ steps.cpln-orgs.outputs.staging }}")
+      expect(contents).to include("CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}")
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${STAGING_IMAGE}"')
       expect(contents).to include("COPY_IMAGE_RETRIES must be a non-negative integer")
       expect(contents).to include("COPY_IMAGE_RETRY_INTERVAL must be a non-negative integer")
@@ -828,17 +846,22 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Staging image '${STAGING_IMAGE}' was not found")
       expect(contents).to include("id: copy-image")
       expect(contents).to include('staging_commit="${STAGING_IMAGE##*_}"')
+      expect(contents).to include("Could not determine the next production image number")
       expect(contents).to include('production_image="${PRODUCTION_APP_NAME}:$((latest_number + 1))_${staging_commit}"')
       expect(contents).to include('docker_config_dir="$(mktemp -d)"')
       expect(contents).to include("cleanup_copy_credentials")
       expect(contents).to include('export DOCKER_CONFIG="${docker_config_dir}"')
-      expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image docker-login')
+      expect(contents).to include('staging_registry="${CPLN_ORG_STAGING}.registry.cpln.io"')
+      expect(contents).to include('production_registry="${CPLN_ORG_PRODUCTION}.registry.cpln.io"')
+      expect(contents).to include('production_image_ref="${CPLN_ORG_PRODUCTION}.registry.cpln.io/${production_image}"')
+      expect(contents).to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(contents).to include('docker login "${staging_registry}"')
+      expect(contents).to include('docker login "${production_registry}"')
       expect(contents).to include('docker manifest inspect "${source_image_ref}"')
       expect(contents).to include('for attempt in $(seq 1 "${copy_image_attempts}"); do')
-      expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" \\')
-      expect(contents).to include('cpln image copy "${STAGING_IMAGE}"')
-      expect(contents).to include("--to-profile default")
-      expect(contents).to include("--to-name \"${production_image}\"")
+      expect(contents).to include('docker pull "${source_image_ref}"')
+      expect(contents).to include('docker tag "${source_image_ref}" "${production_image_ref}"')
+      expect(contents).to include('docker push "${production_image_ref}"')
       expect(contents).to include('echo "image=${production_image}" >> "$GITHUB_OUTPUT"')
       expect(contents).to include("COPIED_IMAGE: ${{ steps.copy-image.outputs.image }}")
       expect(contents).to include('deployed_image="${COPIED_IMAGE}"')
@@ -850,6 +873,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("CPLN_UPSTREAM_TOKEN:")
       expect(contents).not_to include('cpln profile create "${upstream_profile}"')
       expect(contents).not_to include("--profile \"${upstream_profile}\"")
+      expect(contents).not_to include("cpln image docker-login")
+      expect(contents).not_to include('cpln image copy "${STAGING_IMAGE}"')
       expect(contents).not_to include("cpflow copy-image-from-upstream")
       expect(contents).not_to include("--cleanup")
     end

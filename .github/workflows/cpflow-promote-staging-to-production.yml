@@ -110,11 +110,58 @@ jobs:
             variable:STAGING_APP_NAME
             variable:PRODUCTION_APP_NAME
 
+      - name: Normalize Control Plane org names
+        id: cpln-orgs
+        env:
+          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
+          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sanitize_control_plane_name() {
+            local label="$1"
+            local value="$2"
+
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+
+            if [[ "${value}" == *$'\r'* || "${value}" == *$'\n'* ]]; then
+              echo "::error::${label} contains embedded line endings; remove them from the repository variable instead of relying on normalization." >&2
+              exit 1
+            fi
+
+            printf '%s' "${value}"
+          }
+
+          validate_control_plane_org() {
+            local label="$1"
+            local value="$2"
+
+            if ! [[ "${value}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+              local display_value
+              display_value="$(printf '%q' "${value}")"
+              echo "::error::${label} (${display_value}) must be a valid Control Plane org name; use lowercase alphanumeric characters and hyphens only, with no leading or trailing hyphen."
+              exit 1
+            fi
+          }
+
+          staging_org="$(sanitize_control_plane_name "CPLN_ORG_STAGING" "${CPLN_ORG_STAGING}")"
+          production_org="$(sanitize_control_plane_name "CPLN_ORG_PRODUCTION" "${CPLN_ORG_PRODUCTION}")"
+
+          validate_control_plane_org "CPLN_ORG_STAGING" "${staging_org}"
+          validate_control_plane_org "CPLN_ORG_PRODUCTION" "${production_org}"
+
+          {
+            echo "staging=${staging_org}"
+            echo "production=${production_org}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Setup production environment
         uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
-          org: ${{ vars.CPLN_ORG_PRODUCTION }}
+          org: ${{ steps.cpln-orgs.outputs.production }}
           working_directory: .cpflow
           cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
           cpflow_version: ${{ vars.CPFLOW_VERSION }}
@@ -183,8 +230,8 @@ jobs:
           CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
           STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
-          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          CPLN_ORG_STAGING: ${{ steps.cpln-orgs.outputs.staging }}
+          CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
         shell: bash
         run: |
           set -euo pipefail
@@ -218,7 +265,7 @@ jobs:
         id: capture-current
         env:
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
           WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}
           PRIMARY_WORKLOAD: ${{ steps.workloads.outputs.primary }}
         shell: bash
@@ -274,7 +321,7 @@ jobs:
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
           STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
+          CPLN_ORG_STAGING: ${{ steps.cpln-orgs.outputs.staging }}
           WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}
           PRIMARY_WORKLOAD: ${{ steps.workloads.outputs.primary }}
         shell: bash
@@ -321,9 +368,10 @@ jobs:
         env:
           # Pass the upstream token via env rather than `-t` so it doesn't appear in /proc/<pid>/cmdline.
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
+          CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-          CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
-          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          CPLN_ORG_STAGING: ${{ steps.cpln-orgs.outputs.staging }}
+          CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
           STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}
         shell: bash
         run: |
@@ -359,8 +407,16 @@ jobs:
               jq -r --arg prefix "${PRODUCTION_APP_NAME}:" \
                 '[.items[].name | select(startswith($prefix)) | (try capture("^[^:]+:(?<number>[0-9]+)") catch empty) | .number | tonumber] | max // 0'
           )"
+          if ! [[ "${latest_number}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not determine the next production image number for app '${PRODUCTION_APP_NAME}' in org '${CPLN_ORG_PRODUCTION}'."
+            exit 1
+          fi
+
           production_image="${PRODUCTION_APP_NAME}:$((latest_number + 1))_${staging_commit}"
+          staging_registry="${CPLN_ORG_STAGING}.registry.cpln.io"
+          production_registry="${CPLN_ORG_PRODUCTION}.registry.cpln.io"
           source_image_ref="${CPLN_ORG_STAGING}.registry.cpln.io/${STAGING_IMAGE}"
+          production_image_ref="${CPLN_ORG_PRODUCTION}.registry.cpln.io/${production_image}"
 
           docker_config_dir="$(mktemp -d)"
           cleanup_copy_credentials() {
@@ -372,14 +428,14 @@ jobs:
 
           copy_status=1
           for attempt in $(seq 1 "${copy_image_attempts}"); do
-            if CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image docker-login --org "${CPLN_ORG_STAGING}" >/dev/null &&
+            if printf '%s' "${CPLN_TOKEN_STAGING}" |
+              docker login "${staging_registry}" -u '<token>' --password-stdin >/dev/null &&
+              printf '%s' "${CPLN_TOKEN_PRODUCTION}" |
+              docker login "${production_registry}" -u '<token>' --password-stdin >/dev/null &&
               docker manifest inspect "${source_image_ref}" >/dev/null &&
-              CPLN_TOKEN="${CPLN_TOKEN_STAGING}" \
-              cpln image copy "${STAGING_IMAGE}" \
-              --org "${CPLN_ORG_STAGING}" \
-              --to-profile default \
-              --to-org "${CPLN_ORG_PRODUCTION}" \
-              --to-name "${production_image}"; then
+              docker pull "${source_image_ref}" &&
+              docker tag "${source_image_ref}" "${production_image_ref}" &&
+              docker push "${production_image_ref}"; then
               copy_status=0
               break
             else
@@ -404,7 +460,7 @@ jobs:
       - name: Deploy image to production
         env:
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
           RELEASE_PHASE_FLAG: ${{ steps.release-phase.outputs.flag }}
         shell: bash
         run: |
@@ -414,6 +470,9 @@ jobs:
           if [[ -n "${RELEASE_PHASE_FLAG}" ]]; then
             deploy_args+=("${RELEASE_PHASE_FLAG}")
           fi
+          # `cpflow deploy-image` deploys the latest image for the app. The
+          # workflow-level concurrency group keeps production promotion copy and
+          # deploy steps coupled across workflow runs.
           deploy_args+=(--org "${CPLN_ORG_PRODUCTION}" --verbose)
 
           cpflow deploy-image "${deploy_args[@]}"
@@ -424,7 +483,7 @@ jobs:
         with:
           workload_name: ${{ steps.workloads.outputs.primary }}
           app_name: ${{ vars.PRODUCTION_APP_NAME }}
-          org: ${{ vars.CPLN_ORG_PRODUCTION }}
+          org: ${{ steps.cpln-orgs.outputs.production }}
           max_retries: ${{ env.HEALTH_CHECK_RETRIES }}
           interval_seconds: ${{ env.HEALTH_CHECK_INTERVAL }}
           accepted_statuses: ${{ env.HEALTH_CHECK_ACCEPTED_STATUSES }}
@@ -434,7 +493,7 @@ jobs:
         env:
           ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
         shell: bash
         run: |
           # Best-effort rollback: try every workload, aggregate failures, exit non-zero at the end
@@ -495,7 +554,7 @@ jobs:
         env:
           ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
-          CPLN_ORG_PRODUCTION: ${{ vars.CPLN_ORG_PRODUCTION }}
+          CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
         shell: bash
         run: |
           set -euo pipefail

@@ -196,6 +196,13 @@ For production promotion, also configure:
 - `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
 
+Enter GitHub variables such as `CPLN_ORG_STAGING`,
+`CPLN_ORG_PRODUCTION`, `STAGING_APP_NAME`, and `PRODUCTION_APP_NAME`
+as plain single-line values. The generated production promotion workflow trims
+accidental leading/trailing whitespace and line endings from Control Plane org
+names before building registry URLs, but embedded line breaks are rejected
+because they could change the target org name after normalization.
+
 Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
 sensitive production systems. Production promotion intentionally runs as a
 normal caller-repo workflow job with `environment: production`, then checks out
@@ -316,6 +323,9 @@ The standard path is:
 7. Store `CPLN_ORG_PRODUCTION` and `PRODUCTION_APP_NAME` as `production`
    environment variables, or as repository variables only when those names are
    intentionally non-sensitive.
+8. Keep GitHub variable values single-line; a pasted trailing newline is trimmed
+   for Control Plane org names, but embedded line breaks are rejected before
+   deployment, copy, health-check, or rollback steps run.
 
 GitHub only exposes environment secrets to jobs that reference the environment
 after configured protection rules pass. GitHub does not allow a caller job that
