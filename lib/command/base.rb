@@ -587,8 +587,8 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
-    def bind_shared_secret_policy_grants(validated_grants)
-      validated_grants.each do |grant, policy|
+    def bind_shared_secret_policy_grants(grant_policy_pairs)
+      grant_policy_pairs.each do |grant, policy|
         bind_shared_secret_policy_grant(grant, policy)
       end
     end

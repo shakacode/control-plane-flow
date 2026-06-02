@@ -71,6 +71,23 @@ describe Config do
         .to raise_error("shared_secret_grants entry name 'DATABASE' must be lower snake case.")
     end
 
+    it "raises when a grant name has a trailing underscore" do
+      config = build_config(
+        {
+          shared_secret_grants: [
+            {
+              name: "database_",
+              secret_name: "shared-database-secrets",
+              policy_name: "shared-database-secrets-policy"
+            }
+          ]
+        }
+      )
+
+      expect { config.shared_secret_grants }
+        .to raise_error("shared_secret_grants entry name 'database_' must be lower snake case.")
+    end
+
     it "raises when a shared policy name is not a Control Plane resource name" do
       config = build_config(
         {

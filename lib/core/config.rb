@@ -228,7 +228,7 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def ensure_shared_secret_grant_name!(name)
-    return if name.match?(/\A[a-z][a-z0-9_]*\z/)
+    return if name.match?(/\A[a-z](?:[a-z0-9_]*[a-z0-9])?\z/)
 
     raise "shared_secret_grants entry name '#{name}' must be lower snake case."
   end
