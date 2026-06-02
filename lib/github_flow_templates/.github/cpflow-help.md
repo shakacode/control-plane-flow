@@ -70,6 +70,20 @@ prevent self-review. The generated promotion wrapper passes only the staging
 token from repository secrets; GitHub injects `CPLN_TOKEN_PRODUCTION` only after
 the environment approval gate passes.
 
+If the promotion workflow fails with
+`CPLN_TOKEN_PRODUCTION is not set. Add it as a secret on the 'production' GitHub Environment.`,
+the token is missing from the environment scope. Creating the same secret at the
+repository or organization level will not satisfy this workflow. Create or
+verify the environment secret with:
+You need permission to manage repository environments and secrets to run these
+commands.
+
+```sh
+gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production
+# Paste the token value when prompted.
+gh secret list --repo OWNER/REPO --env production
+```
+
 Before the first promotion, bootstrap the production app the same way in the
 production org, using production-only secrets and values.
 
