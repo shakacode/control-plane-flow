@@ -160,13 +160,26 @@ module Command
       return if policy.nil?
       return unless identity_bound_to_policy_with_reveal?(policy)
 
-      ensure_shared_secret_policy_targets_secret!(grant, policy)
+      unless shared_secret_policy_targets_secret?(grant, policy)
+        warn_shared_secret_policy_target_mismatch(grant, policy_name)
+      end
 
+      shared_secret_policy_unbind_data(policy_name)
+    end
+
+    def shared_secret_policy_unbind_data(policy_name)
       {
         policy_name: policy_name,
         message: "Unbinding identity from shared secret policy '#{policy_name}' for app '#{config.app}'",
         permissions: ["reveal"]
       }
+    end
+
+    def warn_shared_secret_policy_target_mismatch(grant, policy_name)
+      progress.puts(
+        "Warning: unbinding identity from shared secret policy '#{policy_name}' even though it does not " \
+        "target configured secret '#{grant.fetch(:secret_name)}'."
+      )
     end
 
     def policy_unbind_for(policy_name, message)
@@ -185,7 +198,7 @@ module Command
 
     def unbind_identity_from_secret_policy(policy_unbind)
       policy_unbind.fetch(:permissions).each do |permission|
-        step(policy_unbind.fetch(:message)) do
+        step("#{policy_unbind.fetch(:message)} (#{permission})") do
           cp.unbind_identity_from_policy(
             config.identity_link,
             policy_unbind.fetch(:policy_name),

@@ -401,8 +401,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def unbind_identity_from_policy(identity_link, policy, permission: "reveal")
-    cmd = "cpln policy remove-binding #{policy} --org #{org} --identity #{identity_link} --permission #{permission}"
-    perform!(cmd)
+    cmd = [
+      "cpln", "policy", "remove-binding", policy,
+      "--org", org,
+      "--identity", identity_link,
+      "--permission", permission
+    ]
+    perform!(Shellwords.join(cmd))
   end
 
   # apply

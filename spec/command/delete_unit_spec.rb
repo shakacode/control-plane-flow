@@ -110,13 +110,49 @@ describe Command::Delete do
         )
       end
 
-      it "raises before unbinding the app identity from the app secret policy" do
-        expect { command.send(:unbind_identity_from_policy) }
-          .to raise_error(
-            "Shared secret policy 'shared-database-secrets-policy' for shared_secret_grants entry " \
-            "'database' must target secret 'shared-database-secrets'."
-          )
-        expect(cp).not_to have_received(:unbind_identity_from_policy)
+      it "continues deleting by unbinding the app and drifted shared secret policies" do
+        command.send(:unbind_identity_from_policy)
+
+        expect(cp).to have_received(:unbind_identity_from_policy)
+          .with(identity_link, "test-review-secrets-policy", permission: "reveal")
+        expect(cp).to have_received(:unbind_identity_from_policy)
+          .with(identity_link, "shared-database-secrets-policy", permission: "reveal")
+      end
+    end
+
+    context "when the app secret policy has multiple identity permissions" do
+      def app_secret_policy
+        {
+          "bindings" => [
+            {
+              "permissions" => %w[reveal view],
+              "principalLinks" => [identity_link]
+            }
+          ]
+        }
+      end
+
+      def shared_secret_policy
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["//secret/shared-database-secrets"],
+          "bindings" => []
+        }
+      end
+
+      it "shows the permission in each unbind step message" do
+        step_messages = []
+        allow(command).to receive(:step) do |message, &block|
+          step_messages << message
+          block.call
+        end
+
+        command.send(:unbind_identity_from_policy)
+
+        expect(step_messages).to contain_exactly(
+          "Unbinding identity from policy for app 'test-review-123' (reveal)",
+          "Unbinding identity from policy for app 'test-review-123' (view)"
+        )
       end
     end
 
@@ -168,10 +204,15 @@ describe Command::Delete do
       allow(command).to receive(:check_images)
       allow(command).to receive(:confirm_delete).and_return(true)
       allow(command).to receive(:run_pre_deletion_hook)
+      allow(command).to receive(:step).and_yield
+      allow(command).to receive(:delete_volumesets)
+      allow(command).to receive(:delete_gvc)
+      allow(command).to receive(:delete_images)
       allow(cp).to receive(:fetch_gvc).and_return({})
       allow(cp).to receive(:fetch_identity).with("test-review-123-identity").and_return({})
       allow(cp).to receive(:fetch_policy).with("test-review-secrets-policy").and_return(app_secret_policy)
       allow(cp).to receive(:fetch_policy).with("shared-database-secrets-policy").and_return(shared_secret_policy)
+      allow(cp).to receive(:unbind_identity_from_policy)
     end
 
     def app_secret_policy
@@ -192,13 +233,14 @@ describe Command::Delete do
       )
     end
 
-    it "validates shared grant unbinds before running the pre-deletion hook" do
-      expect { command.send(:delete_whole_app) }
-        .to raise_error(
-          "Shared secret policy 'shared-database-secrets-policy' for shared_secret_grants entry " \
-          "'database' must target secret 'shared-database-secrets'."
-        )
-      expect(command).not_to have_received(:run_pre_deletion_hook)
+    it "runs the pre-deletion hook before unbinding a bound shared policy target that has drifted" do
+      command.send(:delete_whole_app)
+
+      expect(command).to have_received(:run_pre_deletion_hook)
+      expect(cp).to have_received(:unbind_identity_from_policy)
+        .with(identity_link, "test-review-secrets-policy", permission: "reveal")
+      expect(cp).to have_received(:unbind_identity_from_policy)
+        .with(identity_link, "shared-database-secrets-policy", permission: "reveal")
     end
   end
 end

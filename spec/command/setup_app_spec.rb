@@ -67,6 +67,34 @@ describe Command::SetupApp do
         expect(command).not_to have_received(:run_cpflow_command)
       end
     end
+
+    context "when skip_secrets_setup is true" do
+      before do
+        allow(config).to receive(:options).and_return({ skip_secrets_setup: true })
+      end
+
+      it "does not validate or bind shared secret policies" do
+        command.call
+
+        expect(cp).not_to have_received(:fetch_policy).with("shared-database-secrets-policy")
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+          .with(config.identity_link, "shared-database-secrets-policy")
+      end
+    end
+
+    context "when skip_secret_access_binding is true" do
+      before do
+        allow(config).to receive(:options).and_return({ skip_secret_access_binding: true })
+      end
+
+      it "does not validate or bind shared secret policies" do
+        command.call
+
+        expect(cp).not_to have_received(:fetch_policy).with("shared-database-secrets-policy")
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+          .with(config.identity_link, "shared-database-secrets-policy")
+      end
+    end
   end
 
   context "when 'setup_app_templates' is not defined" do
