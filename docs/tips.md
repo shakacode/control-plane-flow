@@ -315,6 +315,8 @@ spec:
   snapshots:
     createFinalSnapshot: true
     retentionDuration: 7d
+    # Periodic snapshots need a schedule; without one, only a final snapshot is taken when the volumeset is deleted.
+    schedule: "0 2 * * *" # daily at 02:00 UTC; adjust to your retention needs
 
 ---
 kind: workload
@@ -345,7 +347,7 @@ spec:
       volumes:
         - uri: cpln://volumeset/shared-postgres-vs
           path: /var/lib/postgresql/data
-          recoveryPolicy: retain
+          recoveryPolicy: retain # keep the volume if the workload is deleted; clean up manually when no longer needed
   defaultOptions:
     autoscaling:
       metric: disabled
@@ -472,10 +474,17 @@ Suggested cutover order:
      psql -U postgres -c 'DROP DATABASE IF EXISTS "my-app-review-pr-123" WITH (FORCE);'
    ```
 
-When updating URL-like env values through `cpln gvc update --set`, quote the entire `path=value` expression. Otherwise
-the CLI can leave the old value in place while the command appears superficially successful. The `spec.env.NAME.value`
-path relies on env-array lookup by name, so verify against your installed CLI version before relying on it. If in doubt,
-apply a full GVC YAML update with `cpln apply`, then re-read the GVC env with a non-secret host/password-match check.
+When updating URL-like env values, prefer applying a full GVC YAML update with `cpln apply`, then re-read the GVC env to
+confirm the new reference took effect:
+
+```sh
+cpln apply -f my-app-review-pr-123-gvc.yaml
+cpln gvc get my-app-review-pr-123 -o yaml | grep DATABASE_URL
+```
+
+`cpln gvc update --set` also works, but treat it as a known-fragile shortcut. Quote the entire `path=value` expression,
+or the CLI can leave the old value in place while the command appears superficially successful. The `spec.env.NAME.value`
+path relies on env-array lookup by name, so verify against your installed CLI version before relying on it:
 
 ```sh
 cpln gvc update my-app-review-pr-123 \
