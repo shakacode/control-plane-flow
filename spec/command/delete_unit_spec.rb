@@ -42,6 +42,10 @@ describe Command::Delete do
       )
     end
 
+    def unbind_identity_from_policy
+      command.send(:unbind_identity_from_policy, command.send(:secret_policy_unbinds))
+    end
+
     before do
       allow(command).to receive_messages(cp: cp)
       allow(command).to receive(:step).and_yield
@@ -52,7 +56,7 @@ describe Command::Delete do
     end
 
     it "unbinds the app identity from app and shared secret policies" do
-      command.send(:unbind_identity_from_policy)
+      unbind_identity_from_policy
 
       expect(cp).to have_received(:unbind_identity_from_policy)
         .with(identity_link, "test-review-secrets-policy", permission: "reveal")
@@ -81,7 +85,7 @@ describe Command::Delete do
       end
 
       it "still unbinds the app identity from the app secret policy" do
-        command.send(:unbind_identity_from_policy)
+        unbind_identity_from_policy
 
         expect(cp).to have_received(:unbind_identity_from_policy)
           .with(identity_link, "test-review-secrets-policy", permission: "view")
@@ -96,7 +100,7 @@ describe Command::Delete do
       end
 
       it "raises before unbinding the app identity from the app secret policy" do
-        expect { command.send(:unbind_identity_from_policy) }
+        expect { unbind_identity_from_policy }
           .to raise_error("invalid shared_secret_grants")
         expect(cp).not_to have_received(:unbind_identity_from_policy)
       end
@@ -111,7 +115,7 @@ describe Command::Delete do
       end
 
       it "continues deleting by unbinding the app and drifted shared secret policies" do
-        command.send(:unbind_identity_from_policy)
+        unbind_identity_from_policy
 
         expect(cp).to have_received(:unbind_identity_from_policy)
           .with(identity_link, "test-review-secrets-policy", permission: "reveal")
@@ -147,7 +151,7 @@ describe Command::Delete do
           block.call
         end
 
-        command.send(:unbind_identity_from_policy)
+        unbind_identity_from_policy
 
         expect(step_messages).to contain_exactly(
           "Unbinding identity from policy for app 'test-review-123' (reveal)",
@@ -166,7 +170,7 @@ describe Command::Delete do
       end
 
       it "continues deleting by unbinding only the app secret policy" do
-        command.send(:unbind_identity_from_policy)
+        unbind_identity_from_policy
 
         expect(cp).to have_received(:unbind_identity_from_policy)
           .with(identity_link, "test-review-secrets-policy", permission: "reveal")

@@ -13,6 +13,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
       - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
+      - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
       - Will ask for explicit user confirmation
       - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -128,7 +129,7 @@ module Command
       end
     end
 
-    def unbind_identity_from_policy(policy_unbinds = secret_policy_unbinds)
+    def unbind_identity_from_policy(policy_unbinds)
       policy_unbinds.each do |policy_unbind|
         unbind_identity_from_secret_policy(policy_unbind)
       end

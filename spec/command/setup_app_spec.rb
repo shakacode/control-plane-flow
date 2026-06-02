@@ -68,6 +68,30 @@ describe Command::SetupApp do
       end
     end
 
+    context "when a configured shared policy targets the wrong secret" do
+      before do
+        allow(cp).to receive(:fetch_policy)
+          .with("shared-database-secrets-policy")
+          .and_return(
+            {
+              "targetKind" => "secret",
+              "targetLinks" => ["//secret/other-secret"],
+              "bindings" => []
+            }
+          )
+      end
+
+      it "raises before creating app resources" do
+        expect { command.call }
+          .to raise_error(
+            "Shared secret policy 'shared-database-secrets-policy' for shared_secret_grants entry " \
+            "'database' must target only secret 'shared-database-secrets'."
+          )
+        expect(command).not_to have_received(:create_secret_and_policy_if_not_exist)
+        expect(command).not_to have_received(:run_cpflow_command)
+      end
+    end
+
     context "when skip_secrets_setup is true" do
       before do
         allow(config).to receive(:options).and_return({ skip_secrets_setup: true })
