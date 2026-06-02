@@ -8,16 +8,17 @@
 6. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
 7. [CI](#ci)
 8. [Logs](#logs)
-9. [Memcached](#memcached)
-10. [Sidekiq](#sidekiq)
+9. [Grafana and OpenTelemetry](#grafana-and-opentelemetry)
+10. [Memcached](#memcached)
+11. [Sidekiq](#sidekiq)
     - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
     - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-11. [Minimizing Review App Costs](#minimizing-review-app-costs)
+12. [Minimizing Review App Costs](#minimizing-review-app-costs)
     - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-12. [Useful Links](#useful-links)
+13. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -201,6 +202,16 @@ logcli query '{gvc="my-app"}' \
 To check for truncation, compare line count to the limit: `wc -l < incident.log` near `--limit` means the export was
 likely cut off. Prefer narrowing the time window (and concatenating the sub-ranges) over raising `--limit`, since the
 server-side cap may be lower than the flag value.
+
+## Grafana and OpenTelemetry
+
+Control Plane's built-in Grafana gives useful workload metrics such as CPU, memory, restarts, and request rate. For
+Rails applications that need app-level request latency, database spans, Redis spans, Sidekiq job metrics, or
+trace-to-log correlation, add OpenTelemetry and an internal collector workload that exposes generated Prometheus
+metrics.
+
+See [Grafana and OpenTelemetry on Control Plane](/docs/grafana-opentelemetry.md) for the recommended collector shape,
+dashboard starting point, alert starting point, validation checks, and safety notes.
 
 ## Memcached
 
