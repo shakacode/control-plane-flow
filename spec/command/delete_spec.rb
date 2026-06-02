@@ -202,7 +202,7 @@ describe Command::Delete do
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(/Deleting app '#{app}'[.]+? done!/)
-      expect(result[:stderr]).to match(/Unbinding identity from policy for app '#{app}'[.]+? done!/)
+      expect(result[:stderr]).to match(/Unbinding identity from policy for app '#{app}' \(reveal\)[.]+? done!/)
     end
   end
 
