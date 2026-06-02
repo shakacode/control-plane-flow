@@ -75,6 +75,8 @@ If the promotion workflow fails with
 the token is missing from the environment scope. Creating the same secret at the
 repository or organization level will not satisfy this workflow. Create or
 verify the environment secret with:
+You need permission to manage repository environments and secrets to run these
+commands.
 
 ```sh
 gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production

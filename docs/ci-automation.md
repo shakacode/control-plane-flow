@@ -219,6 +219,8 @@ If promotion fails in the `Validate production token` step with
 check the environment scope first. A repository or organization secret with the
 same name is not enough for this reusable workflow. Create or verify the
 environment secret with:
+You need permission to manage repository environments and secrets to run these
+commands.
 
 ```sh
 gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production
