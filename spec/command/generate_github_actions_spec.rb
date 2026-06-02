@@ -762,6 +762,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(wrapper).to include("This normal caller-repo job declares the protected production Environment")
       expect(wrapper).to include("environment: production")
       expect(wrapper).to include("HEALTH_CHECK_RETRIES: ${{ vars.HEALTH_CHECK_RETRIES || '24' }}")
+      expect(wrapper).to include("COPY_IMAGE_RETRIES: ${{ vars.COPY_IMAGE_RETRIES || '3' }}")
       expect(wrapper).to include("ROLLBACK_READINESS_RETRIES: ${{ vars.ROLLBACK_READINESS_RETRIES || '24' }}")
       expect(wrapper).to include("repository: shakacode/control-plane-flow")
       expect(wrapper).to include("ref: #{default_ref}")
@@ -793,7 +794,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Could not parse captured containers")
       expect(contents).to include("Could not build rollback image list")
       expect(contents).to include("Container set changed")
-      expect(contents).to include("index($container.name)")
+      expect(contents).to include('jq -r \'.[] | "\\(.name)\\t\\(.image)"\'')
+      expect(contents).to include("spec.containers.${container_name}.image")
+      expect(contents).not_to include("spec.containers[${index}].image")
+      expect(contents).not_to include("index($container.name)")
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
@@ -816,6 +820,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include('selected_workload="${PRIMARY_WORKLOAD:-}"')
       expect(contents).to include("staging_image=\"${staging_image_ref##*/image/}\"")
       expect(contents).to include("STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}")
+      expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${STAGING_IMAGE}"')
+      expect(contents).to include('for attempt in $(seq 1 "${COPY_IMAGE_RETRIES}"); do')
+      expect(contents).to include("Image copy attempt ${attempt}/${COPY_IMAGE_RETRIES} failed")
       expect(contents).to include("workload_name: ${{ steps.workloads.outputs.primary }}")
       expect(contents).not_to include("workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}")
       expect(contents).to include('cpflow copy-image-from-upstream -a "${PRODUCTION_APP_NAME}" ' \
