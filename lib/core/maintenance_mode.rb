@@ -5,14 +5,12 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
 
   DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS = 30
   DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS = 1
-  # `with_retry` runs the block while `retry_count <= max_retry_count`, where
-  # `retry_count` starts at 0, so total attempts == max_retry_count + 1. Subtract
-  # 1 here so the bounded poll runs exactly MAX_POLL_ATTEMPTS times. Naming the
-  # value keeps that off-by-one explicit if `with_retry`'s loop ever changes.
-  DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT = DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS - 1
   DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS = {
     retry_on_failure: true,
-    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_RETRY_COUNT,
+    # `with_retry` loops while `retry_count <= max_retry_count` starting from 0, so
+    # total attempts == max_retry_count + 1. Subtract 1 so the bounded poll runs
+    # exactly DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS times.
+    max_retry_count: DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS - 1,
     wait: DOMAIN_WORKLOAD_UPDATE_RETRY_WAIT_SECONDS
   }.freeze
 
@@ -139,14 +137,23 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   # `workload`. Any error — a 5xx mid-propagation, a transient 403
   # (`ForbiddenError < StandardError`, not a `RuntimeError`), or a network blip —
   # is treated as "not switched yet" so the poll keeps retrying. The broad rescue
-  # logs each error to the step's stderr, so a latent bug (e.g. `NoMethodError`)
+  # logs the error to the step's stderr, so a latent bug (e.g. `NoMethodError`)
   # surfaces in the "failed!" output on timeout instead of being swallowed.
   def domain_workload_update_confirmed?(domain_name, workload)
     refreshed_domain_data = cp.fetch_domain(domain_name)
     @domain_data = refreshed_domain_data if refreshed_domain_data
     refreshed_domain_data && cp.domain_workload_matches?(refreshed_domain_data, workload)
   rescue StandardError => e
-    Shell.write_to_tmp_stderr("#{e.class}: #{e.message} (#{e.backtrace&.first})\n")
+    # A persistent failure (bad domain name, network outage, a latent bug) repeats
+    # the same error on every poll attempt, so only log when the message changes —
+    # otherwise the timeout output would carry up to MAX_POLL_ATTEMPTS identical
+    # lines. Guard on `tmp_stderr` so this stays safe if ever called outside a
+    # `step` block, where no tmp stderr is set up.
+    message = "#{e.class}: #{e.message} (#{e.backtrace&.first})\n"
+    if message != @last_poll_error
+      Shell.write_to_tmp_stderr(message) if Shell.tmp_stderr
+      @last_poll_error = message
+    end
     false
   end
 
