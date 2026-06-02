@@ -10,6 +10,11 @@ The goal is to bring the Heroku Flow model into any `cpflow` project:
 4. Promote the already-built staging artifact to production from the Actions tab.
 5. Let a nightly workflow clean up stale review apps.
 
+For public repositories, review apps are intentionally limited to branches in the base repository. Fork pull requests can
+receive help comments, but generated deploy workflows skip fork heads because review-app deployment builds Docker images
+with repository secrets. If a forked change needs a review app, a maintainer should first move the change into a trusted
+branch in the base repository or otherwise review it through a separate, disposable environment.
+
 ## Quick Start
 
 End-to-end rollout in one view:
@@ -165,7 +170,8 @@ Important points:
 
 For a normal generated review-app setup, configure one repository secret:
 
-- `CPLN_TOKEN_STAGING`: token for the staging Control Plane org
+- `CPLN_TOKEN_STAGING`: token for the staging/review Control Plane org. For public repositories, prefer a tightly scoped
+  token that cannot read production secrets or manage production workloads.
 
 No GitHub repository variables are required for review apps when `.controlplane/controlplane.yml`
 has exactly one review app entry with `match_if_app_name_starts_with: true` and
@@ -382,6 +388,8 @@ Recommended org layout:
 
 - keep review apps and staging in a staging org that developers can access
 - keep production in a separate org with tighter access controls
+- for open-source repositories, use a tightly scoped staging/review token by default; use a dedicated review-app org only
+  if you also customize the generated workflow/configuration to target that org separately
 
 Optional repository secret for private dependency builds:
 
@@ -397,6 +405,45 @@ Advanced optional repository variables:
 - `REVIEW_APP_DEPLOYING_ICON_URL`: custom image URL for the animated icon in review-app PR comments. Ignore this for the standard setup; it is cosmetic only.
 - `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
+
+Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to
+allowed review-app Docker builds. Use a read-only, revocable deploy key scoped to the minimum private dependency access,
+and never use a personal SSH key.
+
+## Review App Security For Public Repositories
+
+Review-app deployment executes pull request code. Even when the workflow itself is trusted, the Dockerfile, package
+scripts, Rails initializers, server-rendering code, and application runtime can all be changed by the pull request being
+deployed.
+
+The generated flow uses these defaults:
+
+- same-repository pull requests can create or update review apps;
+- fork pull requests are skipped for review-app deploys;
+- `+review-app-deploy` and `+review-app-delete` are accepted only from trusted commenters;
+- trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
+  it needs a generated review app;
+- production promotion is manual and uses production environment secrets separately from review and staging.
+
+The generated review-app workflow targets the staging/review Control Plane org and token from `CPLN_ORG_STAGING` and
+`CPLN_TOKEN_STAGING`. A fully separate review-app org or token requires workflow/configuration customization; otherwise,
+keep review apps and staging in the generated staging/review org and make that token disposable and unable to access
+production resources.
+
+These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
+For public repositories, keep review-app credentials and runtime values disposable:
+
+- do not mount production secrets, staging customer data, package-publishing tokens, payment keys, or monitoring tokens
+  into review apps;
+- do not use broad Control Plane `superusers` tokens for review-app CI when a narrower review-app service account can do
+  the job;
+- keep review databases, Redis instances, object stores, and renderer credentials separate from staging and production;
+- rotate any credential that may have been exposed to a malicious review-app build;
+- use scheduled cleanup so stale review apps stop consuming compute and secrets access.
+
+Secret indirection such as `cpln://secret/...` protects values in Control Plane configuration. It does not protect a
+value after that secret is mounted into a workload that runs pull request code. See
+[Secrets and ENV Values](./secrets-and-env-values.md) for review-app secret handling guidance.
 
 ## Docker Builds with Private Dependencies
 
@@ -445,7 +492,9 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
   metric for public demos, starter staging apps, and long-lived review apps; see
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 - Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
-- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets.
+- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. A trusted comment on a
+  fork PR still does not deploy the fork head; move the change to a branch in the base repository if it needs a review
+  app.
 
 `cpflow-delete-review-app.yml`
 
@@ -725,6 +774,7 @@ In practice, porting the flow into a demo app usually follows five phases.
 
 13. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
 14. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
+15. For public repositories, confirm that review-app secrets are disposable and that `CPLN_TOKEN_STAGING` cannot access production resources.
 
 ## AI Playbook
 

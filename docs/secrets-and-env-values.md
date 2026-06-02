@@ -9,9 +9,19 @@ For your "review apps," it is convenient to have simple ENVs stored in plain tex
 keep some ENVs, like the Rails' `SECRET_KEY_BASE`, out of your source code. For staging and production apps, you will
 set these values directly at the GVC or workload levels, so none of these ENV values are committed to the source code.
 
+Review apps run application code from pull requests. For public repositories, do not put sensitive production or
+long-lived staging secrets in review apps. A secret reference such as `cpln://secret/...` protects the value while it is
+stored in Control Plane configuration, but the value becomes readable by application code after it is mounted into the
+review-app workload. Use generated dummy values, disposable databases, review-only renderer credentials, and revocable
+service tokens for review apps.
+
 For storing ENVs in the source code, we can use a level of indirection so that you can store an ENV value in your source
 code like `cpln://secret/my-app-review-env-secrets.SECRET_KEY_BASE` and then have the secret value stored at the org
 level, which applies to your GVCs mapped to that org.
+
+Avoid pointing review-app templates at shared production secret dictionaries. If staging and review apps live in the same
+Control Plane org, keep review-app secret dictionaries separate from persistent staging secrets and scope identities so
+temporary review workloads can reveal only the values they need.
 
 For setting up secrets, you'll need:
 
