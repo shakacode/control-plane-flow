@@ -10,6 +10,7 @@ module Command
     DESCRIPTION = "Enables maintenance mode for an app"
     LONG_DESCRIPTION = <<~DESC
       - Enables maintenance mode for an app
+      - Safe to re-run: if a previous run timed out after switching the domain but before stopping the workloads, re-running while maintenance mode is already enabled stops the workloads to finish it (so it is not a pure no-op)
       - Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
       - Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
       - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
