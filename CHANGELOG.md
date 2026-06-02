@@ -12,13 +12,17 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-### Fixed
-
-- **Fixed `cpflow generate-github-actions` so the generated `.github/cpflow-help.md` version-locking example derives a `CPFLOW_VERSION=<major>.<minor>.x` placeholder from the installed gem version instead of a hardcoded release that goes stale against the `@v<version>` wrapper refs in the same file.** [PR 343](https://github.com/shakacode/control-plane-flow/pull/343) by [Justin Gordon](https://github.com/justin808). Fixes [issue 341](https://github.com/shakacode/control-plane-flow/issues/341).
+## [5.1.0] - 2026-06-02
 
 ### Added
 
-- **Added `docs/rds-private-networking.md` covering how to reach a private RDS/Aurora cluster from Control Plane workloads via the Cloud Wormhole agent.** [PR 311](https://github.com/shakacode/control-plane-flow/pull/311) by [Justin Gordon](https://github.com/justin808). Fixes [issue 184](https://github.com/shakacode/control-plane-flow/issues/184). The new doc walks through agent setup on AWS (Launch Template + ASG), declaring `networkResources` on the identity, pointing `DATABASE_URL` at the resource name, verification, and Aurora failover trade-offs. README and `docs/postgres.md` now link to the new guide.
+- **Added `shared_secret_grants` configuration so apps can reference org-level Control Plane secrets by name instead of hardcoding them in templates.** [PR 354](https://github.com/shakacode/control-plane-flow/pull/354) by [Justin Gordon](https://github.com/justin808). Each grant validates a unique placeholder, a safe Control Plane resource name, and a secret policy that targets exactly that secret; templates gain `{{SHARED_SECRET_<NAME>}}` substitution, and the shared-policy lifecycle is wired through `setup-app`, `deploy-image`, `delete`, and `cleanup-stale-apps`. Enables the shared staging-database pattern for cheaper review apps.
+
+### Fixed
+
+- **Fixed `cpflow generate-github-actions` so the generated `.github/cpflow-help.md` version-locking example derives a `CPFLOW_VERSION=<major>.<minor>.x` placeholder from the installed gem version instead of a hardcoded release that goes stale against the `@v<version>` wrapper refs in the same file.** [PR 343](https://github.com/shakacode/control-plane-flow/pull/343) by [Justin Gordon](https://github.com/justin808). Fixes [issue 341](https://github.com/shakacode/control-plane-flow/issues/341).
+- **Fixed generated production promotion so `cpflow-promote-staging-to-production.yml` runs as a caller-owned job with `environment: production`, letting GitHub inject the `CPLN_TOKEN_PRODUCTION` environment secret after the protected gate instead of failing because a cross-repo reusable workflow cannot receive caller environment secrets.** [PR 353](https://github.com/shakacode/control-plane-flow/pull/353) by [Justin Gordon](https://github.com/justin808). The job checks out the pinned `control-plane-flow` ref into `.cpflow`, and generated help plus `docs/ci-automation.md` now explain why a same-named repository or organization secret can mask a missing environment secret.
+- **Hardened generated production promotion image copy to preflight the staging image, retry the copy via configurable `COPY_IMAGE_RETRIES` and `COPY_IMAGE_RETRY_INTERVAL` repo vars, and roll back failed deploys using `spec.containers.<name>.image` paths instead of unsupported array-index paths.** [PR 355](https://github.com/shakacode/control-plane-flow/pull/355) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.0.4] - 2026-05-27
 
@@ -406,7 +410,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.0.4...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...HEAD
+[5.1.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.4...v5.1.0
 [5.0.4]: https://github.com/shakacode/control-plane-flow/compare/v5.0.3...v5.0.4
 [5.0.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.2...v5.0.3
 [5.0.2]: https://github.com/shakacode/control-plane-flow/compare/v5.0.1...v5.0.2
