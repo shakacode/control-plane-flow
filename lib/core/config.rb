@@ -10,6 +10,9 @@ class Config # rubocop:disable Metrics/ClassLength
   include Helpers
 
   CONFIG_FILE_LOCATION = ".controlplane/controlplane.yml"
+  REQUIRED_SHARED_SECRET_GRANT_KEYS = %i[name secret_name policy_name].freeze
+  SHARED_SECRET_RESOURCE_NAME_KEYS = %i[secret_name policy_name].freeze
+  CONTROL_PLANE_RESOURCE_NAME_REGEX = /\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
 
   def initialize(args, options, required_options)
     @args = args
@@ -54,6 +57,16 @@ class Config # rubocop:disable Metrics/ClassLength
 
   def secrets_policy
     current&.dig(:secrets_policy_name) || "#{secrets}-policy"
+  end
+
+  def shared_secret_grants
+    @shared_secret_grants ||= normalize_shared_secret_grants(current&.dig(:shared_secret_grants))
+  end
+
+  def shared_secret_placeholders
+    shared_secret_grants.to_h do |grant|
+      ["{{SHARED_SECRET_#{grant.fetch(:name).upcase}}}", grant.fetch(:secret_name)]
+    end
   end
 
   def location
@@ -169,6 +182,74 @@ class Config # rubocop:disable Metrics/ClassLength
 
   def ensure_config_app!(app_name, app_options)
     raise "Can't find config for app '#{app_name}' in 'controlplane.yml'." unless app_options
+  end
+
+  def normalize_shared_secret_grants(grants)
+    return [] if grants.nil?
+
+    raise "shared_secret_grants for app config must be an array." unless grants.is_a?(Array)
+
+    normalized_grants = grants.map.with_index { |grant, index| normalize_shared_secret_grant(grant, index) }
+    ensure_unique_shared_secret_grant_names!(normalized_grants)
+    normalized_grants
+  end
+
+  def normalize_shared_secret_grant(raw_grant, index)
+    ensure_shared_secret_grant_map!(raw_grant, index)
+
+    grant = raw_grant.transform_keys(&:to_sym)
+    label = grant[:name] || "##{index + 1}"
+    ensure_shared_secret_grant_keys!(grant, label)
+    ensure_shared_secret_resource_names!(grant, label)
+    build_shared_secret_grant(grant)
+  end
+
+  def build_shared_secret_grant(grant)
+    name = grant.fetch(:name).to_s
+    ensure_shared_secret_grant_name!(name)
+    {
+      name: name,
+      secret_name: grant.fetch(:secret_name).to_s,
+      policy_name: grant.fetch(:policy_name).to_s
+    }
+  end
+
+  def ensure_shared_secret_grant_map!(raw_grant, index)
+    return if raw_grant.is_a?(Hash)
+
+    raise "shared_secret_grants entry ##{index + 1} must be a map."
+  end
+
+  def ensure_shared_secret_grant_keys!(grant, label)
+    REQUIRED_SHARED_SECRET_GRANT_KEYS.each do |key|
+      value = grant[key]
+      raise "shared_secret_grants entry '#{label}' must include #{key}." if value.nil? || value.to_s.empty?
+    end
+  end
+
+  def ensure_shared_secret_grant_name!(name)
+    return if name.match?(/\A[a-z][a-z0-9_]*\z/)
+
+    raise "shared_secret_grants entry name '#{name}' must be lower snake case."
+  end
+
+  def ensure_shared_secret_resource_names!(grant, label)
+    SHARED_SECRET_RESOURCE_NAME_KEYS.each do |key|
+      value = grant.fetch(key).to_s
+      next if value.match?(CONTROL_PLANE_RESOURCE_NAME_REGEX)
+
+      raise "shared_secret_grants entry '#{label}' #{key} '#{value}' must be a Control Plane resource name."
+    end
+  end
+
+  def ensure_unique_shared_secret_grant_names!(grants)
+    seen_names = {}
+    grants.each do |grant|
+      name = grant.fetch(:name)
+      raise "shared_secret_grants entry name '#{name}' must be unique." if seen_names[name]
+
+      seen_names[name] = true
+    end
   end
 
   def ensure_app!

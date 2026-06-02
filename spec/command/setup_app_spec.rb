@@ -3,6 +3,72 @@
 require "spec_helper"
 
 describe Command::SetupApp do
+  describe "#call" do
+    let(:shared_secret_grants) do
+      [
+        {
+          name: "database",
+          secret_name: "shared-database-secrets",
+          policy_name: "shared-database-secrets-policy"
+        }
+      ]
+    end
+    let(:config) do
+      instance_double(
+        Config,
+        app: "test-review-123",
+        identity: "test-review-123-identity",
+        identity_link: "/org/test-org/gvc/test-review-123/identity/test-review-123-identity",
+        secrets: "test-review-secrets",
+        secrets_policy: "test-review-secrets-policy",
+        options: {},
+        current: { skip_secrets_setup: false },
+        shared_secret_grants: shared_secret_grants
+      )
+    end
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
+      allow(cp).to receive_messages(fetch_gvc: nil, bind_identity_to_policy: true)
+      allow(cp).to receive(:fetch_policy)
+        .with("shared-database-secrets-policy")
+        .and_return(
+          {
+            "targetKind" => "secret",
+            "targetLinks" => ["//secret/shared-database-secrets"],
+            "bindings" => []
+          }
+        )
+      allow(command).to receive_messages(cp: cp)
+      allow(command).to receive(:create_secret_and_policy_if_not_exist)
+      allow(command).to receive(:run_cpflow_command)
+    end
+
+    it "binds the app identity to configured shared secret policies" do
+      command.call
+
+      expect(cp).to have_received(:bind_identity_to_policy)
+        .with(config.identity_link, "test-review-secrets-policy")
+      expect(cp).to have_received(:bind_identity_to_policy)
+        .with(config.identity_link, "shared-database-secrets-policy")
+    end
+
+    context "when a configured shared policy is missing" do
+      before do
+        allow(cp).to receive(:fetch_policy).with("shared-database-secrets-policy").and_return(nil)
+      end
+
+      it "raises before creating app resources" do
+        expect { command.call }
+          .to raise_error(/Shared secret policy 'shared-database-secrets-policy'/)
+        expect(command).not_to have_received(:create_secret_and_policy_if_not_exist)
+        expect(command).not_to have_received(:run_cpflow_command)
+      end
+    end
+  end
+
   context "when 'setup_app_templates' is not defined" do
     let!(:app) { dummy_test_app("nothing") }
 

@@ -12,7 +12,7 @@ module Command
     DESCRIPTION = "Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload"
     LONG_DESCRIPTION = <<~DESC
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
-      - Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
+      - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
       - Will ask for explicit user confirmation
       - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -55,8 +55,9 @@ module Command
       check_images
       return unless confirm_delete(config.app)
 
+      policy_unbinds = secret_policy_unbinds
       run_pre_deletion_hook unless config.options[:skip_pre_deletion_hook]
-      unbind_identity_from_policy
+      unbind_identity_from_policy(policy_unbinds)
       delete_volumesets
       delete_gvc
       delete_images
@@ -125,19 +126,61 @@ module Command
       end
     end
 
-    def unbind_identity_from_policy
-      return if cp.fetch_identity(config.identity).nil?
-
-      policy = cp.fetch_policy(config.secrets_policy)
-      return if policy.nil?
-
-      is_bound = policy["bindings"].any? do |binding|
-        binding["principalLinks"].any? { |link| link == config.identity_link }
+    def unbind_identity_from_policy(policy_unbinds = secret_policy_unbinds)
+      policy_unbinds.each do |policy_unbind|
+        unbind_identity_from_secret_policy(policy_unbind)
       end
-      return unless is_bound
+    end
 
-      step("Unbinding identity from policy for app '#{config.app}'") do
-        cp.unbind_identity_from_policy(config.identity_link, config.secrets_policy)
+    def secret_policy_unbinds
+      return [] if cp.fetch_identity(config.identity).nil?
+
+      [
+        app_secret_policy_unbind,
+        *shared_secret_policy_unbinds
+      ].compact
+    end
+
+    def app_secret_policy_unbind
+      policy_unbind_for(
+        config.secrets_policy,
+        "Unbinding identity from policy for app '#{config.app}'"
+      )
+    end
+
+    def shared_secret_policy_unbinds
+      config.shared_secret_grants.filter_map do |grant|
+        shared_secret_policy_unbind(grant)
+      end
+    end
+
+    def shared_secret_policy_unbind(grant)
+      policy_name = grant.fetch(:policy_name)
+      policy = cp.fetch_policy(policy_name)
+      return if policy.nil?
+      return unless identity_bound_to_policy?(policy)
+
+      ensure_shared_secret_policy_targets_secret!(grant, policy)
+
+      {
+        policy_name: policy_name,
+        message: "Unbinding identity from shared secret policy '#{policy_name}' for app '#{config.app}'"
+      }
+    end
+
+    def policy_unbind_for(policy_name, message)
+      policy = cp.fetch_policy(policy_name)
+      return if policy.nil? || !identity_bound_to_policy?(policy)
+
+      {
+        policy_name: policy_name,
+        message: message
+      }
+    end
+
+    def unbind_identity_from_secret_policy(policy_unbind)
+      step(policy_unbind.fetch(:message)) do
+        cp.unbind_identity_from_policy(config.identity_link, policy_unbind.fetch(:policy_name))
       end
     end
 

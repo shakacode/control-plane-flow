@@ -29,6 +29,55 @@ You can do this during the initial app setup, like this:
 6. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there
 7. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/$APP_PREFIX-secrets.SOME_VAR`)
 
+## Shared Secrets for Review Apps
+
+Review apps often need access to a shared staging resource, such as one staging PostgreSQL workload or managed database.
+Creating a database per pull request is expensive and slow, so you can create one shared org-level secret and policy,
+then let each temporary review-app identity reveal that shared secret.
+
+Create the shared dictionary secret and policy once in the staging org. The policy must target exactly the shared secret:
+
+```yaml
+kind: policy
+name: my-app-review-database-secrets-policy
+targetKind: secret
+targetLinks:
+  - //secret/my-app-review-database-secrets
+```
+
+Then declare the grant in the review app entry in `.controlplane/controlplane.yml`:
+
+```yaml
+apps:
+  my-app-review:
+    match_if_app_name_starts_with: true
+    shared_secret_grants:
+      - name: database
+        secret_name: my-app-review-database-secrets
+        policy_name: my-app-review-database-secrets-policy
+```
+
+Use the generated placeholder in templates instead of hardcoding the secret name:
+
+```yaml
+env:
+  - name: DATABASE_URL
+    value: cpln://secret/{{SHARED_SECRET_DATABASE}}.DATABASE_URL
+```
+
+`name` must be lower snake case. It becomes `{{SHARED_SECRET_<NAME>}}`, uppercased, in templates. `secret_name`
+and `policy_name` must be Control Plane resource names: lowercase letters, numbers, and dashes only, starting and ending
+with a letter or number.
+
+`cpflow setup-app` still creates the per-app secret and policy for app-specific values, and also binds the app identity
+to every configured shared policy. `cpflow deploy-image` repairs missing shared policy bindings before workloads are
+updated, which helps existing review apps recover after the config is added. `cpflow delete` and `cpflow cleanup-stale-apps`
+remove those shared policy bindings when a review app is deleted.
+
+For shared databases, keep runtime data isolated by using a per-review-app database name, schema, or tenant key. A common
+pattern is to keep the host, user, and password in the shared secret, then have `hooks.post_creation` create the PR-specific
+database/schema and `hooks.pre_deletion` drop it.
+
 Here are the manual steps for reference. We recommend that you follow the steps above:
 
 1. In the upper left of the Control Plane console, "Manage Org" menu, click on "Secrets"

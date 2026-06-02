@@ -41,6 +41,13 @@ apps:
   __APP_PREFIX__-review:
     <<: *common
     match_if_app_name_starts_with: true
+    # Optional: if a review app needs an existing shared org-level secret,
+    # declare its policy here and reference it in templates with
+    # {{SHARED_SECRET_<NAME>}}.
+    # shared_secret_grants:
+    #   - name: database
+    #     secret_name: __APP_PREFIX__-review-database-secrets
+    #     policy_name: __APP_PREFIX__-review-database-secrets-policy
 
   __APP_PREFIX__-production:
     <<: *production

@@ -279,6 +279,28 @@ templates, and the staging token must have access to create and update
 review-app GVCs, workloads, images, identities, policies, and secrets in the
 staging org.
 
+If review apps share an existing staging database or another existing secret,
+declare it with `shared_secret_grants` on the review app config entry. The
+deploy workflow runs `setup-app` for new review apps and `deploy-image` for
+image updates; those commands bind or repair the review app identity's `reveal`
+permission on each configured shared policy. The delete and cleanup workflows
+call `cpflow delete`, which removes those bindings as review apps go away. This
+lets one shared database or license secret serve many short-lived review apps
+without granting every review identity access to unrelated app secrets.
+
+```yaml
+apps:
+  my-app-review:
+    match_if_app_name_starts_with: true
+    shared_secret_grants:
+      - name: database
+        secret_name: my-app-review-database-secrets
+        policy_name: my-app-review-database-secrets-policy
+```
+
+Then reference `cpln://secret/{{SHARED_SECRET_DATABASE}}.DATABASE_URL` from the
+workload template.
+
 ### Production Promotion Safety
 
 `CPLN_TOKEN_PRODUCTION` can change live production workloads, images, releases,

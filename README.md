@@ -241,6 +241,18 @@ aliases:
     #   it would be 'my-app-review-secrets-policy'
     secrets_policy_name: my-secrets-policy
 
+    # Optional: grant each app identity access to shared org-level secrets
+    # without hardcoding shared secret names in workload templates.
+    #
+    # This is useful for review apps that share one staging database secret
+    # instead of provisioning a database per PR. Create the shared secret and
+    # policy once, then reference the secret in templates with
+    # {{SHARED_SECRET_DATABASE}}.
+    # shared_secret_grants:
+    #   - name: database
+    #     secret_name: my-shared-database-secrets
+    #     policy_name: my-shared-database-secrets-policy
+
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
 

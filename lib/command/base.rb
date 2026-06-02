@@ -587,6 +587,64 @@ module Command
       @cp ||= Controlplane.new(config)
     end
 
+    def bind_shared_secret_policy_grants
+      config.shared_secret_grants.each do |grant|
+        bind_shared_secret_policy_grant(grant)
+      end
+    end
+
+    def validate_shared_secret_policy_grants
+      config.shared_secret_grants.each do |grant|
+        validate_shared_secret_policy_grant(grant)
+      end
+    end
+
+    def validate_shared_secret_policy_grant(grant)
+      policy = cp.fetch_policy(grant.fetch(:policy_name))
+      raise shared_secret_policy_missing_message(grant) if policy.nil?
+
+      ensure_shared_secret_policy_targets_secret!(grant, policy)
+    end
+
+    def bind_shared_secret_policy_grant(grant)
+      policy_name = grant.fetch(:policy_name)
+      policy = cp.fetch_policy(policy_name)
+      raise shared_secret_policy_missing_message(grant) if policy.nil?
+
+      ensure_shared_secret_policy_targets_secret!(grant, policy)
+      return if identity_bound_to_policy?(policy)
+
+      step("Binding identity '#{config.identity}' to shared secret policy '#{policy_name}'") do
+        cp.bind_identity_to_policy(config.identity_link, policy_name)
+      end
+    end
+
+    def ensure_shared_secret_policy_targets_secret!(grant, policy)
+      return if shared_secret_policy_targets_secret?(grant, policy)
+
+      raise "Shared secret policy '#{grant.fetch(:policy_name)}' for shared_secret_grants entry " \
+            "'#{grant.fetch(:name)}' must target secret '#{grant.fetch(:secret_name)}'."
+    end
+
+    def shared_secret_policy_targets_secret?(grant, policy)
+      target_link = "//secret/#{grant.fetch(:secret_name)}"
+
+      policy["targetKind"] == "secret" &&
+        Array(policy["targetLinks"]) == [target_link]
+    end
+
+    def identity_bound_to_policy?(policy)
+      Array(policy["bindings"]).any? do |binding|
+        Array(binding["permissions"]).include?("reveal") &&
+          Array(binding["principalLinks"]).any? { |link| link == config.identity_link }
+      end
+    end
+
+    def shared_secret_policy_missing_message(grant)
+      "Shared secret policy '#{grant.fetch(:policy_name)}' for shared_secret_grants entry " \
+        "'#{grant.fetch(:name)}' does not exist. Create the policy or remove the shared secret grant."
+    end
+
     def ensure_docker_running!
       result = Shell.cmd("docker", "version", capture_stderr: true)
       return if result[:success]
