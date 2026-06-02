@@ -289,7 +289,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include("EXPECTED_CPFLOW_CHECKOUT_ACTION")
       expect(test_cpflow_flow_path.read).to include("must check out")
       expect(test_cpflow_flow_path.read).to include("must pin the Checkout control-plane-flow actions step")
-      expect(test_cpflow_flow_path.read).to include("must pass a pinned production control_plane_flow_ref")
+      expect(test_cpflow_flow_path.read).to include(
+        "shakacode/control-plane-flow/.github/workflows/cpflow-promote-staging-to-production.yml@vX.Y.Z"
+      )
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
       expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
     end
