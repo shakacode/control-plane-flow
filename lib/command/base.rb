@@ -624,10 +624,19 @@ module Command
     end
 
     def shared_secret_policy_targets_secret?(grant, policy)
-      target_link = "//secret/#{grant.fetch(:secret_name)}"
+      target_links = Array(policy["targetLinks"])
 
       policy["targetKind"] == "secret" &&
-        Array(policy["targetLinks"]) == [target_link]
+        target_links.one? &&
+        shared_secret_policy_target_links(grant).include?(target_links.first)
+    end
+
+    def shared_secret_policy_target_links(grant)
+      secret_name = grant.fetch(:secret_name)
+      [
+        "//secret/#{secret_name}",
+        "/org/#{config.org}/secret/#{secret_name}"
+      ]
     end
 
     def identity_bound_to_policy_with_reveal?(policy)

@@ -17,6 +17,7 @@ describe Command::SetupApp do
       instance_double(
         Config,
         app: "test-review-123",
+        org: "test-org",
         identity: "test-review-123-identity",
         identity_link: "/org/test-org/gvc/test-review-123/identity/test-review-123-identity",
         secrets: "test-review-secrets",

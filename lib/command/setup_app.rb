@@ -38,6 +38,8 @@ module Command
 
       skip_secrets_setup = skip_secrets_setup?
 
+      # Validate shared grants before app resource creation so config/policy
+      # drift does not leave a partially-created review app.
       shared_secret_policy_grant_pairs = resolve_shared_secret_policy_grants unless skip_secrets_setup
       create_secret_and_policy_if_not_exist unless skip_secrets_setup
 

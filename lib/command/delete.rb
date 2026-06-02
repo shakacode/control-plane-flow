@@ -167,6 +167,8 @@ module Command
       return unless identity_bound_to_policy_with_reveal?(policy)
 
       unless shared_secret_policy_targets_secret?(grant, policy)
+        # A drifted shared policy should not block teardown. Remove the app
+        # identity's reveal binding anyway so reusing the app name cannot inherit access.
         warn_shared_secret_policy_target_mismatch(grant, policy_name)
       end
 

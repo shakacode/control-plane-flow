@@ -9,6 +9,7 @@ describe Command::Delete do
       instance_double(
         Config,
         app: "test-review-123",
+        org: "test-org",
         identity: "test-review-123-identity",
         identity_link: identity_link,
         secrets_policy: "test-review-secrets-policy",
@@ -186,6 +187,7 @@ describe Command::Delete do
       instance_double(
         Config,
         app: "test-review-123",
+        org: "test-org",
         identity: "test-review-123-identity",
         identity_link: identity_link,
         secrets_policy: "test-review-secrets-policy",
@@ -238,13 +240,21 @@ describe Command::Delete do
     end
 
     it "runs the pre-deletion hook before unbinding a bound shared policy target that has drifted" do
+      events = []
+      allow(command).to receive(:run_pre_deletion_hook) { events << :hook }
+      allow(cp).to receive(:unbind_identity_from_policy) do |_identity_link, policy, permission:|
+        events << [:unbind, policy, permission]
+      end
+
       command.send(:delete_whole_app)
 
-      expect(command).to have_received(:run_pre_deletion_hook)
-      expect(cp).to have_received(:unbind_identity_from_policy)
-        .with(identity_link, "test-review-secrets-policy", permission: "reveal")
-      expect(cp).to have_received(:unbind_identity_from_policy)
-        .with(identity_link, "shared-database-secrets-policy", permission: "reveal")
+      expect(events).to eq(
+        [
+          :hook,
+          [:unbind, "test-review-secrets-policy", "reveal"],
+          [:unbind, "shared-database-secrets-policy", "reveal"]
+        ]
+      )
     end
   end
 end

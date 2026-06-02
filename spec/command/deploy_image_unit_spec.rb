@@ -202,6 +202,23 @@ describe Command::DeployImage do
       end
     end
 
+    context "when the shared policy returns a fully-qualified secret target link" do
+      def policy_data
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["/org/test-org/secret/shared-database-secrets"],
+          "bindings" => []
+        }
+      end
+
+      it "accepts the policy target" do
+        command.call
+
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+      end
+    end
+
     context "when the shared policy does not target the configured shared secret" do
       def uploads_policy_data
         {
