@@ -16,7 +16,7 @@ End-to-end rollout in one view:
 
 1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
 2. `cpflow generate` — creates `.controlplane/` if missing.
-3. `cpflow generate-github-actions` — adds thin `cpflow-*` workflow wrappers that call upstream reusable workflows.
+3. `cpflow generate-github-actions` — adds `cpflow-*` workflow wrappers. Review-app, staging, cleanup, and helper workflows call upstream reusable workflows; production promotion is a normal caller-repo job so it can own the protected production Environment.
 4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
@@ -197,28 +197,27 @@ For production promotion, also configure:
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
 
 Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
-sensitive production systems. The generated promotion reusable workflow declares
-`environment: production`; the generated caller passes that environment name
-through `production_environment`. GitHub waits for the `production`
-environment's protection rules before injecting `CPLN_TOKEN_PRODUCTION` into
-the upstream production job.
+sensitive production systems. Production promotion intentionally runs as a
+normal caller-repo workflow job with `environment: production`, then checks out
+the pinned `control-plane-flow` release for shared actions. GitHub exposes the
+production token to that job only after the `production` environment gate.
+GitHub does not expose which secret scope supplied a nonempty value at runtime,
+so a broader repository or organization secret with the same name can mask a
+missing environment secret. Keep the production token absent from broader secret
+scopes.
 
-GitHub's reusable-workflow syntax still requires the upstream workflow to
-declare `CPLN_TOKEN_PRODUCTION` as an optional `workflow_call` secret so static
-validation accepts `secrets.CPLN_TOKEN_PRODUCTION`, but the generated caller
-must not pass it. GitHub uses the secret from the reusable workflow job's
-`production` environment when that environment is configured.
-
-Generated caller workflows pass only the named secrets each reusable workflow
-needs. They do not use `secrets: inherit`; the production token is supplied by
-the protected `production` Environment after approval, not forwarded from a
-repository secret.
+Do not move production promotion behind a cross-repo reusable workflow. GitHub
+does not expose the caller repository's environment secrets to that called
+workflow, so `secrets.CPLN_TOKEN_PRODUCTION` remains empty even when the
+`production` Environment contains the secret. Generated reusable-workflow
+callers still pass only the named secrets each upstream workflow needs and do
+not use `secrets: inherit`; production promotion is the caller-owned exception.
 
 If promotion fails in the `Validate production token` step with
 `CPLN_TOKEN_PRODUCTION is not set. Add it as a secret on the 'production' GitHub Environment.`,
-check the environment scope first. A repository or organization secret with the
-same name is not enough for this reusable workflow. Create or verify the
-environment secret with:
+check the environment scope first. Also verify that the `promote-to-production`
+job declares `environment: production` and that no same-named repository or
+organization secret exists. Create or verify the environment secret with:
 You need permission to manage repository environments and secrets to run these
 commands.
 
@@ -226,6 +225,7 @@ commands.
 gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production
 # Paste the token value when prompted.
 gh secret list --repo OWNER/REPO --env production
+gh secret list --repo OWNER/REPO
 ```
 
 ## First-Time Control Plane Bootstrap
@@ -295,10 +295,12 @@ The standard path is:
    intentionally non-sensitive.
 
 GitHub only exposes environment secrets to jobs that reference the environment
-after configured protection rules pass. GitHub also does not allow a caller job
-that directly invokes a reusable workflow to set `environment`; for that reason,
-the reusable promotion workflow itself declares `environment: production`. See
-GitHub's docs for [managing environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),
+after configured protection rules pass. GitHub does not allow a caller job that
+directly invokes a reusable workflow to set `environment`, and cross-repo
+reusable workflows do not receive the caller repository's environment secrets.
+For that reason, generated production promotion stays as a normal caller-repo
+job with `environment: production`. See GitHub's docs for
+[managing environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),
 [deployment protection rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments),
 and [reusable workflow limitations](https://docs.github.com/en/actions/reference/reusable-workflows-reference#supported-keywords-for-jobs-that-call-a-reusable-workflow).
 
@@ -419,32 +421,37 @@ or clones that copy the workflow before configuring Control Plane can remove
 wrapper-level `if:` guard shown in that file, for example
 `vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''`.
 
-## Upstream Reusable Workflows
+## Upstream Workflows And Actions
 
-The generated workflows are intentionally small wrappers. The deployment logic,
-comment formatting, Control Plane CLI setup, Docker image build, and cleanup helpers
-live in upstream reusable workflows and composite actions in this repository.
+Most generated workflows are intentionally small wrappers. The deployment
+logic, comment formatting, Control Plane CLI setup, Docker image build, and
+cleanup helpers live in upstream reusable workflows and composite actions in
+this repository. Production promotion is expanded into the caller repository so
+it can own `environment: production`, but it still checks out the same upstream
+ref for shared composite actions.
 
-- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream reusable-workflow ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
+- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream `control-plane-flow` ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
 - `cpflow-build-docker-image`: builds and pushes the app image with the desired commit SHA
 - `cpflow-delete-control-plane-app`: safely deletes temporary apps and refuses to touch names outside the configured review-app prefix
 
 ## Version Pins: GitHub Ref vs RubyGems
 
-The generated `cpflow-*` workflow files are thin wrappers around reusable
-workflows in `shakacode/control-plane-flow`. GitHub loads reusable workflows
-from a repository ref, not from the Ruby gem, so each wrapper has an upstream
-GitHub ref:
+Generated `cpflow-*` workflow files pin `shakacode/control-plane-flow` from
+GitHub, not from the Ruby gem. Reusable workflow wrappers pin that source with
+an upstream `uses:` ref:
 
 ```yaml
 uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@<ref>
 ```
 
-That single `uses:` ref is the downstream lock. GitHub exposes the reusable
-workflow's own repository, ref, and SHA to the called job, so the upstream
-workflow checks out the matching `control-plane-flow` source automatically from
-that context. Downstream wrappers should not pass `control_plane_flow_ref`; if
-you see that input in generated wrappers, regenerate with a newer `cpflow`.
+Production promotion pins the same source in its `Checkout control-plane-flow
+actions` step because it is a caller-owned job, not a reusable workflow caller.
+Those refs are the downstream lock. GitHub exposes a reusable workflow's own
+repository, ref, and SHA to called jobs, so reusable upstream workflows check out
+matching `control-plane-flow` source automatically from that context. Downstream
+reusable-workflow wrappers should not pass `control_plane_flow_ref`; if you see
+that input outside the production promotion setup step, regenerate with a newer
+`cpflow`.
 
 There are two locks, and they protect different things:
 
@@ -542,10 +549,12 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
    bin/pin-cpflow-github-ref <upstream-pr-sha>
    ```
 
-   The helper updates every generated `cpflow-*` workflow wrapper. It accepts
-   release tags and full commit SHAs by default, rejects branch names such as
-   `main` or `feature/foo`, and requires `--allow-moving-ref` for short-lived
-   local experiments that should not be committed.
+   The helper updates every generated reusable-workflow `uses:` ref plus the
+   production workflow's pinned `control-plane-flow` checkout and setup
+   validation ref. It accepts release tags and full commit SHAs by default,
+   rejects branch names such as `main` or `feature/foo`, and requires
+   `--allow-moving-ref` for short-lived local experiments that should not be
+   committed.
 
 3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same
    upstream SHA that supplies the reusable workflow and composite actions. If
@@ -580,9 +589,10 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
    `bin/pin-cpflow-github-ref vX.Y.Z` only for a ref-only update when the
    generated templates are already current.
 
-This tests the real reusable workflow, shared composite actions, and source-built
-`cpflow` gem from one immutable upstream commit. It avoids merging upstream blind
-and avoids running production automation against a moving branch.
+This tests the real reusable workflows, the production workflow's checked-out
+shared composite actions, and the source-built `cpflow` gem from one immutable
+upstream commit. It avoids merging upstream blind and avoids running production
+automation against a moving branch.
 
 ## Local Generated-Flow Checks
 
@@ -594,9 +604,11 @@ bin/test-cpflow-github-flow
 
 The helper runs `cpflow github-flow-readiness`, parses generated workflow YAML,
 checks composite action metadata for literal GitHub expressions in descriptions,
-checks that all generated wrappers use one upstream ref consistently, rejects
-broad `secrets: inherit` usage in generated cpflow wrappers, rejects obsolete
-`control_plane_flow_ref` wrapper inputs, and runs
+checks that all generated wrappers and the production `control-plane-flow`
+checkout use one upstream ref consistently, rejects broad `secrets: inherit`
+usage in generated cpflow wrappers, rejects obsolete `control_plane_flow_ref`
+wrapper inputs, verifies production promotion remains a caller-owned
+`environment: production` job, and runs
 `actionlint` against `.github/workflows/cpflow-*.yml`. Its `actionlint` command
 keeps the existing shellcheck ignore and also ignores stale local `actionlint`
 false positives for GitHub's newer reusable-workflow `job.workflow_*` fields.

@@ -197,7 +197,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("actions/github-script@v7")
     end
 
-    it "generates thin wrapper workflows that call upstream reusable workflows" do
+    it "generates thin reusable-workflow wrappers for non-production flows" do
       contents = review_app_workflow_path.read
       default_ref = "v#{Cpflow::VERSION}"
 
@@ -274,14 +274,18 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "generates local helpers for pinning and validating cpflow workflow refs" do
       expect(pin_cpflow_ref_path.read).to include("Use a full 40-character commit SHA")
+      expect(pin_cpflow_ref_path.read).to include("production")
+      expect(pin_cpflow_ref_path.read).to include("control_plane_flow_ref:")
       expect(pin_cpflow_ref_path.read).to include("Pathname.new(path).relative_path_from(root).to_s")
       expect(test_cpflow_flow_path.read).to include("cpflow github-flow-readiness")
       expect(test_cpflow_flow_path.read).to include(
         "passes obsolete control_plane_flow_ref"
       )
       expect(test_cpflow_flow_path.read).to include("uses secrets: inherit")
-      expect(test_cpflow_flow_path.read).to include("must set production_environment")
-      expect(test_cpflow_flow_path.read).to include("must not pass CPLN_TOKEN_PRODUCTION as a caller secret")
+      expect(test_cpflow_flow_path.read).to include("must not call the cross-repo production reusable workflow")
+      expect(test_cpflow_flow_path.read).to include("must run as a normal caller-repo job")
+      expect(test_cpflow_flow_path.read).to include("must declare environment: production")
+      expect(test_cpflow_flow_path.read).to include("must pin the Checkout control-plane-flow actions step")
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
       expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
     end
@@ -745,12 +749,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
       contents = reusable_promote_workflow_path.read
       wrapper = promote_workflow_path.read
+      default_ref = "v#{Cpflow::VERSION}"
+      production_workflow_ref = "shakacode/control-plane-flow/.github/workflows/" \
+                                "cpflow-promote-staging-to-production.yml"
 
-      expect(wrapper).to include("callers must grant the union of callee permissions")
-      expect(wrapper).to include("The caller passes the environment name")
-      expect(wrapper).to include("production_environment: production")
+      expect(wrapper).to include("This normal caller-repo job declares the protected production Environment")
+      expect(wrapper).to include("environment: production")
+      expect(wrapper).to include("repository: shakacode/control-plane-flow")
+      expect(wrapper).to include("ref: #{default_ref}")
+      expect(wrapper).to include("control_plane_flow_ref: #{production_workflow_ref}@#{default_ref}")
       expect(wrapper).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
-      expect(wrapper).not_to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(wrapper).to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(wrapper).not_to include("uses: #{production_workflow_ref}")
+      expect(wrapper).not_to include("production_environment: production")
       expect(wrapper).not_to include("secrets: inherit")
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include("contents: read")
