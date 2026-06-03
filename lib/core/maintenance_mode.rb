@@ -84,9 +84,9 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
 
   # A run that already switched the route but hit the poll timeout aborts before
   # its final workload-stop step runs. The next `enable!`/`disable!` short-circuits
-  # on the route check, so finish that stop here — a re-run completes what the
-  # timed-out run started. `ps:stop` is idempotent, so each is a no-op once the
-  # target workload is already stopped.
+  # on the route check, so do the matching stop here — once the route is on the
+  # target, this brings the workloads into the state that route implies. `ps:stop`
+  # is idempotent, so each is a no-op once the target workload is already stopped.
   #
   # The stop target differs by direction. `ps:stop -a` covers only
   # `app_workloads` + `additional_workloads`, never the maintenance workload:
@@ -128,7 +128,11 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
       # `set_domain_workload` mutates the route in place, so send a deep copy
       # (round-tripped through JSON, since the domain is plain parsed-API data
       # with string keys and JSON-native values) to keep the cached
-      # `@domain_data` intact for the polling check below.
+      # `@domain_data` reflecting the real server route. The poll re-fetches and
+      # matches on that fresh data, but if every poll times out without a routable
+      # fetch, `@domain_data` is what a re-run's `enabled?`/`disabled?` check reads
+      # — mutating it here would make that check report the requested route, not
+      # the actual one.
       domain_data_for_update = JSON.parse(JSON.generate(domain_data))
       cp.set_domain_workload(domain_data_for_update, to)
     end
@@ -168,8 +172,8 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
     # lines. Guard on `tmp_stderr` so this stays safe if ever called outside a
     # `step` block, where no tmp stderr is set up.
     message = "#{e.class}: #{e.message} (#{e.backtrace&.first})\n"
-    if message != @last_poll_error
-      Shell.write_to_tmp_stderr(message) if Shell.tmp_stderr
+    if message != @last_poll_error && Shell.tmp_stderr
+      Shell.write_to_tmp_stderr(message)
       @last_poll_error = message
     end
     false

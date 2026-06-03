@@ -47,7 +47,10 @@ describe MaintenanceMode do
 
     it "continues polling when a transient API error is raised mid-switch" do
       allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
-      poll_responses = [->(*) { raise "transient API error" }, ->(*) { domain_routed_to("maintenance") }]
+      # A transient 403/5xx is a non-RuntimeError StandardError, so the in-method
+      # rescue (not the outer `step`, which only rescues RuntimeError) must catch it.
+      error = ControlplaneApiDirect::ForbiddenError.new(url: "/org/my-org", response: "403")
+      poll_responses = [->(*) { raise error }, ->(*) { domain_routed_to("maintenance") }]
       allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_invoke(*poll_responses)
 
       described_class.new(command).enable!
@@ -75,6 +78,33 @@ describe MaintenanceMode do
       expect { described_class.new(command).enable! }.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
 
       expect(progress.string).to include("NoMethodError: boom")
+    end
+
+    it "logs a repeated poll error only once in the timeout output" do
+      allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("web"))
+      allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_raise(NoMethodError.new("boom"))
+
+      expect { described_class.new(command).enable! }.to raise_error(SystemExit)
+
+      # The same error repeats on every poll attempt, but the dedup keeps the
+      # timeout output from carrying one identical line per attempt.
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com")
+                                                .exactly(MaintenanceMode::DOMAIN_WORKLOAD_UPDATE_MAX_POLL_ATTEMPTS).times
+      expect(progress.string.scan("NoMethodError: boom").size).to eq(1)
+    end
+
+    it "fetches the configured domain by name instead of searching by workload" do
+      allow(config).to receive(:domain).and_return("my-app.example.com")
+      allow(cp).to receive(:find_domain_for)
+      allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_return(
+        domain_routed_to("web"), domain_routed_to("maintenance")
+      )
+
+      described_class.new(command).enable!
+
+      expect(cp).not_to have_received(:find_domain_for)
+      expect(cp).to have_received(:fetch_domain).with("my-app.example.com").twice
+      expect(command_calls).to eq(expected_workload_commands)
     end
 
     it "stops app workloads when the route is already on maintenance, completing a timed-out run" do
@@ -125,7 +155,10 @@ describe MaintenanceMode do
 
     it "continues polling when a transient API error is raised mid-switch" do
       allow(cp).to receive(:find_domain_for).and_return(domain_routed_to("maintenance"))
-      poll_responses = [->(*) { raise "transient API error" }, ->(*) { domain_routed_to("web") }]
+      # A transient 403/5xx is a non-RuntimeError StandardError, so the in-method
+      # rescue (not the outer `step`, which only rescues RuntimeError) must catch it.
+      error = ControlplaneApiDirect::ForbiddenError.new(url: "/org/my-org", response: "403")
+      poll_responses = [->(*) { raise error }, ->(*) { domain_routed_to("web") }]
       allow(cp).to receive(:fetch_domain).with("my-app.example.com").and_invoke(*poll_responses)
 
       described_class.new(command).disable!
