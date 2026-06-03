@@ -855,7 +855,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("COPY_IMAGE_RETRY_INTERVAL must be a non-negative integer")
       expect(contents).to include("copy_image_attempts=$((copy_image_retries + 1))")
       expect(contents).to include("Staging image '${STAGING_IMAGE}' was not found")
-      expect(contents).to include("uses: docker/setup-buildx-action@v4")
+      expect(contents).to include(
+        "uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5"
+      )
       expect(contents).to include("id: copy-image")
       expect(contents).to include('staging_image="${STAGING_IMAGE%%@*}"')
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image}"')
