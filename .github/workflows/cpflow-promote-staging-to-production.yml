@@ -232,34 +232,89 @@ jobs:
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
           CPLN_ORG_STAGING: ${{ steps.cpln-orgs.outputs.staging }}
           CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
+          WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}
         shell: bash
         run: |
           set -euo pipefail
 
-          staging_vars="$(CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln gvc get "${STAGING_APP_NAME}" --org "${CPLN_ORG_STAGING}" -o json | jq -r '.spec.env // [] | .[].name' | sort)"
-          production_vars="$(CPLN_TOKEN="${CPLN_TOKEN_PRODUCTION}" cpln gvc get "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" -o json | jq -r '.spec.env // [] | .[].name' | sort)"
+          list_gvc_env_names() {
+            local token="$1"
+            local org="$2"
+            local app="$3"
 
-          if [[ -z "${staging_vars}" ]]; then
-            echo "Staging GVC exposes no environment variables; skipping parity check."
-            exit 0
-          fi
+            CPLN_TOKEN="${token}" cpln gvc get "${app}" --org "${org}" -o json |
+              jq -r '.spec.env // [] | .[] | .name // empty' |
+              sort -u
+          }
 
-          # Treat staging as the promotion source of truth: fail when a variable
-          # present in staging is missing in production. Production-only variables
-          # are allowed, but surface them so teams can spot drift.
-          missing_vars="$(comm -23 <(printf '%s\n' "${staging_vars}") <(printf '%s\n' "${production_vars}"))"
-          production_only_vars="$(comm -13 <(printf '%s\n' "${staging_vars}") <(printf '%s\n' "${production_vars}"))"
+          list_workload_env_names() {
+            local token="$1"
+            local org="$2"
+            local app="$3"
+            local workload="$4"
 
-          if [[ -n "${production_only_vars}" ]]; then
-            echo "::warning::Production has environment variables that are not present in staging:"
-            echo "${production_only_vars}"
-          fi
+            CPLN_TOKEN="${token}" cpln workload get "${workload}" --gvc "${app}" --org "${org}" -o json |
+              jq -r '.spec.containers // [] | .[] | (.env // [])[]? | .name // empty' |
+              sort -u
+          }
 
-          if [[ -n "${missing_vars}" ]]; then
-            echo "::error::Production is missing environment variables that exist in staging"
-            echo "${missing_vars}"
-            exit 1
-          fi
+          check_required_vars() {
+            local staging_scope="$1"
+            local production_scope="$2"
+            local missing_message="$3"
+            local staging_vars="$4"
+            local production_vars="$5"
+            local missing_vars
+            local production_only_vars
+
+            if [[ -z "${staging_vars}" ]]; then
+              echo "Staging ${staging_scope} exposes no environment variables; skipping parity check."
+              return
+            fi
+
+            # Treat staging as the promotion source of truth: fail when a variable
+            # present in staging is missing in production. Production-only variables
+            # are allowed, but surface them so teams can spot drift.
+            missing_vars="$(comm -23 <(printf '%s\n' "${staging_vars}") <(printf '%s\n' "${production_vars}"))"
+            production_only_vars="$(comm -13 <(printf '%s\n' "${staging_vars}") <(printf '%s\n' "${production_vars}"))"
+
+            if [[ -n "${production_only_vars}" ]]; then
+              echo "::warning::Production ${production_scope} has environment variables that are not present in staging:"
+              echo "${production_only_vars}"
+            fi
+
+            if [[ -n "${missing_vars}" ]]; then
+              echo "::error::${missing_message}"
+              echo "${missing_vars}"
+              env_check_failed=1
+            fi
+          }
+
+          env_check_failed=0
+
+          staging_vars="$(list_gvc_env_names "${CPLN_TOKEN_STAGING}" "${CPLN_ORG_STAGING}" "${STAGING_APP_NAME}")"
+          production_vars="$(list_gvc_env_names "${CPLN_TOKEN_PRODUCTION}" "${CPLN_ORG_PRODUCTION}" "${PRODUCTION_APP_NAME}")"
+          check_required_vars \
+            "GVC '${STAGING_APP_NAME}'" \
+            "GVC '${PRODUCTION_APP_NAME}'" \
+            "Production GVC '${PRODUCTION_APP_NAME}' is missing environment variables that exist in staging" \
+            "${staging_vars}" \
+            "${production_vars}"
+
+          while IFS= read -r workload_name; do
+            [[ -n "${workload_name}" ]] || continue
+
+            staging_workload_vars="$(list_workload_env_names "${CPLN_TOKEN_STAGING}" "${CPLN_ORG_STAGING}" "${STAGING_APP_NAME}" "${workload_name}")"
+            production_workload_vars="$(list_workload_env_names "${CPLN_TOKEN_PRODUCTION}" "${CPLN_ORG_PRODUCTION}" "${PRODUCTION_APP_NAME}" "${workload_name}")"
+            check_required_vars \
+              "workload '${workload_name}'" \
+              "workload '${workload_name}'" \
+              "Production workload '${workload_name}' is missing environment variables that exist in staging" \
+              "${staging_workload_vars}" \
+              "${production_workload_vars}"
+          done < <(tr ',' '\n' <<< "${WORKLOAD_NAMES}")
+
+          exit "${env_check_failed}"
 
       - name: Capture current production image
         id: capture-current
@@ -604,8 +659,10 @@ jobs:
               set -euo pipefail
               ready=false
               for attempt in $(seq 1 "${ROLLBACK_READINESS_RETRIES}"); do
-                deployment_ready="$(cpln workload get "${workload_name}" --gvc "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" -o json | jq -r '.status.ready // false')"
-                if [[ "${deployment_ready}" == "true" ]]; then
+                workload_status="$(cpln workload get "${workload_name}" --gvc "${PRODUCTION_APP_NAME}" --org "${CPLN_ORG_PRODUCTION}" -o json)"
+                deployment_ready="$(echo "${workload_status}" | jq -r '.status.ready // false')"
+                latest_ready="$(echo "${workload_status}" | jq -r '.status.readyLatest // false')"
+                if [[ "${deployment_ready}" == "true" && "${latest_ready}" == "true" ]]; then
                   ready=true
                   break
                 fi

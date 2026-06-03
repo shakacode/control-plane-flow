@@ -792,6 +792,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("working_directory: .cpflow")
       expect(contents).to include("GH_REPO: ${{ github.repository }}")
       expect(contents).to include("Production-only variables")
+      expect(contents).to include("WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}")
+      expect(contents).to include("list_workload_env_names()")
+      expect(contents).to include(
+        "Production workload '${workload_name}' is missing environment variables that exist in staging"
+      )
+      expect(wrapper).to include("WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}")
+      expect(wrapper).to include("list_workload_env_names()")
+      expect(wrapper).to include(
+        "Production workload '${workload_name}' is missing environment variables that exist in staging"
+      )
       expect(contents).to include("PRIMARY_WORKLOAD is not configured")
       expect(contents).to include(%(puts "primary=\#{primary}"))
       expect(contents).to include("PRIMARY_WORKLOAD: ${{ steps.workloads.outputs.primary }}")
@@ -800,6 +810,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Could not parse rollback state")
       expect(contents).to include("Could not parse captured containers")
       expect(contents).to include("Could not build rollback image list")
+      expect(contents).to include(".status.readyLatest // false")
+      expect(wrapper).to include(".status.readyLatest // false")
       expect(contents).to include("Container set changed")
       expect(contents).to include('jq -r \'.[] | "\\(.name)\\t\\(.image)"\'')
       expect(contents).to include("spec.containers.${container_name}.image")
@@ -926,6 +938,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Workload '${CPFLOW_WORKLOAD_NAME}' not found")
       expect(contents).to include("Set PRIMARY_WORKLOAD to the correct workload name.")
       expect(contents).to include("has no endpoint yet; waiting for one to be assigned")
+      expect(contents).to include(".status.readyLatest // false")
+      expect(contents).to include("readyLatest=${latest_ready}")
     end
 
     it "writes the delete-app script with the not-found guard message" do

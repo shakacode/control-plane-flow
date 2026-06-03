@@ -213,6 +213,13 @@ Docker credentials, which preserves multi-architecture manifests, preserves
 single-platform manifest format when supported, and avoids pulling image layers
 onto the GitHub Actions runner.
 
+Before copying the image, production promotion compares the environment variable
+names exposed by staging and production at both the GVC level and each configured
+app workload's container level. Variables present in staging are treated as
+required for production, while production-only variables emit warnings. A missing
+production workload variable such as a renderer password or runtime secret fails
+the promotion before the image copy starts.
+
 Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
 sensitive production systems. Production promotion intentionally runs as a
 normal caller-repo workflow job with `environment: production`, then checks out
@@ -288,6 +295,12 @@ cpflow setup-app -a my-app-production --org my-org-production --skip-post-creati
 Use production-only runtime secrets and values for the production app. The
 protected GitHub Environment controls who can run the promotion workflow, but
 the production app resources still need to exist before the first promotion.
+After bootstrap, populate the production app secret dictionary with the values
+referenced by `.controlplane/templates`, then run `cpflow apply-template` against
+production when templates change so the workload env references remain persisted.
+Production promotion checks for missing GVC and workload container env names
+before copying the staging image, so a staging-only runtime variable will stop
+the run early instead of deploying an image that cannot boot.
 
 Review apps are different: the generated `+review-app-deploy` workflow creates
 temporary PR apps as needed, including the identity and secret policy binding.
@@ -336,9 +349,14 @@ The standard path is:
 8. Keep GitHub variable values single-line; a pasted trailing newline is trimmed
    for Control Plane org names, but embedded line breaks are rejected before
    deployment, copy, health-check, or rollback steps run.
-9. Expect promotion to preserve the selected staging image reference. Digest
+9. Bootstrap or re-apply the persistent production app templates before first
+   promotion so app workload container env references and Control Plane secret
+   dictionaries exist in production.
+10. Expect promotion to preserve the selected staging image reference. Digest
    references are copied by digest, commit-suffixed tags keep the commit suffix,
    and plain numeric tags remain valid.
+11. Expect production health and rollback readiness polling to require Control
+   Plane `status.ready` and `status.readyLatest` before checking the endpoint.
 
 GitHub only exposes environment secrets to jobs that reference the environment
 after configured protection rules pass. GitHub does not allow a caller job that
@@ -438,8 +456,8 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 
 - Manually promotes the staging artifact to production with a confirmation input.
 - Runs the production job in the `production` GitHub Environment, so configured reviewers approve the job before production environment secrets are available.
-- Verifies that production has the env var names staging expects.
-- Runs a health check against `PRIMARY_WORKLOAD`.
+- Verifies that production has the GVC and app workload container env var names staging expects.
+- Runs a health check against `PRIMARY_WORKLOAD` only after Control Plane reports the latest workload version ready.
 - Attempts a rollback of every configured application workload if the new production image does not come up healthy.
 - Creates a GitHub release after a successful promotion.
 
