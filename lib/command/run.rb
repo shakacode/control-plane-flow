@@ -47,6 +47,8 @@ module Command
         and also overridden per job through `--cpu` and `--memory`)
       - By default, the job is stopped if it takes longer than 6 hours to finish
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
+      - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
+        Control Plane exposes a runner replica to attach logs to
     DESC
     EXAMPLES = <<~EX.freeze
       ```sh
@@ -97,7 +99,7 @@ module Command
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
                 :default_image, :default_cpu, :default_memory, :job_timeout, :job_history_limit,
-                :container, :job, :replica, :command
+                :container, :job, :replica, :command, :job_completed_before_replica_exit_status
 
     def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       @interactive = config.options[:interactive] || interactive_command?
@@ -129,6 +131,7 @@ module Command
       update_runner_workload
       start_job
       wait_for_replica_for_job
+      exit(job_completed_before_replica_exit_status) if job_completed_before_replica_exit_status
 
       progress.puts
       if interactive
@@ -269,7 +272,20 @@ module Command
         result = cp.fetch_workload_replicas(runner_workload, location: location)
         @replica = result&.dig("items")&.find { |item| item.include?(job) }
 
-        replica || false
+        replica || completed_job_before_replica? || false
+      end
+    end
+
+    def completed_job_before_replica?
+      case current_job_status
+      when "successful"
+        @job_completed_before_replica_exit_status = ExitCode::SUCCESS
+        true
+      when nil, "active", "pending"
+        false
+      else
+        @job_completed_before_replica_exit_status = ExitCode::ERROR_DEFAULT
+        true
       end
     end
 
@@ -505,9 +521,7 @@ module Command
 
     def resolve_job_status # rubocop:disable Metrics/MethodLength
       loop do
-        result = cp.fetch_cron_workload(runner_workload, location: location)
-        job_details = result&.dig("items")&.find { |item| item["id"] == job }
-        status = job_details&.dig("status")
+        status = current_job_status
 
         Shell.debug("JOB STATUS", status)
 
@@ -520,6 +534,12 @@ module Command
           break ExitCode::ERROR_DEFAULT
         end
       end
+    end
+
+    def current_job_status
+      result = cp.fetch_cron_workload(runner_workload, location: location)
+      job_details = result&.dig("items")&.find { |item| item["id"] == job }
+      job_details&.dig("status")
     end
 
     ###########################################

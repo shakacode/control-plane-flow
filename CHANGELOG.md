@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fixed `cpflow run` so short non-interactive runner jobs no longer hang when the Control Plane cron job finishes before a runner replica is visible.** This prevents generated deploy workflows with release-phase commands from waiting until the GitHub Actions job timeout even though the release job already completed successfully.
+
 ## [5.1.0] - 2026-06-02
 
 ### Added

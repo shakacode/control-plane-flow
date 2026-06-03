@@ -466,6 +466,8 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   and also overridden per job through `--cpu` and `--memory`)
 - By default, the job is stopped if it takes longer than 6 hours to finish
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
+- Non-interactive jobs return the Control Plane cron job status even when the job finishes before
+  Control Plane exposes a runner replica to attach logs to
 
 ```sh
 # Opens shell (bash by default).
