@@ -394,6 +394,11 @@ before the workload starts; otherwise workloads cannot resolve the `cpln://secre
 apps where a single shared database role is acceptable, you can still create one URL secret per app that reuses the same
 database user/password while keeping the database name unique.
 
+`cpflow` can automate this secret-and-policy wiring. Declare a `shared_secret_grants` entry on the review app and
+reference the generated `{{SHARED_SECRET_DATABASE}}` placeholder in your templates instead of hardcoding the secret name;
+`cpflow setup-app`, `deploy-image`, `delete`, and `cleanup-stale-apps` then keep the policy binding and cleanup automatic.
+See [Shared Secrets for Review Apps](secrets-and-env-values.md#shared-secrets-for-review-apps) for the full setup.
+
 `{{APP_NAME}}` keeps databases separate by convention, not by itself as a security boundary. If review apps can run
 untrusted PR code, do not give every review app the same database role with `CREATEDB` or ownership of every review
 database. Prefer one of these safer models:
@@ -414,9 +419,10 @@ Then point the review-app entry at the review-only template and remove the per-P
 my-app-review:
   match_if_app_name_starts_with: true
   setup_app_templates:
+    # postgres removed, so no per-PR database workload is created
     - app-review   # was: app
     - redis
-    - rails        # postgres removed, so no per-PR database workload is created
+    - rails
   additional_workloads:
     - redis        # postgres removed
   hooks:

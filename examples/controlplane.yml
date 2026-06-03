@@ -135,6 +135,8 @@ apps:
       post_creation: bundle exec rake db:prepare
 
       # Used by the command `cpflow delete` to run a hook before deleting the app.
+      # For a shared database, prefer admin-side cleanup instead: `cpflow delete` runs this hook before removing the
+      # workloads, so live connections can block the drop. See docs/tips.md ("Share One Control Plane Postgres").
       pre_deletion: bundle exec rake db:drop
 
   my-app-production:
