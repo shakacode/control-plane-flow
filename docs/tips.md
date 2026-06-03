@@ -394,6 +394,19 @@ before the workload starts; otherwise workloads cannot resolve the `cpln://secre
 apps where a single shared database role is acceptable, you can still create one URL secret per app that reuses the same
 database user/password while keeping the database name unique.
 
+The `cpln://secret/NAME.FIELD` field syntax resolves only against **dictionary** secrets; an `opaque` or `tls` secret
+leaves the workload with an empty or literal `cpln://...` string rather than a clear error. Define the database secret as
+a dictionary, apply it with `cpln apply -f secret.yaml`, and confirm the app identity's policy grants `reveal` on it
+before the workload starts:
+
+```yaml
+kind: secret
+name: my-app-review-pr-123-database
+type: dictionary
+data:
+  DATABASE_URL: postgres://the_user:the_password@postgres.staging-shared-postgres.cpln.local:5432/my-app-review-pr-123
+```
+
 `cpflow` can automate this secret-and-policy wiring. Declare a `shared_secret_grants` entry on the review app and
 reference the generated `{{SHARED_SECRET_DATABASE}}` placeholder in your templates instead of hardcoding the secret name;
 `cpflow setup-app`, `deploy-image`, `delete`, and `cleanup-stale-apps` then keep the policy binding and cleanup automatic.
@@ -500,7 +513,10 @@ cpln gvc update my-app-review-pr-123 \
 A few tradeoffs remain even after the cost savings:
 
 - **Noisy neighbor risk.** All staging/review apps share one server's CPU, RAM, disk, and connection pool. A runaway
-  query or connection leak in one app can affect the others; per-app connection caps or PgBouncer can help.
+  query or connection leak in one app can affect the others; per-app connection caps or PgBouncer can help. Mind
+  Postgres's own `max_connections` (default 100): a staging seed running alongside several review apps, each at Rails'
+  default `pool: 5`, can exhaust it before any query runs. Raise it via `POSTGRES_MAX_CONNECTIONS` on the workload, or
+  lower `pool:` in `config/database.yml` for review apps.
 - **Operational ownership.** Backups, restores, password rotation, sizing, and access control move to the shared server.
 - **Other trusted services can use the same pattern.** Redis and Memcached can also be shared for trusted apps, but a
   per-app key prefix or logical database index is only conventional separation when apps share credentials. If review
