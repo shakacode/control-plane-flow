@@ -692,6 +692,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("Before the first staging deploy")
       expect(help_md).to include("cpflow setup-app -a")
       expect(help_md).to include("app secret policy")
+      expect(help_md).to include("For public repositories, use a staging/review token")
+      expect(help_md).to include("production Control Plane resources")
+      expect(help_md).to include("Generated review-app deploys skip fork PR")
+      expect(help_md).to include("heads because Docker builds use repository secrets")
+      expect(help_md).to include("Review apps run pull request code")
+      expect(help_md).to include("review-app secret dictionaries limited to disposable databases")
       expect(help_md).to include("Add it as a secret on the 'production' GitHub Environment")
       expect(help_md).to include("permission to manage repository environments and secrets")
       expect(help_md).to include("gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production")
@@ -703,6 +709,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       help_md_path = playground.join(".github/cpflow-help.md")
       contents = help_md_path.read
       expect(contents).to include("DOCKER_BUILD_EXTRA_ARGS")
+      expect(contents).to include("Read-only, revocable deploy key")
+      expect(contents).to include("Do not use a personal SSH key")
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
     end
 
@@ -794,11 +802,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Production-only variables")
       expect(contents).to include("WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}")
       expect(contents).to include("list_workload_env_names()")
+      expect(contents).to include("check_required_vars intentionally mutates env_check_failed")
       expect(contents).to include(
         "Production workload '${workload_name}' is missing environment variables that exist in staging"
       )
       expect(wrapper).to include("WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}")
       expect(wrapper).to include("list_workload_env_names()")
+      expect(wrapper).to include("check_required_vars intentionally mutates env_check_failed")
       expect(wrapper).to include(
         "Production workload '${workload_name}' is missing environment variables that exist in staging"
       )
@@ -859,10 +869,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5"
       )
       expect(contents).to include("id: copy-image")
-      expect(contents).to include('if [[ "${STAGING_IMAGE}" == *@* ]]; then')
       expect(contents).to include('staging_image="${STAGING_IMAGE}"')
-      expect(contents).to include("else")
-      expect(contents).to include('staging_image="${STAGING_IMAGE%%@*}"')
+      expect(contents).not_to include('staging_image="${STAGING_IMAGE%%@*}"')
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image}"')
       expect(contents).to include('if [[ "${staging_image}" == *@* ]]; then')
       expect(contents).to include('staging_tag="${staging_image##*@}"')
