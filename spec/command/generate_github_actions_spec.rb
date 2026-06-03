@@ -870,6 +870,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
       expect(contents).to include("id: copy-image")
       expect(contents).to include('staging_image="${STAGING_IMAGE}"')
+      expect(contents).to include("STAGING_IMAGE is not set or is empty")
       expect(contents).not_to include('staging_image="${STAGING_IMAGE%%@*}"')
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image}"')
       expect(contents).to include('if [[ "${staging_image}" == *@* ]]; then')

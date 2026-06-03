@@ -472,7 +472,7 @@ jobs:
 
           staging_image="${STAGING_IMAGE}"
           if [[ -z "${staging_image}" ]]; then
-            echo "::error::Staging image '${STAGING_IMAGE}' did not contain a usable image reference."
+            echo "::error::STAGING_IMAGE is not set or is empty."
             exit 1
           fi
 
