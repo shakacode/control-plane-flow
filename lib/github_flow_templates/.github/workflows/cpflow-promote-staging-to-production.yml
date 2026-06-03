@@ -467,9 +467,13 @@ jobs:
           copy_image_attempts=$((copy_image_retries + 1))
           copy_image_retry_interval=$((10#${COPY_IMAGE_RETRY_INTERVAL}))
 
-          staging_image="${STAGING_IMAGE%%@*}"
+          if [[ "${STAGING_IMAGE}" == *@* ]]; then
+            staging_image="${STAGING_IMAGE}"
+          else
+            staging_image="${STAGING_IMAGE%%@*}"
+          fi
           if [[ -z "${staging_image}" ]]; then
-            echo "::error::Staging image '${STAGING_IMAGE}' did not contain a usable image tag."
+            echo "::error::Staging image '${STAGING_IMAGE}' did not contain a usable image reference."
             exit 1
           fi
 
@@ -478,7 +482,12 @@ jobs:
             exit 1
           fi
 
-          staging_tag="${staging_image##*:}"
+          staging_tag=""
+          if [[ "${staging_image}" == *@* ]]; then
+            staging_tag="${staging_image##*@}"
+          elif [[ "${staging_image}" == *:* ]]; then
+            staging_tag="${staging_image##*:}"
+          fi
           staging_commit=""
           if [[ "${staging_tag}" == *_* ]]; then
             staging_commit="${staging_tag##*_}"
