@@ -33,7 +33,7 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   def enable!
     if enabled?
       progress.puts("Maintenance mode is already enabled for app '#{config.app}'.")
-      ensure_workloads_stopped
+      ensure_app_workloads_stopped
     else
       enable_maintenance_mode
     end
@@ -42,7 +42,7 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   def disable!
     if disabled?
       progress.puts("Maintenance mode is already disabled for app '#{config.app}'.")
-      ensure_workloads_stopped
+      ensure_maintenance_workload_stopped
     else
       disable_maintenance_mode
     end
@@ -83,12 +83,25 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
   end
 
   # A run that already switched the route but hit the poll timeout aborts before
-  # `start_or_stop_all_workloads(:stop)` runs, leaving the app workloads up. The
-  # next `enable!`/`disable!` short-circuits on the route check, so stop the
-  # workloads here too — that lets a re-run finish what the timed-out run started.
-  # `ps:stop` is idempotent, so it is a no-op once the workloads are stopped.
-  def ensure_workloads_stopped
+  # its final workload-stop step runs. The next `enable!`/`disable!` short-circuits
+  # on the route check, so finish that stop here — a re-run completes what the
+  # timed-out run started. `ps:stop` is idempotent, so each is a no-op once the
+  # target workload is already stopped.
+  #
+  # The stop target differs by direction. `ps:stop -a` covers only
+  # `app_workloads` + `additional_workloads`, never the maintenance workload:
+  #   - enable!: the route now points at the maintenance workload, so the *app*
+  #     workloads are the ones left running and `ps:stop -a` is correct.
+  #   - disable!: the route now points at the app workloads (and a short-circuit
+  #     `disable!` can run on an app whose app workloads are serving live traffic),
+  #     so stopping all workloads would cause an outage. The workload a timed-out
+  #     `disable!` leaves running is the maintenance workload, so stop only that.
+  def ensure_app_workloads_stopped
     start_or_stop_all_workloads(:stop)
+  end
+
+  def ensure_maintenance_workload_stopped
+    start_or_stop_maintenance_workload(:stop)
   end
 
   def start_or_stop_all_workloads(action)
@@ -120,16 +133,21 @@ class MaintenanceMode # rubocop:disable Metrics/ClassLength
       cp.set_domain_workload(domain_data_for_update, to)
     end
 
-    # If the route never switches within the bounded poll window, this step aborts
-    # (abort_on_error) before any workloads are stopped, so traffic stays on the
-    # current workload. The label tells the user how to recover, since an exhausted
-    # poll has no error message of its own to print.
+    wait_for_domain_workload_switch(domain_name, to)
+
+    progress.puts
+  end
+
+  # If the route never switches within the bounded poll window, this step aborts
+  # (abort_on_error) before any workloads are stopped, so traffic stays on the
+  # current workload. The label tells the user how to recover, since an exhausted
+  # poll has no error message of its own to print.
+  def wait_for_domain_workload_switch(domain_name, to)
+    @last_poll_error = nil # reset the poll-error dedup state for this poll window
     step("Waiting for domain '#{domain_name}' workload to switch to '#{to}' " \
          "(re-run this command if it times out)", **DOMAIN_WORKLOAD_UPDATE_STEP_OPTIONS) do
       domain_workload_update_confirmed?(domain_name, to)
     end
-
-    progress.puts
   end
 
   # Refetches the domain, refreshes the cached `@domain_data` when the fetch

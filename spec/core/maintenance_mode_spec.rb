@@ -140,13 +140,14 @@ describe MaintenanceMode do
 
       described_class.new(command).disable!
 
-      # The route is already correct, so it is not re-switched. The app workloads
-      # were already stopped when maintenance was first enabled; what a timed-out
-      # disable! leaves running is the maintenance workload (started before the
-      # route switch). `ps:stop -a` clears it idempotently so the re-run finishes
-      # the cleanup the timed-out run never reached.
+      # The route is already correct, so it is not re-switched. A timed-out disable!
+      # leaves the maintenance workload running (it is started before the route
+      # switch), and `ps:stop -a` skips the maintenance workload, so the recovery
+      # stops it explicitly with `-w`. Stopping all workloads here would instead
+      # suspend the app workloads now serving live traffic. The stop is idempotent,
+      # so it is a no-op once the maintenance workload is already stopped.
       expect(cp).not_to have_received(:set_domain_workload)
-      expect(command_calls).to eq([["ps:stop", "-a", "my-app", "--wait"]])
+      expect(command_calls).to eq([["ps:stop", "-a", "my-app", "-w", "maintenance", "--wait"]])
       expect(progress.string).to include("Maintenance mode is already disabled for app 'my-app'.")
     end
 
