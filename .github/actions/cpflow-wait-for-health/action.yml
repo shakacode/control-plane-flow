@@ -1,8 +1,9 @@
 name: Wait for Control Plane workload health
 description: >-
-  Polls the workload's status endpoint with curl and exits success when the
-  HTTP response status is in the accepted list. Fails non-zero (and reports
-  `healthy=false`) once retries are exhausted.
+  Polls Control Plane until the latest workload version is ready, then checks
+  the workload endpoint with curl. Exits success when the HTTP response status
+  is in the accepted list. Fails non-zero (and reports `healthy=false`) once
+  retries are exhausted.
 
 inputs:
   workload_name:
@@ -68,8 +69,14 @@ runs:
             exit 1
           fi
 
+          workload_ready="$(echo "${workload_json}" | jq -r '.status.ready // false')"
+          latest_ready="$(echo "${workload_json}" | jq -r '.status.readyLatest // false')"
+          readiness_status="$(echo "${workload_json}" | jq -r '.health.readiness // "unknown"')"
           endpoint="$(echo "${workload_json}" | jq -r '.status.endpoint // empty')"
-          if [[ -n "${endpoint}" ]]; then
+
+          if [[ "${workload_ready}" != "true" || "${latest_ready}" != "true" ]]; then
+            echo "Workload status: ready=${workload_ready}, readyLatest=${latest_ready}, readiness=${readiness_status}; waiting for latest deployment."
+          elif [[ -n "${endpoint}" ]]; then
             http_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time "${CPFLOW_CURL_MAX_TIME}" "${endpoint}" 2>/dev/null || echo 000)"
             echo "Endpoint: ${endpoint}, HTTP status: ${http_status}"
 
