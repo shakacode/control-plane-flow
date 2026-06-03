@@ -471,10 +471,13 @@ jobs:
           staging_commit=""
           if [[ "${staging_tag}" == *_* ]]; then
             staging_commit="${staging_tag##*_}"
+          else
+            echo "::warning::Staging image '${staging_image}' did not include a '_<commit>' suffix; production image tag will omit the commit suffix."
           fi
 
           # The workflow-level concurrency group serializes this sequence so two
           # production promotions cannot derive and publish the same next tag.
+          # See the top-level concurrency group: cpflow-promote-staging-to-production.
           latest_number="$(
             cpln image query --org "${CPLN_ORG_PRODUCTION}" --prop "name~${PRODUCTION_APP_NAME}:" --max 0 -o json |
               jq -r --arg prefix "${PRODUCTION_APP_NAME}:" \

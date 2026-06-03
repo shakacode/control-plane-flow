@@ -843,6 +843,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "copies the image currently deployed on staging instead of the newest pushed staging image" do
       contents = reusable_promote_workflow_path.read
+      wrapper = promote_workflow_path.read
 
       expect(contents).to include("id: staging-image")
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln workload get')
@@ -881,6 +882,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('if [[ "${staging_tag}" == *_* ]]; then')
       expect(contents).to include('staging_commit="${staging_tag##*_}"')
       expect(contents).to include("workflow-level concurrency group serializes this sequence")
+      expect(contents).to include("top-level concurrency group: cpflow-promote-staging-to-production")
+      expect(contents).to include("Staging image '${staging_image}' did not include a '_<commit>' suffix")
+      expect(wrapper).to include("Staging image '${staging_image}' did not include a '_<commit>' suffix")
+      expect(wrapper).to include("top-level concurrency group: cpflow-promote-staging-to-production")
       expect(contents).to include('--prop "name~${PRODUCTION_APP_NAME}:" --max 0')
       expect(contents).to include("Could not determine the next production image number")
       expect(contents).to include('production_image="${PRODUCTION_APP_NAME}:$((latest_number + 1))"')
