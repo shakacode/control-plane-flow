@@ -3,6 +3,42 @@
 require "spec_helper"
 
 describe Command::Run do
+  describe "#call" do
+    let(:config) do
+      instance_double(
+        Config,
+        app: "test-app",
+        args: ["bin/rails db:migrate"],
+        current: {},
+        location: "aws-us-east-2",
+        options: { interactive: false, detached: false, log_method: 3 }
+      )
+    end
+    let(:cp) { instance_double(Controlplane) }
+    let(:progress) { instance_double(IO, puts: nil) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(config).to receive(:[]).with(:one_off_workload).and_return("rails")
+      allow(command).to receive_messages(cp: cp, progress: progress)
+      allow(cp).to receive(:fetch_workload).with("rails-runner").and_return({})
+      allow(command).to receive(:update_runner_workload)
+      allow(command).to receive(:start_job)
+      allow(command).to receive(:wait_for_replica_for_job) do
+        command.instance_variable_set(:@job_completed_before_replica_exit_status, ExitCode::SUCCESS)
+      end
+      allow(command).to receive(:run_non_interactive)
+    end
+
+    it "exits with the cron job status when the job finishes before a replica is observed" do
+      expect { command.call }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::SUCCESS)
+      end
+
+      expect(command).not_to have_received(:run_non_interactive)
+    end
+  end
+
   describe "#update_runner_workload" do
     let(:config) { instance_double(Config) }
     let(:cp) { instance_double(Controlplane) }
@@ -150,6 +186,36 @@ describe Command::Run do
       let(:exec_success) { nil }
 
       it_behaves_like "an aborted interactive session", ExitCode::INTERRUPT
+    end
+  end
+
+  describe "#wait_for_replica_for_job" do
+    let(:config) { instance_double(Config) }
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(command).to receive_messages(cp: cp)
+      allow(command).to receive(:step) { |_message, **_options, &block| block.call }
+
+      command.instance_variable_set(:@runner_workload, "rails-runner")
+      command.instance_variable_set(:@job, "job-123")
+      command.instance_variable_set(:@location, "aws-us-east-2")
+    end
+
+    it "stops waiting when the cron job finishes before a replica is observed" do
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [] })
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "successful" }] })
+
+      result = command.send(:wait_for_replica_for_job)
+
+      expect(result).to be(true)
+      expect(command.instance_variable_get(:@replica)).to be_nil
+      expect(command.instance_variable_get(:@job_completed_before_replica_exit_status)).to eq(ExitCode::SUCCESS)
     end
   end
 end
