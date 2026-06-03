@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./docs/assets/logo/icon-tile.svg" alt="Control Plane Flow (cpflow) logo" width="160" height="160" />
+</p>
+
 # The power of Kubernetes with the ease of Heroku!
 
 <meta name="author" content="Justin Gordon and Sergey Tarasov" />
