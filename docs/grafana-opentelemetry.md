@@ -97,8 +97,10 @@ end
 ```
 
 Use the Bundler group that matches where the app will emit telemetry. Many
-Control Plane deployments run with production gems even for QA or staging, but
-apps with different grouping should adapt this block.
+Control Plane deployments run with production gems even for QA or staging. If
+you need to test OpenTelemetry locally or in CI, include the same gems in those
+Bundler groups too; `require: false` keeps them unloaded until the initializer
+guard enables telemetry.
 
 Keep OpenTelemetry disabled by default until the collector is deployed and
 reviewed:
@@ -114,23 +116,22 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/instrumentation/faraday"
   require "opentelemetry/instrumentation/http"
 
-  collector_endpoint = ENV.fetch("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+  ENV["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318" if ENV["OTEL_EXPORTER_OTLP_ENDPOINT"].to_s.empty?
+  ENV["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf" if ENV["OTEL_EXPORTER_OTLP_PROTOCOL"].to_s.empty?
 
   OpenTelemetry::SDK.configure do |config|
     config.service_name = ENV.fetch("OTEL_SERVICE_NAME") do
       ENV.fetch("CPLN_WORKLOAD", "rails-app")
     end
 
-    exporter = OpenTelemetry::Exporter::OTLP::Exporter.new(
-      endpoint: collector_endpoint
-    )
+    exporter = OpenTelemetry::Exporter::OTLP::Exporter.new
 
     config.add_span_processor(
       OpenTelemetry::SDK::Trace::Export::BatchSpanProcessor.new(exporter)
     )
 
     config.use "OpenTelemetry::Instrumentation::Rails"
-    config.use "OpenTelemetry::Instrumentation::PG"
+    config.use "OpenTelemetry::Instrumentation::PG", { db_statement: :obfuscate }
     config.use "OpenTelemetry::Instrumentation::Redis"
     config.use "OpenTelemetry::Instrumentation::Sidekiq"
     config.use "OpenTelemetry::Instrumentation::Faraday"
@@ -156,7 +157,9 @@ GVC, workload, replica, image, and commit.
 
 Use a consistent prefix such as `original_` to distinguish the resource
 attribute names from raw Control Plane env vars like `CPLN_ORG`, `CPLN_GVC`,
-`CPLN_WORKLOAD`, `CPLN_REPLICA`, and `CPLN_IMAGE`.
+`CPLN_WORKLOAD`, `CPLN_REPLICA`, and `CPLN_IMAGE`. A future shared template may
+choose a `cpln.` namespace, but keep one naming convention per app so dashboards
+and trace queries stay predictable.
 
 Recommended attributes:
 
@@ -171,7 +174,9 @@ original_commit_hash
 ```
 
 Use one helper module to derive these attributes, then reuse it for traces,
-logs, and metrics.
+logs, and metrics. Keep `original_cpln_replica`, `original_cpln_image`, and
+`original_commit_hash` out of generated Prometheus metric dimensions; they are
+useful on traces but too high-cardinality for ordinary dashboard labels.
 
 ## Collector Workload
 
@@ -192,6 +197,7 @@ Recommended firewall:
 Recommended env:
 
 ```yaml
+# Custom app variables, not standard OpenTelemetry env vars.
 OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
 OPEN_TELEMETRY_CONFIG: "cpln://secret/<collector-config-secret>"
 # Set to a hash of the config content so secret updates force a workload spec
@@ -249,10 +255,23 @@ processors:
           - set(attributes["instrumentation.name"], instrumentation_scope.name)
           - set(attributes["root_span"], true) where IsRootSpan()
           - set(attributes["root_span"], false) where not IsRootSpan()
-          - set(attributes["resource.name"], name) where attributes["resource.name"] == nil
 ```
 
-Generate a root request latency metric:
+Generate a request latency metric from selected root spans. One safe pattern is
+to run a filter processor before the spanmetrics connector that drops spans where
+the normalized `root_span` attribute is not true. Validate this condition with
+the collector binary used by the app before rollout:
+
+```yaml
+processors:
+  filter/non_root_spans:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["root_span"] != true'
+```
+
+Then feed the filtered trace stream into the connector:
 
 ```yaml
 connectors:
@@ -307,8 +326,9 @@ Keep application-specific choices in the application repository:
 
 Use a non-production GVC for the first rollout.
 
-1. Add application OpenTelemetry gems and initializer behind
-   `ENABLE_OPEN_TELEMETRY=false`.
+1. Add application OpenTelemetry gems and initializer. Leave
+   `ENABLE_OPEN_TELEMETRY` unset so the initializer guard keeps telemetry
+   disabled.
 2. Add collector config source files, generated config, and local validation
    scripts.
 3. Add the internal collector workload with external ingress closed.
