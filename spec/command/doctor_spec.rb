@@ -63,6 +63,17 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("- nonexistent")
     end
 
+    it "validates all templates if no setup templates are selected" do
+      app = dummy_test_app("nothing")
+      stub_template_filenames("app", "app-without-identity")
+
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
+
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("[FAIL] templates")
+      expect(result[:stderr]).to include("- kind: gvc, name: #{app}")
+    end
+
     it "passes if unselected templates render duplicate kind/names" do
       app = dummy_test_app("alternate-app-template")
 
@@ -102,6 +113,14 @@ describe Command::Doctor do
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Invalid value provided for option --validations")
+    end
+  end
+
+  def stub_template_filenames(*names)
+    allow(Dir).to receive(:glob).and_wrap_original do |method, *args|
+      method.call(*args).select do |filename|
+        names.any? { |name| filename.end_with?("#{name}.yml") }
+      end
     end
   end
 end
