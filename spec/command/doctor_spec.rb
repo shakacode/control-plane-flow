@@ -33,7 +33,7 @@ describe Command::Doctor do
   end
 
   context "when validating templates" do
-    let!(:app) { dummy_test_app }
+    let!(:app) { dummy_test_app("default") }
 
     it "raises error if app is not provided" do
       result = run_cpflow_command("doctor", "--validations", "templates")
@@ -42,8 +42,8 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("App is required for templates validation")
     end
 
-    it "fails if there are duplicate templates" do
-      stub_template_filenames("app", "app-without-identity", "rails")
+    it "fails if selected templates contain duplicate rendered kind/names" do
+      app = dummy_test_app("duplicate-templates")
 
       result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
 
@@ -52,8 +52,19 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("- kind: gvc, name: #{app}")
     end
 
-    it "passes if there are no issues" do
-      stub_template_filenames("app", "rails")
+    it "fails if a selected setup template is missing" do
+      app = dummy_test_app("missing-template")
+
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
+
+      expect(result[:status]).not_to eq(0)
+      expect(result[:stderr]).to include("[FAIL] templates")
+      expect(result[:stderr]).to include("Missing templates")
+      expect(result[:stderr]).to include("- nonexistent")
+    end
+
+    it "passes if unselected templates render duplicate kind/names" do
+      app = dummy_test_app("alternate-app-template")
 
       result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
 
@@ -62,8 +73,16 @@ describe Command::Doctor do
       expect(result[:stderr]).not_to include("DEPRECATED")
     end
 
+    it "passes if selected templates have no issues" do
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("[PASS] templates")
+      expect(result[:stderr]).not_to include("DEPRECATED")
+    end
+
     it "warns about deprecated variables" do
-      stub_template_filenames("app-with-deprecated-variables")
+      app = dummy_test_app("deprecated-template")
 
       result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
 
@@ -73,7 +92,7 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("APP_ORG -> {{APP_ORG}}")
       expect(result[:stderr]).to include("APP_GVC -> {{APP_NAME}}")
       expect(result[:stderr]).to include("APP_LOCATION -> {{APP_LOCATION}}")
-      expect(result[:stderr]).to include("APP_IMAGE -> {{APP_IMAGE}}")
+      expect(result[:stderr]).not_to include("APP_IMAGE -> {{APP_IMAGE}}")
     end
   end
 
@@ -83,14 +102,6 @@ describe Command::Doctor do
 
       expect(result[:status]).not_to eq(0)
       expect(result[:stderr]).to include("Invalid value provided for option --validations")
-    end
-  end
-
-  def stub_template_filenames(*names)
-    allow(Dir).to receive(:glob).and_wrap_original do |method, *args|
-      method.call(*args).select do |filename|
-        names.any? { |name| filename.end_with?("#{name}.yml") }
-      end
     end
   end
 end

@@ -42,12 +42,11 @@ class TemplateParser
                 .gsub("{{APP_NAME}}", config.app)
                 .gsub("{{APP_LOCATION}}", config.location)
                 .gsub("{{APP_LOCATION_LINK}}", config.location_link)
-                .gsub("{{APP_IMAGE}}", cp.latest_image)
-                .gsub("{{APP_IMAGE_LINK}}", config.image_link(cp.latest_image))
                 .gsub("{{APP_IDENTITY}}", config.identity)
                 .gsub("{{APP_IDENTITY_LINK}}", config.identity_link)
                 .gsub("{{APP_SECRETS}}", config.secrets)
                 .gsub("{{APP_SECRETS_POLICY}}", config.secrets_policy)
+    yaml_file = replace_image_variables(yaml_file)
 
     config.shared_secret_placeholders.each do |placeholder, secret_name|
       yaml_file = yaml_file.gsub(placeholder, secret_name)
@@ -60,7 +59,22 @@ class TemplateParser
       .gsub("APP_ORG", config.org)
       .gsub("APP_GVC", config.app)
       .gsub("APP_LOCATION", config.location)
-      .gsub("APP_IMAGE", cp.latest_image)
+      .then { |updated_yaml| replace_legacy_image_variable(updated_yaml) }
+  end
+
+  def replace_image_variables(yaml_file)
+    return yaml_file unless yaml_file.include?("{{APP_IMAGE}}") || yaml_file.include?("{{APP_IMAGE_LINK}}")
+
+    latest_image = cp.latest_image
+    yaml_file
+      .gsub("{{APP_IMAGE}}", latest_image)
+      .gsub("{{APP_IMAGE_LINK}}", config.image_link(latest_image))
+  end
+
+  def replace_legacy_image_variable(yaml_file)
+    return yaml_file unless yaml_file.include?("APP_IMAGE")
+
+    yaml_file.gsub("APP_IMAGE", cp.latest_image)
   end
 
   def find_deprecated_variables(yaml_file)

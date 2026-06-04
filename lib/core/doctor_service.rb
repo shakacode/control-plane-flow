@@ -40,8 +40,7 @@ class DoctorService
 
   def validate_templates
     @template_parser = TemplateParser.new(@command)
-    filenames = Dir.glob("#{@template_parser.template_dir}/*.yml")
-    templates = @template_parser.parse(filenames)
+    templates = @template_parser.parse(template_filenames)
 
     check_for_duplicate_templates(templates)
     warn_deprecated_template_variables
@@ -86,6 +85,35 @@ class DoctorService
            .map { |(kind, name), _| "  - kind: #{kind}, name: #{name}" }
            .join("\n")
     raise ValidationError, "#{Shell.color("ERROR: #{message}", :red)}\n#{list}"
+  end
+
+  def template_filenames
+    return existing_arg_template_filenames if config.args.any?
+
+    template_names = config.current[:setup_app_templates]
+    return Dir.glob("#{@template_parser.template_dir}/*.yml") if template_names.nil? || template_names.empty?
+
+    filenames = template_names.map { |name| @template_parser.template_filename(name) }
+    ensure_templates_exist!(template_names, filenames)
+    filenames
+  end
+
+  def existing_arg_template_filenames
+    filenames = config.args.map { |name| @template_parser.template_filename(name) }
+    return [] unless filenames.all? { |filename| File.exist?(filename) }
+
+    filenames
+  end
+
+  def ensure_templates_exist!(template_names, filenames)
+    missing_templates = template_names.zip(filenames).reject { |_, filename| File.exist?(filename) }
+    return if missing_templates.empty?
+
+    missing_templates_str = missing_templates.map do |name, filename|
+      "  - #{name} (#{filename})"
+    end.join("\n")
+    message = "#{Shell.color('Missing templates:', :red)}\n#{missing_templates_str}"
+    raise ValidationError, message
   end
 
   def warn_deprecated_template_variables

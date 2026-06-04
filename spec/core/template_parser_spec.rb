@@ -57,5 +57,13 @@ describe TemplateParser do
         }
       )
     end
+
+    it "does not fetch the latest image when templates do not use image placeholders" do
+      allow(cp).to receive(:latest_image)
+
+      parser.parse([template_file.path])
+
+      expect(cp).not_to have_received(:latest_image)
+    end
   end
 end
