@@ -144,18 +144,19 @@ This is a minimal shape. Production applications should also add resource
 attributes that identify the Control Plane org, GVC, workload, replica, image,
 and commit.
 
-Wire those attributes into the SDK resource:
+Inside the `OpenTelemetry::SDK.configure do |config|` block, wire present
+attributes into the SDK resource:
 
 ```ruby
 resource_attributes = {
-  "original_cpln_org" => ENV.fetch("CPLN_ORG", "none"),
-  "original_cpln_gvc" => ENV.fetch("CPLN_GVC", "none"),
-  "original_cpln_workload" => ENV.fetch("CPLN_WORKLOAD", "none"),
-  "original_cpln_workload_version" => ENV.fetch("CPLN_WORKLOAD_VERSION", "none"),
-  "original_cpln_replica" => ENV.fetch("CPLN_REPLICA", "none"),
-  "original_cpln_image" => ENV.fetch("CPLN_IMAGE", "none"),
-  "original_commit_hash" => ENV.fetch("APP_COMMIT_SHA", "none")
-}
+  "original_cpln_org" => ENV["CPLN_ORG"],
+  "original_cpln_gvc" => ENV["CPLN_GVC"],
+  "original_cpln_workload" => ENV["CPLN_WORKLOAD"],
+  "original_cpln_workload_version" => ENV["CPLN_WORKLOAD_VERSION"],
+  "original_cpln_replica" => ENV["CPLN_REPLICA"],
+  "original_cpln_image" => ENV["CPLN_IMAGE"],
+  "original_commit_hash" => ENV["APP_COMMIT_SHA"]
+}.compact
 
 config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
 ```
@@ -292,15 +293,17 @@ the collector binary used by the app before rollout:
 ```yaml
 processors:
   filter/non_root_spans:
-    error_mode: ignore
+    error_mode: propagate # switch to "ignore" in production after validation
     traces:
       span:
         - 'attributes["root_span"] != true'
 ```
 
 The filter processor drops spans that match the condition, and
-`error_mode: ignore` can hide expression mistakes. Include a known trace with
-one root span and one child span in collector validation before rollout.
+`error_mode: ignore` can hide expression mistakes. Keep `propagate` in
+development and staging, include a known trace with one root span and one child
+span in collector validation, then switch to `ignore` only after the expression
+has been verified against the deployed collector image.
 
 Then feed the filtered trace stream into the connector:
 
@@ -311,6 +314,7 @@ connectors:
     dimensions:
       - name: service.name
       - name: original_cpln_workload
+      - name: http.route
     exclude_dimensions:
       - span.name
       - span.kind
@@ -329,6 +333,10 @@ connectors:
           - 5s
           - 10s
 ```
+
+`span.name` is excluded because raw Rails span names can carry too much
+cardinality. Keep `http.route` only after confirming the Rails instrumentation
+emits route patterns, not raw request paths.
 
 Duration-string buckets require a collector-contrib image that supports that
 schema. If an app pins an older collector, use float-second buckets such as
