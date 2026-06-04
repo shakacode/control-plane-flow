@@ -107,6 +107,12 @@ reviewed:
 if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/sdk"
   require "opentelemetry/exporter/otlp"
+  require "opentelemetry/instrumentation/rails"
+  require "opentelemetry/instrumentation/pg"
+  require "opentelemetry/instrumentation/redis"
+  require "opentelemetry/instrumentation/sidekiq"
+  require "opentelemetry/instrumentation/faraday"
+  require "opentelemetry/instrumentation/http"
 
   collector_endpoint = ENV.fetch("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
 
@@ -174,7 +180,7 @@ Create an internal collector workload in the same GVC as the app workloads.
 Recommended ports:
 
 - `4318`: OTLP HTTP receiver
-- `9292`: Prometheus metrics endpoint
+- `8889`: Prometheus metrics endpoint
 - `55679`: zpages/debug endpoint, internal only
 
 Recommended firewall:
@@ -198,7 +204,7 @@ Expose the collector's metrics endpoint to Control Plane:
 ```yaml
 metrics:
   path: "/metrics"
-  port: 9292
+  port: 8889
 ```
 
 ## Collector Config
@@ -238,11 +244,12 @@ Normalize span attributes before generating metrics:
 processors:
   transform/normalize:
     trace_statements:
-      - statements:
-          - set(span.attributes["instrumentation.name"], scope.name)
-          - set(span.attributes["root_span"], true) where IsRootSpan()
-          - set(span.attributes["root_span"], false) where not IsRootSpan()
-          - set(span.attributes["resource.name"], span.name) where span.attributes["resource.name"] == nil
+      - context: span
+        statements:
+          - set(attributes["instrumentation.name"], instrumentation_scope.name)
+          - set(attributes["root_span"], true) where IsRootSpan()
+          - set(attributes["root_span"], false) where not IsRootSpan()
+          - set(attributes["resource.name"], name) where attributes["resource.name"] == nil
 ```
 
 Generate a root request latency metric:
