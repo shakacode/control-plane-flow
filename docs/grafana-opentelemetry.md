@@ -116,7 +116,7 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/instrumentation/faraday"
   require "opentelemetry/instrumentation/http"
 
-  ENV["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318" if ENV["OTEL_EXPORTER_OTLP_ENDPOINT"].to_s.empty?
+  ENV["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://otel-collector:4318" if ENV["OTEL_EXPORTER_OTLP_ENDPOINT"].to_s.empty?
   ENV["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf" if ENV["OTEL_EXPORTER_OTLP_PROTOCOL"].to_s.empty?
 
   OpenTelemetry::SDK.configure do |config|
@@ -144,10 +144,26 @@ This is a minimal shape. Production applications should also add resource
 attributes that identify the Control Plane org, GVC, workload, replica, image,
 and commit.
 
+Wire those attributes into the SDK resource:
+
+```ruby
+resource_attributes = {
+  "original_cpln_org" => ENV.fetch("CPLN_ORG", "none"),
+  "original_cpln_gvc" => ENV.fetch("CPLN_GVC", "none"),
+  "original_cpln_workload" => ENV.fetch("CPLN_WORKLOAD", "none"),
+  "original_cpln_workload_version" => ENV.fetch("CPLN_WORKLOAD_VERSION", "none"),
+  "original_cpln_replica" => ENV.fetch("CPLN_REPLICA", "none"),
+  "original_cpln_image" => ENV.fetch("CPLN_IMAGE", "none"),
+  "original_commit_hash" => ENV.fetch("APP_COMMIT_SHA", "none")
+}
+
+config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
+```
+
 `OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var. Set it
 per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` should be a collector
-base URL such as `http://otel-collector:4318`, not a signal-specific path such
-as `/v1/traces`.
+base URL such as `http://otel-collector:4318`, not `localhost` and not a
+signal-specific path such as `/v1/traces`.
 
 ## Control Plane Resource Attributes
 
@@ -193,6 +209,17 @@ Recommended firewall:
 - internal inbound: same GVC
 - external inbound: none
 - outbound: only what the collector needs
+
+Recommended starter container resources:
+
+```yaml
+containers:
+  - name: otel-collector
+    cpu: 250m
+    memory: 512Mi
+```
+
+Tune CPU and memory from staging observations before production rollout.
 
 Recommended env:
 
@@ -271,6 +298,10 @@ processors:
         - 'attributes["root_span"] != true'
 ```
 
+The filter processor drops spans that match the condition, and
+`error_mode: ignore` can hide expression mistakes. Include a known trace with
+one root span and one child span in collector validation before rollout.
+
 Then feed the filtered trace stream into the connector:
 
 ```yaml
@@ -298,6 +329,11 @@ connectors:
           - 5s
           - 10s
 ```
+
+Duration-string buckets require a collector-contrib image that supports that
+schema. If an app pins an older collector, use float-second buckets such as
+`0.005`, `0.010`, and `1.0`, and run validation against the exact collector
+image before deployment.
 
 ## Template Guidance
 
