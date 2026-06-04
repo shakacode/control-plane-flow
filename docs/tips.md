@@ -356,8 +356,8 @@ every app whose name starts with that prefix — by contrast, the `cpflow ps:sto
 target a single concrete app name.
 
 This deletes the GVC, workloads, volumesets, and images for any review app whose latest matching image, or GVC when no
-matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy when that
-binding exists. Wire it into a nightly CI cron — see
+matching image exists, is older than the threshold. It also unbinds the app identity from the secrets policy and any
+configured `shared_secret_grants` policies when those bindings exist. Wire it into a nightly CI cron — see
 [CI Automation — Generated Workflow Behavior](/docs/ci-automation.md#generated-workflow-behavior) for the
 `cpflow-cleanup-stale-review-apps.yml` workflow, which runs in delete mode by default; customize the workflow
 to pass `--mode=stop` if you prefer reversible pausing in CI.

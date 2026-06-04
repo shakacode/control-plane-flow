@@ -19,8 +19,15 @@ on:
 jobs:
   rspec:
     runs-on: ${{ inputs.os_version }}
+    # Scope the live Control Plane org queue per PR (or ref) instead of globally:
+    # each run uses its own random app suffix (SecureRandom.hex(2)) on a fresh
+    # runner, so concurrent PRs don't collide on app names or CLI profiles. PRs
+    # run only the fast (~slow) suite, which doesn't switch the shared domain's
+    # route; domain-mutating specs are :slow and dispatched manually, keyed by
+    # github.ref so same-ref dispatches still serialize. cancel-in-progress is
+    # false, so queued runs wait their turn rather than being cancelled.
     concurrency:
-      group: cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}
+      group: cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     env:
       RAILS_ENV: test

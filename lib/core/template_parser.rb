@@ -49,6 +49,10 @@ class TemplateParser
                 .gsub("{{APP_SECRETS}}", config.secrets)
                 .gsub("{{APP_SECRETS_POLICY}}", config.secrets_policy)
 
+    config.shared_secret_placeholders.each do |placeholder, secret_name|
+      yaml_file = yaml_file.gsub(placeholder, secret_name)
+    end
+
     find_deprecated_variables(yaml_file)
 
     # Kept for backwards compatibility

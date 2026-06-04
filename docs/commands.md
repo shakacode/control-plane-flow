@@ -41,6 +41,9 @@ cpflow ai-github-flow-prompt
 {{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used for the value of `containers[].image` in the templates
 {{APP_IDENTITY}}      - default identity
 {{APP_IDENTITY_LINK}} - full link for identity, ready to be used for the value of `identityLink` in the templates
+{{APP_SECRETS}}       - app secret dictionary name
+{{APP_SECRETS_POLICY}} - app secret policy name
+{{SHARED_SECRET_<NAME>}} - shared secret dictionary name from `shared_secret_grants`
 ```
 
 ```sh
@@ -79,7 +82,7 @@ cpflow cleanup-images -a $APP_NAME
 ### `cleanup-stale-apps`
 
 - Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
-- With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy as long as both the identity and the policy exist (and are bound)
+- With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy and any configured `shared_secret_grants` policies as long as both the identity and each policy exist (and are bound)
 - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` — no GVC, volumeset, or image is removed; resume with `cpflow ps:start`
 - `--mode=stop` only suspends workloads listed in `app_workloads` + `additional_workloads`; workloads present in the live GVC but missing from the config are skipped silently
 - `--mode=stop` returns once each workload is marked suspended; it does not wait for the workload to reach a not-ready state
@@ -128,7 +131,8 @@ cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --
 ### `delete`
 
 - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
-- Also unbinds the app from the secrets policy, as long as both the identity and the policy exist (and are bound)
+- Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
+- For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
 - Will ask for explicit user confirmation
 - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -149,6 +153,7 @@ cpflow delete -a $APP_NAME -w $WORKLOAD_NAME
 - The release script is run in the context of `cpflow run` with the latest image
 - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest
+- Repairs missing `shared_secret_grants` policy bindings before running a release phase or updating workloads
 
 ```sh
 cpflow deploy-image -a $APP_NAME
@@ -310,6 +315,7 @@ cpflow maintenance -a $APP_NAME
 ### `maintenance:off`
 
 - Disables maintenance mode for an app
+- Safe to re-run: if a previous run timed out after switching the domain but before stopping the maintenance workload, re-running while maintenance mode is already disabled stops the maintenance workload to finish it (so it is not a pure no-op)
 - Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
 - Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
@@ -321,6 +327,7 @@ cpflow maintenance:off -a $APP_NAME
 ### `maintenance:on`
 
 - Enables maintenance mode for an app
+- Safe to re-run: if a previous run timed out after switching the domain but before stopping the app workloads, re-running while maintenance mode is already enabled stops the app workloads to finish it (so it is not a pure no-op)
 - Specify the one-off workload through `one_off_workload` in the `.controlplane/controlplane.yml` file
 - Optionally specify the maintenance workload through `maintenance_workload` in the `.controlplane/controlplane.yml` file (defaults to 'maintenance')
 - Maintenance mode is only supported for domains that use path based routing mode and have a route configured for the prefix '/' on either port 80 or 443
@@ -461,6 +468,8 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   and also overridden per job through `--cpu` and `--memory`)
 - By default, the job is stopped if it takes longer than 6 hours to finish
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
+- Non-interactive jobs return the Control Plane cron job status even when the job finishes before
+  Control Plane exposes a runner replica to attach logs to
 
 ```sh
 # Opens shell (bash by default).
@@ -513,6 +522,7 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
   using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
 - Creates identity for secrets if it does not exist
+- Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
 - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
   or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
 - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
@@ -544,7 +554,7 @@ cpflow terraform import
 Regenerates the generated cpflow GitHub Actions wrappers and helper files
 from the currently installed cpflow gem. Use this after updating the
 cpflow gem so checked-in workflow wrappers move to the matching upstream
-release tag, for example `v5.0.4`.
+release tag, for example `v5.1.0`.
 
 If the existing generated staging workflow uses a custom single staging
 branch, the command preserves it. Pass `--staging-branch BRANCH` to set or

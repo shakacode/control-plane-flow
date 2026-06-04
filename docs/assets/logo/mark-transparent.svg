@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Control Plane Flow icon transparent mark">
+<title>Control Plane Flow icon transparent mark</title>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M290 650 C330 500 435 430 512 512 C600 606 704 560 746 390" stroke="#2BD7FF" stroke-width="68"/>
+  <path d="M746 390 L688 397" stroke="#2BD7FF" stroke-width="68"/>
+  <path d="M746 390 L731 446" stroke="#2BD7FF" stroke-width="68"/>
+</g>
+<circle cx="290" cy="650" r="92" fill="#8973FF"/>
+<circle cx="512" cy="512" r="92" fill="#70D187"/>
+<circle cx="746" cy="390" r="92" fill="#FFB000"/>
+<circle cx="290" cy="650" r="32" fill="#0B1118" opacity="0.88"/>
+<circle cx="512" cy="512" r="32" fill="#0B1118" opacity="0.88"/>
+<circle cx="746" cy="390" r="32" fill="#0B1118" opacity="0.88"/>
+<path d="M390 730 H612" stroke="#2BD7FF" stroke-width="40" stroke-linecap="round" opacity="0.86"/>
+<path d="M612 730 L555 692 M612 730 L555 768" stroke="#2BD7FF" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" opacity="0.86"/>
+</svg>

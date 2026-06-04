@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./docs/assets/logo/icon-tile.svg" alt="Control Plane Flow (cpflow) logo" width="160" height="160" />
+</p>
+
 # The power of Kubernetes with the ease of Heroku!
 
 <meta name="author" content="Justin Gordon and Sergey Tarasov" />
@@ -241,6 +245,18 @@ aliases:
     # - for an app 'my-app-review-1234' with `match_if_app_name_starts_with` set to `true`,
     #   it would be 'my-app-review-secrets-policy'
     secrets_policy_name: my-secrets-policy
+
+    # Optional: grant each app identity access to shared org-level secrets
+    # without hardcoding shared secret names in workload templates.
+    #
+    # This is useful for review apps that share one staging database secret
+    # instead of provisioning a database per PR. Create the shared secret and
+    # policy once, then reference the secret in templates with
+    # {{SHARED_SECRET_DATABASE}}.
+    # shared_secret_grants:
+    #   - name: database
+    #     secret_name: my-shared-database-secrets
+    #     policy_name: my-shared-database-secrets-policy
 
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
