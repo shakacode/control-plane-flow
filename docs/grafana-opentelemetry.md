@@ -148,6 +148,7 @@ Inside the `OpenTelemetry::SDK.configure do |config|` block, wire present
 attributes into the SDK resource:
 
 ```ruby
+# Inside OpenTelemetry::SDK.configure do |config|
 resource_attributes = {
   "original_cpln_org" => ENV["CPLN_ORG"],
   "original_cpln_gvc" => ENV["CPLN_GVC"],
@@ -161,6 +162,10 @@ resource_attributes = {
 config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
 ```
 
+`APP_COMMIT_SHA` is a custom application variable, not a Control Plane injected
+variable. Set it at image build time or replace it with a helper that derives the
+commit from the image tag.
+
 `OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var. Set it
 per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` should be a collector
 base URL such as `http://otel-collector:4318`, not `localhost` and not a
@@ -171,6 +176,8 @@ signal-specific path such as `/v1/traces`.
 Control Plane workloads expose useful environment variables that can be copied
 into OpenTelemetry resource attributes. These make dashboards filterable by org,
 GVC, workload, replica, image, and commit.
+
+Control Plane injects `CPLN_WORKLOAD_VERSION` as the workload version number.
 
 Use a consistent prefix such as `original_` to distinguish the resource
 attribute names from raw Control Plane env vars like `CPLN_ORG`, `CPLN_GVC`,
@@ -305,6 +312,11 @@ development and staging, include a known trace with one root span and one child
 span in collector validation, then switch to `ignore` only after the expression
 has been verified against the deployed collector image.
 
+Duration-string buckets require a collector-contrib image that supports that
+schema. If an app pins an older collector, use float-second buckets such as
+`0.005`, `0.010`, and `1.0`, and run validation against the exact collector
+image before deployment.
+
 Then feed the filtered trace stream into the connector:
 
 ```yaml
@@ -337,11 +349,6 @@ connectors:
 `span.name` is excluded because raw Rails span names can carry too much
 cardinality. Keep `http.route` only after confirming the Rails instrumentation
 emits route patterns, not raw request paths.
-
-Duration-string buckets require a collector-contrib image that supports that
-schema. If an app pins an older collector, use float-second buckets such as
-`0.005`, `0.010`, and `1.0`, and run validation against the exact collector
-image before deployment.
 
 ## Template Guidance
 
