@@ -325,7 +325,7 @@ spec:
   type: stateful
   containers:
     - name: postgres
-      image: postgres:15 # pin a specific patch (e.g. postgres:15.x) for reproducible stateful deploys
+      image: postgres:17 # pin a specific patch (e.g. postgres:17.x) for reproducible stateful deploys
       cpu: 250m
       memory: 512Mi
       env:
@@ -518,8 +518,9 @@ A few tradeoffs remain even after the cost savings:
 - **Noisy neighbor risk.** All staging/review apps share one server's CPU, RAM, disk, and connection pool. A runaway
   query or connection leak in one app can affect the others; per-app connection caps or PgBouncer can help. Mind
   Postgres's own `max_connections` (default 100): a staging seed running alongside several review apps, each at Rails'
-  default `pool: 5`, can exhaust it before any query runs. Raise it via `POSTGRES_MAX_CONNECTIONS` on the workload, or
-  lower `pool:` in `config/database.yml` for review apps.
+  default `pool: 5`, can exhaust it before any query runs. The official image ignores a `POSTGRES_MAX_CONNECTIONS` env
+  var; raise the server limit with a `-c max_connections=N` server argument or a custom `postgresql.conf`, and lower
+  `pool:` in `config/database.yml` for review apps as the simplest app-side lever.
 - **Operational ownership.** Backups, restores, password rotation, sizing, and access control move to the shared server.
 - **Other trusted services can use the same pattern.** Redis and Memcached can also be shared for trusted apps, but a
   per-app key prefix or logical database index is only conventional separation when apps share credentials. If review
