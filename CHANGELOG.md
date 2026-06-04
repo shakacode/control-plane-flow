@@ -12,13 +12,18 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-06-03
+
 ### Changed
 
 - **Changed `cpflow maintenance:on` and `cpflow maintenance:off` to confirm the domain route has switched by polling the Control Plane API (bounded retry, 30 attempts, 1 second apart) instead of sleeping a fixed 30 seconds.** [PR 337](https://github.com/shakacode/control-plane-flow/pull/337) by [Justin Gordon](https://github.com/justin808). Fixes [issue 157](https://github.com/shakacode/control-plane-flow/issues/157). If the route never updates within the poll window, the command aborts before stopping workloads so traffic stays on the current workload, and transient API errors during polling are retried rather than aborting the switch. Because the route switch and the workload stop run as separate steps, re-running the command also finishes a switch whose poll timed out after the route had already updated.
+- **Reworked generated production-promotion image copy to authenticate directly to the staging and production Docker registries and copy via `docker buildx imagetools create`, handling digest-pinned, plain numeric, commit-suffixed, and multi-arch image refs.** [PR 356](https://github.com/shakacode/control-plane-flow/pull/356) by [Justin Gordon](https://github.com/justin808). Promotion now normalizes Control Plane org variables before each step, preflights environment-variable parity between staging and production at the GVC and app-workload container level (failing before the copy when production is missing names that exist in staging), and requires both `status.ready` and `status.readyLatest` before endpoint health checks and rollback polling so a stale ready replica cannot mask a failed latest revision.
+- **Generated production promotion now emits a workflow warning when a staging image tag lacks a `_<commit>` suffix**, so production tags without commit traceability are visible in logs, and documents the `cpflow-promote-staging-to-production` concurrency group in the copy step. [PR 360](https://github.com/shakacode/control-plane-flow/pull/360) by [Justin Gordon](https://github.com/justin808).
+- **Restored review-app security guidance in generated `.github/cpflow-help.md`** (public-repo staging-token scoping, fork-PR deploy limits, secret exposure via `cpln://secret/...`, and read-only deploy keys for `DOCKER_BUILD_SSH_KEY`), and simplified the promotion workflow's staging image assignment while preserving digest refs. [PR 359](https://github.com/shakacode/control-plane-flow/pull/359) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 
-- **Fixed `cpflow run` so short non-interactive runner jobs no longer hang when the Control Plane cron job finishes before a runner replica is visible.** This prevents generated deploy workflows with release-phase commands from waiting until the GitHub Actions job timeout even though the release job already completed successfully.
+- **Fixed `cpflow run` so short non-interactive runner jobs no longer hang when the Control Plane cron job finishes before a runner replica is visible.** [PR 361](https://github.com/shakacode/control-plane-flow/pull/361) by [Justin Gordon](https://github.com/justin808). This prevents generated deploy workflows with release-phase commands from waiting until the GitHub Actions job timeout even though the release job already completed successfully.
 
 ## [5.1.0] - 2026-06-02
 
@@ -418,7 +423,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...HEAD
+[5.1.1]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...v5.1.1
 [5.1.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.4...v5.1.0
 [5.0.4]: https://github.com/shakacode/control-plane-flow/compare/v5.0.3...v5.0.4
 [5.0.3]: https://github.com/shakacode/control-plane-flow/compare/v5.0.2...v5.0.3
