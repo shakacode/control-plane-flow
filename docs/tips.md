@@ -325,7 +325,7 @@ spec:
   type: stateful
   containers:
     - name: postgres
-      image: postgres:15
+      image: postgres:15 # pin a specific patch (e.g. postgres:15.x) for reproducible stateful deploys
       cpu: 250m
       memory: 512Mi
       env:
@@ -492,6 +492,9 @@ Suggested cutover order:
    cpln workload exec postgres --org ORG --gvc staging-shared-postgres -- \
      psql -U postgres -c 'DROP DATABASE IF EXISTS "my-app-review-pr-123" WITH (FORCE);'
    ```
+
+   `cpln workload exec` runs `psql` inside the container over its local Unix socket, which the official Postgres image
+   grants the `postgres` superuser `trust` auth — so no `PGPASSWORD` or `-W` flag is required here.
 
 When updating URL-like env values, prefer applying a full GVC YAML update with `cpln apply`, then re-read the GVC env to
 confirm the new reference took effect:

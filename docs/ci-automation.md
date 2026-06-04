@@ -137,6 +137,8 @@ apps:
     match_if_app_name_starts_with: true
     hooks:
       post_creation: bundle exec rails db:prepare
+      # pre_deletion intentionally omitted for shared databases: `cpflow delete` runs it before removing the workloads,
+      # so live connections can block the drop. Prefer admin-side cleanup. See docs/tips.md ("Share One Control Plane Postgres").
 
   my-app-production:
     <<: *common
