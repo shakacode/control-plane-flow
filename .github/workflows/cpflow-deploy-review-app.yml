@@ -28,6 +28,12 @@ concurrency:
 env:
   PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
+  # Review apps use their own health knobs so teams can keep production
+  # promotion stricter or slower without changing PR feedback behavior.
+  REVIEW_APP_HEALTH_CHECK_RETRIES: ${{ vars.REVIEW_APP_HEALTH_CHECK_RETRIES || '24' }}
+  REVIEW_APP_HEALTH_CHECK_INTERVAL: ${{ vars.REVIEW_APP_HEALTH_CHECK_INTERVAL || '15' }}
+  REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}
+  REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}
 
 jobs:
   deploy:
@@ -438,6 +444,19 @@ jobs:
           deploy_args+=(--org "${CPLN_ORG}" --verbose)
 
           cpflow deploy-image "${deploy_args[@]}"
+
+      - name: Wait for deployment health
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
+        id: health-check
+        uses: ./.cpflow/.github/actions/cpflow-wait-for-health
+        with:
+          workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}
+          app_name: ${{ steps.review-config.outputs.app_name }}
+          org: ${{ steps.review-config.outputs.cpln_org }}
+          max_retries: ${{ env.REVIEW_APP_HEALTH_CHECK_RETRIES }}
+          interval_seconds: ${{ env.REVIEW_APP_HEALTH_CHECK_INTERVAL }}
+          accepted_statuses: ${{ env.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES }}
+          curl_max_time: ${{ env.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME }}
 
       - name: Retrieve app URL
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
