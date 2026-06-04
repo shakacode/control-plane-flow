@@ -111,7 +111,9 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   collector = ENV.fetch("OPEN_TELEMETRY_COLLECTOR_ADDRESS", "http://localhost:4318")
 
   OpenTelemetry::SDK.configure do |config|
-    config.service_name = ENV.fetch("OTEL_SERVICE_NAME", "rails")
+    config.service_name = ENV.fetch("OTEL_SERVICE_NAME") do
+      ENV.fetch("CPLN_WORKLOAD", "rails-app")
+    end
 
     exporter = OpenTelemetry::Exporter::OTLP::Exporter.new(
       endpoint: "#{collector}/v1/traces"
@@ -127,9 +129,12 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
     config.use "OpenTelemetry::Instrumentation::ActionView"
     config.use "OpenTelemetry::Instrumentation::ActiveRecord"
     config.use "OpenTelemetry::Instrumentation::ActiveJob"
+    config.use "OpenTelemetry::Instrumentation::ActiveSupport"
     config.use "OpenTelemetry::Instrumentation::PG"
     config.use "OpenTelemetry::Instrumentation::Redis"
     config.use "OpenTelemetry::Instrumentation::Sidekiq"
+    config.use "OpenTelemetry::Instrumentation::Faraday"
+    config.use "OpenTelemetry::Instrumentation::HTTP"
   end
 end
 ```
@@ -137,6 +142,11 @@ end
 This is a minimal shape. Production applications should also add resource
 attributes that identify the Control Plane org, GVC, workload, replica, image,
 and commit.
+
+`OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var. Set it
+per workload when possible. For simple apps, `config.use_all` can replace the
+explicit `config.use` calls, but an explicit list makes copied examples easier
+to review.
 
 ## Control Plane Resource Attributes
 
@@ -251,7 +261,7 @@ connectors:
     histogram:
       explicit:
         buckets:
-          - 0ms
+          - 5ms
           - 10ms
           - 50ms
           - 100ms
@@ -375,7 +385,10 @@ Alert review checklist:
 Before deploying:
 
 ```sh
-bundle exec rspec spec/path/to/open_telemetry_specs.rb
+# Replace with your app's actual OpenTelemetry spec path.
+bundle exec rspec spec/open_telemetry/
+
+# Replace with your app's actual collector validation script names.
 ./script/check_open_telemetry_config
 ./script/validate_open_telemetry_config
 ```
