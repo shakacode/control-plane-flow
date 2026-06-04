@@ -79,25 +79,21 @@ Good examples:
 Add OpenTelemetry gems for the instrumentation libraries your app uses:
 
 ```ruby
-# OpenTelemetry SDK and exporter
-gem "opentelemetry-sdk"
-gem "opentelemetry-exporter-otlp"
+group :production do
+  # OpenTelemetry SDK and exporter
+  gem "opentelemetry-sdk", require: false
+  gem "opentelemetry-exporter-otlp", require: false
 
-# Common Rails instrumentation
-gem "opentelemetry-instrumentation-action_pack"
-gem "opentelemetry-instrumentation-action_view"
-gem "opentelemetry-instrumentation-active_job"
-gem "opentelemetry-instrumentation-active_record"
-gem "opentelemetry-instrumentation-active_support"
-gem "opentelemetry-instrumentation-rack"
-gem "opentelemetry-instrumentation-rails"
+  # Rails instrumentation registers the Rails framework pieces once.
+  gem "opentelemetry-instrumentation-rails", require: false
 
-# Add only what your app actually uses
-gem "opentelemetry-instrumentation-pg"
-gem "opentelemetry-instrumentation-redis"
-gem "opentelemetry-instrumentation-sidekiq"
-gem "opentelemetry-instrumentation-faraday"
-gem "opentelemetry-instrumentation-http"
+  # Add only what your app actually uses.
+  gem "opentelemetry-instrumentation-pg", require: false
+  gem "opentelemetry-instrumentation-redis", require: false
+  gem "opentelemetry-instrumentation-sidekiq", require: false
+  gem "opentelemetry-instrumentation-faraday", require: false
+  gem "opentelemetry-instrumentation-http", require: false
+end
 ```
 
 Keep OpenTelemetry disabled by default until the collector is deployed and
@@ -108,7 +104,9 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/sdk"
   require "opentelemetry/exporter/otlp"
 
-  collector = ENV.fetch("OPEN_TELEMETRY_COLLECTOR_ADDRESS", "http://localhost:4318")
+  collector_endpoint = ENV.fetch("OTEL_EXPORTER_OTLP_ENDPOINT") do
+    ENV.fetch("OPEN_TELEMETRY_COLLECTOR_ADDRESS", "http://localhost:4318")
+  end
 
   OpenTelemetry::SDK.configure do |config|
     config.service_name = ENV.fetch("OTEL_SERVICE_NAME") do
@@ -116,20 +114,14 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
     end
 
     exporter = OpenTelemetry::Exporter::OTLP::Exporter.new(
-      endpoint: "#{collector}/v1/traces"
+      endpoint: collector_endpoint
     )
 
     config.add_span_processor(
       OpenTelemetry::SDK::Trace::Export::BatchSpanProcessor.new(exporter)
     )
 
-    config.use "OpenTelemetry::Instrumentation::Rack"
     config.use "OpenTelemetry::Instrumentation::Rails"
-    config.use "OpenTelemetry::Instrumentation::ActionPack"
-    config.use "OpenTelemetry::Instrumentation::ActionView"
-    config.use "OpenTelemetry::Instrumentation::ActiveRecord"
-    config.use "OpenTelemetry::Instrumentation::ActiveJob"
-    config.use "OpenTelemetry::Instrumentation::ActiveSupport"
     config.use "OpenTelemetry::Instrumentation::PG"
     config.use "OpenTelemetry::Instrumentation::Redis"
     config.use "OpenTelemetry::Instrumentation::Sidekiq"
@@ -144,15 +136,19 @@ attributes that identify the Control Plane org, GVC, workload, replica, image,
 and commit.
 
 `OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var. Set it
-per workload when possible. For simple apps, `config.use_all` can replace the
-explicit `config.use` calls, but an explicit list makes copied examples easier
-to review.
+per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` should be a collector
+base URL such as `http://otel-collector:4318`, not a signal-specific path such
+as `/v1/traces`.
 
 ## Control Plane Resource Attributes
 
 Control Plane workloads expose useful environment variables that can be copied
 into OpenTelemetry resource attributes. These make dashboards filterable by org,
 GVC, workload, replica, image, and commit.
+
+Use a consistent prefix such as `original_` to distinguish the resource
+attribute names from raw Control Plane env vars like `CPLN_ORG`, `CPLN_GVC`,
+`CPLN_WORKLOAD`, `CPLN_REPLICA`, and `CPLN_IMAGE`.
 
 Recommended attributes:
 
@@ -190,6 +186,8 @@ Recommended env:
 ```yaml
 OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
 OPEN_TELEMETRY_CONFIG: "cpln://secret/<collector-config-secret>"
+# Set to a hash of the config content so secret updates force a workload spec
+# change and collector restart.
 OPEN_TELEMETRY_CONFIG_HASH: "<hash-of-config>"
 ```
 
