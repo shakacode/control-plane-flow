@@ -75,8 +75,12 @@ updated, which helps existing review apps recover after the config is added. `cp
 remove those shared policy bindings when a review app is deleted.
 
 For shared databases, keep runtime data isolated by using a per-review-app database name, schema, or tenant key. A common
-pattern is to keep the host, user, and password in the shared secret, then have `hooks.post_creation` create the PR-specific
-database/schema and `hooks.pre_deletion` drop it.
+pattern is to keep the host, user, and password in the shared secret, then have `hooks.post_creation` create the
+PR-specific database/schema. Avoid a generic `hooks.pre_deletion` that drops the database: `cpflow delete` runs the
+pre-deletion hook before it removes the app workloads, so live connections can make PostgreSQL reject the drop. Stop the
+review app workloads first, or run cleanup from trusted admin automation against the shared Postgres workload. See
+[Share One Control Plane Postgres for Staging and Review Apps](tips.md#share-one-control-plane-postgres-for-staging-and-review-apps)
+for the full pattern.
 
 Here are the manual steps for reference. We recommend that you follow the steps above:
 
