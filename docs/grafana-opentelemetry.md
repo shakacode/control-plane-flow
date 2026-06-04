@@ -96,6 +96,10 @@ group :production do
 end
 ```
 
+Use the Bundler group that matches where the app will emit telemetry. Many
+Control Plane deployments run with production gems even for QA or staging, but
+apps with different grouping should adapt this block.
+
 Keep OpenTelemetry disabled by default until the collector is deployed and
 reviewed:
 
@@ -104,9 +108,7 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/sdk"
   require "opentelemetry/exporter/otlp"
 
-  collector_endpoint = ENV.fetch("OTEL_EXPORTER_OTLP_ENDPOINT") do
-    ENV.fetch("OPEN_TELEMETRY_COLLECTOR_ADDRESS", "http://localhost:4318")
-  end
+  collector_endpoint = ENV.fetch("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
 
   OpenTelemetry::SDK.configure do |config|
     config.service_name = ENV.fetch("OTEL_SERVICE_NAME") do
