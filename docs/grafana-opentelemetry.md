@@ -144,8 +144,9 @@ This is a minimal shape. Production applications should also add resource
 attributes that identify the Control Plane org, GVC, workload, replica, image,
 and commit.
 
-Inside the `OpenTelemetry::SDK.configure do |config|` block, wire present
-attributes into the SDK resource:
+Inside the same `OpenTelemetry::SDK.configure do |config|` block, keep the
+`config.service_name = ...` line from the initializer above and wire present
+Control Plane attributes into the SDK resource:
 
 ```ruby
 # Inside OpenTelemetry::SDK.configure do |config|
@@ -295,12 +296,15 @@ processors:
 Generate a request latency metric from selected root spans. One safe pattern is
 to run a filter processor before the spanmetrics connector that drops spans where
 the normalized `root_span` attribute is not true. Validate this condition with
-the collector binary used by the app before rollout:
+the collector binary used by the app before rollout. This example is a
+development/staging validation config; after validation, production configs can
+switch `error_mode` to `ignore` to avoid collector startup failure from a later
+expression regression:
 
 ```yaml
 processors:
   filter/non_root_spans:
-    error_mode: propagate # switch to "ignore" in production after validation
+    error_mode: propagate
     traces:
       span:
         - 'attributes["root_span"] != true'
@@ -312,10 +316,10 @@ development and staging, include a known trace with one root span and one child
 span in collector validation, then switch to `ignore` only after the expression
 has been verified against the deployed collector image.
 
-Duration-string buckets require a collector-contrib image that supports that
-schema. If an app pins an older collector, use float-second buckets such as
-`0.005`, `0.010`, and `1.0`, and run validation against the exact collector
-image before deployment.
+Duration-string buckets and `exclude_dimensions` require collector-contrib
+images that support those spanmetrics schemas. If an app pins an older collector,
+use float-second buckets such as `0.005`, `0.010`, and `1.0`, remove unsupported
+fields, and run validation against the exact collector image before deployment.
 
 Then feed the filtered trace stream into the connector:
 
