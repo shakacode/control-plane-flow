@@ -48,10 +48,9 @@ apps:
     #   - name: database
     #     secret_name: __APP_PREFIX__-review-database-secrets
     #     policy_name: __APP_PREFIX__-review-database-secrets-policy
-    # Uncomment to automatically initialize and tear down review-app databases:
+    # Uncomment to automatically initialize review-app databases:
     # hooks:
     #   post_creation: bundle exec rails db:prepare
-    #   pre_deletion: bundle exec rails db:drop
 
   __APP_PREFIX__-production:
     <<: *production

@@ -19,7 +19,6 @@ apps:
     <<: *common
     hooks:
       post_creation: bundle exec rake db:prepare
-      pre_deletion: bundle exec rake db:drop
 
   rails-app-production:
     <<: *common
