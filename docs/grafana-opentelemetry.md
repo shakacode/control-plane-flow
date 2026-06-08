@@ -116,13 +116,21 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/instrumentation/faraday"
   require "opentelemetry/instrumentation/http"
 
-  ENV["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://otel-collector:4318" if ENV["OTEL_EXPORTER_OTLP_ENDPOINT"].to_s.empty?
-  ENV["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf" if ENV["OTEL_EXPORTER_OTLP_PROTOCOL"].to_s.empty?
-
   OpenTelemetry::SDK.configure do |config|
     config.service_name = ENV.fetch("OTEL_SERVICE_NAME") do
       ENV.fetch("CPLN_WORKLOAD", "rails-app")
     end
+
+    resource_attributes = {
+      "original_cpln_org" => ENV["CPLN_ORG"],
+      "original_cpln_gvc" => ENV["CPLN_GVC"],
+      "original_cpln_workload" => ENV["CPLN_WORKLOAD"],
+      "original_cpln_replica" => ENV["CPLN_REPLICA"],
+      "original_cpln_image" => ENV["CPLN_IMAGE"],
+      "original_commit_hash" => ENV["APP_COMMIT_SHA"]
+    }.compact
+
+    config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
 
     exporter = OpenTelemetry::Exporter::OTLP::Exporter.new
 
@@ -140,29 +148,6 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
 end
 ```
 
-This is a minimal shape. Production applications should also add resource
-attributes that identify the Control Plane org, GVC, workload, replica, image,
-and commit.
-
-Inside the same `OpenTelemetry::SDK.configure do |config|` block, keep the
-`config.service_name = ...` line from the initializer above and wire present
-Control Plane attributes into the SDK resource:
-
-```ruby
-# Inside OpenTelemetry::SDK.configure do |config|
-resource_attributes = {
-  "original_cpln_org" => ENV["CPLN_ORG"],
-  "original_cpln_gvc" => ENV["CPLN_GVC"],
-  "original_cpln_workload" => ENV["CPLN_WORKLOAD"],
-  "original_cpln_workload_version" => ENV["CPLN_WORKLOAD_VERSION"],
-  "original_cpln_replica" => ENV["CPLN_REPLICA"],
-  "original_cpln_image" => ENV["CPLN_IMAGE"],
-  "original_commit_hash" => ENV["APP_COMMIT_SHA"]
-}.compact
-
-config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
-```
-
 `APP_COMMIT_SHA` is a custom application variable, not a Control Plane injected
 variable. Set it at image build time or replace it with a helper that derives the
 commit from the image tag.
@@ -170,15 +155,19 @@ commit from the image tag.
 `OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var. Set it
 per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` should be a collector
 base URL such as `http://otel-collector:4318`, not `localhost` and not a
-signal-specific path such as `/v1/traces`.
+signal-specific path such as `/v1/traces`. Replace `otel-collector` with the
+actual collector workload name in the same GVC. Set `OTEL_EXPORTER_OTLP_PROTOCOL`
+to `http/protobuf` in the workload environment.
+
+The `opentelemetry-instrumentation-http` gem instruments the `http.rb` client.
+Apps that use `Net::HTTP`, HTTParty, Excon, Typhoeus, or another HTTP client
+should choose the matching OpenTelemetry instrumentation gem instead.
 
 ## Control Plane Resource Attributes
 
 Control Plane workloads expose useful environment variables that can be copied
 into OpenTelemetry resource attributes. These make dashboards filterable by org,
 GVC, workload, replica, image, and commit.
-
-Control Plane injects `CPLN_WORKLOAD_VERSION` as the workload version number.
 
 Use a consistent prefix such as `original_` to distinguish the resource
 attribute names from raw Control Plane env vars like `CPLN_ORG`, `CPLN_GVC`,
@@ -192,7 +181,6 @@ Recommended attributes:
 original_cpln_org
 original_cpln_gvc
 original_cpln_workload
-original_cpln_workload_version
 original_cpln_replica
 original_cpln_image
 original_commit_hash
