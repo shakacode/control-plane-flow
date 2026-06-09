@@ -107,6 +107,8 @@ reviewed:
 
 ```ruby
 if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
+  # Require only the instrumentation gems you added to the Gemfile above. A
+  # require without a matching gem raises LoadError at boot.
   require "opentelemetry/sdk"
   require "opentelemetry/exporter/otlp"
   require "opentelemetry/instrumentation/rails"
@@ -117,11 +119,11 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
   require "opentelemetry/instrumentation/http"
 
   OpenTelemetry::SDK.configure do |config|
-    config.service_name = ENV.fetch("OTEL_SERVICE_NAME") do
-      ENV.fetch("CPLN_WORKLOAD", "rails-app")
-    end
-
+    # Set "service.name" directly in the resource so the complete resource is
+    # defined in one place and does not depend on SDK merge order between
+    # config.service_name= and config.resource=.
     resource_attributes = {
+      "service.name" => ENV.fetch("OTEL_SERVICE_NAME") { ENV.fetch("CPLN_WORKLOAD", "rails-app") },
       "original_cpln_org" => ENV["CPLN_ORG"],
       "original_cpln_gvc" => ENV["CPLN_GVC"],
       "original_cpln_workload" => ENV["CPLN_WORKLOAD"],
@@ -221,7 +223,9 @@ Tune CPU and memory from staging observations before production rollout.
 Recommended env:
 
 ```yaml
-# Custom app variables, not standard OpenTelemetry env vars.
+# Custom app variables, not standard OpenTelemetry env vars. The collector reads
+# them through ${VAR} substitution in the config YAML, so each must be referenced
+# as ${OPEN_TELEMETRY_...} in that config to take effect.
 OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
 OPEN_TELEMETRY_CONFIG: "cpln://secret/<collector-config-secret>"
 # Set to a hash of the config content so secret updates force a workload spec
@@ -280,6 +284,10 @@ processors:
           - set(attributes["root_span"], true) where IsRootSpan()
           - set(attributes["root_span"], false) where not IsRootSpan()
 ```
+
+`IsRootSpan()` requires collector-contrib v0.88.0 or later. On an older pinned
+image, replace it with an explicit parent-span-id check, and validate against the
+exact collector image before deployment.
 
 Generate a request latency metric from selected root spans. One safe pattern is
 to run a filter processor before the spanmetrics connector that drops spans where
