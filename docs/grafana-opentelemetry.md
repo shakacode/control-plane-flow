@@ -76,9 +76,13 @@ Good examples:
 
 ## Rails Application Setup
 
-Add OpenTelemetry gems for the instrumentation libraries your app uses:
+Add OpenTelemetry gems for the instrumentation libraries your app uses. Pick the
+Bundler group that matches where the app emits telemetry before copying this
+snippet — `:production` is only an example, and many Control Plane staging/QA
+apps run the production group (see the note after the snippet):
 
 ```ruby
+# Adjust this group to match where the app emits telemetry.
 group :production do
   # OpenTelemetry SDK and exporter
   gem "opentelemetry-sdk", require: false
@@ -134,6 +138,11 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
 
     config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
 
+    # The exporter reads its destination from the environment:
+    #   OTEL_EXPORTER_OTLP_ENDPOINT — collector base URL, e.g. http://otel-collector:4318
+    #   OTEL_EXPORTER_OTLP_PROTOCOL — set to http/protobuf
+    # Without these it defaults to localhost:4317, which usually does not exist on
+    # a Control Plane workload, so spans are dropped silently. See the notes below.
     exporter = OpenTelemetry::Exporter::OTLP::Exporter.new
 
     config.add_span_processor(
@@ -312,6 +321,13 @@ development and staging, include a known trace with one root span and one child
 span in collector validation, then switch to `ignore` only after the expression
 has been verified against the deployed collector image.
 
+Processor order is load-bearing here. The condition `attributes["root_span"] != true`
+matches spans where the attribute is **absent** as well as where it is `false`, so
+`transform/normalize` (which sets `root_span`) must run before `filter/non_root_spans`
+in the traces pipeline. Reversed — or with a misconfigured transform — the filter
+drops every span with no error or warning. The `service.pipelines` example below
+shows the required order.
+
 Duration-string buckets and `exclude_dimensions` require collector-contrib
 images that support those spanmetrics schemas. If an app pins an older collector,
 use float-second buckets such as `0.005`, `0.010`, and `1.0`, remove unsupported
@@ -348,7 +364,41 @@ connectors:
 
 `span.name` is excluded because raw Rails span names can carry too much
 cardinality. Keep `http.route` only after confirming the Rails instrumentation
-emits route patterns, not raw request paths.
+emits route patterns such as `/users/:id`, not raw request paths such as
+`/users/12345`. Raw paths are one of the most common causes of a spanmetrics
+setup overwhelming Prometheus storage, so treat this as a hard pre-production
+check — inspect `http.route` values in a real staging trace before enabling the
+connector. The [Validation](#validation) checklist repeats this step.
+
+Wire the receiver, processors, connector, and exporters together in
+`service.pipelines`. Order is load-bearing in the traces pipeline:
+`transform/normalize` must precede `filter/non_root_spans`, and the spanmetrics
+connector terminates the traces pipeline and feeds the metrics pipeline:
+
+```yaml
+service:
+  extensions:
+    - zpages
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - transform/normalize
+        - filter/non_root_spans
+      exporters:
+        - spanmetrics/http_root_span_latency
+    metrics:
+      receivers:
+        - spanmetrics/http_root_span_latency
+      processors:
+        - batch
+      exporters:
+        - prometheus
+```
+
+The spanmetrics connector is listed as an exporter on the traces pipeline and as
+a receiver on the metrics pipeline; that shared reference is what links the two.
 
 ## Template Guidance
 
@@ -477,6 +527,8 @@ Before enabling in staging:
 - app boots with OpenTelemetry enabled
 - collector starts and passes readiness checks
 - collector `/metrics` endpoint has generated samples
+- `http.route` in a staging trace shows route patterns (`/users/:id`), not raw
+  paths, before enabling the spanmetrics connector
 - Grafana can query the metrics
 - disabling OpenTelemetry is enough to roll back app-side impact
 
