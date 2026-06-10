@@ -66,7 +66,8 @@ Good examples:
 
 Logs are application events and messages. They are useful for details, but raw
 log queries are often too expensive for broad dashboards. Prefer generating
-targeted metrics from recurring log patterns.
+targeted metrics from recurring log patterns. See [Tips: Logs](/docs/tips.md#logs)
+for querying Control Plane logs directly.
 
 Good examples:
 
@@ -76,10 +77,7 @@ Good examples:
 
 ## Rails Application Setup
 
-Add OpenTelemetry gems for the instrumentation libraries your app uses. Pick the
-Bundler group that matches where the app emits telemetry before copying this
-snippet — `:production` is only an example, and many Control Plane staging/QA
-apps run the production group (see the note after the snippet):
+Add OpenTelemetry gems for the instrumentation libraries your app uses:
 
 ```ruby
 # Adjust this group to match where the app emits telemetry.
@@ -100,11 +98,12 @@ group :production do
 end
 ```
 
-Use the Bundler group that matches where the app will emit telemetry. Many
-Control Plane deployments run with production gems even for QA or staging. If
-you need to test OpenTelemetry locally or in CI, include the same gems in those
-Bundler groups too; `require: false` keeps them unloaded until the initializer
-guard enables telemetry.
+Use the Bundler group that matches where the app will emit telemetry —
+`:production` above is only an example, and many Control Plane deployments run
+with production gems even for QA or staging. If you need to test OpenTelemetry
+locally or in CI, include the same gems in those Bundler groups too;
+`require: false` keeps them unloaded until the initializer guard enables
+telemetry.
 
 Keep OpenTelemetry disabled by default until the collector is deployed and
 reviewed:
@@ -138,13 +137,8 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
 
     config.resource = OpenTelemetry::SDK::Resources::Resource.create(resource_attributes)
 
-    # The exporter reads its destination from the environment:
-    #   OTEL_EXPORTER_OTLP_ENDPOINT — collector base URL, e.g. http://otel-collector:4318
-    #   OTEL_EXPORTER_OTLP_PROTOCOL — set to http/protobuf
-    # Without these it defaults to http://localhost:4318, which usually does not
-    # exist on a Control Plane workload, so spans are dropped silently. (Port 4317
-    # is the gRPC default and applies to the separate opentelemetry-exporter-otlp-grpc
-    # gem, which this guide does not use.) See the notes below.
+    # The exporter reads OTEL_EXPORTER_OTLP_ENDPOINT and
+    # OTEL_EXPORTER_OTLP_PROTOCOL from the environment — see the notes below.
     exporter = OpenTelemetry::Exporter::OTLP::Exporter.new
 
     config.add_span_processor(
@@ -165,12 +159,26 @@ end
 variable. Set it at image build time or replace it with a helper that derives the
 commit from the image tag.
 
-`OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var. Set it
-per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` should be a collector
-base URL such as `http://otel-collector:4318`, not `localhost` and not a
-signal-specific path such as `/v1/traces`. Replace `otel-collector` with the
-actual collector workload name in the same GVC. Set `OTEL_EXPORTER_OTLP_PROTOCOL`
-to `http/protobuf` in the workload environment.
+Recommended app workload env:
+
+```yaml
+# Leave ENABLE_OPEN_TELEMETRY unset until the collector is deployed
+# (see Rollout Order).
+ENABLE_OPEN_TELEMETRY: "true"
+OTEL_SERVICE_NAME: "<workload-name>"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+```
+
+`OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var; set it
+per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` must be a collector
+base URL — replace `otel-collector` with the actual collector workload name in
+the same GVC — not `localhost` and not a signal-specific path such as
+`/v1/traces`. Without these env vars the exporter defaults to
+`http://localhost:4318`, which usually does not exist on a Control Plane
+workload, so spans are dropped silently. (Port 4317 is the gRPC default and
+applies to the separate `opentelemetry-exporter-otlp-grpc` gem, which this
+guide does not use.)
 
 The `opentelemetry-instrumentation-http` gem instruments the `http.rb` client.
 Apps that use `Net::HTTP`, HTTParty, Excon, Typhoeus, or another HTTP client
@@ -184,23 +192,12 @@ GVC, workload, replica, image, and commit.
 
 Use a consistent prefix such as `original_` to distinguish the resource
 attribute names from raw Control Plane env vars like `CPLN_ORG`, `CPLN_GVC`,
-`CPLN_WORKLOAD`, `CPLN_REPLICA`, and `CPLN_IMAGE`. A future shared template may
-choose a `cpln.` namespace, but keep one naming convention per app so dashboards
-and trace queries stay predictable.
+`CPLN_WORKLOAD`, `CPLN_REPLICA`, and `CPLN_IMAGE`. Whatever prefix you choose,
+keep one naming convention per app so dashboards and trace queries stay
+predictable.
 
-Recommended attributes:
-
-```text
-original_cpln_org
-original_cpln_gvc
-original_cpln_workload
-original_cpln_replica
-original_cpln_image
-original_commit_hash
-```
-
-Use one helper module to derive these attributes, then reuse it for traces,
-logs, and metrics. Keep `original_cpln_replica`, `original_cpln_image`, and
+The initializer above sets the recommended attributes. Use one helper module to
+derive them, then reuse it for traces, logs, and metrics. Keep `original_cpln_replica`, `original_cpln_image`, and
 `original_commit_hash` out of generated Prometheus metric dimensions; they are
 useful on traces but too high-cardinality for ordinary dashboard labels.
 
@@ -244,6 +241,9 @@ OPEN_TELEMETRY_CONFIG: "cpln://secret/<collector-config-secret>"
 OPEN_TELEMETRY_CONFIG_HASH: "<hash-of-config>"
 ```
 
+The `cpln://secret/...` reference syntax is documented in
+[Secrets and ENV Values](/docs/secrets-and-env-values.md).
+
 Expose the collector's metrics endpoint to Control Plane:
 
 ```yaml
@@ -283,6 +283,10 @@ Minimum collector config components:
 - batch processor
 - zpages extension
 
+Pin the collector image, and validate the generated config against that exact
+image before deployment — OTTL and spanmetrics feature support varies by
+collector-contrib version.
+
 Normalize span attributes before generating metrics:
 
 ```yaml
@@ -298,16 +302,11 @@ processors:
 
 `IsRootSpan()` requires collector-contrib v0.105.0 or later (added in
 [contrib #32918](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/32918)).
-On an older pinned image, replace it with an explicit parent-span-id check, and
-validate against the exact collector image before deployment.
+On an older pinned image, replace it with an explicit parent-span-id check.
 
 Generate a request latency metric from selected root spans. One safe pattern is
 to run a filter processor before the spanmetrics connector that drops spans where
-the normalized `root_span` attribute is not true. Validate this condition with
-the collector binary used by the app before rollout. This example is a
-development/staging validation config; after validation, production configs can
-switch `error_mode` to `ignore` to avoid collector startup failure from a later
-expression regression:
+the normalized `root_span` attribute is not true:
 
 ```yaml
 processors:
@@ -319,10 +318,11 @@ processors:
 ```
 
 The filter processor drops spans that match the condition, and
-`error_mode: ignore` can hide expression mistakes. Keep `propagate` in
-development and staging, include a known trace with one root span and one child
-span in collector validation, then switch to `ignore` only after the expression
-has been verified against the deployed collector image.
+`error_mode: ignore` can hide expression mistakes. Keep `error_mode: propagate`
+in development and staging, and include a known trace with one root span and one
+child span in collector validation. Once the expression is verified, production
+configs can switch to `ignore` so a later expression regression cannot fail
+collector startup.
 
 Processor order is load-bearing here. The condition `attributes["root_span"] != true`
 matches spans where the attribute is **absent** as well as where it is `false`, so
@@ -333,8 +333,8 @@ shows the required order.
 
 Duration-string buckets and `exclude_dimensions` require collector-contrib
 images that support those spanmetrics schemas. If an app pins an older collector,
-use float-second buckets such as `0.005`, `0.010`, and `1.0`, remove unsupported
-fields, and run validation against the exact collector image before deployment.
+use float-second buckets such as `0.005`, `0.010`, and `1.0`, and remove
+unsupported fields.
 
 Then feed the filtered trace stream into the connector:
 
@@ -366,16 +366,13 @@ connectors:
 ```
 
 `span.name` is excluded because raw Rails span names can carry too much
-cardinality. Keep `http.route` only after confirming the Rails instrumentation
-emits route patterns such as `/users/:id`, not raw request paths such as
-`/users/12345`. Raw paths are one of the most common causes of a spanmetrics
-setup overwhelming Prometheus storage, so treat this as a hard pre-production
-check — inspect `http.route` values in a real staging trace before enabling the
-connector. The [Validation](#validation) checklist repeats this step.
+cardinality. Before enabling the connector, inspect `http.route` values in a
+real staging trace and confirm they are route patterns such as `/users/:id`,
+not raw request paths such as `/users/12345` — raw paths are one of the most
+common causes of a spanmetrics setup overwhelming Prometheus storage.
 
 Wire the receiver, processors, connector, and exporters together in
-`service.pipelines`. Order is load-bearing in the traces pipeline:
-`transform/normalize` must precede `filter/non_root_spans`, and the spanmetrics
+`service.pipelines`, with the processor order described above. The spanmetrics
 connector terminates the traces pipeline and feeds the metrics pipeline:
 
 ```yaml
@@ -402,6 +399,12 @@ service:
 
 The spanmetrics connector is listed as an exporter on the traces pipeline and as
 a receiver on the metrics pipeline; that shared reference is what links the two.
+
+In this minimal pipeline the spanmetrics connector is the only span consumer:
+the filter discards every child span (database, Redis, Sidekiq, HTTP clients)
+after the app has paid to generate and export it. Enable only the
+instrumentation whose spans a pipeline consumes, or route the pre-filter stream
+into additional connectors or a trace exporter.
 
 ## Template Guidance
 
@@ -499,6 +502,9 @@ Start with low-noise alerts:
 - Rack timeout count
 - collector unhealthy or no metrics arriving
 
+The [RAM](/docs/tips.md#ram) and [CPU](/docs/tips.md#cpu) sections in Tips walk
+through creating the memory, restart, and CPU alerts in Grafana.
+
 Avoid broad anomaly alerts until the baseline is understood. Week-over-week
 comparison can be useful, but it can also be noisy when traffic shifts by a few
 minutes or has bot contamination.
@@ -520,8 +526,8 @@ Before deploying:
 bundle exec rspec spec/open_telemetry/
 
 # Replace with your app's actual collector validation script names.
-./script/check_open_telemetry_config
-./script/validate_open_telemetry_config
+./.controlplane/open_telemetry/check_main_collector_config
+./.controlplane/open_telemetry/validate_main_collector_config
 ```
 
 Before enabling in staging:
@@ -550,6 +556,6 @@ Before enabling in production:
 - Use non-production apps for first rollout.
 - Keep collector external ingress closed unless a specific receiver requires it.
 - Do not put secrets in dashboard JSON, templates, or screenshots.
-- Keep high-cardinality attributes out of metric dimensions.
-- Prefer labels such as workload, service, and version; avoid user IDs, URLs
-  with IDs, raw SQL, request IDs, or trace IDs as metric dimensions.
+- Keep high-cardinality attributes — user IDs, URLs with IDs, raw SQL, request
+  IDs, trace IDs — out of metric dimensions; prefer labels such as workload,
+  service, and version.

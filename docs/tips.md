@@ -211,8 +211,7 @@ Rails applications that need app-level request latency, database spans, Redis sp
 trace-to-log correlation, add OpenTelemetry and an internal collector workload that exposes generated Prometheus
 metrics.
 
-See [Grafana and OpenTelemetry on Control Plane](/docs/grafana-opentelemetry.md) for the recommended collector shape,
-dashboard starting point, alert starting point, validation checks, and safety notes.
+See [Grafana and OpenTelemetry on Control Plane](/docs/grafana-opentelemetry.md) for the full setup guide.
 
 ## Memcached
 
