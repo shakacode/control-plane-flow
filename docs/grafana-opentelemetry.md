@@ -141,8 +141,10 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
     # The exporter reads its destination from the environment:
     #   OTEL_EXPORTER_OTLP_ENDPOINT — collector base URL, e.g. http://otel-collector:4318
     #   OTEL_EXPORTER_OTLP_PROTOCOL — set to http/protobuf
-    # Without these it defaults to localhost:4317, which usually does not exist on
-    # a Control Plane workload, so spans are dropped silently. See the notes below.
+    # Without these it defaults to http://localhost:4318, which usually does not
+    # exist on a Control Plane workload, so spans are dropped silently. (Port 4317
+    # is the gRPC default and applies to the separate opentelemetry-exporter-otlp-grpc
+    # gem, which this guide does not use.) See the notes below.
     exporter = OpenTelemetry::Exporter::OTLP::Exporter.new
 
     config.add_span_processor(
@@ -294,9 +296,10 @@ processors:
           - set(attributes["root_span"], false) where not IsRootSpan()
 ```
 
-`IsRootSpan()` requires collector-contrib v0.88.0 or later. On an older pinned
-image, replace it with an explicit parent-span-id check, and validate against the
-exact collector image before deployment.
+`IsRootSpan()` requires collector-contrib v0.105.0 or later (added in
+[contrib #32918](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/32918)).
+On an older pinned image, replace it with an explicit parent-span-id check, and
+validate against the exact collector image before deployment.
 
 Generate a request latency metric from selected root spans. One safe pattern is
 to run a filter processor before the spanmetrics connector that drops spans where
