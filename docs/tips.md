@@ -271,8 +271,8 @@ To set up a liveness probe on port 7433, see: https://github.com/arturictus/side
 
 Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
 workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
-The same tradeoff applies to public demo and starter staging apps: if the app is mostly there for occasional inspection,
-prefer cold-start latency over an always-on idle replica.
+The same tradeoff applies to public demos, starter staging apps, and long-lived review apps: if the app is mostly there
+for occasional inspection, accept cold-start latency instead of paying for an always-on idle replica.
 
 > **Note:** Scaling workloads to zero or stopping review apps does not reduce costs from external databases, managed
 > Redis instances, object storage, or other third-party services. Those continue to bill independently of Control Plane
@@ -561,12 +561,14 @@ Control Plane spins the workload back up on the next request. Only `type: server
 `type: standard` always keeps at least one replica running.
 
 Tradeoff: the first request after a quiet period pays the cold-start cost (typically 15–60 seconds for a Rails
-image, depending on app size and boot configuration). For review apps and public example/starter staging apps that's
-usually fine; for production or a live demo that must feel instantly warm, it usually isn't.
+image, depending on app size and boot configuration). For public demos, starter staging apps, and long-lived review apps
+that's usually fine; for production or a live demo that must feel instantly warm, it usually isn't.
 
 If a workload already exists as `type: standard`, Control Plane will not let you change it in place to `serverless`.
 Delete and recreate the workload, or create the environment-specific serverless workload before the first deploy.
-Treat that as an operational migration because deleting a workload can interrupt traffic.
+
+> **Warning:** Treat a `standard` to `serverless` conversion as an operational migration because deleting a running
+> workload can interrupt traffic.
 
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See

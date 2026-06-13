@@ -440,7 +440,8 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
-- Pair review apps and public demo/starter staging apps with serverless `minScale: 0` when cold starts are acceptable.
+- Supports cost-conscious review apps when paired with serverless `minScale: 0` for public demos, starter staging apps,
+  and long-lived review apps; see [Scale the Web Workload to Zero](tips.md#scale-the-web-workload-to-zero).
 - Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
 - Skips fork-based PR deploys because the workflow builds Docker images with repository secrets.
 
