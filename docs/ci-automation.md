@@ -156,9 +156,10 @@ Important points:
 - Review-app workflows infer the staging Control Plane org from that review app entry's `cpln_org`.
 - `upstream: my-app-staging` is what lets the production promotion workflow copy the exact staging artifact.
 - If your main web workload is not named `rails`, set the optional `PRIMARY_WORKLOAD` repository variable described below.
-- For public demos, starter staging apps, and long-lived review apps, prefer a serverless web workload with `minScale: 0` unless
-  always-warm latency is part of the acceptance criteria. Existing `standard` workloads need a planned delete/recreate
-  migration before they can become serverless. See [Scale the Web Workload to Zero](tips.md#scale-the-web-workload-to-zero).
+- For public demos, starter staging apps, and long-lived review apps, prefer `capacityAI: true` with the workload's
+  autoscaling metric disabled, so Control Plane can right-size the app instead of pinning CPU autoscaling to one
+  replica. See
+  [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 
 ## Required GitHub Repository Settings
 
@@ -440,8 +441,9 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
-- Supports cost-conscious review apps when paired with serverless `minScale: 0` for public demos, starter staging apps,
-  and long-lived review apps; see [Scale the Web Workload to Zero](tips.md#scale-the-web-workload-to-zero).
+- Supports cost-conscious review apps when paired with Capacity AI and a disabled autoscaling metric for public demos,
+  starter staging apps, and long-lived review apps; see
+  [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 - Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
 - Skips fork-based PR deploys because the workflow builds Docker images with repository secrets.
 

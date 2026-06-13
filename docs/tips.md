@@ -15,7 +15,7 @@
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
 11. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
     - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
-    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
+    - [Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
 12. [Useful Links](#useful-links)
@@ -528,44 +528,45 @@ A few tradeoffs remain even after the cost savings:
   per-app key prefix or logical database index is only conventional separation when apps share credentials. If review
   app code is not trusted, use enforced isolation such as per-app ACL users/credentials or separate instances.
 
-### Scale the Web Workload to Zero
+### Enable Capacity AI for Demo and Starter Staging Apps
 
-`templates/rails.yml` ships with `type: standard`, `minScale: 1`, `maxScale: 1`. That's a safe default for production,
-but for review apps, public demos, and starter staging apps where cold-start latency is acceptable, switch the web
-workload to a serverless type that scales to zero replicas when idle. Apply the snippet below to your project's
-`.controlplane/templates/rails.yml`, or create an environment-specific template (for example `rails-review.yml` or
-`rails-demo-staging.yml`) and list it under `setup_app_templates` for the matching app entry in
-`.controlplane/controlplane.yml`.
+`templates/rails.yml` ships with CPU autoscaling pinned to one replica (`minScale: 1`, `maxScale: 1`) and
+`capacityAI: false`. That's a conservative production-safe default, but for public demos, starter staging apps, and
+long-lived review apps, that fixed CPU strategy prevents Control Plane Capacity AI from right-sizing the workload.
+For these non-production apps, keep the Rails workload as `type: standard`, disable the explicit autoscaling metric,
+and enable Capacity AI. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or create an
+environment-specific template (for example `rails-review.yml` or `rails-demo-staging.yml`) and list it under
+`setup_app_templates` for the matching app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Only `type` and `minScale` change from templates/rails.yml; `maxScale`, `capacityAI` and `timeoutSeconds`
-# are shown for context so the full `defaultOptions` block reaches the destination intact.
-# Update the relevant fields in your full templates/rails.yml (or an environment-specific template); keep
-# containers, firewallConfig, identityLink, and everything else from that file intact.
+# Only `defaultOptions` changes from templates/rails.yml.
+# Keep containers, firewallConfig, identityLink, and everything else from that file intact.
 kind: workload
 name: rails
 spec:
-  type: serverless
+  type: standard
   defaultOptions:
     autoscaling:
-      minScale: 0
       maxScale: 1
-    capacityAI: false    # keep your existing value
+      metric: disabled
+    capacityAI: true
     timeoutSeconds: 60   # keep your existing value
 ```
 
 See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
 `identityLink`, and the other required fields must be preserved when you copy the snippet above.
 
-Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
-`type: standard` always keeps at least one replica running.
+This is not the same as scale-to-zero. Capacity AI can reduce over-allocation for mostly idle demos, but it will not
+make costs approach zero when a workload has steady RAM usage or background load. Expect it to settle over several
+hours, and treat memory sizing as a separate cost lever.
 
-Tradeoff: the first request after a quiet period pays the cold-start cost (typically 15–60 seconds for a Rails
-image, depending on app size and boot configuration). For public demos, starter staging apps, and long-lived review apps
-that's usually fine; for production or a live demo that must feel instantly warm, it usually isn't.
+Shared Postgres is the usual exception: keep shared databases manually sized rather than enabling Capacity AI
+indiscriminately. Apply this guidance to app/service workloads first (Rails, renderers, Redis, Elasticsearch, Mongo,
+and similar staging-only support services), then revisit any service that shows unstable behavior.
 
-If a workload already exists as `type: standard`, Control Plane will not let you change it in place to `serverless`.
-Delete and recreate the workload, or create the environment-specific serverless workload before the first deploy.
+If you intentionally need true idle scale-to-zero, use a separate `type: serverless` workload with `minScale: 0`.
+Existing `type: standard` workloads cannot change to `serverless` in place; that requires a planned delete/recreate
+migration and can interrupt traffic.
 
 > **Warning:** Treat a `standard` to `serverless` conversion as an operational migration because deleting a running
 > workload can interrupt traffic.
