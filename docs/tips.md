@@ -13,7 +13,7 @@
     - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
     - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-11. [Minimizing Review App Costs](#minimizing-review-app-costs)
+11. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
     - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
     - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
@@ -267,10 +267,12 @@ To do this:
 
 To set up a liveness probe on port 7433, see: https://github.com/arturictus/sidekiq_alive
 
-## Minimizing Review App Costs
+## Minimizing Non-Production App Costs
 
 Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
 workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
+The same tradeoff applies to public demo and starter staging apps: if the app is mostly there for occasional inspection,
+prefer cold-start latency over an always-on idle replica.
 
 > **Note:** Scaling workloads to zero or stopping review apps does not reduce costs from external databases, managed
 > Redis instances, object storage, or other third-party services. Those continue to bill independently of Control Plane
@@ -529,15 +531,16 @@ A few tradeoffs remain even after the cost savings:
 ### Scale the Web Workload to Zero
 
 `templates/rails.yml` ships with `type: standard`, `minScale: 1`, `maxScale: 1`. That's a safe default for production,
-but for review apps where cold-start latency is acceptable you can switch the web workload to a serverless type that
-scales to zero replicas when idle. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or
-create a review-app-specific template (for example `rails-review.yml`) and list it under `setup_app_templates` for the
-review-app entry in `.controlplane/controlplane.yml`.
+but for review apps, public demos, and starter staging apps where cold-start latency is acceptable, switch the web
+workload to a serverless type that scales to zero replicas when idle. Apply the snippet below to your project's
+`.controlplane/templates/rails.yml`, or create an environment-specific template (for example `rails-review.yml` or
+`rails-demo-staging.yml`) and list it under `setup_app_templates` for the matching app entry in
+`.controlplane/controlplane.yml`.
 
 ```yaml
 # Only `type` and `minScale` change from templates/rails.yml; `maxScale`, `capacityAI` and `timeoutSeconds`
 # are shown for context so the full `defaultOptions` block reaches the destination intact.
-# Update the relevant fields in your full templates/rails.yml (or a review-app-specific template); keep
+# Update the relevant fields in your full templates/rails.yml (or an environment-specific template); keep
 # containers, firewallConfig, identityLink, and everything else from that file intact.
 kind: workload
 name: rails
@@ -558,8 +561,12 @@ Control Plane spins the workload back up on the next request. Only `type: server
 `type: standard` always keeps at least one replica running.
 
 Tradeoff: the first request after a quiet period pays the cold-start cost (typically 15–60 seconds for a Rails
-image, depending on app size and boot configuration). For review apps that's usually fine; for production it
-usually isn't.
+image, depending on app size and boot configuration). For review apps and public example/starter staging apps that's
+usually fine; for production or a live demo that must feel instantly warm, it usually isn't.
+
+If a workload already exists as `type: standard`, Control Plane will not let you change it in place to `serverless`.
+Delete and recreate the workload, or create the environment-specific serverless workload before the first deploy.
+Treat that as an operational migration because deleting a workload can interrupt traffic.
 
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See

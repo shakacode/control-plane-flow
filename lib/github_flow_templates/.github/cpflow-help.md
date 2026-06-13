@@ -40,6 +40,12 @@ review-app secret dictionaries limited to disposable databases, review-only
 renderer credentials, and license values that are acceptable for review-app
 exposure.
 
+For public demos, starter staging apps, and long-lived review apps, prefer a
+serverless web workload with `minScale: 0` when cold-start latency is acceptable.
+Keep `standard` with `minScale: 1` for production targets and always-warm demos.
+Existing `standard` workloads need a planned delete/recreate migration before
+they can become serverless.
+
 Optional overrides exist for forks, clones, and unusual apps:
 
 | Name | Notes |
