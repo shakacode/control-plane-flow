@@ -708,6 +708,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "documents Capacity AI guidance in the generated help markdown" do
       help_md = playground.join(".github/cpflow-help.md").read
       normalized_help = help_md.gsub(/\s+/, " ")
+      # Exact phrasing -- update alongside the cpflow-help.md template if this copy changes.
       expected_guidance = [
         "keep the app workload `type: standard` with one warm replica, set the autoscaling metric to `disabled`,",
         "and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed",
