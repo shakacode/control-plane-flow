@@ -540,8 +540,9 @@ environment-specific template (for example `rails-review.yml` or `rails-demo-sta
 `setup_app_templates` for the matching app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Only `defaultOptions` changes from templates/rails.yml.
-# Keep containers, firewallConfig, identityLink, and everything else from that file intact.
+# Only `autoscaling.metric` and `capacityAI` change from templates/rails.yml.
+# `type: standard` is shown here to confirm this is not a serverless migration.
+# Keep containers, firewallConfig, identityLink, and everything else from the template intact.
 kind: workload
 name: rails
 spec:

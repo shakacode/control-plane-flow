@@ -707,11 +707,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "documents Capacity AI guidance in the generated help markdown" do
       help_md = playground.join(".github/cpflow-help.md").read
+      normalized_help = help_md.gsub(/\s+/, " ")
+      expected_guidance = [
+        "keep the app workload `type: standard` with one warm replica, set the autoscaling metric to `disabled`,",
+        "and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed",
+        "replica count"
+      ].join(" ")
 
-      expect(help_md).to include("set the autoscaling metric to")
-      expect(help_md).to include("`disabled`, and enable `capacityAI: true`")
-      expect(help_md).to include("right-size CPU and")
-      expect(help_md).to include("memory allocation at that fixed replica count")
+      expect(normalized_help).to include(expected_guidance)
       expect(help_md).to include("Shared Postgres")
       expect(help_md).to include("delete/recreate migration")
       expect(help_md).not_to include("serverless web workload with `minScale: 0`")
