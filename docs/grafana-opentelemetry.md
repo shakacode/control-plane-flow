@@ -365,7 +365,6 @@ connectors:
     exclude_dimensions:
       - span.name
       - span.kind
-      - status.code
     histogram:
       explicit:
         buckets:
@@ -382,7 +381,15 @@ connectors:
 ```
 
 `span.name` is excluded because raw Rails span names can carry too much
-cardinality. Before enabling the connector, inspect `http.route` values in a
+cardinality. `status.code` is kept as a dimension so the dashboard's "error
+count and error rate" panel is derivable; it has only a few values
+(`STATUS_CODE_OK`, `STATUS_CODE_ERROR`, `STATUS_CODE_UNSET`), so the cardinality
+cost is negligible. Compute error rate from the connector's request-count series
+split by `status.code` (errored calls ÷ total calls), and confirm the exact
+metric and label names against your collector image since they vary by
+spanmetrics version. OpenTelemetry sets server span status to `Error` for 5xx
+but not 4xx — add `http.response.status_code` as a dimension if you need 4xx
+granularity. Before enabling the connector, inspect `http.route` values in a
 real staging trace and confirm they are route patterns such as `/users/:id`,
 not raw request paths such as `/users/12345` — raw paths are one of the most
 common causes of a spanmetrics setup overwhelming Prometheus storage.
