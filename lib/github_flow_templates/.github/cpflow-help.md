@@ -40,11 +40,13 @@ review-app secret dictionaries limited to disposable databases, review-only
 renderer credentials, and license values that are acceptable for review-app
 exposure.
 
-For public demos, starter staging apps, and long-lived review apps, prefer a
-serverless web workload with `minScale: 0` when cold-start latency is acceptable.
-Keep `standard` with `minScale: 1` for production targets and always-warm demos.
-Existing `standard` workloads need a planned delete/recreate migration before
-they can become serverless.
+For public demos, starter staging apps, and long-lived review apps, keep the app
+workload `type: standard`, set the autoscaling metric to `disabled`, and enable
+`capacityAI: true` so Control Plane can right-size idle capacity. Shared Postgres
+is the usual exception and should stay manually sized. If true idle scale-to-zero
+is explicitly required, create a separate `serverless` workload before the first
+deploy or plan a delete/recreate migration because Control Plane will not change
+an existing `standard` workload to `serverless` in place.
 
 Optional overrides exist for forks, clones, and unusual apps:
 
