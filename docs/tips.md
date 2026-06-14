@@ -553,7 +553,6 @@ spec:
       maxScale: 1
       metric: disabled
     capacityAI: true
-    timeoutSeconds: 60   # keep your existing value
 ```
 
 See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
