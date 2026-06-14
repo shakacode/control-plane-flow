@@ -533,7 +533,7 @@ A few tradeoffs remain even after the cost savings:
 
 `templates/rails.yml` ships with CPU autoscaling pinned to one replica (`minScale: 1`, `maxScale: 1`) and
 `capacityAI: false`. That's a conservative production-safe default, but for public demos, starter staging apps, and
-long-lived review apps, that fixed CPU strategy prevents Control Plane Capacity AI from right-sizing the workload.
+long-lived review apps, Capacity AI can right-size CPU and memory allocation while keeping the same warm replica count.
 For these non-production apps, keep the Rails workload as `type: standard`, disable the explicit autoscaling metric,
 and enable Capacity AI. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or create an
 environment-specific template (for example `rails-review.yml` or `rails-demo-staging.yml`) and list it under
