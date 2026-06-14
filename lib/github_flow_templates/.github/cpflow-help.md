@@ -43,8 +43,8 @@ exposure.
 For public demos, starter staging apps, and long-lived review apps, keep the app
 workload `type: standard` with one warm replica, set the autoscaling metric to
 `disabled`, and enable `capacityAI: true` so Control Plane can right-size CPU and
-memory allocation at that fixed replica count. Shared Postgres is the usual
-exception and should stay manually sized. If true idle scale-to-zero is
+memory allocation at that fixed replica count. Shared Postgres and other stateful workloads are the usual exceptions and should
+stay manually sized; Capacity AI is for supported stateless app/service workloads. If true idle scale-to-zero is
 explicitly required, create a separate `serverless` workload before the first
 deploy or plan a delete/recreate migration because Control Plane will not change
 an existing `standard` workload to `serverless` in place.

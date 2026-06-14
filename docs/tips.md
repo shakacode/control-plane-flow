@@ -563,8 +563,10 @@ make costs approach zero when a workload has steady RAM usage or background load
 hours, and treat memory sizing as a separate cost lever.
 
 Shared Postgres is the usual exception: keep shared databases manually sized rather than enabling Capacity AI
-indiscriminately. Apply this guidance to app/service workloads first (Rails, renderers, Redis, Elasticsearch, Mongo,
-and similar staging-only support services), then revisit any service that shows unstable behavior.
+indiscriminately. Apply this guidance to stateless app/service workloads first (Rails, renderers, workers, and similar
+staging-only services). Stateful workloads are not supported by Capacity AI, so keep stateful Redis, Elasticsearch,
+Mongo, and similar support services manually sized unless you intentionally deploy them as supported stateless
+workloads.
 
 If you intentionally need true idle scale-to-zero, use a separate `type: serverless` workload with `minScale: 0`.
 Existing `type: standard` workloads cannot change to `serverless` in place; that requires a planned delete/recreate

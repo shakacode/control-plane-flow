@@ -716,6 +716,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(normalized_help).to include(expected_guidance)
       expect(help_md).to include("Shared Postgres")
+      expect(help_md).to include("stateful workloads")
+      expect(help_md).to include("supported stateless app/service workloads")
       expect(help_md).to include("delete/recreate migration")
       expect(help_md).not_to include("serverless web workload with `minScale: 0`")
     end
