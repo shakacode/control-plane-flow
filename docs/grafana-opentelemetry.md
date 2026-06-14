@@ -413,6 +413,7 @@ service:
       processors:
         - transform/normalize
         - filter/non_root_spans
+        - batch
       exporters:
         - spanmetrics/http_root_span_latency
     metrics:
@@ -540,6 +541,9 @@ Start with low-noise alerts:
 - request latency above a reviewed threshold
 - Rack timeout count
 - collector unhealthy or no metrics arriving
+- collector span throughput spiking above baseline, or the filter's dropped-span
+  count falling to zero — an early signal that an `error_mode: ignore` filter
+  silently became a no-op (metric names vary by collector version)
 
 The [RAM](/docs/tips.md#ram) and [CPU](/docs/tips.md#cpu) sections in Tips walk
 through creating the memory, restart, and CPU alerts in Grafana.
