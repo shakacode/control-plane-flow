@@ -698,15 +698,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("heads because Docker builds use repository secrets")
       expect(help_md).to include("Review apps run pull request code")
       expect(help_md).to include("review-app secret dictionaries limited to disposable databases")
-      expect(help_md).to include("set the autoscaling metric to `disabled`")
-      expect(help_md).to include("`capacityAI: true`")
-      expect(help_md).to include("Shared Postgres")
-      expect(help_md).not_to include("serverless web workload with `minScale: 0`")
       expect(help_md).to include("Add it as a secret on the 'production' GitHub Environment")
       expect(help_md).to include("permission to manage repository environments and secrets")
       expect(help_md).to include("gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production")
       expect(help_md).to include("gh secret list --repo OWNER/REPO --env production")
       expect(help_md).not_to include("control_plane_flow_ref")
+    end
+
+    it "documents Capacity AI guidance in the generated help markdown" do
+      help_md = playground.join(".github/cpflow-help.md").read
+
+      expect(help_md).to include("set the autoscaling metric to `disabled`")
+      expect(help_md).to include("`capacityAI: true`")
+      expect(help_md).to include("Shared Postgres")
+      expect(help_md).to include("delete/recreate migration")
+      expect(help_md).not_to include("serverless web workload with `minScale: 0`")
     end
 
     it "documents Docker build vars in the help markdown" do

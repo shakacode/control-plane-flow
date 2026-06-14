@@ -271,8 +271,9 @@ To set up a liveness probe on port 7433, see: https://github.com/arturictus/side
 
 Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
 workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
-The same tradeoff applies to public demos, starter staging apps, and long-lived review apps: if the app is mostly there
-for occasional inspection, accept cold-start latency instead of paying for an always-on idle replica.
+The same cost-control pass applies to public demos, starter staging apps, and long-lived review apps: start with
+Capacity AI for app workloads, then reserve true scale-to-zero for apps where cold starts and planned migrations are
+acceptable.
 
 > **Note:** Scaling workloads to zero or stopping review apps does not reduce costs from external databases, managed
 > Redis instances, object storage, or other third-party services. Those continue to bill independently of Control Plane
@@ -547,6 +548,7 @@ spec:
   type: standard
   defaultOptions:
     autoscaling:
+      minScale: 1
       maxScale: 1
       metric: disabled
     capacityAI: true
