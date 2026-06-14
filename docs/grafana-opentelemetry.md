@@ -106,7 +106,9 @@ locally or in CI, include the same gems in those Bundler groups too;
 telemetry.
 
 Keep OpenTelemetry disabled by default until the collector is deployed and
-reviewed:
+reviewed. Place this in a Rails initializer such as
+`config/initializers/opentelemetry.rb` so the Rails instrumentation hooks into
+the framework boot sequence:
 
 ```ruby
 if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
@@ -162,9 +164,10 @@ commit from the image tag.
 Recommended app workload env:
 
 ```yaml
-# Leave ENABLE_OPEN_TELEMETRY unset until the collector is deployed
-# (see Rollout Order).
-ENABLE_OPEN_TELEMETRY: "true"
+# Set ENABLE_OPEN_TELEMETRY to "true" only after the collector is deployed
+# (see Rollout Order). Leave it unset until then so the initializer guard keeps
+# telemetry disabled.
+# ENABLE_OPEN_TELEMETRY: "true"
 OTEL_SERVICE_NAME: "<workload-name>"
 OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
 OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
@@ -237,7 +240,11 @@ Recommended env:
 OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
 OPEN_TELEMETRY_CONFIG: "cpln://secret/<collector-config-secret>"
 # Set to a hash of the config content so secret updates force a workload spec
-# change and collector restart.
+# change and collector restart. Update it on every config change; if it goes
+# stale the workload spec is unchanged, no restart happens, and the collector
+# silently keeps running the previous config. Compute it from the generated
+# config, for example:
+#   sha256sum .controlplane/open_telemetry/main_collector_config.yml | awk '{print $1}'
 OPEN_TELEMETRY_CONFIG_HASH: "<hash-of-config>"
 ```
 
@@ -302,7 +309,14 @@ processors:
 
 `IsRootSpan()` requires collector-contrib v0.105.0 or later (added in
 [contrib #32918](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/32918)).
-On an older pinned image, replace it with an explicit parent-span-id check.
+On an older pinned image, replace the two `IsRootSpan()` lines with an explicit
+parent-span-id check — a root span has an empty parent span ID — and validate it
+against that exact image:
+
+```yaml
+- set(attributes["root_span"], true) where parent_span_id == SpanID(0x0000000000000000)
+- set(attributes["root_span"], false) where parent_span_id != SpanID(0x0000000000000000)
+```
 
 Generate a request latency metric from selected root spans. One safe pattern is
 to run a filter processor before the spanmetrics connector that drops spans where
@@ -318,11 +332,13 @@ processors:
 ```
 
 The filter processor drops spans that match the condition, and
-`error_mode: ignore` can hide expression mistakes. Keep `error_mode: propagate`
-in development and staging, and include a known trace with one root span and one
-child span in collector validation. Once the expression is verified, production
-configs can switch to `ignore` so a later expression regression cannot fail
-collector startup.
+`error_mode: ignore` can hide expression mistakes: a broken condition becomes a
+no-op that passes every span — including child spans — into the spanmetrics
+connector, inflating metric cardinality with no error logged. Keep
+`error_mode: propagate` in development and staging, and include a known trace
+with one root span and one child span in collector validation. Once the
+expression is verified, production configs can switch to `ignore` so a later
+expression regression cannot fail collector startup.
 
 Processor order is load-bearing here. The condition `attributes["root_span"] != true`
 matches spans where the attribute is **absent** as well as where it is `false`, so
@@ -376,6 +392,10 @@ Wire the receiver, processors, connector, and exporters together in
 connector terminates the traces pipeline and feeds the metrics pipeline:
 
 ```yaml
+extensions:
+  zpages:
+    endpoint: "0.0.0.0:55679"
+
 service:
   extensions:
     - zpages
@@ -399,12 +419,24 @@ service:
 
 The spanmetrics connector is listed as an exporter on the traces pipeline and as
 a receiver on the metrics pipeline; that shared reference is what links the two.
+Every extension named under `service.extensions` also needs a matching top-level
+`extensions:` block — shown here for `zpages` — or the collector fails to start.
 
 In this minimal pipeline the spanmetrics connector is the only span consumer:
 the filter discards every child span (database, Redis, Sidekiq, HTTP clients)
-after the app has paid to generate and export it. Enable only the
-instrumentation whose spans a pipeline consumes, or route the pre-filter stream
-into additional connectors or a trace exporter.
+after the app has paid to generate and export it, and no raw traces are stored.
+This config is metrics-only — the trace-drilldown use cases in
+[Signals: Traces](#traces) (which DB query was slow, which external call timed
+out) are not available with it alone. Enable only the instrumentation whose
+spans a pipeline consumes, and to keep traces for debugging, add a trace
+exporter (for example OTLP to Grafana Tempo) on the traces pipeline alongside
+the spanmetrics connector.
+
+At production request rates, generating and exporting 100% of spans before
+filtering can overload the collector and inflate egress cost. For high-traffic
+workloads, consider head-based sampling in the app
+(`OTEL_TRACES_SAMPLER`, e.g. `parentbased_traceidratio`) or a tail-sampling
+processor in the collector.
 
 ## Template Guidance
 
