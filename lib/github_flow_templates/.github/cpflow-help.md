@@ -40,6 +40,16 @@ review-app secret dictionaries limited to disposable databases, review-only
 renderer credentials, and license values that are acceptable for review-app
 exposure.
 
+For public demos, starter staging apps, and long-lived review apps, keep the app
+workload `type: standard` with one warm replica, set its autoscaling metric to
+`disabled`, and enable `capacityAI: true` so Control Plane can right-size CPU and
+memory allocation at that fixed replica count. Shared Postgres and other
+stateful workloads are the usual exceptions and should stay manually sized;
+Capacity AI is for supported stateless app/service workloads. If true idle
+scale-to-zero is explicitly required, create a separate `serverless` workload
+before the first deploy or plan a delete/recreate migration because Control
+Plane will not change an existing `standard` workload to `serverless` in place.
+
 Optional overrides exist for forks, clones, and unusual apps:
 
 | Name | Notes |
