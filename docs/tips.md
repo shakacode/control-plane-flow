@@ -568,7 +568,22 @@ staging-only services). Stateful workloads are not supported by Capacity AI, so 
 Mongo, and similar support services manually sized unless you intentionally deploy them as supported stateless
 workloads.
 
-If you intentionally need true idle scale-to-zero, use a separate `type: serverless` workload with `minScale: 0`.
+If you intentionally need true idle scale-to-zero, use a separate `type: serverless` workload with `minScale: 0` and
+an HTTP wake-up autoscaling metric such as `rps` or `concurrency`:
+
+```yaml
+kind: workload
+name: rails
+spec:
+  type: serverless
+  defaultOptions:
+    autoscaling:
+      minScale: 0
+      maxScale: 1
+      metric: rps
+      target: 1
+```
+
 Existing `type: standard` workloads cannot change to `serverless` in place; that requires a planned delete/recreate
 migration and can interrupt traffic.
 

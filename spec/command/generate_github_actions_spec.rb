@@ -709,11 +709,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       help_md = playground.join(".github/cpflow-help.md").read
       normalized_help = help_md.gsub(/\s+/, " ")
       # Exact phrasing -- update alongside the cpflow-help.md template if this copy changes.
-      expected_guidance = [
-        "keep the app workload `type: standard` with one warm replica, set the autoscaling metric to `disabled`,",
-        "and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed",
+      expected_guidance =
+        "keep the app workload `type: standard` with one warm replica, " \
+        "set its autoscaling metric to `disabled`, " \
+        "and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed " \
         "replica count"
-      ].join(" ")
 
       expect(normalized_help).to include(expected_guidance)
       expect(help_md).to include("Shared Postgres")

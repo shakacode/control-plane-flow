@@ -41,7 +41,7 @@ renderer credentials, and license values that are acceptable for review-app
 exposure.
 
 For public demos, starter staging apps, and long-lived review apps, keep the app
-workload `type: standard` with one warm replica, set the autoscaling metric to
+workload `type: standard` with one warm replica, set its autoscaling metric to
 `disabled`, and enable `capacityAI: true` so Control Plane can right-size CPU and
 memory allocation at that fixed replica count. Shared Postgres and other
 stateful workloads are the usual exceptions and should stay manually sized;
