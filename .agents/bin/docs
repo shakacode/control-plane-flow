@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 # Check generated command docs are current.
 set -euo pipefail
+cd "$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 exec bundle exec rake check_command_docs

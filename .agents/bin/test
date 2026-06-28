@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 # Run the test suite. Extra args pass through to rspec.
 set -euo pipefail
+cd "$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 exec bundle exec rspec "$@"
