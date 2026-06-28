@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Check generated command docs are current.
+set -euo pipefail
+exec bundle exec rake check_command_docs

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Run the test suite. Extra args pass through to rspec.
+set -euo pipefail
+exec bundle exec rspec "$@"

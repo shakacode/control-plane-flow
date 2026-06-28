@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Pre-push gate: full local validation (run before pushing).
+set -euo pipefail
+exec bundle exec rake

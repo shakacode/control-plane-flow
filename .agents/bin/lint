@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Lint / format check. Pass -A to autocorrect.
+set -euo pipefail
+exec bundle exec rubocop "$@"
