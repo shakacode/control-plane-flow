@@ -399,7 +399,8 @@ No re-deploy is needed; the workloads come back with the same images they had be
 
 ## Right-Sizing Non-Production Workloads
 
-[Minimizing Non-Production App Costs](#minimizing-non-production-app-costs) above targets ephemeral PRs.
+[Minimizing Non-Production App Costs](#minimizing-non-production-app-costs) above covers the full non-production range —
+Capacity AI, scale-to-zero, and shared Postgres for staging and demo apps alike.
 Staging and demo apps — long-lived, low-traffic, and non-production — are the other common
 source of avoidable Control Plane spend: they tend to keep generously-sized workloads
 running full-time. The levers below apply to any non-production environment (staging,
@@ -426,9 +427,9 @@ Also disable CPU-utilization autoscaling for idle non-production workloads; the
 next section shows the complete `capacityAI` and autoscaling shape together.
 
 Tradeoff: Control Plane reprovisions the replica when it adjusts the reservation. For
-stateless web/renderer workloads that's negligible. For stateful workloads (Postgres,
-Redis) a scale event briefly interrupts connections — fine for non-production, not for
-production.
+stateless web/renderer workloads that's negligible. For stateful workloads, see the
+[guidance above](#enable-capacity-ai-for-demo-and-starter-staging-apps) — Postgres,
+Redis, Elasticsearch, Mongo, and similar services should remain manually sized.
 
 ### Don't Autoscale Idle Workloads on CPU
 
@@ -491,7 +492,7 @@ app multiplies standing cost. For non-production, several apps can share a singl
 server, each using its own database:
 
 - Point each app's `DATABASE_URL` environment variable (in `.controlplane/templates/`) at the shared instance — for
-  example `postgres://user:pass@postgres.shared-postgres.cpln.local:5432/my_app_staging` — and give each app a
+  example `postgres://user:pass@postgres.staging-shared-postgres.cpln.local:5432/my_app_staging` — and give each app a
   distinct database name in the path.
 - Expose the database port at **exactly one** level (org *or* GVC, never both). Exposing both creates competing
   routes for the same service and can send clients to the wrong endpoint.
