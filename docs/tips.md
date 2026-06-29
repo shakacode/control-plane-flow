@@ -399,12 +399,10 @@ No re-deploy is needed; the workloads come back with the same images they had be
 
 ## Right-Sizing Non-Production Workloads
 
-[Minimizing Non-Production App Costs](#minimizing-non-production-app-costs) above covers the full non-production range —
-Capacity AI, scale-to-zero, and shared Postgres for staging and demo apps alike.
-Staging and demo apps — long-lived, low-traffic, and non-production — are the other common
-source of avoidable Control Plane spend: they tend to keep generously-sized workloads
-running full-time. The levers below apply to any non-production environment (staging,
-demos, and review apps alike).
+[Minimizing Non-Production App Costs](#minimizing-non-production-app-costs) above focuses on review-app lifecycle
+controls: scale-to-zero, explicit pauses, and stale app cleanup. Long-lived staging and demo apps are the other common
+source of avoidable Control Plane spend: they tend to keep generously-sized workloads running full-time. The levers
+below apply to any non-production environment (staging, demos, and review apps alike).
 
 ### Enable Capacity AI on Idle Workloads
 
@@ -460,8 +458,9 @@ over-provisioned.
 
 Postgres is the usual offender: a demo or staging database does **not** need a full core.
 Pinning `cpu: 1000m` keeps a whole reserved CPU running 24/7, while an idle Postgres
-typically sits at single-digit millicores. Something like `cpu: 128m` / `memory: 1Gi` is
-plenty for non-production:
+typically sits at single-digit millicores. Something like `cpu: 250m` / `memory: 512Mi`
+is a field-tested non-production starting point; raise memory toward `1Gi` if the
+workload's Metrics tab shows pressure during seeds, imports, or larger staging datasets.
 
 ```yaml
 kind: workload
@@ -469,8 +468,8 @@ name: postgres
 spec:
   containers:
     - name: postgres
-      cpu: 128m
-      memory: 1Gi
+      cpu: 250m
+      memory: 512Mi
 ```
 
 ### Drop Workloads You Don't Use
@@ -480,10 +479,11 @@ container. Remove the ones a non-production app doesn't actually need.
 
 A common one is a separate background-job worker when the app has no jobs to run. On Rails
 8, [Solid Queue](https://github.com/rails/solid_queue) can run inside Puma instead of as its
-own workload — set `SOLID_QUEUE_IN_PUMA=true` (the default Rails 8 `config/puma.rb` starts
-the Solid Queue supervisor when this is set). Then drop the `worker` workload from
-`app_workloads` and `setup_app_templates` in `.controlplane/controlplane.yml`, and delete
-its template. Solid Queue is database-backed, so this needs no Redis.
+own workload — set `SOLID_QUEUE_IN_PUMA=true` when the app uses the Rails 8 default
+`config/puma.rb`, or add `plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]` manually for
+apps upgraded from Rails 7. Then drop the `worker` workload from `app_workloads` and
+`setup_app_templates` in `.controlplane/controlplane.yml`, and delete its template.
+Solid Queue is database-backed, so this needs no Redis.
 
 ### Share One Postgres Across Non-Production Apps
 
@@ -494,10 +494,15 @@ server, each using its own database:
 - Point each app's `DATABASE_URL` environment variable (in `.controlplane/templates/`) at the shared instance — for
   example `postgres://user:pass@postgres.staging-shared-postgres.cpln.local:5432/my_app_staging` — and give each app a
   distinct database name in the path.
-- Expose the database port at **exactly one** level (org *or* GVC, never both). Exposing both creates competing
-  routes for the same service and can send clients to the wrong endpoint.
-- A Capacity AI scale event on a shared Postgres briefly interrupts every app pointed at
-  it — acceptable for non-production.
+- Set `inboundAllowType` to the narrowest scope that covers your use case — `workload-list` gives the tightest blast
+  radius when you can keep an explicit per-workload allowlist current, while `same-org` is the practical default when
+  client apps are too dynamic to maintain manually. `same-gvc` only works when the shared Postgres and every client app
+  live in the same GVC, which is not the cross-GVC pattern shown above. Overly broad allow-types expand the attack
+  surface, especially when review apps can run untrusted PR code.
+- Store shared database credentials in Control Plane secrets for long-lived staging and demos; plaintext
+  `DATABASE_URL` values are only reasonable for disposable non-production experiments.
+- Prefer per-app database roles over a shared superuser or broad `CREATEDB` role, especially when review apps can run
+  untrusted PR code.
 
 A managed alternative is a single small RDS instance hosting many databases; see
 [Hetzner RDS Postgres](https://pelle.io/posts/hetzner-rds-postgres).
@@ -505,9 +510,9 @@ A managed alternative is a single small RDS instance hosting many databases; see
 ### Keep Templates as the Source of Truth
 
 It's tempting to tune `cpu`, `capacityAI`, or autoscaling directly in the Control Plane UI.
-Don't: `cpflow deploy` reconciles every workload from your `.controlplane/templates/`, so
-console edits are silently overwritten on the next deploy and your live configuration drifts
-from the repo. Make cost changes in the templates and deploy them.
+Don't: `cpflow apply-template` reconciles workloads from your `.controlplane/templates/`, so console edits are
+overwritten when it runs next; non-interactive CI runs with `--yes` do that silently, while interactive runs prompt
+before re-creating existing workloads. Make cost changes in the templates and deploy them.
 
 If you want drift caught automatically, manage long-lived environments with Terraform via
 [`cpflow terraform`](/docs/terraform/overview.md) — `terraform plan` reports any difference
