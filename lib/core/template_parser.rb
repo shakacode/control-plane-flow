@@ -63,18 +63,23 @@ class TemplateParser
   end
 
   def replace_image_variables(yaml_file)
-    return yaml_file unless yaml_file.include?("{{APP_IMAGE}}") || yaml_file.include?("{{APP_IMAGE_LINK}}")
+    has_image = yaml_file.include?("{{APP_IMAGE}}")
+    has_image_link = yaml_file.include?("{{APP_IMAGE_LINK}}")
+    return yaml_file unless has_image || has_image_link
 
-    latest_image = cp.latest_image
+    yaml_file = yaml_file.gsub("{{APP_IMAGE}}", latest_image) if has_image
+    yaml_file = yaml_file.gsub("{{APP_IMAGE_LINK}}", config.image_link(latest_image)) if has_image_link
     yaml_file
-      .gsub("{{APP_IMAGE}}", latest_image)
-      .gsub("{{APP_IMAGE_LINK}}", config.image_link(latest_image))
   end
 
   def replace_legacy_image_variable(yaml_file)
-    return yaml_file unless yaml_file.include?("APP_IMAGE")
+    return yaml_file unless yaml_file.match?(/\bAPP_IMAGE\b/)
 
-    yaml_file.gsub("APP_IMAGE", cp.latest_image)
+    yaml_file.gsub(/\bAPP_IMAGE\b/, latest_image)
+  end
+
+  def latest_image
+    @latest_image ||= cp.latest_image
   end
 
   def find_deprecated_variables(yaml_file)

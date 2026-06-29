@@ -65,5 +65,49 @@ describe TemplateParser do
 
       expect(cp).not_to have_received(:latest_image)
     end
+
+    it "does not treat APP_IMAGE_LINK as the bare APP_IMAGE legacy variable" do
+      template_file.rewind
+      template_file.truncate(0)
+      template_file.write(<<~YAML)
+        kind: workload
+        name: rails
+        spec:
+          containers:
+            - name: rails
+              image: "{{APP_IMAGE_LINK}}"
+      YAML
+      template_file.rewind
+
+      parsed_template = parser.parse([template_file.path]).first
+
+      expect(parsed_template.dig("spec", "containers", 0, "image"))
+        .to eq("/org/test-org/image/test-review-123:1")
+      expect(parser.deprecated_variables).not_to include("APP_IMAGE")
+    end
+
+    it "fetches the latest image only once when modern and legacy image variables are present" do
+      template_file.rewind
+      template_file.truncate(0)
+      template_file.write(<<~YAML)
+        kind: workload
+        name: rails
+        spec:
+          containers:
+            - name: rails
+              image: "{{APP_IMAGE_LINK}}"
+          env:
+            - name: LEGACY_IMAGE
+              value: APP_IMAGE
+      YAML
+      template_file.rewind
+
+      parsed_template = parser.parse([template_file.path]).first
+
+      expect(parsed_template.dig("spec", "containers", 0, "image"))
+        .to eq("/org/test-org/image/test-review-123:1")
+      expect(parsed_template.dig("spec", "env", 0, "value")).to eq("test-review-123:1")
+      expect(cp).to have_received(:latest_image).once
+    end
   end
 end

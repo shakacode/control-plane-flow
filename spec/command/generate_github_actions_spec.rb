@@ -645,16 +645,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}")
       expect(contents).to include("app_name: ${{ steps.review-config.outputs.app_name }}")
       expect(contents).to include("org: ${{ steps.review-config.outputs.cpln_org }}")
+      expect(contents).not_to include("REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES:")
+      expect(contents).to include("max_retries: ${{ vars.REVIEW_APP_HEALTH_CHECK_RETRIES || '24' }}")
       expect(contents).to include(
-        "REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES: " \
-        "${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}"
+        "interval_seconds: ${{ vars.REVIEW_APP_HEALTH_CHECK_INTERVAL || '15' }}"
       )
-      expect(contents).to include("max_retries: ${{ env.REVIEW_APP_HEALTH_CHECK_RETRIES }}")
-      expect(contents).to include("interval_seconds: ${{ env.REVIEW_APP_HEALTH_CHECK_INTERVAL }}")
       expect(contents).to include(
-        "accepted_statuses: ${{ env.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES }}"
+        "accepted_statuses: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}"
       )
-      expect(contents).to include("curl_max_time: ${{ env.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME }}")
+      expect(contents).to include("curl_max_time: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}")
     end
 
     it "supports an animated deploy status icon with a repository override" do

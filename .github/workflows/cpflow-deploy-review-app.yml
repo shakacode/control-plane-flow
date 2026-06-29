@@ -28,12 +28,6 @@ concurrency:
 env:
   PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
-  # Review apps use their own health knobs so teams can keep production
-  # promotion stricter or slower without changing PR feedback behavior.
-  REVIEW_APP_HEALTH_CHECK_RETRIES: ${{ vars.REVIEW_APP_HEALTH_CHECK_RETRIES || '24' }}
-  REVIEW_APP_HEALTH_CHECK_INTERVAL: ${{ vars.REVIEW_APP_HEALTH_CHECK_INTERVAL || '15' }}
-  REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}
-  REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}
 
 jobs:
   deploy:
@@ -453,13 +447,15 @@ jobs:
           workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}
           app_name: ${{ steps.review-config.outputs.app_name }}
           org: ${{ steps.review-config.outputs.cpln_org }}
-          max_retries: ${{ env.REVIEW_APP_HEALTH_CHECK_RETRIES }}
-          interval_seconds: ${{ env.REVIEW_APP_HEALTH_CHECK_INTERVAL }}
-          accepted_statuses: ${{ env.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES }}
-          curl_max_time: ${{ env.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME }}
+          # Review apps use their own health knobs so teams can keep production
+          # promotion stricter or slower without changing PR feedback behavior.
+          max_retries: ${{ vars.REVIEW_APP_HEALTH_CHECK_RETRIES || '24' }}
+          interval_seconds: ${{ vars.REVIEW_APP_HEALTH_CHECK_INTERVAL || '15' }}
+          accepted_statuses: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}
+          curl_max_time: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}
 
       - name: Retrieve app URL
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success') && steps.health-check.outcome == 'success'
         id: workload
         working-directory: app
         shell: bash

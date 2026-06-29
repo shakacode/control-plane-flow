@@ -52,6 +52,17 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("- kind: gvc, name: #{app}")
     end
 
+    it "fails cleanly if the current app config is missing" do
+      progress = StringIO.new
+      config = instance_double(Config, args: [], current: nil)
+      command = instance_double(described_class, config: config, progress: progress)
+
+      expect { DoctorService.new(command).run_validations(["templates"]) }.to raise_error(SystemExit)
+      expect(progress.string).to include("[FAIL] templates")
+      expect(progress.string).to include("Can't find current config, please specify an app.")
+      expect(progress.string).not_to include("NoMethodError")
+    end
+
     it "fails if a selected setup template is missing" do
       app = dummy_test_app("missing-template")
 
@@ -61,6 +72,19 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("[FAIL] templates")
       expect(result[:stderr]).to include("Missing templates")
       expect(result[:stderr]).to include("- nonexistent")
+    end
+
+    it "fails if an explicitly named template is missing" do
+      Dir.mktmpdir do |dir|
+        progress = StringIO.new
+        config = instance_double(Config, args: ["nonexistent"], app_cpln_dir: dir)
+        command = instance_double(described_class, config: config, progress: progress)
+
+        expect { DoctorService.new(command).run_validations(["templates"]) }.to raise_error(SystemExit)
+        expect(progress.string).to include("[FAIL] templates")
+        expect(progress.string).to include("Missing templates")
+        expect(progress.string).to include("- nonexistent")
+      end
     end
 
     it "validates all templates if no setup templates are selected" do
@@ -104,6 +128,40 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("APP_GVC -> {{APP_NAME}}")
       expect(result[:stderr]).to include("APP_LOCATION -> {{APP_LOCATION}}")
       expect(result[:stderr]).not_to include("APP_IMAGE -> {{APP_IMAGE}}")
+    end
+
+    it "warns about a deprecated bare APP_IMAGE variable" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p("#{dir}/templates")
+        File.write("#{dir}/templates/legacy.yml", <<~YAML)
+          kind: identity
+          name: APP_IMAGE
+        YAML
+
+        progress = StringIO.new
+        config = instance_double(
+          Config,
+          args: [],
+          current: { setup_app_templates: ["legacy"] },
+          app_cpln_dir: dir,
+          org: "test-org",
+          app: "test-app",
+          location: "aws-us-east-2",
+          location_link: "/org/test-org/location/aws-us-east-2",
+          identity: "test-app-identity",
+          identity_link: "/org/test-org/gvc/test-app/identity/test-app-identity",
+          secrets: "test-app-secrets",
+          secrets_policy: "test-app-secrets-policy",
+          shared_secret_placeholders: {}
+        )
+        cp = instance_double(Controlplane, latest_image: "test-app:1")
+        command = instance_double(described_class, config: config, progress: progress, cp: cp)
+
+        DoctorService.new(command).run_validations(["templates"])
+
+        expect(progress.string).to include("[PASS] templates")
+        expect(progress.string).to include("APP_IMAGE -> {{APP_IMAGE}}")
+      end
     end
   end
 
