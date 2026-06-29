@@ -399,7 +399,7 @@ No re-deploy is needed; the workloads come back with the same images they had be
 
 ## Right-Sizing Non-Production Workloads
 
-[Minimizing Review App Costs](#minimizing-review-app-costs) above targets ephemeral PRs.
+[Minimizing Non-Production App Costs](#minimizing-non-production-app-costs) above targets ephemeral PRs.
 Staging and demo apps — long-lived, low-traffic, and non-production — are the other common
 source of avoidable Control Plane spend: they tend to keep generously-sized workloads
 running full-time. The levers below apply to any non-production environment (staging,
@@ -422,6 +422,9 @@ spec:
     capacityAI: true
 ```
 
+Also disable CPU-utilization autoscaling for idle non-production workloads; the
+next section shows the complete `capacityAI` and autoscaling shape together.
+
 Tradeoff: Control Plane reprovisions the replica when it adjusts the reservation. For
 stateless web/renderer workloads that's negligible. For stateful workloads (Postgres,
 Redis) a scale event briefly interrupts connections — fine for non-production, not for
@@ -439,13 +442,13 @@ spec:
   defaultOptions:
     capacityAI: true
     autoscaling:
-      metric: "disabled"
+      metric: disabled
       minScale: 1
       maxScale: 1
 ```
 
 (For the web tier you can go further and scale to zero — see
-[Scale the Web Workload to Zero](#scale-the-web-workload-to-zero).)
+[Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps).)
 
 ### Right-Size Reserved CPU and Memory
 
@@ -487,8 +490,9 @@ Running a dedicated Postgres workload — and its SSD volume — for every stagi
 app multiplies standing cost. For non-production, several apps can share a single Postgres
 server, each using its own database:
 
-- Point each app's `DATABASE_HOST` environment variable (in `.controlplane/templates/`) at the shared instance's internal
-  address, and give each app a distinct database name on that server.
+- Point each app's `DATABASE_URL` environment variable (in `.controlplane/templates/`) at the shared instance — for
+  example `postgres://user:pass@postgres.shared-postgres.cpln.local:5432/my_app_staging` — and give each app a
+  distinct database name in the path.
 - Expose the database port at **exactly one** level (org *or* GVC, never both). Exposing both creates competing
   routes for the same service and can send clients to the wrong endpoint.
 - A Capacity AI scale event on a shared Postgres briefly interrupts every app pointed at
