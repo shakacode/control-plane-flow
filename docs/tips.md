@@ -433,11 +433,13 @@ CPU-utilization autoscaling adds nothing for an idle non-production app and work
 Capacity AI. Disable it and let Capacity AI handle right-sizing:
 
 ```yaml
+kind: workload
+name: rails
 spec:
   defaultOptions:
     capacityAI: true
     autoscaling:
-      metric: disabled
+      metric: "disabled"
       minScale: 1
       maxScale: 1
 ```
@@ -485,15 +487,15 @@ Running a dedicated Postgres workload — and its SSD volume — for every stagi
 app multiplies standing cost. For non-production, several apps can share a single Postgres
 server, each using its own database:
 
-- Point each app's `DATABASE_HOST` (in `templates/app.yml`) at the shared instance's
-  internal address, and give each app a distinct database name on that server.
-- Expose the database port at **exactly one** level (org *or* GVC, never both) to avoid
-  Control Plane routing conflicts.
+- Point each app's `DATABASE_HOST` environment variable (in `.controlplane/templates/`) at the shared instance's internal
+  address, and give each app a distinct database name on that server.
+- Expose the database port at **exactly one** level (org *or* GVC, never both). Exposing both creates competing
+  routes for the same service and can send clients to the wrong endpoint.
 - A Capacity AI scale event on a shared Postgres briefly interrupts every app pointed at
   it — acceptable for non-production.
 
 A managed alternative is a single small RDS instance hosting many databases; see
-[migrating from Heroku Postgres to RDS](https://pelle.io/posts/hetzner-rds-postgres).
+[Hetzner RDS Postgres](https://pelle.io/posts/hetzner-rds-postgres).
 
 ### Keep Templates as the Source of Truth
 
@@ -509,4 +511,4 @@ between the repo and live infrastructure before you apply.
 ## Useful Links
 
 - For best practices for the app's Dockerfile, see: https://lipanski.com/posts/dockerfile-ruby-best-practices
-- For migrating from Heroku Postgres to RDS, see: https://pelle.io/posts/hetzner-rds-postgres
+- For Hetzner RDS Postgres, see: https://pelle.io/posts/hetzner-rds-postgres
