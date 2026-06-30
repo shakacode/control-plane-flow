@@ -408,17 +408,18 @@ Advanced optional repository variables:
 - `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
 
-## Review app security for public repositories
+## Review app security for repositories with external contributors
 
 Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
 Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
 `hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
 deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even when the hook
 command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime the code
-executes with the review app's Control Plane workload identity token and can read any secrets mounted into the workload
-environment. `CPLN_TOKEN_STAGING` is a GitHub Actions secret that stays on the runner and is not injected into the
-container. This is why workload-mounted secrets must remain disposable and the review app identity must be scoped to
-minimum permissions.
+executes inside the review app workload and can read any secrets mounted into the workload environment.
+`CPLN_TOKEN_STAGING` is a GitHub Actions secret that stays on the runner and is not injected into the container. Control
+Plane's workload identity mechanism still injects a separate workload-scoped `CPLN_TOKEN` into the container at runtime;
+PR code can use it to reveal any secret that identity is permitted to access. This is why workload-mounted secrets must
+remain disposable and the review app identity must be scoped to minimum permissions.
 
 The generated flow uses these defaults:
 
@@ -460,17 +461,20 @@ repository secret access. Referencing the SHA for other purposes, such as deploy
 calls, is safe.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
-For public repositories, keep review-app credentials and runtime values disposable:
+For repositories with external contributors, keep review-app credentials and runtime values disposable:
 
 - do not mount production secrets, staging customer data, package-publishing tokens, payment keys, or monitoring tokens
   into review apps;
-- do not use `DOCKER_BUILD_SSH_KEY` with a long-lived personal key or broad deploy key; restrict it to a read-only,
-  revocable deploy key scoped to the minimum private dependency access;
+- do not use `DOCKER_BUILD_SSH_KEY` with a long-lived personal key or broad deploy key; see
+  [Docker Builds with Private Dependencies](#docker-builds-with-private-dependencies) for the minimum-access deploy-key
+  requirements;
 - do not use broad Control Plane `superusers` tokens for review-app CI; use a review/staging service account scoped only to
   review/staging CI operations;
 - keep review databases, Redis instances, object stores, and renderer credentials separate from staging and production;
 - rotate any credential that may have been exposed to a malicious review-app build;
-- use scheduled cleanup so stale review apps stop consuming compute and secrets access.
+- use scheduled cleanup so stale review apps stop consuming compute and secrets access. Cleanup deletes apps through
+  `cpflow delete`, so any configured `hooks.pre_deletion` still runs through the latest PR-built image; review-app
+  credentials must remain disposable for this path too.
 
 Secret indirection such as `cpln://secret/...` protects values in Control Plane configuration. It does not protect a
 value after that secret is mounted into a workload that runs pull request code. See
