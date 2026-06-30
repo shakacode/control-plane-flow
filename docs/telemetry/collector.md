@@ -24,7 +24,7 @@ spec:
   type: standard
   containers:
     - name: open-telemetry-collector
-      image: "otel/opentelemetry-collector-contrib:0.155.0"
+      image: "registry.example.com/example/open-telemetry-collector:0.155.0"
       args:
         - "--config=/etc/otelcol-contrib/config.yaml"
       cpu: 100m
@@ -53,6 +53,8 @@ spec:
       # required by your telemetry backend.
       outboundAllowHostname:
         - telemetry-backend.example.com
+  # cpflow apply-template replaces this with the app workload identity link.
+  identityLink: "{{APP_IDENTITY_LINK}}"
 ```
 
 Use `outboundAllowCIDR` instead of `outboundAllowHostname` when your backend
@@ -62,6 +64,23 @@ production unless your security model explicitly accepts that risk.
 Keep the collector image pinned to a tested release and update it as part of
 normal dependency maintenance. Do not rely on a floating `latest` tag for
 production workloads.
+
+## Delivering Collector Config
+
+The official collector image does not include your application-specific
+`config.yaml`. A simple Control Plane pattern is to build a small collector image
+that starts from the pinned upstream image and copies the config into the path
+used by the workload command.
+
+```dockerfile
+FROM otel/opentelemetry-collector-contrib:0.155.0
+
+COPY config.yaml /etc/otelcol-contrib/config.yaml
+```
+
+Publish that image to your registry, then use the published image in the
+workload template. Use a different delivery mechanism only if your team already
+has a standard way to provide files to Control Plane workloads.
 
 ## Matching Collector Config
 
@@ -142,6 +161,9 @@ The Prometheus exporter exposes an unauthenticated scrape endpoint. With
 `9292` can read exported metrics. Widen collector inbound access only when that
 is acceptable.
 
+Port `9292` is an example scrape port. Configure your scraper to match the port
+you expose in the workload template and bind in the collector config.
+
 ## StatsD and UDP
 
 The upstream OpenTelemetry StatsD receiver defaults to UDP on port `8125`.
@@ -155,6 +177,10 @@ Safer defaults:
 1. Prefer OTLP metrics over HTTP on `4318`.
 2. Use StatsD over TCP only when your app client and collector build support it.
 3. Treat UDP StatsD as an environment-specific advanced option.
+
+If you remove StatsD, remove all three pieces together: the workload port, the
+`statsd/tcp` receiver block, and `statsd/tcp` from the metrics pipeline
+receivers.
 
 ## `controlplane.yml`
 

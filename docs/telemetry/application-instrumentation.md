@@ -37,7 +37,9 @@ standard SDK configuration such as `OTEL_SERVICE_NAME` and
 ## Optional StatsD TCP Variables
 
 Use these only when your application client can send StatsD over TCP and your
-collector has a matching `statsd/tcp` receiver.
+collector has a matching `statsd/tcp` receiver. These environment variable names
+are examples for application code that reads them; many StatsD clients require
+TCP transport to be configured explicitly in code.
 
 ```yaml
 env:

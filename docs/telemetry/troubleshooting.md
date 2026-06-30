@@ -2,6 +2,12 @@
 
 Use this checklist when telemetry does not appear in the backend.
 
+Set `APP_NAME` before running the examples:
+
+```sh
+APP_NAME=your-app-name
+```
+
 ## 1. Confirm Workloads
 
 ```sh

@@ -113,7 +113,10 @@ StatsD client or when a metric library cannot emit OTLP yet.
 4. Add the collector to `additional_workloads`.
 5. Set application env vars such as `OTEL_SERVICE_NAME`,
    `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_PROTOCOL`.
-6. Apply templates with `cpflow setup-app` or `cpflow apply-template`.
+6. Apply the collector template with
+   `cpflow apply-template open-telemetry-collector -a $APP_NAME`. For a
+   brand-new app, `cpflow setup-app` applies it with the other configured
+   templates.
 7. Confirm collector logs, application exporter logs, and backend ingestion.
 
 The collector workload and its `config.yaml` must be kept in sync. If the
