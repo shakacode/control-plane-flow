@@ -6,19 +6,20 @@
 4. [CPU](#cpu)
 5. [Remote IP](#remote-ip)
 6. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
-7. [CI](#ci)
-8. [Logs](#logs)
-9. [Memcached](#memcached)
-10. [Sidekiq](#sidekiq)
+7. [Telemetry](#telemetry)
+8. [CI](#ci)
+9. [Logs](#logs)
+10. [Memcached](#memcached)
+11. [Sidekiq](#sidekiq)
     - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
     - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-11. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
+12. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
     - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
     - [Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-12. [Useful Links](#useful-links)
+13. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -114,6 +115,14 @@ So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
 
 > **Warning:** Do not use `REMOTE_ADDR` for authentication, rate limiting, auditing, or IP allowlists. Always use
 > framework-specific mechanisms that understand proxy headers (such as Rails' `request.remote_ip`).
+
+## Telemetry
+
+If your app emits OpenTelemetry, StatsD, or structured log signals, run an
+OpenTelemetry Collector as a Control Plane workload in the same GVC and point
+application env vars at the collector's internal service name. See the
+[telemetry guide](https://www.shakacode.com/control-plane-flow/docs/telemetry/) for the template shape, recommended ports,
+review-app guardrails, and troubleshooting commands.
 
 ## CI
 
