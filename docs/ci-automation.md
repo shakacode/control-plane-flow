@@ -448,6 +448,10 @@ review-app prefix. This is a shell-level guard, not a token policy; use a scoped
 itself is limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the latest
 PR-built image, so review-app credentials must remain disposable even during deletion.
 
+If you customize the generated `pull_request_target` workflow, never check out fork code with
+`github.event.pull_request.head.sha` or another fork-controlled ref. That would run untrusted fork code with repository
+secret access.
+
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For public repositories, keep review-app credentials and runtime values disposable:
 
