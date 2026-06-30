@@ -388,7 +388,7 @@ Recommended org layout:
 
 - keep review apps and staging in a staging org that developers can access
 - keep production in a separate org with tighter access controls
-- for open-source repositories, use a tightly scoped staging/review token by default; use a dedicated review-app org only
+- for public repositories, use a tightly scoped staging/review token by default; use a dedicated review-app org only
   if you also customize the generated workflow/configuration to target that org separately
 
 Optional repository secret for private dependency builds:
@@ -407,8 +407,8 @@ Advanced optional repository variables:
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
 
 Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to
-allowed review-app Docker builds. Use a read-only, revocable deploy key scoped to the minimum private dependency access,
-and never use a personal SSH key.
+allowed review-app and staging Docker builds. Use a read-only, revocable deploy key scoped to the minimum private
+dependency access, and never use a personal SSH key.
 
 ## Review App Security For Public Repositories
 
@@ -418,7 +418,8 @@ deployed.
 
 The generated flow uses these defaults:
 
-- same-repository pull requests can create or update review apps;
+- same-repository pull requests from any contributor with push access can create or update review apps automatically on
+  each push;
 - fork pull requests are skipped for review-app deploys;
 - `+review-app-deploy` and `+review-app-delete` are accepted only from trusted commenters;
 - trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
