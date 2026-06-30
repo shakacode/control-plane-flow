@@ -264,9 +264,11 @@ above. List it before `open-telemetry-collector` so `cpflow setup-app` creates
 the collector identity and secret reveal policy before applying the workload
 that references `identityLink`.
 
-Apply the collector template directly:
+For an existing app, apply the identity and policy template before applying the
+collector workload:
 
 ```sh
+cpflow apply-template open-telemetry-collector-secrets -a $APP_NAME
 cpflow apply-template open-telemetry-collector -a $APP_NAME
 ```
 
