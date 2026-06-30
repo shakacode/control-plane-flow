@@ -17,6 +17,10 @@ cpflow ps -a $APP_NAME -w app
 
 Replace `app` with the workload you are checking.
 
+`cpflow ps` lists running replicas. If the collector is deployed but scaled to
+zero, restart or scale it before debugging collector config or application
+exporter settings.
+
 ## 2. Check Collector Logs
 
 ```sh

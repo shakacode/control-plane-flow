@@ -22,7 +22,9 @@ flowchart TB
 
 1. Use a collector inside each review app GVC, or a staging-only shared collector
    that is intentionally isolated from production.
-2. Keep collector inbound access internal with `same-gvc`.
+2. Keep collector inbound access internal with `same-gvc` when the collector is
+   inside the review app GVC. For a staging-only shared collector in another
+   GVC, configure explicit cross-GVC ingress instead of broad public access.
 3. Do not give review apps production telemetry tokens.
 4. Use lower sampling rates and shorter retention for review apps.
 5. Avoid sending request bodies, credentials, or personally identifiable

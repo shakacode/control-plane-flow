@@ -36,10 +36,12 @@ The `http://` collector endpoint is intended for a collector in the same GVC wit
 `same-gvc` inbound firewall isolation. Use `https://` when the collector is
 outside the same GVC or exposed through a shared telemetry endpoint.
 
-Modern stable OpenTelemetry SDKs treat `OTEL_EXPORTER_OTLP_ENDPOINT` as a base
-URL and append `/v1/traces`, `/v1/metrics`, or `/v1/logs` automatically. For
-older or pre-stable SDKs, use signal-specific variables such as
-`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` with the full signal path.
+Modern stable OpenTelemetry SDKs using OTLP over HTTP treat
+`OTEL_EXPORTER_OTLP_ENDPOINT` as a base URL and append `/v1/traces`,
+`/v1/metrics`, or `/v1/logs` automatically. For OTLP over gRPC, follow your
+SDK's endpoint format, which often uses `host:port` without an `http://` or
+`https://` scheme. For older or pre-stable SDKs, use signal-specific variables
+such as `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` with the full signal path.
 
 `ENABLE_OPEN_TELEMETRY` is not a standard OpenTelemetry environment variable.
 Use it only if your application code explicitly reads that flag. Otherwise, use
