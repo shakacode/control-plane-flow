@@ -9,10 +9,11 @@ does not add tracing or metrics libraries to your application.
 Set these at the GVC level when every app workload should inherit them. Set them
 on one workload container when only that workload should emit telemetry.
 
-This YAML is intended for a `cpflow` template, such as a file under
-`.controlplane/templates`. When setting values directly in the Control Plane
-console or with `cpln`, replace `{{APP_NAME}}` with the actual app name before
-applying it.
+The snippets below are fragments, not complete templates. In a `cpflow`
+template, put the `env` list under `spec.env` for GVC-level values or under the
+target workload container's `spec.containers[].env` list for workload-only
+values. When setting values directly in the Control Plane console or with
+`cpln`, replace `{{APP_NAME}}` with the actual app name before applying it.
 
 ```yaml
 env:
