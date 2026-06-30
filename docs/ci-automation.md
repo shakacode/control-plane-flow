@@ -424,14 +424,15 @@ The generated flow uses these defaults:
   collaborator;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the fork check is enforced inside the
-  reusable workflow's source-validation step rather than the `if:`; both guards are required. GitHub also withholds
-  repository secrets from fork `pull_request` runs, but keep the workflow guards in place because the workflow builds
+  reusable workflow's source-validation step rather than the `if:`; that internal check is the sole fork guard for
+  comment events. GitHub also withholds repository secrets from fork `pull_request` runs, but keep the workflow guards in
+  place because the workflow builds
   Docker images with repository secrets;
 - `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
   so the staging token is available for teardown, and it does not require a trusted commenter;
-- trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
-  it needs a generated review app;
+- trusted comments on fork PRs still do not deploy the fork head; review the code carefully, then move the change to a
+  branch in the base repository if it needs a generated review app. That build will run with repository-secret access;
 - production promotion is manual and uses production environment secrets separately from review and staging.
 
 The generated review-app workflow targets the staging/review Control Plane org inferred from `cpln_org` in
@@ -503,7 +504,8 @@ dependency access, and never use a personal SSH key.
 `cpflow-deploy-review-app.yml`
 
 - Creates a review app when someone comments `+review-app-deploy`.
-- Also supports manual workflow dispatch by a repository collaborator for trusted base-repository refs.
+- Also supports manual workflow dispatch by a repository collaborator. Provide the PR number; the workflow rejects fork
+  PRs at runtime.
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
@@ -512,9 +514,9 @@ dependency access, and never use a personal SSH key.
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 - Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
 - Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. A trusted comment on a
-  fork PR still does not deploy the fork head, and manual dispatch must target a base-repository ref; dispatching with a
-  fork PR number causes a hard workflow failure. Move the change to a branch in the base repository if it needs a review
-  app.
+  fork PR still does not deploy the fork head, and manual dispatch must use a base-repository PR number; dispatching with
+  a fork PR number causes a hard workflow failure. To give a fork PR a review app, review the code carefully first, then
+  move the change to a branch in the base repository. The build will then run with repository-secret access.
 
 `cpflow-delete-review-app.yml`
 
