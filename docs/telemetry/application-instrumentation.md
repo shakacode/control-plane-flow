@@ -9,6 +9,11 @@ does not add tracing or metrics libraries to your application.
 Set these at the GVC level when every app workload should inherit them. Set them
 on one workload container when only that workload should emit telemetry.
 
+This YAML is intended for a `cpflow` template, such as a file under
+`.controlplane/templates`. When setting values directly in the Control Plane
+console or with `cpln`, replace `{{APP_NAME}}` with the actual app name before
+applying it.
+
 ```yaml
 env:
   - name: OTEL_SERVICE_NAME
@@ -20,11 +25,6 @@ env:
   - name: OTEL_RESOURCE_ATTRIBUTES
     value: "deployment.environment=staging,service.namespace=example"
 ```
-
-`{{APP_NAME}}` is a `cpflow` template variable. It is replaced only when this
-YAML lives in a `cpflow`-processed template such as a file under
-`.controlplane/templates`. When setting values directly in the Control Plane
-console or with `cpln`, replace `{{APP_NAME}}` with the actual app name.
 
 Change `deployment.environment=staging` to match the real environment. When this
 value is set at the GVC level, every workload in that GVC inherits it.

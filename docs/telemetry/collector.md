@@ -34,6 +34,7 @@ spec:
         - number: 4318
           protocol: http
         # Optional StatsD over TCP. Use only if your collector config enables it.
+        # 9127 is not a standard StatsD port; set the same port in app code.
         - number: 9127
           protocol: tcp
         # Prometheus-formatted metrics exposed by the collector.
@@ -200,6 +201,10 @@ aliases:
 
     additional_workloads:
       - open-telemetry-collector
+
+apps:
+  example:
+    <<: *common
 ```
 
 Apply the collector template directly:
