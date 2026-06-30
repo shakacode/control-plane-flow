@@ -25,10 +25,11 @@ Avoid pointing review-app templates at shared production secret dictionaries. If
 Control Plane org, keep review-app secret dictionaries separate from persistent staging secrets, and restrict the Control
 Plane identity bound to review workloads so it can reveal only the values those workloads need.
 
-Review-app identity and policy templates in `.controlplane/templates/` are read from the PR branch at deploy time for
-same-repository PRs and applied by `cpflow setup-app` at first review-app creation. A PR can modify these templates to
-bind the review workload's identity to any secret dictionary, including staging ones. Each generated trigger path has its
-own fork guard; see
+Review-app identity and policy templates in `.controlplane/templates/`, plus any `shared_secret_grants` in
+`controlplane.yml`, are read from the PR branch at deploy time for same-repository PRs. `cpflow setup-app` applies
+templates at first review-app creation, and `cpflow deploy-image` can bind configured shared-secret policies on later
+redeploys. A PR can modify either path to bind the review workload's identity to any secret dictionary, including staging
+ones. Each generated trigger path has its own fork guard; see
 [Review app security for repositories with external contributors](./ci-automation.md#review-app-security-for-repositories-with-external-contributors)
 for details. Removing any guard leaves one or more trigger paths unprotected.
 
