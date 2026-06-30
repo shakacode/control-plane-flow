@@ -65,7 +65,7 @@ Additionally, the documentation includes numerous examples and practical tips fo
 10. [Scheduled Jobs](#scheduled-jobs)
 11. [CLI Commands Reference](#cli-commands-reference)
 12. [Mapping of Heroku Commands to `cpflow` and `cpln`](#mapping-of-heroku-commands-to-cpflow-and-cpln)
-13. [Telemetry](https://www.shakacode.com/control-plane-flow/docs/telemetry/)
+13. [Telemetry](docs/telemetry/index.md)
 14. [Examples](#examples)
 15. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
 16. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)

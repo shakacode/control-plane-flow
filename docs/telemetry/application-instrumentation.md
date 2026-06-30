@@ -32,6 +32,10 @@ value is set at the GVC level, each target workload container must set
 `inheritEnv: true` to receive it. Use workload container env instead when only
 one workload should receive the telemetry settings.
 
+The `http://` collector endpoint is intended for a collector in the same GVC with
+`same-gvc` inbound firewall isolation. Use `https://` when the collector is
+outside the same GVC or exposed through a shared telemetry endpoint.
+
 Modern stable OpenTelemetry SDKs treat `OTEL_EXPORTER_OTLP_ENDPOINT` as a base
 URL and append `/v1/traces`, `/v1/metrics`, or `/v1/logs` automatically. For
 older or pre-stable SDKs, use signal-specific variables such as

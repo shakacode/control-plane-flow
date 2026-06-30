@@ -95,6 +95,10 @@ Replace `<secret-name>` with the dictionary secret that stores
 `TELEMETRY_BACKEND_TOKEN`. Keep this policy scoped to only the backend secret
 the collector needs.
 
+`cpflow apply-template` replaces `{{APP_NAME}}` with the actual app name. When
+applying the YAML directly with `cpln`, replace `{{APP_NAME}}` manually before
+running `cpln apply`.
+
 Keep the collector image pinned to a tested release and update it as part of
 normal dependency maintenance. Do not rely on a floating `latest` tag for
 production workloads.
@@ -112,9 +116,14 @@ FROM otel/opentelemetry-collector-contrib:0.155.0
 COPY config.yaml /etc/otelcol-contrib/config.yaml
 ```
 
-Publish that image to your registry, then use the published image in the
-workload template. Use a different delivery mechanism only if your team already
-has a standard way to provide files to Control Plane workloads.
+Build this image, publish it to your registry, and set the workload template
+`image:` field to that published image. The upstream image is only the base image
+for this Dockerfile because it does not contain your `config.yaml`.
+
+Baking the config into the image keeps collector startup deterministic. If your
+team already manages runtime files through Control Plane, you can instead mount a
+secret-backed file with a `cpln://secret/...` URI and `path:` entry, following
+the same pattern used by other file-delivery templates.
 
 ## Matching Collector Config
 
