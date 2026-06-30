@@ -112,10 +112,13 @@ StatsD client or when a metric library cannot emit OTLP yet.
    workload template.
 3. Build the collector image and push it to your registry. Update the workload
    template's `image:` field to that pushed image reference before applying it.
-4. Add both collector templates to `setup_app_templates`:
+4. Add both collector templates to `setup_app_templates` in
+   `.controlplane/controlplane.yml` (see
+   [Collector `controlplane.yml`](collector.md#controlplaneyml)):
    `open-telemetry-collector-secrets` first, then
    `open-telemetry-collector`.
-5. Add the collector to `additional_workloads`.
+5. Add the collector to `additional_workloads` in
+   `.controlplane/controlplane.yml`.
 6. Set application env vars such as `OTEL_SERVICE_NAME`,
    `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_PROTOCOL`.
 7. For an existing app, apply both collector templates in the same order:

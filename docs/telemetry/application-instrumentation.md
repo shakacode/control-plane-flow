@@ -23,10 +23,10 @@ env:
     value: "http/protobuf"
   - name: OTEL_RESOURCE_ATTRIBUTES
     value: "deployment.environment=staging,service.namespace=example"
-# When applied at GVC level, each workload container must also set
-# inheritEnv: true. Set OTEL_SERVICE_NAME per workload container, such as
-# example-web or example-worker, so distinct processes stay separate in the
-# telemetry backend.
+# This GVC-level snippet intentionally omits OTEL_SERVICE_NAME.
+# Set OTEL_SERVICE_NAME per workload container, such as example-web or
+# example-worker, and set inheritEnv: true on each container that should
+# receive these shared values.
 ```
 
 Change `deployment.environment=staging` to match the real environment. When this

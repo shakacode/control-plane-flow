@@ -148,7 +148,7 @@ receivers:
   statsd/tcp:
     endpoint: 0.0.0.0:9127
     transport: tcp
-    aggregation_interval: 60s  # metrics appear after this window closes
+    aggregation_interval: 60s  # Use 5s during initial validation.
 
 processors:
   memory_limiter:
@@ -201,6 +201,10 @@ from the metrics pipeline and keep `otlphttp/backend`. If your application only
 sends OTLP metrics and does not use StatsD, also remove the `statsd/tcp`
 receiver block and `statsd/tcp` from the `metrics.receivers` list. See
 [StatsD and UDP](#statsd-and-udp) for the full three-piece removal.
+
+If you have no OTLP push backend at all, remove `otlphttp/backend` from the
+traces, metrics, and logs pipelines and delete the `otlphttp/backend` exporter
+block entirely.
 
 Store backend tokens such as `TELEMETRY_BACKEND_TOKEN` in Control Plane secrets
 and bind them only to the collector workload identity shown in the template
