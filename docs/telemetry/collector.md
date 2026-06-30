@@ -148,7 +148,7 @@ receivers:
   statsd/tcp:
     endpoint: 0.0.0.0:9127
     transport: tcp
-    aggregation_interval: 60s
+    aggregation_interval: 60s  # metrics appear after this window closes
 
 processors:
   memory_limiter:
@@ -286,10 +286,8 @@ the other entries listed in `setup_app_templates`, in the order shown above.
 
 ## Port Agreement Checklist
 
-| Purpose | Workload port | Collector config |
-| --- | --- | --- |
-| OTLP HTTP | `4318`, `protocol: http` | `receivers.otlp.protocols.http.endpoint: 0.0.0.0:4318` |
-| StatsD TCP | `9127`, `protocol: tcp` | `receivers.statsd/tcp.endpoint: 0.0.0.0:9127` and `transport: tcp` |
-| Prometheus output | `9292`, `protocol: http` | `exporters.prometheus.endpoint: 0.0.0.0:9292` |
-
-Remove any port that is not enabled in the collector config.
+The Control Plane workload template and collector config must agree on every
+exposed port. See
+[Verify Port Agreement](troubleshooting.md#4-verify-port-agreement) for the
+canonical port checklist. Remove any workload port that is not enabled in the
+collector config.

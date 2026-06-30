@@ -17,24 +17,28 @@ values. When setting values directly in the Control Plane console or with
 
 ```yaml
 env:
-  - name: OTEL_SERVICE_NAME
-    value: "example-web"
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: "http://open-telemetry-collector.{{APP_NAME}}.cpln.local:4318"
   - name: OTEL_EXPORTER_OTLP_PROTOCOL
     value: "http/protobuf"
   - name: OTEL_RESOURCE_ATTRIBUTES
     value: "deployment.environment=staging,service.namespace=example"
+# When applied at GVC level, each workload container must also set
+# inheritEnv: true. Set OTEL_SERVICE_NAME per workload container, such as
+# example-web or example-worker, so distinct processes stay separate in the
+# telemetry backend.
 ```
 
 Change `deployment.environment=staging` to match the real environment. When this
 value is set at the GVC level, each target workload container must set
 `inheritEnv: true` to receive it. Use workload container env instead when only
-one workload should receive the telemetry settings.
+one workload should receive the telemetry settings. Keep `OTEL_SERVICE_NAME`
+workload-specific at the container level.
 
 The `http://` collector endpoint is intended for a collector in the same GVC with
-`same-gvc` inbound firewall isolation. Use `https://` when the collector is
-outside the same GVC or exposed through a shared telemetry endpoint.
+`same-gvc` inbound firewall isolation. Use `https://` only when a shared
+telemetry endpoint terminates TLS; otherwise use the internal collector hostname
+and protocol configured for that collector.
 
 When using HTTP transport (`http/protobuf` or `http/json`), modern stable
 OpenTelemetry SDKs treat `OTEL_EXPORTER_OTLP_ENDPOINT` as a base URL and append
@@ -65,6 +69,9 @@ env:
   - name: STATSD_PROTOCOL
     value: "tcp"
 ```
+
+When applying with `cpln` directly, replace `{{APP_NAME}}` with the actual app
+name.
 
 ## Generic Ruby Example
 
@@ -105,7 +112,13 @@ if (!statsdHost) {
 
 const statsd = createStatsDClient({
   host: statsdHost,
-  port: Number(process.env.STATSD_PORT || "9127"),
+  port: (() => {
+    const port = parseInt(process.env.STATSD_PORT || "9127", 10);
+    if (!Number.isFinite(port)) {
+      throw new Error(`Invalid STATSD_PORT: ${process.env.STATSD_PORT}`);
+    }
+    return port;
+  })(),
   protocol: process.env.STATSD_PROTOCOL || "tcp",
 });
 
