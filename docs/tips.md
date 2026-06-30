@@ -121,7 +121,7 @@ So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
 If your app emits OpenTelemetry, StatsD, or structured log signals, run an
 OpenTelemetry Collector as a Control Plane workload in the same GVC and point
 application env vars at the collector's internal service name. See the
-[telemetry guide](/docs/telemetry/) for the template shape, recommended ports,
+[telemetry guide](/docs/telemetry/index.md) for the template shape, recommended ports,
 review-app guardrails, and troubleshooting commands.
 
 ## CI
