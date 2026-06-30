@@ -425,12 +425,14 @@ The generated flow uses these defaults:
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the fork check is enforced inside the
   reusable workflow's source-validation step rather than the `if:`; that internal check is the sole fork guard for
-  comment events. GitHub also withholds repository secrets from fork `pull_request` runs, but keep the workflow guards in
-  place because the workflow builds
+  comment events. GitHub also withholds repository secrets from fork `pull_request` runs, but not from `issue_comment`
+  runs, which execute with base-repository secret access. Keep the workflow guards in place because the workflow builds
   Docker images with repository secrets;
 - `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
   so the staging token is available for teardown, and it does not require a trusted commenter;
+- manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
+  comment, and does not require a trusted commenter;
 - trusted comments on fork PRs still do not deploy the fork head; review the code carefully, then move the change to a
   branch in the base repository if it needs a generated review app. That build will run with repository-secret access;
 - production promotion is manual and uses production environment secrets separately from review and staging.
@@ -441,9 +443,10 @@ review-app org or token requires workflow/configuration customization; otherwise
 generated staging/review org and make that token disposable and unable to access production resources.
 
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
-PR review apps. The workflow can only call `cpflow delete` on an app whose name matches the review-app prefix, but a
-configured `hooks.pre_deletion` command still runs through the latest PR-built image, so review-app credentials must
-remain disposable even during deletion.
+PR review apps. The generated workflow script refuses to call `cpflow delete` on any app whose name does not match the
+review-app prefix. This is a shell-level guard, not a token policy; use a scoped staging service account so the token
+itself is limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the latest
+PR-built image, so review-app credentials must remain disposable even during deletion.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For public repositories, keep review-app credentials and runtime values disposable:
@@ -521,7 +524,7 @@ dependency access, and never use a personal SSH key.
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `+review-app-delete`.
-- Also supports manual workflow dispatch by a repository collaborator.
+- Also supports manual workflow dispatch by a repository collaborator without requiring a trusted-commenter command.
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
   are available for teardown.
 - Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
