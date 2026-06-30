@@ -12,8 +12,10 @@ The goal is to bring the Heroku Flow model into any `cpflow` project:
 
 For public repositories, review apps are intentionally limited to branches in the base repository. Fork pull requests can
 receive help comments, but generated deploy workflows skip fork heads because review-app deployment builds Docker images
-with repository secrets. If a forked change needs a review app, a maintainer should first move the change into a trusted
-branch in the base repository or otherwise review it through a separate, disposable environment.
+with repository secrets. The skip is enforced by complementary guards on different trigger axes; see
+[Review app security for repositories with external contributors](#review-app-security-for-repositories-with-external-contributors)
+before customizing these workflows. If a forked change needs a review app, a maintainer should first move the change into
+a trusted branch in the base repository or otherwise review it through a separate, disposable environment.
 
 ## Quick Start
 
@@ -411,11 +413,12 @@ Advanced optional repository variables:
 ## Review app security for repositories with external contributors
 
 Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
-Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
-`hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
-deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even when the hook
-command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime the code
-executes inside the review app workload and can read any secrets mounted into the workload environment.
+Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, any `release_script` or
+`hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml`, and `.controlplane/templates/*.yaml` identity
+and policy templates applied by `cpflow setup-app` at first deploy with `CPLN_TOKEN_STAGING` can all be changed by the
+pull request being deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even
+when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
+the code executes inside the review app workload and can read any secrets mounted into the workload environment.
 `CPLN_TOKEN_STAGING` is a GitHub Actions secret that stays on the runner and is not injected into the container. Control
 Plane's workload identity mechanism still injects a separate workload-scoped `CPLN_TOKEN` into the container at runtime;
 PR code can use it to reveal any secret that identity is permitted to access. This is why workload-mounted secrets must
@@ -456,9 +459,9 @@ command still runs through the latest PR-built image, so review-app credentials 
 deletion.
 
 If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
-fork-controlled ref to `actions/checkout`. Checking out fork code in a `pull_request_target` job runs untrusted code with
-repository secret access. Referencing the SHA for other purposes, such as deployment status updates, comments, or API
-calls, is safe.
+fork-controlled ref to `actions/checkout`, `git fetch`, `git merge`, `git cherry-pick`, or any other step that fetches,
+materializes, or executes the ref. Those operations run untrusted fork code with repository secret access. Referencing the
+SHA as an opaque identifier for deployment status updates, comments, or API calls is safe.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For repositories with external contributors, keep review-app credentials and runtime values disposable:
