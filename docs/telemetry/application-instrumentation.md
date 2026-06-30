@@ -28,7 +28,9 @@ env:
 ```
 
 Change `deployment.environment=staging` to match the real environment. When this
-value is set at the GVC level, every workload in that GVC inherits it.
+value is set at the GVC level, each target workload container must set
+`inheritEnv: true` to receive it. Use workload container env instead when only
+one workload should receive the telemetry settings.
 
 `ENABLE_OPEN_TELEMETRY` is not a standard OpenTelemetry environment variable.
 Use it only if your application code explicitly reads that flag. Otherwise, use

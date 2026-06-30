@@ -37,8 +37,10 @@ spec:
         # OTLP over HTTP from application SDKs.
         - number: 4318
           protocol: http
-        # Optional StatsD over TCP. Use only if your collector config enables it.
-        # 9127 is not a standard StatsD port; set the same port in app code.
+        # StatsD over TCP. Delete this port unless your collector config
+        # enables statsd/tcp and app clients send TCP StatsD.
+        # When deleting it, also remove receivers.statsd/tcp and statsd/tcp
+        # from service.pipelines.metrics.receivers in config.yaml.
         - number: 9127
           protocol: tcp
         # Prometheus-formatted metrics exposed by the collector.
@@ -66,6 +68,32 @@ spec:
 Use `outboundAllowCIDR` instead of `outboundAllowHostname` when your backend
 requires IP ranges. Avoid leaving collector egress open to `0.0.0.0/0` in
 production unless your security model explicitly accepts that risk.
+
+Create the collector identity and a secret policy before applying the workload
+template if the collector reads backend tokens from Control Plane secrets:
+
+```yaml
+kind: identity
+name: "{{APP_NAME}}-otel-collector-identity"
+description: "{{APP_NAME}}-otel-collector-identity"
+
+---
+kind: policy
+name: "{{APP_NAME}}-otel-collector-secrets"
+description: "{{APP_NAME}}-otel-collector-secrets"
+bindings:
+  - permissions:
+      - reveal
+    principalLinks:
+      - "//gvc/{{APP_NAME}}/identity/{{APP_NAME}}-otel-collector-identity"
+targetKind: secret
+targetLinks:
+  - "//secret/<secret-name>"
+```
+
+Replace `<secret-name>` with the dictionary secret that stores
+`TELEMETRY_BACKEND_TOKEN`. Keep this policy scoped to only the backend secret
+the collector needs.
 
 Keep the collector image pinned to a tested release and update it as part of
 normal dependency maintenance. Do not rely on a floating `latest` tag for
