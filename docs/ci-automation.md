@@ -419,12 +419,13 @@ and policy templates applied by `cpflow setup-app` at first deploy with `CPLN_TO
 pull request being deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even
 when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
 the code executes inside the review app workload and can read any secrets mounted into the workload environment.
-`CPLN_TOKEN_STAGING` is also exported as `CPLN_TOKEN` for later runner shell steps after the generated setup action runs,
-so PR-controlled `release_script` and hook commands can read the staging token directly while they execute on the runner.
-Inside the Control Plane workload, a separate runtime `CPLN_TOKEN` is available only when the workload spec has an
-`identityLink`; `skip_secrets_setup` skips automatic identity creation and binding, but templates can still attach an
-identity. Do not treat `skip_secrets_setup` as a token-removal control. This is why workload-mounted secrets and the
-staging service-account token must remain disposable and scoped to minimum permissions.
+The generated setup action also exports `CPLN_TOKEN_STAGING` as `CPLN_TOKEN` for later runner shell steps, so keep any
+custom runner steps after setup trusted. PR-controlled `release_script` and hook commands normally run through
+`cpflow run` in the latest image, not as runner shell, so they do not read that runner token directly unless a custom
+workflow passes a local token through. Inside the Control Plane workload, a separate runtime `CPLN_TOKEN` is available
+only when the workload spec has an `identityLink`; `skip_secrets_setup` skips automatic identity creation and binding,
+but templates can still attach an identity. Do not treat `skip_secrets_setup` as a token-removal control. This is why
+workload-mounted secrets and the staging service-account token must remain disposable and scoped to minimum permissions.
 
 The generated flow uses these defaults:
 
