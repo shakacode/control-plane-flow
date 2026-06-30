@@ -14,8 +14,8 @@ For public repositories, review apps are intentionally limited to branches in th
 receive help comments, but generated deploy workflows skip fork heads because review-app deployment builds Docker images
 with repository secrets. The skip is enforced by complementary guards on different trigger axes; see
 [Review app security for repositories with external contributors](#review-app-security-for-repositories-with-external-contributors)
-before customizing these workflows. If a forked change needs a review app, a maintainer should first move the change into
-a trusted branch in the base repository or otherwise review it through a separate, disposable environment.
+before customizing these workflows. If a forked change needs a review app, a maintainer should first review the code and
+move the change into a trusted branch in the base repository.
 
 ## Quick Start
 
@@ -419,12 +419,12 @@ and policy templates applied by `cpflow setup-app` at first deploy with `CPLN_TO
 pull request being deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even
 when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
 the code executes inside the review app workload and can read any secrets mounted into the workload environment.
-`CPLN_TOKEN_STAGING` is a GitHub Actions secret that stays on the runner and is not injected into the container. Control
-Plane's workload identity mechanism injects a separate workload-scoped `CPLN_TOKEN` into the container at runtime when
-the workload has an identity bound, which is the default `setup-app` behavior; PR code can use it to reveal any secret
-that identity is permitted to access. Workloads created with `skip_secrets_setup` have no identity and therefore no
-injected `CPLN_TOKEN`, but they may still have secrets mounted directly. This is why workload-mounted secrets must remain
-disposable and the review app identity must be scoped to minimum permissions.
+`CPLN_TOKEN_STAGING` is also exported as `CPLN_TOKEN` for later runner shell steps after the generated setup action runs,
+so PR-controlled `release_script` and hook commands can read the staging token directly while they execute on the runner.
+Inside the Control Plane workload, a separate runtime `CPLN_TOKEN` is available only when the workload spec has an
+`identityLink`; `skip_secrets_setup` skips automatic identity creation and binding, but templates can still attach an
+identity. Do not treat `skip_secrets_setup` as a token-removal control. This is why workload-mounted secrets and the
+staging service-account token must remain disposable and scoped to minimum permissions.
 
 The generated flow uses these defaults:
 
@@ -437,14 +437,18 @@ The generated flow uses these defaults:
   condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts commands to
   trusted author associations (`OWNER`, `MEMBER`, `COLLABORATOR`) but does not check fork status; the fork check for
   comment events is enforced inside the reusable workflow's source-validation step. These complementary guards cover
-  different axes, so preserve both. GitHub also withholds repository secrets from fork `pull_request` runs, but not from
-  `issue_comment` runs, which execute with base-repository secret access. Keep the workflow guards in place because the
-  workflow builds Docker images with repository secrets;
+  different axes, so preserve both. A trusted commenter can comment on a fork PR and pass the caller's
+  `author_association` check; the reusable workflow's source-validation step is what blocks that fork head from being
+  deployed. Removing either guard opens a path to deploy untrusted code with repository-secret access. GitHub also
+  withholds repository secrets from fork `pull_request` runs, but not from `issue_comment` runs, which execute with
+  base-repository secret access. Keep the workflow guards in place because the workflow builds Docker images with
+  repository secrets;
 - `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
-  so the staging token is available for teardown, and it does not require a trusted commenter. `pull_request_target` also
-  runs with base-repository `GITHUB_TOKEN` permissions, which may include write access unless restricted; if you customize
-  this workflow, pin `permissions:` to the minimum required;
+  so the staging token is available for teardown, and it does not require a trusted commenter. The generated
+  `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs (`contents: read`,
+  `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that `permissions:` block because
+  omitting it can fall back to broader repository defaults;
 - manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
   comment, and does not require a trusted commenter;
 - trusted comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
@@ -460,15 +464,20 @@ generated staging/review org and make that token disposable and unable to access
 
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
 PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
-on any app whose name does not match the review-app prefix. This is a shell-level guard, not a token policy; use a scoped
-staging service account so the token itself is limited to review/staging operations. A configured `hooks.pre_deletion`
+on any app whose name does not match the review-app prefix. This shell-level guard is effective because the delete
+workflow checks out base-branch code, not PR or fork code. If you customize this workflow, never check out PR or fork code
+in the same job as the delete step; doing so could let a PR replace the guard script itself. This is still not a token
+policy, so use a scoped staging service account limited to review/staging operations. A configured `hooks.pre_deletion`
 command still runs through the latest PR-built image on all delete paths: PR-close teardown, `+review-app-delete`
 comments, manual dispatch, and scheduled cleanup. Review-app credentials must remain disposable even during deletion.
 
 If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
 fork-controlled ref to `actions/checkout`, `git fetch`, `git merge`, `git cherry-pick`, or any other step that fetches,
 materializes, or executes the ref. Those operations run untrusted fork code with repository secret access. Referencing the
-SHA as an opaque identifier for deployment status updates, comments, or API calls is safe.
+SHA as an opaque identifier for deployment status updates, comments, or API calls is safe because SHA values are hex-only
+and cannot contain shell metacharacters. Do not apply that reasoning to other PR event fields such as `head.ref` or
+`head.label`; pass user-controlled strings through environment variables instead of interpolating them directly into
+`run:` steps.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For repositories with external contributors, keep review-app credentials and runtime values disposable:
@@ -534,9 +543,10 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 
 `cpflow-deploy-review-app.yml`
 
-- Creates a review app when someone comments `+review-app-deploy`.
-- Also supports manual workflow dispatch by a repository collaborator. Provide the PR number; the workflow rejects fork
-  PRs at runtime.
+- Creates a review app when someone comments `+review-app-deploy` or via manual workflow dispatch by a repository
+  collaborator.
+- For manual dispatch, provide the PR number; the workflow rejects fork PRs at runtime because it builds Docker images
+  with repository secrets.
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.

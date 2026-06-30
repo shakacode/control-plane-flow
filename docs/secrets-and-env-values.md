@@ -26,10 +26,9 @@ Control Plane org, keep review-app secret dictionaries separate from persistent 
 Plane identity bound to review workloads so it can reveal only the values those workloads need.
 
 Review-app identity and policy templates in `.controlplane/templates/` are read from the PR branch at deploy time for
-same-repository PRs. The caller workflow and reusable workflow each guard a distinct trigger axis: the caller `if:`
-blocks fork-originated `pull_request` runs, while the reusable workflow's source-validation step is the fork guard for
-`issue_comment` and `workflow_dispatch` runs. Removing either guard leaves one or more trigger paths unprotected; see
-[Review app security for repositories with external contributors](./ci-automation.md#review-app-security-for-repositories-with-external-contributors).
+same-repository PRs. Each generated trigger path has its own fork guard; see
+[Review app security for repositories with external contributors](./ci-automation.md#review-app-security-for-repositories-with-external-contributors)
+for details. Removing any guard leaves one or more trigger paths unprotected.
 For repositories with external contributors, treat the entire review-app identity and policy scope as untrusted and ensure
 the staging token cannot reach sensitive resources even if the PR changes the template.
 
