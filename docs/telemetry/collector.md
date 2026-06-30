@@ -97,24 +97,23 @@ exporters:
   prometheus:
     endpoint: 0.0.0.0:9292
 
-  # TODO: replace debug with your real trace/log exporters before production.
-  # Example shape:
-  #
-  # otlphttp/traces:
-  #   endpoint: "https://telemetry-backend.example.com"
-  #   headers:
-  #     Authorization: "Bearer ${env:TELEMETRY_BACKEND_TOKEN}"
-  #
-  # Debug can print telemetry payloads, so use it only while validating setup.
-  debug:
-    verbosity: basic
+  # Replace this placeholder with your real trace/log backend.
+  otlphttp/backend:
+    endpoint: "https://telemetry-backend.example.com"
+    # headers:
+    #   Authorization: "Bearer ${env:TELEMETRY_BACKEND_TOKEN}"
+
+  # Optional validation-only exporter. Do not leave debug in production
+  # pipelines because it writes telemetry payloads to collector logs.
+  # debug:
+  #   verbosity: basic
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [debug] # TODO: replace with your trace exporter.
+      exporters: [otlphttp/backend]
 
     metrics:
       receivers: [otlp, statsd/tcp]
@@ -124,12 +123,13 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [debug] # TODO: replace with your log exporter.
+      exporters: [otlphttp/backend]
 ```
 
-For production, replace `debug` with the exporter for your tracing or logging
-backend. Keep `memory_limiter` before `batch`, and keep the Prometheus exporter
-only when your platform or backend scrapes collector metrics from port `9292`.
+Before applying the config, replace `telemetry-backend.example.com` with your
+real backend endpoint and headers. Keep `memory_limiter` before `batch`, and
+keep the Prometheus exporter only when your platform or backend scrapes collector
+metrics from port `9292`.
 
 ## StatsD and UDP
 
@@ -171,8 +171,8 @@ Apply the collector template directly:
 cpflow apply-template open-telemetry-collector -a $APP_NAME
 ```
 
-Or let `cpflow setup-app` apply it with the other templates listed in
-`setup_app_templates`.
+For a brand-new app, `cpflow setup-app` applies it with the other templates
+listed in `setup_app_templates`.
 
 ## Port Agreement Checklist
 

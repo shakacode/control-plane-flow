@@ -21,6 +21,11 @@ env:
     value: "deployment.environment=staging,service.namespace=example"
 ```
 
+`{{APP_NAME}}` is a `cpflow` template variable. It is replaced only when this
+YAML lives in a `cpflow`-processed template such as a file under
+`.controlplane/templates`. When setting values directly in the Control Plane
+console or with `cpln`, replace `{{APP_NAME}}` with the actual app name.
+
 `ENABLE_OPEN_TELEMETRY` is not a standard OpenTelemetry environment variable.
 Use it only if your application code explicitly reads that flag. Otherwise, use
 standard SDK configuration such as `OTEL_SERVICE_NAME` and
