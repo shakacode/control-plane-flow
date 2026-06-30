@@ -448,10 +448,11 @@ review-app org or token requires workflow/configuration customization; otherwise
 generated staging/review org and make that token disposable and unable to access production resources.
 
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
-PR review apps. The generated workflow script refuses to call `cpflow delete` on any app whose name does not match the
-review-app prefix. This is a shell-level guard, not a token policy; use a scoped staging service account so the token
-itself is limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the latest
-PR-built image, so review-app credentials must remain disposable even during deletion.
+PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
+on any app whose name does not match the review-app prefix. This is a shell-level guard, not a token policy; use a scoped
+staging service account so the token itself is limited to review/staging operations. A configured `hooks.pre_deletion`
+command still runs through the latest PR-built image, so review-app credentials must remain disposable even during
+deletion.
 
 If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
 fork-controlled ref to `actions/checkout`. Checking out fork code in a `pull_request_target` job runs untrusted code with
@@ -499,9 +500,9 @@ DOCKER_BUILD_EXTRA_ARGS=--build-arg=BUNDLE_WITHOUT=development:test
 
 The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh=default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh=default` before relying on CI.
 
-Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to
-all review-app and staging Docker builds. Use a read-only, revocable deploy key scoped to the minimum private
-dependency access, and never use a personal SSH key.
+Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to all
+review-app and staging Docker builds; follow the review-app security guidance above by using a read-only, revocable
+deploy key scoped to the minimum private dependency access, and never use a personal SSH key.
 
 ## Generated Workflow Behavior
 
