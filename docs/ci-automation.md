@@ -390,7 +390,7 @@ Recommended org layout:
 - keep review apps and staging in a staging org that developers can access
 - keep production in a separate org with tighter access controls
 - for public repositories, use a staging/review token generated from a service account whose policies only allow
-  review/staging CI operations by default; use a dedicated review-app org only if you also customize the generated
+  review/staging CI operations; use a dedicated review-app org only if you also customize the generated
   workflow/configuration to target that org separately
 
 Optional repository secret for private dependency builds:
@@ -422,9 +422,11 @@ The generated flow uses these defaults:
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
   requires either a `+review-app-deploy` comment from a trusted commenter or a manual workflow dispatch by a repository
   collaborator;
-- fork pull requests cannot deploy via the generated `pull_request` path because the workflow's same-repository `if:`
-  condition explicitly skips fork-originated runs. GitHub's default secret handling also withholds repository secrets from
-  fork `pull_request` runs, but repository settings can change that behavior, so keep the workflow guard in place;
+- fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
+  condition explicitly skips fork-originated runs. For `issue_comment` events, the fork check is enforced inside the
+  reusable workflow's source-validation step rather than the `if:`; both guards are required. GitHub also withholds
+  repository secrets from fork `pull_request` runs, but keep the workflow guards in place because the workflow builds
+  Docker images with repository secrets;
 - `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
   so the staging token is available for teardown, and it does not require a trusted commenter;
@@ -447,8 +449,8 @@ For public repositories, keep review-app credentials and runtime values disposab
 
 - do not mount production secrets, staging customer data, package-publishing tokens, payment keys, or monitoring tokens
   into review apps;
-- do not use broad Control Plane `superusers` tokens for review-app CI when a narrower review-app service account can do
-  the job;
+- do not use broad Control Plane `superusers` tokens for review-app CI; use a review/staging service account scoped only to
+  review/staging CI operations;
 - keep review databases, Redis instances, object stores, and renderer credentials separate from staging and production;
 - rotate any credential that may have been exposed to a malicious review-app build;
 - use scheduled cleanup so stale review apps stop consuming compute and secrets access.
@@ -510,8 +512,9 @@ dependency access, and never use a personal SSH key.
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 - Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
 - Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. A trusted comment on a
-  fork PR still does not deploy the fork head, and manual dispatch should target only a trusted base-repository ref; move
-  the change to a branch in the base repository if it needs a review app.
+  fork PR still does not deploy the fork head, and manual dispatch must target a base-repository ref; dispatching with a
+  fork PR number causes a hard workflow failure. Move the change to a branch in the base repository if it needs a review
+  app.
 
 `cpflow-delete-review-app.yml`
 
