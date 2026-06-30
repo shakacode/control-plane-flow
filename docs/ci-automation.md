@@ -410,7 +410,7 @@ Advanced optional repository variables:
 - `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
 
-## Review app security for repositories with external contributors
+## Review App Security for Repositories with External Contributors
 
 Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
 Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, any `release_script` or
@@ -419,16 +419,17 @@ and policy templates applied by `cpflow setup-app` at first deploy with `CPLN_TO
 pull request being deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even
 when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
 the code executes inside the review app workload and can read any secrets mounted into the workload environment.
-The generated setup action also exports `CPLN_TOKEN_STAGING` as `CPLN_TOKEN` to `$GITHUB_ENV` for later runner shell
-steps, so keep any custom runner steps after setup trusted. PR-controlled `release_script` and hook commands normally run
-through `cpflow run` in remote Control Plane containers from the latest image, not as runner shell steps, so they do not
-read that runner token directly unless a custom workflow passes a local token through. Inside the Control Plane workload,
-a separate runtime `CPLN_TOKEN` is available only when the workload spec has an `identityLink`; `skip_secrets_setup`
-skips automatic identity creation and binding, but templates can still attach an identity. Because `cpflow setup-app`
-reads `controlplane.yml` from the PR checkout, a PR can also set `skip_secrets_setup: false` or omit it to re-enable
-automatic identity binding unless the trusted workflow passes `--skip-secrets-setup` as a CLI flag. Do not treat
-`skip_secrets_setup` in `controlplane.yml` as a token-removal control or reliable security boundary. This is why
-workload-mounted secrets and the staging service-account token must remain disposable and scoped to minimum permissions.
+The generated setup action also exports `CPLN_TOKEN_STAGING` as `CPLN_TOKEN` via `GITHUB_ENV`, making it available in the
+process environment of every subsequent runner step for the rest of the job, so keep any custom runner steps after setup
+trusted. PR-controlled `release_script` and hook commands normally run through `cpflow run` in remote Control Plane
+containers from the latest image, not as runner shell steps, so they do not read that runner token directly unless a
+custom workflow passes a local token through. Inside the Control Plane workload, a separate runtime `CPLN_TOKEN` is
+available only when the workload spec has an `identityLink`; `skip_secrets_setup` skips automatic identity creation and
+binding, but templates can still attach an identity. Because `cpflow setup-app` reads `controlplane.yml` from the PR
+checkout, a PR can also set `skip_secrets_setup: false` or omit it to re-enable automatic identity binding unless the
+trusted workflow passes `--skip-secrets-setup` as a CLI flag. Do not treat `skip_secrets_setup` in `controlplane.yml` as
+a token-removal control or reliable security boundary. This is why workload-mounted secrets and the staging
+service-account token must remain disposable and scoped to minimum permissions.
 
 The generated flow uses these defaults:
 
@@ -444,16 +445,17 @@ The generated flow uses these defaults:
   comment events is enforced inside the reusable workflow's source-validation step. These complementary guards cover
   different axes, so preserve both. A trusted commenter can comment on a fork PR and pass the caller's
   `author_association` check; the reusable workflow's source-validation step is what blocks that fork head from being
-  deployed. Removing either guard opens a path to deploy untrusted code with repository-secret access. GitHub also
-  withholds repository secrets from fork `pull_request` runs, but not from `issue_comment` runs, which execute with
-  base-repository secret access. Keep the workflow guards in place because the workflow builds Docker images with
-  repository secrets;
-- `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
+  deployed. Removing the source-validation guard opens a path to deploy untrusted code with repository-secret access,
+  because `issue_comment` events execute with base-repository secret access. Removing the `pull_request` guard still
+  lets untrusted fork code into the staging environment even though GitHub withholds repository secrets from fork
+  `pull_request` runs. Keep both workflow guards in place because the workflow builds Docker images with repository
+  secrets;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
-  so the staging token is available for teardown, and it does not require a trusted commenter. The generated
-  `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs (`contents: read`,
-  `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that `permissions:` block because
-  omitting it can fall back to broader repository defaults;
+  so it runs in the base-repository context and has repository-secret access for teardown. That is also why you must
+  never check out PR or fork code in this job; see the customization guidance below. The PR-close path does not require a
+  trusted commenter. The generated `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs
+  (`contents: read`, `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that
+  `permissions:` block because omitting it can fall back to broader repository defaults;
 - manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
   comment, and does not require a trusted commenter;
 - trusted comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
