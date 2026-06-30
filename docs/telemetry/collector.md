@@ -30,7 +30,7 @@ spec:
       # Uncomment when config.yaml references ${env:TELEMETRY_BACKEND_TOKEN}.
       # env:
       #   - name: TELEMETRY_BACKEND_TOKEN
-      #     value: cpln://secret/<secret-name>.TELEMETRY_BACKEND_TOKEN
+      #     value: cpln://secret/{{APP_NAME}}-telemetry-backend.TELEMETRY_BACKEND_TOKEN
       cpu: 100m
       memory: 256Mi
       ports:
@@ -70,7 +70,8 @@ Use `outboundAllowCIDR` instead of `outboundAllowHostname` when your backend
 requires IP ranges. Avoid leaving collector egress open to `0.0.0.0/0` in
 production unless your security model explicitly accepts that risk.
 
-Create the collector identity and a secret policy before applying the workload
+Create the collector identity and a secret policy in a separate
+`open-telemetry-collector-secrets` template before applying the workload
 template if the collector reads backend tokens from Control Plane secrets:
 
 ```yaml
@@ -89,12 +90,13 @@ bindings:
       - "//gvc/{{APP_NAME}}/identity/{{APP_NAME}}-otel-collector-identity"
 targetKind: secret
 targetLinks:
-  - "//secret/<secret-name>"
+  - "//secret/{{APP_NAME}}-telemetry-backend"
 ```
 
-Replace `<secret-name>` with the dictionary secret that stores
-`TELEMETRY_BACKEND_TOKEN`. Keep this policy scoped to only the backend secret
-the collector needs.
+Create the `{{APP_NAME}}-telemetry-backend` dictionary secret with a
+`TELEMETRY_BACKEND_TOKEN` key, or replace that name consistently before
+applying the templates. Keep this policy scoped to only the backend secret the
+collector needs.
 
 `cpflow apply-template` replaces `{{APP_NAME}}` with the actual app name. When
 applying the YAML directly with `cpln`, replace `{{APP_NAME}}` manually before
@@ -265,6 +267,10 @@ above. List it before `open-telemetry-collector` so `cpflow setup-app` creates
 the collector identity and secret reveal policy before applying the workload
 that references `identityLink`.
 
+Keep `app_workloads` limited to real application workloads such as `app` and
+`worker`. Put the collector under `additional_workloads` so informational
+commands show it without treating it as an app process.
+
 For an existing app, apply the identity and policy template before applying the
 collector workload:
 
@@ -273,8 +279,8 @@ cpflow apply-template open-telemetry-collector-secrets -a $APP_NAME
 cpflow apply-template open-telemetry-collector -a $APP_NAME
 ```
 
-For a brand-new app, `cpflow setup-app` applies it with the other templates
-listed in `setup_app_templates`.
+For a brand-new app, `cpflow setup-app` applies both collector templates with
+the other entries listed in `setup_app_templates`, in the order shown above.
 
 ## Port Agreement Checklist
 

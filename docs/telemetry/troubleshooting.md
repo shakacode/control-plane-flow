@@ -76,5 +76,9 @@ Before adding sampling, filtering, derived metrics, or multiple exporters:
 4. Confirm data appears.
 5. Add metrics and logs after traces work.
 
+Use the debug exporter only for short validation windows. It writes full
+telemetry payloads to collector logs, so remove or disable it before sending
+production traffic or attributes that may contain sensitive data.
+
 Small steps make it much easier to tell whether the app, collector, network, or
 backend is the source of the problem.
