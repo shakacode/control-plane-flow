@@ -415,7 +415,7 @@ Dockerfile, package scripts, Rails initializers, server-rendering code, applicat
 `hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
 deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even when the hook
 command comes from the base-branch config, so a PR author can embed malicious code in the image that executes with
-`CPLN_TOKEN_STAGING` present during deletion or scheduled cleanup.
+mounted review-app secrets and runtime values during deletion or scheduled cleanup.
 
 The generated flow uses these defaults:
 
