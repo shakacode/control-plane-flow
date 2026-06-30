@@ -9,9 +9,32 @@ For your "review apps," it is convenient to have simple ENVs stored in plain tex
 keep some ENVs, like the Rails' `SECRET_KEY_BASE`, out of your source code. For staging and production apps, you will
 set these values directly at the GVC or workload levels, so none of these ENV values are committed to the source code.
 
+## Review app secrets
+
+Review apps run application code from pull requests. For repositories with external contributors, do not put sensitive
+production or long-lived staging secrets in review apps. A secret reference such as `cpln://secret/...` protects the
+value while it is stored in Control Plane configuration, but the value becomes readable by application code after it is
+mounted into the review-app workload. Use generated dummy values, disposable databases, review-only renderer credentials,
+and revocable service tokens for review apps.
+
 For storing ENVs in the source code, we can use a level of indirection so that you can store an ENV value in your source
 code like `cpln://secret/my-app-review-env-secrets.SECRET_KEY_BASE` and then have the secret value stored at the org
 level, which applies to your GVCs mapped to that org.
+
+Avoid pointing review-app templates at shared production secret dictionaries. If staging and review apps live in the same
+Control Plane org, keep review-app secret dictionaries separate from persistent staging secrets, and restrict the Control
+Plane identity bound to review workloads so it can reveal only the values those workloads need.
+
+Review-app identity and policy templates in `.controlplane/templates/`, plus any `shared_secret_grants` in
+`controlplane.yml`, are read from the PR branch at deploy time for same-repository PRs. `cpflow setup-app` applies
+templates at first review-app creation, and `cpflow deploy-image` can bind configured shared-secret policies on later
+redeploys. A PR can modify either path to bind the review workload's identity to any secret dictionary, including staging
+ones. Each generated trigger path has its own fork guard; see
+[Review app security for repositories with external contributors](./ci-automation.md#review-app-security-for-repositories-with-external-contributors)
+for details. Removing any guard leaves one or more trigger paths unprotected.
+
+For repositories with external contributors, treat the entire review-app identity and policy scope as untrusted and ensure
+the staging token cannot reach sensitive resources even if the PR changes the template.
 
 For setting up secrets, you'll need:
 
