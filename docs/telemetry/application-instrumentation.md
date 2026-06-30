@@ -54,8 +54,17 @@ env:
 ## Generic Ruby Example
 
 This example uses deliberately generic metric names. Keep labels low-cardinality.
+Initialize your client with TCP transport before emitting metrics. The exact
+constructor name varies by library, but do not rely on the client's default
+transport when the collector listens on `statsd/tcp`.
 
 ```ruby
+statsd = MyStatsDClient.new(
+  host: ENV.fetch("STATSD_HOST"),
+  port: Integer(ENV.fetch("STATSD_PORT", "9127")),
+  protocol: ENV.fetch("STATSD_PROTOCOL", "tcp")
+)
+
 statsd.increment(
   "example.tasks.completed",
   tags: ["task_type:background", "status:success"]
@@ -74,6 +83,12 @@ messages. They create high-cardinality metrics and can leak sensitive data.
 ## Generic Node.js Example
 
 ```javascript
+const statsd = createStatsDClient({
+  host: process.env.STATSD_HOST,
+  port: Number(process.env.STATSD_PORT || "9127"),
+  protocol: process.env.STATSD_PROTOCOL || "tcp",
+});
+
 statsd.increment("example.requests.completed", 1, {
   route: "health_check",
   status: "success",

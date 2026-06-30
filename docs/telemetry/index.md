@@ -12,11 +12,11 @@ send traces, metrics, and logs.
 
 | Page | Use it for |
 | --- | --- |
-| [Collector workload](telemetry/collector.md) | Control Plane workload template, collector ports, and matching `config.yaml` |
-| [Application instrumentation](telemetry/application-instrumentation.md) | Generic app env vars and simple Ruby/Node examples |
-| [Pipelines](telemetry/pipelines.md) | Receivers, processors, exporters, and how signals flow |
-| [Review apps](telemetry/review-apps.md) | Review-app isolation, sampling, secrets, and egress controls |
-| [Troubleshooting](telemetry/troubleshooting.md) | Commands and checks for missing telemetry |
+| [Collector workload](collector.md) | Control Plane workload template, collector ports, and matching `config.yaml` |
+| [Application instrumentation](application-instrumentation.md) | Generic app env vars and simple Ruby/Node examples |
+| [Pipelines](pipelines.md) | Receivers, processors, exporters, and how signals flow |
+| [Review apps](review-apps.md) | Review-app isolation, sampling, secrets, and egress controls |
+| [Troubleshooting](troubleshooting.md) | Commands and checks for missing telemetry |
 
 ## Recommended Shape
 
@@ -142,7 +142,6 @@ or domain-specific nouns that only make sense in one business.
 
 ## More Detail
 
-Start with [Collector workload](telemetry/collector.md), then read
-[Application instrumentation](telemetry/application-instrumentation.md). Use
-[Troubleshooting](telemetry/troubleshooting.md) when signals do not appear in
-the backend.
+Start with [Collector workload](collector.md), then read
+[Application instrumentation](application-instrumentation.md). Use
+[Troubleshooting](troubleshooting.md) when signals do not appear in the backend.
