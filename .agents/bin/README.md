@@ -14,4 +14,6 @@ means that capability is n/a here.
 | `docs` | Check generated command docs | `bundle exec rake check_command_docs` |
 | `build` | Build / type-check | n/a (gem) |
 
-Non-command policy lives in [`../agent-workflow.yml`](../agent-workflow.yml).
+Canonical non-command policy lives in [`../../AGENTS.md`](../../AGENTS.md).
+[`../agent-workflow.yml`](../agent-workflow.yml) is retained only as a
+compatibility summary for older workflow copies.
