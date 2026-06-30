@@ -24,9 +24,8 @@ Control Plane org, keep review-app secret dictionaries separate from persistent 
 Plane identity bound to review workloads so it can reveal only the values those workloads need.
 
 Review-app identity and policy templates in `.controlplane/templates/` are read from the PR branch at deploy time. For
-public repositories, either lock those templates to the base branch in the deploy workflow, or treat the entire review-app
-identity and policy scope as untrusted and ensure the staging token cannot reach sensitive resources even if the PR changes
-the template.
+public repositories, treat the entire review-app identity and policy scope as untrusted and ensure the staging token cannot
+reach sensitive resources even if the PR changes the template.
 
 For setting up secrets, you'll need:
 

@@ -416,12 +416,15 @@ Dockerfile, package scripts, Rails initializers, server-rendering code, applicat
 deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, so malicious image
 content can execute during review-app deletion or scheduled cleanup even when the hook command comes from the base
 branch config.
+For example, a PR author can embed code that runs during `hooks.pre_deletion`
+inside the PR-built image while `CPLN_TOKEN_STAGING` is present during teardown.
 
 The generated flow uses these defaults:
 
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
   requires either a `+review-app-deploy` comment from a trusted commenter or a manual workflow dispatch by a repository
-  collaborator;
+  collaborator. The trusted-commenter gate applies only to creating the first review app; later pushes to a
+  base-repository branch PR redeploy without another approval while the review app exists;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the fork check is enforced inside the
   reusable workflow's source-validation step rather than the `if:`; that internal check is the sole fork guard for
@@ -457,6 +460,8 @@ For public repositories, keep review-app credentials and runtime values disposab
 
 - do not mount production secrets, staging customer data, package-publishing tokens, payment keys, or monitoring tokens
   into review apps;
+- do not use `DOCKER_BUILD_SSH_KEY` with a long-lived personal key or broad deploy key; restrict it to a read-only,
+  revocable deploy key scoped to the minimum private dependency access;
 - do not use broad Control Plane `superusers` tokens for review-app CI; use a review/staging service account scoped only to
   review/staging CI operations;
 - keep review databases, Redis instances, object stores, and renderer credentials separate from staging and production;
@@ -492,7 +497,7 @@ DOCKER_BUILD_EXTRA_ARGS=--build-arg=BUNDLE_WITHOUT=development:test
 The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh=default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh=default` before relying on CI.
 
 Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to
-allowed review-app and staging Docker builds. Use a read-only, revocable deploy key scoped to the minimum private
+all review-app and staging Docker builds. Use a read-only, revocable deploy key scoped to the minimum private
 dependency access, and never use a personal SSH key.
 
 ## Generated Workflow Behavior
