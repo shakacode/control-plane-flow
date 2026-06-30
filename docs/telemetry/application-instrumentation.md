@@ -26,6 +26,9 @@ YAML lives in a `cpflow`-processed template such as a file under
 `.controlplane/templates`. When setting values directly in the Control Plane
 console or with `cpln`, replace `{{APP_NAME}}` with the actual app name.
 
+Change `deployment.environment=staging` to match the real environment. When this
+value is set at the GVC level, every workload in that GVC inherits it.
+
 `ENABLE_OPEN_TELEMETRY` is not a standard OpenTelemetry environment variable.
 Use it only if your application code explicitly reads that flag. Otherwise, use
 standard SDK configuration such as `OTEL_SERVICE_NAME` and

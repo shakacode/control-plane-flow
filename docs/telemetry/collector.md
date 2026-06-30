@@ -118,7 +118,7 @@ service:
     metrics:
       receivers: [otlp, statsd/tcp]
       processors: [memory_limiter, batch]
-      exporters: [prometheus]
+      exporters: [prometheus, otlphttp/backend]
 
     logs:
       receivers: [otlp]
@@ -129,7 +129,8 @@ service:
 Before applying the config, replace `telemetry-backend.example.com` with your
 real backend endpoint and headers. Keep `memory_limiter` before `batch`, and
 keep the Prometheus exporter only when your platform or backend scrapes collector
-metrics from port `9292`.
+metrics from port `9292`. For push-only metrics backends, remove `prometheus`
+from the metrics pipeline and keep `otlphttp/backend`.
 
 ## StatsD and UDP
 

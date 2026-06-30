@@ -81,18 +81,23 @@ flowchart TB
   traces["Trace backend"]
   metrics["Metrics backend"]
   logs["OTLP log backend"]
-  platform_logs["Platform log backend"]
+  platform_logs["Platform log capture"]
+  platform_logs_backend["Platform log backend"]
 
   trace_sdk -->|"OTLP traces"| receivers
   metric_sdk -->|"OTLP metrics or StatsD TCP"| receivers
   otlp_logs -->|"OTLP logs"| receivers
-  stdout_logs --> platform_logs
+  stdout_logs -->|"bypasses collector"| platform_logs
+  platform_logs -->|"cpflow logs and historical queries"| platform_logs_backend
   receivers --> processors
   processors --> exporters
   exporters --> traces
   exporters --> metrics
   exporters --> logs
 ```
+
+stdout/stderr logs bypass the collector and are captured directly by the
+platform. Use `cpflow logs` for live tailing.
 
 For new instrumentation, prefer OTLP over HTTP on port `4318`. It is the most
 portable path because it can carry traces, metrics, and logs through one
