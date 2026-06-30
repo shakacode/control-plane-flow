@@ -54,8 +54,9 @@ spec:
       # required by your telemetry backend.
       outboundAllowHostname:
         - telemetry-backend.example.com
-  # cpflow apply-template replaces this with the app workload identity link.
-  identityLink: "{{APP_IDENTITY_LINK}}"
+  # Use a collector-specific identity when the collector reads telemetry
+  # backend secrets that app workloads should not reveal.
+  identityLink: "//identity/{{APP_NAME}}-otel-collector-identity"
 ```
 
 Use `outboundAllowCIDR` instead of `outboundAllowHostname` when your backend
@@ -103,7 +104,7 @@ receivers:
   statsd/tcp:
     endpoint: 0.0.0.0:9127
     transport: tcp
-    aggregation_interval: 60s
+    collection_interval: 60s
 
 processors:
   memory_limiter:
@@ -153,7 +154,11 @@ metrics from port `9292`. For push-only metrics backends, remove `prometheus`
 from the metrics pipeline and keep `otlphttp/backend`.
 
 Store backend tokens such as `TELEMETRY_BACKEND_TOKEN` in Control Plane secrets
-and bind them only to the collector workload identity. See
+and bind them only to the collector workload identity shown in the template
+above. Create the collector identity and a policy that grants `reveal` on only
+the telemetry backend secret before applying the collector workload. Use the
+app identity placeholder only when the collector does not need secrets that are
+isolated from app workloads. See
 [Secrets and ENV Values](../secrets-and-env-values.md) for the recommended
 pattern.
 
