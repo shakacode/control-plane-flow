@@ -24,7 +24,7 @@ spec:
   type: standard
   containers:
     - name: open-telemetry-collector
-      image: "otel/opentelemetry-collector-contrib:0.103.0"
+      image: "otel/opentelemetry-collector-contrib:0.155.0"
       args:
         - "--config=/etc/otelcol-contrib/config.yaml"
       cpu: 100m
@@ -59,6 +59,10 @@ Use `outboundAllowCIDR` instead of `outboundAllowHostname` when your backend
 requires IP ranges. Avoid leaving collector egress open to `0.0.0.0/0` in
 production unless your security model explicitly accepts that risk.
 
+Keep the collector image pinned to a tested release and update it as part of
+normal dependency maintenance. Do not rely on a floating `latest` tag for
+production workloads.
+
 ## Matching Collector Config
 
 Mount or bake the collector config at the path passed to `--config`. The contrib
@@ -82,13 +86,25 @@ receivers:
     aggregation_interval: 60s
 
 processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
   batch: {}
 
 exporters:
   prometheus:
     endpoint: 0.0.0.0:9292
 
-  # Replace debug with your real trace/log exporters before production use.
+  # TODO: replace debug with your real trace/log exporters before production.
+  # Example shape:
+  #
+  # otlphttp/traces:
+  #   endpoint: "https://telemetry-backend.example.com"
+  #   headers:
+  #     Authorization: "Bearer ${env:TELEMETRY_BACKEND_TOKEN}"
+  #
   # Debug can print telemetry payloads, so use it only while validating setup.
   debug:
     verbosity: basic
@@ -97,23 +113,23 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
+      processors: [memory_limiter, batch]
+      exporters: [debug] # TODO: replace with your trace exporter.
 
     metrics:
       receivers: [otlp, statsd/tcp]
-      processors: [batch]
+      processors: [memory_limiter, batch]
       exporters: [prometheus]
 
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
+      processors: [memory_limiter, batch]
+      exporters: [debug] # TODO: replace with your log exporter.
 ```
 
 For production, replace `debug` with the exporter for your tracing or logging
-backend. Keep the Prometheus exporter only when your platform or backend scrapes
-collector metrics from port `9292`.
+backend. Keep `memory_limiter` before `batch`, and keep the Prometheus exporter
+only when your platform or backend scrapes collector metrics from port `9292`.
 
 ## StatsD and UDP
 
