@@ -462,8 +462,8 @@ The PR-close teardown workflow runs trusted base-branch workflow code with repos
 PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
 on any app whose name does not match the review-app prefix. This is a shell-level guard, not a token policy; use a scoped
 staging service account so the token itself is limited to review/staging operations. A configured `hooks.pre_deletion`
-command still runs through the latest PR-built image, so review-app credentials must remain disposable even during
-deletion.
+command still runs through the latest PR-built image on all delete paths: PR-close teardown, `+review-app-delete`
+comments, manual dispatch, and scheduled cleanup. Review-app credentials must remain disposable even during deletion.
 
 If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
 fork-controlled ref to `actions/checkout`, `git fetch`, `git merge`, `git cherry-pick`, or any other step that fetches,
@@ -554,7 +554,8 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - Deletes the review app on `+review-app-delete`.
 - Also supports manual workflow dispatch by a repository collaborator without requiring a trusted-commenter command.
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
-  are available for teardown.
+  are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
+  review-app credentials must remain disposable.
 - Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
   automatic PR-close teardown do not require a trusted commenter.
 
