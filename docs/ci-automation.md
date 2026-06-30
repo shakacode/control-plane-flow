@@ -27,7 +27,7 @@ End-to-end rollout in one view:
 4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
-AI rollout: if you want an agent to run this setup, run `cpflow ai-github-flow-prompt` after the readiness check and give that output to the agent. It prints a repo-specific prompt with the rollout steps, blockers, and default app prefix filled in.
+AI rollout: copy the [AI rollout prompt](./ai-github-flow-prompt.md) when you want an agent to run this setup. The prompt works whether `cpflow` is already installed or the agent needs to install it first. If `cpflow` is already available in the target repo, `cpflow ai-github-flow-prompt` prints the same prompt with the default app prefix filled in.
 
 See [Bootstrap a Project](#bootstrap-a-project) for command details, [Repo Readiness Checklist](#repo-readiness-checklist) for what "ready" means, and [AI Playbook](#ai-playbook) to run the rollout through an agent.
 
@@ -856,12 +856,13 @@ In practice, porting the flow into a demo app usually follows five phases.
 
 ## AI Playbook
 
-If you want an AI agent to apply this flow to another project, start with
-`cpflow github-flow-readiness`, then use the standalone
-[AI rollout prompt](./ai-github-flow-prompt.md). It captures the exact wording,
-hard stop conditions, and definition of done for this workflow. You can also
-run `cpflow ai-github-flow-prompt` from inside the target repo to print the
-current prompt with that repo's default app prefix already filled in.
+If you want an AI agent to apply this flow to another project, use the
+standalone [AI rollout prompt](./ai-github-flow-prompt.md). It captures the
+exact wording, hard stop conditions, and definition of done for this workflow,
+and it works whether `cpflow` is already installed or the agent needs to install
+it first. When `cpflow` is already available in the target repo,
+`cpflow ai-github-flow-prompt` prints the same prompt with that repo's default
+app prefix already filled in.
 
 Short version:
 
