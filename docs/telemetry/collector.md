@@ -39,6 +39,7 @@ spec:
           protocol: http
         # StatsD over TCP, not UDP. Delete this port unless your collector
         # config enables statsd/tcp and app clients set TCP transport.
+        # 9127 is project-specific; StatsD defaults to 8125/UDP.
         # When deleting it, also remove receivers.statsd/tcp and statsd/tcp
         # from service.pipelines.metrics.receivers in config.yaml.
         - number: 9127

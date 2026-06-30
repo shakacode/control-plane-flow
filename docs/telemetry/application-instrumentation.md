@@ -95,8 +95,13 @@ messages. They create high-cardinality metrics and can leak sensitive data.
 ## Generic Node.js Example
 
 ```javascript
+const statsdHost = process.env.STATSD_HOST;
+if (!statsdHost) {
+  throw new Error("STATSD_HOST is not set");
+}
+
 const statsd = createStatsDClient({
-  host: process.env.STATSD_HOST,
+  host: statsdHost,
   port: Number(process.env.STATSD_PORT || "9127"),
   protocol: process.env.STATSD_PROTOCOL || "tcp",
 });

@@ -106,17 +106,25 @@ StatsD client or when a metric library cannot emit OTLP yet.
 
 ## Minimal Rollout Checklist
 
-1. Add `.controlplane/templates/open-telemetry-collector.yml`.
+1. Add `.controlplane/templates/open-telemetry-collector-secrets.yml` and
+   `.controlplane/templates/open-telemetry-collector.yml`.
 2. Package a collector `config.yaml` that binds every port exposed by the
    workload template.
-3. Add the collector template to `setup_app_templates`.
+3. Add `open-telemetry-collector-secrets` and `open-telemetry-collector` to
+   `setup_app_templates`, with the secrets template first.
 4. Add the collector to `additional_workloads`.
 5. Set application env vars such as `OTEL_SERVICE_NAME`,
    `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_PROTOCOL`.
-6. Apply the collector template with
-   `cpflow apply-template open-telemetry-collector -a $APP_NAME`. For a
-   brand-new app, `cpflow setup-app` applies it with the other configured
-   templates.
+6. For an existing app, apply the identity and policy template first, then the
+   collector workload:
+
+   ```sh
+   cpflow apply-template open-telemetry-collector-secrets -a $APP_NAME
+   cpflow apply-template open-telemetry-collector -a $APP_NAME
+   ```
+
+   For a brand-new app, `cpflow setup-app` applies the configured templates in
+   `setup_app_templates` order.
 7. Confirm collector logs, application exporter logs, and backend ingestion.
 
 The collector workload and its `config.yaml` must be kept in sync. If the
