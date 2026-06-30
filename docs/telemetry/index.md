@@ -23,7 +23,7 @@ send traces, metrics, and logs.
 ```mermaid
 flowchart LR
   app["Application workload(s)"]
-  collector["OpenTelemetry Collector workload"]
+  collector["Collector workload"]
   backend["Telemetry backend(s)"]
   dashboard["Dashboards and alerts"]
 
@@ -126,19 +126,10 @@ collector receiver or exporter.
 
 ## Generic Naming
 
-Use names that describe the application or workload without leaking
-environment-specific details.
-
-Good examples:
-
-- `example-web`
-- `example-worker`
-- `example.tasks.completed`
-- `example.jobs.duration_ms`
-- `deployment.environment=staging`
-
-Avoid examples that include real company names, user IDs, request IDs, raw URLs,
-or domain-specific nouns that only make sense in one business.
+Use generic service names, metric names, and resource attributes in reusable
+telemetry templates. See
+[Service Names](application-instrumentation.md#service-names) for examples and
+avoidance rules.
 
 ## More Detail
 

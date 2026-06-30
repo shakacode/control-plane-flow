@@ -32,6 +32,11 @@ value is set at the GVC level, each target workload container must set
 `inheritEnv: true` to receive it. Use workload container env instead when only
 one workload should receive the telemetry settings.
 
+Modern stable OpenTelemetry SDKs treat `OTEL_EXPORTER_OTLP_ENDPOINT` as a base
+URL and append `/v1/traces`, `/v1/metrics`, or `/v1/logs` automatically. For
+older or pre-stable SDKs, use signal-specific variables such as
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` with the full signal path.
+
 `ENABLE_OPEN_TELEMETRY` is not a standard OpenTelemetry environment variable.
 Use it only if your application code explicitly reads that flag. Otherwise, use
 standard SDK configuration such as `OTEL_SERVICE_NAME` and

@@ -37,8 +37,8 @@ spec:
         # OTLP over HTTP from application SDKs.
         - number: 4318
           protocol: http
-        # StatsD over TCP. Delete this port unless your collector config
-        # enables statsd/tcp and app clients send TCP StatsD.
+        # StatsD over TCP, not UDP. Delete this port unless your collector
+        # config enables statsd/tcp and app clients set TCP transport.
         # When deleting it, also remove receivers.statsd/tcp and statsd/tcp
         # from service.pipelines.metrics.receivers in config.yaml.
         - number: 9127
@@ -183,7 +183,10 @@ Before applying the config, replace `telemetry-backend.example.com` with your
 real backend endpoint and headers. Keep `memory_limiter` before `batch`, and
 keep the Prometheus exporter only when your platform or backend scrapes collector
 metrics from port `9292`. For push-only metrics backends, remove `prometheus`
-from the metrics pipeline and keep `otlphttp/backend`.
+from the metrics pipeline and keep `otlphttp/backend`. If your application only
+sends OTLP metrics and does not use StatsD, also remove the `statsd/tcp`
+receiver block and `statsd/tcp` from the `metrics.receivers` list. See
+[StatsD and UDP](#statsd-and-udp) for the full three-piece removal.
 
 Store backend tokens such as `TELEMETRY_BACKEND_TOKEN` in Control Plane secrets
 and bind them only to the collector workload identity shown in the template
@@ -232,6 +235,7 @@ aliases:
     setup_app_templates:
       - app
       - worker
+      - open-telemetry-collector-secrets
       - open-telemetry-collector
 
     app_workloads:
@@ -245,6 +249,11 @@ apps:
   example:
     <<: *common
 ```
+
+Use `open-telemetry-collector-secrets` for the identity and policy YAML shown
+above. List it before `open-telemetry-collector` so `cpflow setup-app` creates
+the collector identity and secret reveal policy before applying the workload
+that references `identityLink`.
 
 Apply the collector template directly:
 
