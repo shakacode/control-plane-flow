@@ -422,9 +422,10 @@ The generated flow uses these defaults:
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
   requires either a `+review-app-deploy` comment from a trusted commenter or a manual workflow dispatch by a repository
   collaborator;
-- fork pull requests cannot deploy via the `pull_request` event because GitHub withholds repository secrets from
-  fork-originated runs; the workflow's same-repository `if:` condition is an additional explicit guard;
-- `+review-app-deploy` and `+review-app-delete` are accepted only from trusted commenters;
+- fork pull requests cannot deploy via the `pull_request` event because the workflow's same-repository `if:`
+  condition explicitly skips fork-originated runs, and GitHub also withholds repository secrets from fork
+  `pull_request` runs as a platform-level safeguard;
+- `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
   so the staging token is available for teardown, and it does not require a trusted commenter;
 - trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
@@ -437,8 +438,9 @@ review-app org or token requires workflow/configuration customization; otherwise
 generated staging/review org and make that token disposable and unable to access production resources.
 
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
-PR review apps. The risk is bounded by `cpflow delete`, but a configured `hooks.pre_deletion` command still runs through
-the latest PR-built image, so review-app credentials must remain disposable even during deletion.
+PR review apps. The workflow can only call `cpflow delete` on an app whose name matches the review-app prefix, but a
+configured `hooks.pre_deletion` command still runs through the latest PR-built image, so review-app credentials must
+remain disposable even during deletion.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For public repositories, keep review-app credentials and runtime values disposable:
@@ -514,9 +516,11 @@ dependency access, and never use a personal SSH key.
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `+review-app-delete`.
+- Also supports manual workflow dispatch by a repository collaborator.
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
   are available for teardown.
-- Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
+- Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
+  automatic PR-close teardown do not require a trusted commenter.
 
 `cpflow-deploy-staging.yml`
 
