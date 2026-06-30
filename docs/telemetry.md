@@ -1,31 +1,57 @@
 # Telemetry
 
-This guide shows how to run application telemetry on Control Plane with `cpflow`.
-`cpflow` does not instrument your application code. Instead, it helps you deploy
-the Control Plane workloads and environment variables that instrumented apps use
-to send traces, metrics, and logs.
+This guide explains how to run application telemetry on Control Plane with
+`cpflow`. It is intentionally generic: the examples use placeholder service
+names, simple metric names, and backend-neutral collector configuration.
 
-The recommended shape is:
+`cpflow` does not instrument application code. It helps deploy the Control Plane
+workloads and environment values that already-instrumented applications use to
+send traces, metrics, and logs.
 
-```text
-Application workloads
-  -> OpenTelemetry Collector workload in the same GVC
-  -> tracing, metrics, and logging backends
+## Quick Navigation
+
+| Page | Use it for |
+| --- | --- |
+| [Collector workload](telemetry/collector.md) | Control Plane workload template, collector ports, and matching `config.yaml` |
+| [Application instrumentation](telemetry/application-instrumentation.md) | Generic app env vars and simple Ruby/Node examples |
+| [Pipelines](telemetry/pipelines.md) | Receivers, processors, exporters, and how signals flow |
+| [Review apps](telemetry/review-apps.md) | Review-app isolation, sampling, secrets, and egress controls |
+| [Troubleshooting](telemetry/troubleshooting.md) | Commands and checks for missing telemetry |
+
+## Recommended Shape
+
+```mermaid
+flowchart LR
+  app["Application workload(s)"]
+  collector["OpenTelemetry Collector workload"]
+  backend["Telemetry backend(s)"]
+  dashboard["Dashboards and alerts"]
+
+  app -->|"OTLP HTTP :4318"| collector
+  app -->|"Optional StatsD TCP :9127"| collector
+  collector -->|"Traces, metrics, logs"| backend
+  backend --> dashboard
 ```
+
+Keep the collector inside the same GVC as the application unless your team has a
+separate, intentionally shared telemetry GVC. A same-GVC collector keeps review,
+staging, and production wiring easy to reason about and avoids accidental
+cross-environment data mixing.
 
 ## What `cpflow` Provides
 
-`cpflow apply-template` can already apply ordinary Control Plane workload
-templates from `.controlplane/templates`. That means telemetry can be added with
-project templates and app environment values; no custom `cpflow` command is
-required.
+`cpflow apply-template` already applies ordinary Control Plane workload
+templates from `.controlplane/templates`. Telemetry can therefore be added with
+project templates and app environment values; no custom `cpflow telemetry`
+command is required.
 
 Use `cpflow` for:
 
 1. Deploying an OpenTelemetry Collector workload template.
-2. Applying app or workload environment variables that point to the collector.
-3. Reusing the same setup for review, staging, and production apps.
-4. Tailing collector logs with `cpflow logs`.
+2. Applying GVC or workload environment variables that point apps at the
+   collector.
+3. Reusing the same setup shape for review, staging, and production apps.
+4. Tailing application and collector logs with `cpflow logs`.
 
 Application code is still responsible for:
 
@@ -35,205 +61,80 @@ Application code is still responsible for:
 3. Creating custom spans or metrics.
 4. Filtering sensitive data before it leaves the process.
 
-## Collector Workload
+## Signal Flow
 
-Add a collector workload template such as
-`.controlplane/templates/open-telemetry-collector.yml`.
+```mermaid
+flowchart TB
+  subgraph app["Application process"]
+    trace_sdk["Trace SDK"]
+    metric_sdk["Metric SDK"]
+    otlp_logs["OTLP logs"]
+    stdout_logs["stdout/stderr logs"]
+  end
 
-The exact image and config path depend on how your team packages collector
-configuration. For production, pin the collector image version and make sure the
-image or mounted configuration contains your full collector config.
+  subgraph collector["Collector workload"]
+    receivers["Receivers"]
+    processors["Processors"]
+    exporters["Exporters"]
+  end
 
-```yaml
-kind: workload
-name: open-telemetry-collector
-spec:
-  type: standard
-  containers:
-    - name: open-telemetry-collector
-      image: "otel/opentelemetry-collector-contrib:0.103.0"
-      args:
-        - "--config=/etc/otelcol/config.yaml"
-      cpu: 100m
-      memory: 256Mi
-      ports:
-        # OTLP over HTTP from app SDKs
-        - number: 4318
-          protocol: http
-        # StatsD direct metrics
-        - number: 9126
-          protocol: udp
-        # StatsD TCP fallback
-        - number: 9127
-          protocol: tcp
-        # Prometheus-formatted metrics exposed by the collector
-        - number: 9292
-          protocol: http
-  defaultOptions:
-    autoscaling:
-      metric: disabled
-      minScale: 1
-      maxScale: 1
-    capacityAI: false
-  firewallConfig:
-    internal:
-      inboundAllowType: same-gvc
-    external:
-      outboundAllowCIDR:
-        - 0.0.0.0/0
+  traces["Trace backend"]
+  metrics["Metrics backend"]
+  logs["OTLP log backend"]
+  platform_logs["Platform log backend"]
+
+  trace_sdk -->|"OTLP traces"| receivers
+  metric_sdk -->|"OTLP metrics or StatsD TCP"| receivers
+  otlp_logs -->|"OTLP logs"| receivers
+  stdout_logs --> platform_logs
+  receivers --> processors
+  processors --> exporters
+  exporters --> traces
+  exporters --> metrics
+  exporters --> logs
 ```
 
-Then include the collector in app setup:
+For new instrumentation, prefer OTLP over HTTP on port `4318`. It is the most
+portable path because it can carry traces, metrics, and logs through one
+well-known protocol. Use StatsD only when your application already has a simple
+StatsD client or when a metric library cannot emit OTLP yet.
 
-```yaml
-aliases:
-  common: &common
-    setup_app_templates:
-      - app
-      - open-telemetry-collector
-      - rails
-      - sidekiq
+## Minimal Rollout Checklist
 
-    app_workloads:
-      - rails
-      - sidekiq
+1. Add `.controlplane/templates/open-telemetry-collector.yml`.
+2. Package a collector `config.yaml` that binds every port exposed by the
+   workload template.
+3. Add the collector template to `setup_app_templates`.
+4. Add the collector to `additional_workloads`.
+5. Set application env vars such as `OTEL_SERVICE_NAME`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_PROTOCOL`.
+6. Apply templates with `cpflow setup-app` or `cpflow apply-template`.
+7. Confirm collector logs, application exporter logs, and backend ingestion.
 
-    additional_workloads:
-      - open-telemetry-collector
-```
+The collector workload and its `config.yaml` must be kept in sync. If the
+workload exposes `4318`, `9127`, or `9292`, the collector config must bind those
+same ports. Exposing a port in Control Plane does not automatically enable a
+collector receiver or exporter.
 
-Apply it with:
+## Generic Naming
 
-```sh
-cpflow apply-template open-telemetry-collector -a $APP_NAME
-```
+Use names that describe the application or workload without leaking
+environment-specific details.
 
-Or let `cpflow setup-app` apply it with the rest of the configured templates.
+Good examples:
 
-## Application Environment
+- `example-web`
+- `example-worker`
+- `example.tasks.completed`
+- `example.jobs.duration_ms`
+- `deployment.environment=staging`
 
-Set application telemetry env vars at the GVC level when every app workload
-should inherit them, or at the workload container level when only one workload
-should emit telemetry.
+Avoid examples that include real company names, user IDs, request IDs, raw URLs,
+or domain-specific nouns that only make sense in one business.
 
-For OTLP over HTTP:
+## More Detail
 
-```yaml
-env:
-  - name: ENABLE_OPEN_TELEMETRY
-    value: "true"
-  - name: OTEL_SERVICE_NAME
-    value: "my-app-rails"
-  - name: OTEL_EXPORTER_OTLP_ENDPOINT
-    value: "http://open-telemetry-collector.{{APP_NAME}}.cpln.local:4318"
-  - name: OTEL_EXPORTER_OTLP_PROTOCOL
-    value: "http/protobuf"
-```
-
-For StatsD direct metrics:
-
-```yaml
-env:
-  - name: STATSD_HOST
-    value: "open-telemetry-collector.{{APP_NAME}}.cpln.local"
-  - name: STATSD_PORT
-    value: "9126"
-```
-
-Prefer direct metrics when application code can emit them. Direct metrics avoid
-collector-side regex parsing and are usually cheaper and easier to reason about
-than deriving metrics from logs.
-
-## Signals
-
-### Traces
-
-Use OpenTelemetry SDKs or framework auto-instrumentation in your application.
-Send traces to the collector's OTLP HTTP endpoint on port `4318`.
-
-Good default attributes include:
-
-- `service.name`
-- `deployment.environment`
-- `service.version` or commit SHA
-- low-cardinality workload names
-
-Avoid high-cardinality attributes such as request IDs, user IDs, raw URLs, and
-unbounded error messages.
-
-### Metrics
-
-For application-defined metrics, emit StatsD or OTLP metrics directly from the
-application. Common examples include:
-
-- request counters
-- queue depth gauges
-- job duration histograms
-- integration failure counters
-
-The collector can expose Prometheus-formatted metrics on port `9292`. Configure
-your metrics backend to scrape that endpoint according to your Control Plane and
-Grafana setup.
-
-### Logs
-
-Keep application logs useful on their own: structured, redacted, and emitted to
-stdout/stderr. Use log-derived metrics only for temporary prototyping or legacy
-paths where direct instrumentation is not practical, because regex processing in
-the collector can become expensive.
-
-## Review Apps
-
-Telemetry for review apps should be isolated from production telemetry.
-
-Recommended defaults:
-
-1. Use a collector inside each review app GVC or a staging-only collector.
-2. Keep collector inbound access internal with `same-gvc` unless there is a
-   specific reason to expose it.
-3. Do not give review apps production telemetry tokens.
-4. Keep sampling rates and retention lower for noisy review environments.
-5. Avoid sending request bodies, secrets, credentials, or personally identifiable
-   information in spans, labels, or logs.
-
-## Troubleshooting
-
-Check that the collector workload exists:
-
-```sh
-cpflow ps -a $APP_NAME -w open-telemetry-collector
-```
-
-Tail collector logs:
-
-```sh
-cpflow logs -a $APP_NAME -w open-telemetry-collector
-```
-
-Check application logs for exporter errors:
-
-```sh
-cpflow logs -a $APP_NAME -w rails
-```
-
-If telemetry is missing:
-
-1. Confirm the app workload can resolve
-   `open-telemetry-collector.$APP_NAME.cpln.local`.
-2. Confirm the collector listens on the expected ports.
-3. Confirm app env vars are set on the GVC or workload container.
-4. Confirm the application instrumentation library is enabled.
-5. Confirm the collector config exports to the expected backend.
-
-## Future `cpflow` Enhancements
-
-The docs-only setup above works with existing `cpflow` behavior. A small future
-code enhancement could make telemetry safer by adding a deploy-time required ENV
-check. Apps could declare names such as `OTEL_SERVICE_NAME`,
-`OTEL_EXPORTER_OTLP_ENDPOINT`, `STATSD_HOST`, and `STATSD_PORT` in
-`controlplane.yml`, and `cpflow deploy-image` or `cpflow doctor` could fail
-before deployment when those values are missing from the GVC or app workload.
-
-Another optional enhancement would be an opt-in generated collector template.
-That should stay opt-in because teams package collector config and exporters in
-different ways.
+Start with [Collector workload](telemetry/collector.md), then read
+[Application instrumentation](telemetry/application-instrumentation.md). Use
+[Troubleshooting](telemetry/troubleshooting.md) when signals do not appear in
+the backend.
