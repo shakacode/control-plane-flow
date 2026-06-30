@@ -9,6 +9,8 @@ For your "review apps," it is convenient to have simple ENVs stored in plain tex
 keep some ENVs, like the Rails' `SECRET_KEY_BASE`, out of your source code. For staging and production apps, you will
 set these values directly at the GVC or workload levels, so none of these ENV values are committed to the source code.
 
+## Review app secrets
+
 Review apps run application code from pull requests. For repositories with external contributors, do not put sensitive
 production or long-lived staging secrets in review apps. A secret reference such as `cpln://secret/...` protects the
 value while it is stored in Control Plane configuration, but the value becomes readable by application code after it is
@@ -25,7 +27,8 @@ Plane identity bound to review workloads so it can reveal only the values those 
 
 Review-app identity and policy templates in `.controlplane/templates/` are read from the PR branch at deploy time for
 same-repository PRs. Generated fork PR deployments stay blocked only while the complementary caller and reusable-workflow
-guards are both preserved; see [CI Automation - Review app security](./ci-automation.md#review-app-security-for-repositories-with-external-contributors).
+guards are both preserved; see
+[Review app security for repositories with external contributors](./ci-automation.md#review-app-security-for-repositories-with-external-contributors).
 For repositories with external contributors, treat the entire review-app identity and policy scope as untrusted and ensure
 the staging token cannot reach sensitive resources even if the PR changes the template.
 

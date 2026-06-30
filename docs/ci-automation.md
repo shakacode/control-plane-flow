@@ -420,16 +420,19 @@ pull request being deployed. Teardown can also run a `hooks.pre_deletion` comman
 when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
 the code executes inside the review app workload and can read any secrets mounted into the workload environment.
 `CPLN_TOKEN_STAGING` is a GitHub Actions secret that stays on the runner and is not injected into the container. Control
-Plane's workload identity mechanism still injects a separate workload-scoped `CPLN_TOKEN` into the container at runtime;
-PR code can use it to reveal any secret that identity is permitted to access. This is why workload-mounted secrets must
-remain disposable and the review app identity must be scoped to minimum permissions.
+Plane's workload identity mechanism injects a separate workload-scoped `CPLN_TOKEN` into the container at runtime when
+the workload has an identity bound, which is the default `setup-app` behavior; PR code can use it to reveal any secret
+that identity is permitted to access. Workloads created with `skip_secrets_setup` have no identity and therefore no
+injected `CPLN_TOKEN`, but they may still have secrets mounted directly. This is why workload-mounted secrets must remain
+disposable and the review app identity must be scoped to minimum permissions.
 
 The generated flow uses these defaults:
 
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
   requires either a `+review-app-deploy` comment from a trusted commenter or a manual workflow dispatch by a repository
-  collaborator. The trusted-commenter gate applies only to creating the first review app; later pushes to a
-  base-repository branch PR redeploy without another approval while the review app exists;
+  collaborator. The trusted-commenter gate applies to every `+review-app-deploy` comment, whether or not a review app
+  already exists. Later pushes to a base-repository branch PR redeploy automatically without another approval because the
+  auto-push path (`pull_request` event) has no trusted-commenter check; only the `issue_comment` path does;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts commands to
   trusted author associations (`OWNER`, `MEMBER`, `COLLABORATOR`) but does not check fork status; the fork check for
@@ -439,11 +442,15 @@ The generated flow uses these defaults:
   workflow builds Docker images with repository secrets;
 - `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
-  so the staging token is available for teardown, and it does not require a trusted commenter;
+  so the staging token is available for teardown, and it does not require a trusted commenter. `pull_request_target` also
+  runs with base-repository `GITHUB_TOKEN` permissions, which may include write access unless restricted; if you customize
+  this workflow, pin `permissions:` to the minimum required;
 - manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
   comment, and does not require a trusted commenter;
-- trusted comments on fork PRs still do not deploy the fork head; review the code carefully, then move the change to a
-  branch in the base repository if it needs a generated review app. That build will run with repository-secret access;
+- trusted comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
+  commenter receives a rocket reaction and the skip appears only in the Actions step summary. Review the fork code
+  carefully, then move the change to a branch in the base repository if it needs a generated review app. That build will
+  run with repository-secret access;
 - production promotion is manual and uses production environment secrets separately from review and staging.
 
 The generated review-app workflow targets the staging/review Control Plane org inferred from `cpln_org` in
@@ -481,7 +488,8 @@ For repositories with external contributors, keep review-app credentials and run
 
 Secret indirection such as `cpln://secret/...` protects values in Control Plane configuration. It does not protect a
 value after that secret is mounted into a workload that runs pull request code. See
-[Secrets and ENV Values](./secrets-and-env-values.md) for review-app secret handling guidance.
+[Secrets and ENV Values - Review app secrets](./secrets-and-env-values.md#review-app-secrets) for review-app secret
+handling guidance.
 
 ## Docker Builds with Private Dependencies
 
