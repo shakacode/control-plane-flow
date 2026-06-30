@@ -170,8 +170,9 @@ Important points:
 
 For a normal generated review-app setup, configure one repository secret:
 
-- `CPLN_TOKEN_STAGING`: token for the staging/review Control Plane org. For public repositories, prefer a tightly scoped
-  token that cannot read production secrets or manage production workloads.
+- `CPLN_TOKEN_STAGING`: token for the staging/review Control Plane org. For public repositories, generate it from a
+  Control Plane service account whose policies only allow review/staging CI operations; it must not read production
+  secrets or manage production workloads.
 
 No GitHub repository variables are required for review apps when `.controlplane/controlplane.yml`
 has exactly one review app entry with `match_if_app_name_starts_with: true` and
@@ -388,8 +389,9 @@ Recommended org layout:
 
 - keep review apps and staging in a staging org that developers can access
 - keep production in a separate org with tighter access controls
-- for public repositories, use a tightly scoped staging/review token by default; use a dedicated review-app org only
-  if you also customize the generated workflow/configuration to target that org separately
+- for public repositories, use a staging/review token generated from a service account whose policies only allow
+  review/staging CI operations by default; use a dedicated review-app org only if you also customize the generated
+  workflow/configuration to target that org separately
 
 Optional repository secret for private dependency builds:
 
@@ -412,10 +414,12 @@ dependency access, and never use a personal SSH key.
 
 ## Review App Security For Public Repositories
 
-Review-app deployment executes pull request code. Even when the workflow itself is trusted, the Dockerfile, package
-scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
+Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
+Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
 `hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
-deployed.
+deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, so malicious image
+content can execute during review-app deletion or scheduled cleanup even when the hook command comes from the base
+branch config.
 
 The generated flow uses these defaults:
 
@@ -424,6 +428,8 @@ The generated flow uses these defaults:
 - fork pull requests cannot deploy via the `pull_request` event because GitHub withholds repository secrets from
   fork-originated runs; the workflow's same-repository `if:` condition is an additional explicit guard;
 - `+review-app-deploy` and `+review-app-delete` are accepted only from trusted commenters;
+- review apps are also deleted automatically when the pull request closes; that PR-close path does not require a trusted
+  commenter;
 - trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
   it needs a generated review app;
 - production promotion is manual and uses production environment secrets separately from review and staging.
