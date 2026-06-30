@@ -408,10 +408,6 @@ Advanced optional repository variables:
 - `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
 
-Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to
-allowed review-app and staging Docker builds. Use a read-only, revocable deploy key scoped to the minimum private
-dependency access, and never use a personal SSH key.
-
 ## Review App Security For Public Repositories
 
 Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
@@ -424,12 +420,13 @@ branch config.
 The generated flow uses these defaults:
 
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
-  requires a `+review-app-deploy` comment from a trusted commenter;
+  requires either a `+review-app-deploy` comment from a trusted commenter or a manual workflow dispatch by a repository
+  collaborator;
 - fork pull requests cannot deploy via the `pull_request` event because GitHub withholds repository secrets from
   fork-originated runs; the workflow's same-repository `if:` condition is an additional explicit guard;
 - `+review-app-deploy` and `+review-app-delete` are accepted only from trusted commenters;
-- review apps are also deleted automatically when the pull request closes; that PR-close path does not require a trusted
-  commenter;
+- review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
+  so the staging token is available for teardown, and it does not require a trusted commenter;
 - trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
   it needs a generated review app;
 - production promotion is manual and uses production environment secrets separately from review and staging.
@@ -438,6 +435,10 @@ The generated review-app workflow targets the staging/review Control Plane org i
 `controlplane.yml`, or overridden by `CPLN_ORG_STAGING`, and uses the token from `CPLN_TOKEN_STAGING`. A fully separate
 review-app org or token requires workflow/configuration customization; otherwise, keep review apps and staging in the
 generated staging/review org and make that token disposable and unable to access production resources.
+
+The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
+PR review apps. The risk is bounded by `cpflow delete`, but a configured `hooks.pre_deletion` command still runs through
+the latest PR-built image, so review-app credentials must remain disposable even during deletion.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For public repositories, keep review-app credentials and runtime values disposable:
@@ -478,6 +479,10 @@ DOCKER_BUILD_EXTRA_ARGS=--build-arg=BUNDLE_WITHOUT=development:test
 
 The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh=default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh=default` before relying on CI.
 
+Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to
+allowed review-app and staging Docker builds. Use a read-only, revocable deploy key scoped to the minimum private
+dependency access, and never use a personal SSH key.
+
 ## Generated Workflow Behavior
 
 `cpflow-review-app-help.yml`
@@ -494,6 +499,7 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 `cpflow-deploy-review-app.yml`
 
 - Creates a review app when someone comments `+review-app-deploy`.
+- Also supports manual workflow dispatch by a repository collaborator.
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
@@ -508,7 +514,8 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `+review-app-delete`.
-- Also deletes it automatically when the pull request closes.
+- Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
+  are available for teardown.
 - Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
 
 `cpflow-deploy-staging.yml`
