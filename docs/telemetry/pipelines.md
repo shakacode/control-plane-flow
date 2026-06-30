@@ -26,9 +26,7 @@ flowchart LR
 ```mermaid
 flowchart TB
   app["Application"]
-  otlp_traces["OTLP traces receiver :4318"]
-  otlp_metrics["OTLP metrics receiver :4318"]
-  otlp_logs["OTLP logs receiver :4318"]
+  otlp["OTLP receiver :4318"]
   statsd["Optional StatsD TCP metrics receiver :9127"]
   traces_processors["Trace processors"]
   metrics_processors["Metrics processors"]
@@ -38,14 +36,14 @@ flowchart TB
   prometheus["Prometheus scrape exporter :9292"]
   logs["Log exporter"]
 
-  app -->|"OTLP traces"| otlp_traces
-  app -->|"OTLP metrics"| otlp_metrics
-  app -->|"OTLP logs"| otlp_logs
+  app -->|"OTLP traces, metrics, logs"| otlp
   app -->|"StatsD metrics only"| statsd
-  otlp_traces --> traces_processors --> traces
-  otlp_metrics --> metrics_processors --> metrics_push
-  statsd --> metrics_processors --> prometheus
-  otlp_logs --> logs_processors --> logs
+  otlp -->|"traces"| traces_processors --> traces
+  otlp -->|"metrics"| metrics_processors
+  statsd -->|"metrics"| metrics_processors
+  metrics_processors --> metrics_push
+  metrics_processors --> prometheus
+  otlp -->|"logs"| logs_processors --> logs
 ```
 
 Start with direct application telemetry:

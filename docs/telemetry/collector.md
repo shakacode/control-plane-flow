@@ -132,6 +132,16 @@ keep the Prometheus exporter only when your platform or backend scrapes collecto
 metrics from port `9292`. For push-only metrics backends, remove `prometheus`
 from the metrics pipeline and keep `otlphttp/backend`.
 
+Store backend tokens such as `TELEMETRY_BACKEND_TOKEN` in Control Plane secrets
+and bind them only to the collector workload identity. See
+[Secrets and ENV Values](../secrets-and-env-values.md) for the recommended
+pattern.
+
+The Prometheus exporter exposes an unauthenticated scrape endpoint. With
+`same-gvc` firewall isolation, any workload in the same GVC that can reach port
+`9292` can read exported metrics. Widen collector inbound access only when that
+is acceptable.
+
 ## StatsD and UDP
 
 The upstream OpenTelemetry StatsD receiver defaults to UDP on port `8125`.
