@@ -413,11 +413,9 @@ Advanced optional repository variables:
 Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
 Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
 `hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
-deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, so malicious image
-content can execute during review-app deletion or scheduled cleanup even when the hook command comes from the base
-branch config.
-For example, a PR author can embed code that runs during `hooks.pre_deletion`
-inside the PR-built image while `CPLN_TOKEN_STAGING` is present during teardown.
+deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even when the hook
+command comes from the base-branch config, so a PR author can embed malicious code in the image that executes with
+`CPLN_TOKEN_STAGING` present during deletion or scheduled cleanup.
 
 The generated flow uses these defaults:
 
