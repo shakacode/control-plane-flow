@@ -408,14 +408,17 @@ Advanced optional repository variables:
 - `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
 
-## Review App Security For Public Repositories
+## Review app security for public repositories
 
 Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
 Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
 `hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
 deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even when the hook
-command comes from the base-branch config, so a PR author can embed malicious code in the image that executes with
-mounted review-app secrets and runtime values during deletion or scheduled cleanup.
+command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime the code
+executes with the review app's Control Plane workload identity token and can read any secrets mounted into the workload
+environment. `CPLN_TOKEN_STAGING` is a GitHub Actions secret that stays on the runner and is not injected into the
+container. This is why workload-mounted secrets must remain disposable and the review app identity must be scoped to
+minimum permissions.
 
 The generated flow uses these defaults:
 
@@ -424,11 +427,12 @@ The generated flow uses these defaults:
   collaborator. The trusted-commenter gate applies only to creating the first review app; later pushes to a
   base-repository branch PR redeploy without another approval while the review app exists;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
-  condition explicitly skips fork-originated runs. For `issue_comment` events, the fork check is enforced inside the
-  reusable workflow's source-validation step rather than the `if:`; that internal check is the sole fork guard for
-  comment events. GitHub also withholds repository secrets from fork `pull_request` runs, but not from `issue_comment`
-  runs, which execute with base-repository secret access. Keep the workflow guards in place because the workflow builds
-  Docker images with repository secrets;
+  condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts commands to
+  trusted author associations (`OWNER`, `MEMBER`, `COLLABORATOR`) but does not check fork status; the fork check for
+  comment events is enforced inside the reusable workflow's source-validation step. These complementary guards cover
+  different axes, so preserve both. GitHub also withholds repository secrets from fork `pull_request` runs, but not from
+  `issue_comment` runs, which execute with base-repository secret access. Keep the workflow guards in place because the
+  workflow builds Docker images with repository secrets;
 - `+review-app-deploy` and `+review-app-delete` comment commands are accepted only from trusted commenters;
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
   so the staging token is available for teardown, and it does not require a trusted commenter;
@@ -449,9 +453,10 @@ review-app prefix. This is a shell-level guard, not a token policy; use a scoped
 itself is limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the latest
 PR-built image, so review-app credentials must remain disposable even during deletion.
 
-If you customize the generated `pull_request_target` workflow, never check out fork code with
-`github.event.pull_request.head.sha` or another fork-controlled ref. That would run untrusted fork code with repository
-secret access.
+If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
+fork-controlled ref to `actions/checkout`. Checking out fork code in a `pull_request_target` job runs untrusted code with
+repository secret access. Referencing the SHA for other purposes, such as deployment status updates, comments, or API
+calls, is safe.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For public repositories, keep review-app credentials and runtime values disposable:
