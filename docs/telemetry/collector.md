@@ -164,9 +164,9 @@ exporters:
 
   # Replace this placeholder with your real trace/log backend.
   otlphttp/backend:
-    # otlphttp treats this as a base endpoint and appends /v1/traces,
-    # /v1/metrics, or /v1/logs for each signal.
     endpoint: "https://telemetry-backend.example.com"
+    # This is a base URL. The exporter appends /v1/traces, /v1/metrics,
+    # and /v1/logs automatically. Do not include the signal path here.
     # headers:
     #   Authorization: "Bearer ${env:TELEMETRY_BACKEND_TOKEN}"
 

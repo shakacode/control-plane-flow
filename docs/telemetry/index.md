@@ -110,13 +110,15 @@ StatsD client or when a metric library cannot emit OTLP yet.
    `.controlplane/templates/open-telemetry-collector.yml`.
 2. Package a collector `config.yaml` that binds every port exposed by the
    workload template.
-3. Add both collector templates to `setup_app_templates`:
+3. Build the collector image and push it to your registry. Update the workload
+   template's `image:` field to that pushed image reference before applying it.
+4. Add both collector templates to `setup_app_templates`:
    `open-telemetry-collector-secrets` first, then
    `open-telemetry-collector`.
-4. Add the collector to `additional_workloads`.
-5. Set application env vars such as `OTEL_SERVICE_NAME`,
+5. Add the collector to `additional_workloads`.
+6. Set application env vars such as `OTEL_SERVICE_NAME`,
    `OTEL_EXPORTER_OTLP_ENDPOINT`, and `OTEL_EXPORTER_OTLP_PROTOCOL`.
-6. For an existing app, apply both collector templates in the same order:
+7. For an existing app, apply both collector templates in the same order:
    identity and policy first, then the collector workload.
 
    ```sh
@@ -126,7 +128,7 @@ StatsD client or when a metric library cannot emit OTLP yet.
 
    For a brand-new app, `cpflow setup-app` applies the configured templates in
    `setup_app_templates` order.
-7. Confirm collector logs, application exporter logs, and backend ingestion.
+8. Confirm collector logs, application exporter logs, and backend ingestion.
 
 The collector workload and its `config.yaml` must be kept in sync. If the
 workload exposes `4318`, `9127`, or `9292`, the collector config must bind those
