@@ -20,8 +20,8 @@ code like `cpln://secret/my-app-review-env-secrets.SECRET_KEY_BASE` and then hav
 level, which applies to your GVCs mapped to that org.
 
 Avoid pointing review-app templates at shared production secret dictionaries. If staging and review apps live in the same
-Control Plane org, keep review-app secret dictionaries separate from persistent staging secrets and scope identities so
-temporary review workloads can reveal only the values they need.
+Control Plane org, keep review-app secret dictionaries separate from persistent staging secrets, and restrict the Control
+Plane identity bound to review workloads so it can reveal only the values those workloads need.
 
 For setting up secrets, you'll need:
 

@@ -413,23 +413,25 @@ dependency access, and never use a personal SSH key.
 ## Review App Security For Public Repositories
 
 Review-app deployment executes pull request code. Even when the workflow itself is trusted, the Dockerfile, package
-scripts, Rails initializers, server-rendering code, and application runtime can all be changed by the pull request being
+scripts, Rails initializers, server-rendering code, application runtime, and any `release_script` or
+`hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml` can all be changed by the pull request being
 deployed.
 
 The generated flow uses these defaults:
 
-- same-repository pull requests from any contributor with push access can create or update review apps automatically on
-  each push;
-- fork pull requests are skipped for review-app deploys;
+- same-repository pull requests can update existing review apps automatically on each push; creating the first review app
+  requires a `+review-app-deploy` comment from a trusted commenter;
+- fork pull requests cannot deploy via the `pull_request` event because GitHub withholds repository secrets from
+  fork-originated runs; the workflow's same-repository `if:` condition is an additional explicit guard;
 - `+review-app-deploy` and `+review-app-delete` are accepted only from trusted commenters;
 - trusted comments on fork PRs still do not deploy the fork head; move the change to a branch in the base repository if
   it needs a generated review app;
 - production promotion is manual and uses production environment secrets separately from review and staging.
 
-The generated review-app workflow targets the staging/review Control Plane org and token from `CPLN_ORG_STAGING` and
-`CPLN_TOKEN_STAGING`. A fully separate review-app org or token requires workflow/configuration customization; otherwise,
-keep review apps and staging in the generated staging/review org and make that token disposable and unable to access
-production resources.
+The generated review-app workflow targets the staging/review Control Plane org inferred from `cpln_org` in
+`controlplane.yml`, or overridden by `CPLN_ORG_STAGING`, and uses the token from `CPLN_TOKEN_STAGING`. A fully separate
+review-app org or token requires workflow/configuration customization; otherwise, keep review apps and staging in the
+generated staging/review org and make that token disposable and unable to access production resources.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For public repositories, keep review-app credentials and runtime values disposable:
