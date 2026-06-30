@@ -27,6 +27,10 @@ spec:
       image: "registry.example.com/example/open-telemetry-collector:0.155.0"
       args:
         - "--config=/etc/otelcol-contrib/config.yaml"
+      # Uncomment when config.yaml references ${env:TELEMETRY_BACKEND_TOKEN}.
+      # env:
+      #   - name: TELEMETRY_BACKEND_TOKEN
+      #     value: cpln://secret/<secret-name>.TELEMETRY_BACKEND_TOKEN
       cpu: 100m
       memory: 256Mi
       ports:
@@ -104,7 +108,7 @@ receivers:
   statsd/tcp:
     endpoint: 0.0.0.0:9127
     transport: tcp
-    collection_interval: 60s
+    aggregation_interval: 60s
 
 processors:
   memory_limiter:
@@ -156,9 +160,11 @@ from the metrics pipeline and keep `otlphttp/backend`.
 Store backend tokens such as `TELEMETRY_BACKEND_TOKEN` in Control Plane secrets
 and bind them only to the collector workload identity shown in the template
 above. Create the collector identity and a policy that grants `reveal` on only
-the telemetry backend secret before applying the collector workload. Use the
-app identity placeholder only when the collector does not need secrets that are
-isolated from app workloads. See
+the telemetry backend secret before applying the collector workload. When the
+collector config references `${env:TELEMETRY_BACKEND_TOKEN}`, also add the
+matching `env` entry to the collector workload so Control Plane injects the
+secret value at startup. Use the app identity placeholder only when the collector
+does not need secrets that are isolated from app workloads. See
 [Secrets and ENV Values](../secrets-and-env-values.md) for the recommended
 pattern.
 

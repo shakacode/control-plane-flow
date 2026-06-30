@@ -60,11 +60,11 @@ The Control Plane workload template and collector config must agree.
 From an app workload shell, check that the collector service name resolves:
 
 ```sh
-getent hosts open-telemetry-collector.example-app.cpln.local
+getent hosts open-telemetry-collector.${APP_NAME}.cpln.local
 ```
 
-Replace `example-app` with the actual app name. If your image does not include
-`getent`, use an equivalent DNS tool available in the image.
+Set `APP_NAME` to the actual app name. If your image does not include `getent`,
+use an equivalent DNS tool available in the image.
 
 ## 6. Keep The First Test Simple
 
