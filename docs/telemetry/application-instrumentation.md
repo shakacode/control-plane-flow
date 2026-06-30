@@ -43,10 +43,11 @@ and protocol configured for that collector.
 When using HTTP transport (`http/protobuf` or `http/json`), modern stable
 OpenTelemetry SDKs treat `OTEL_EXPORTER_OTLP_ENDPOINT` as a base URL and append
 `/v1/traces`, `/v1/metrics`, or `/v1/logs` automatically. For OTLP over gRPC,
-follow your SDK's endpoint format, which often uses `host:port` without an
-`http://` or `https://` scheme. For older or pre-stable SDKs, use
+most stable SDKs expect `http://host:port` for insecure connections and
+`https://host:port` for TLS. Some older or pre-stable SDKs accepted a bare
+`host:port`; check your SDK's documentation. For older or pre-stable SDKs, use
 signal-specific variables such as `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` with the
-full signal path.
+full signal path when needed.
 
 `ENABLE_OPEN_TELEMETRY` is not a standard OpenTelemetry environment variable.
 Use it only if your application code explicitly reads that flag. Otherwise, use
@@ -69,6 +70,9 @@ env:
   - name: STATSD_PROTOCOL
     value: "tcp"
 ```
+
+`9127` is project-specific. The StatsD protocol default is `8125/UDP`; use the
+port your collector's `statsd/tcp` receiver is configured to bind.
 
 When applying with `cpln` directly, replace `{{APP_NAME}}` with the actual app
 name.

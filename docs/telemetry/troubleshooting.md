@@ -76,8 +76,11 @@ Before adding sampling, filtering, derived metrics, or multiple exporters:
 
 1. Start with one app workload.
 2. Send OTLP traces over HTTP.
-3. Export to a debug exporter or one known backend. Remove the debug exporter
-   before production use; it writes full telemetry payloads to collector logs.
+3. Export to a debug exporter or one known backend. To enable the debug
+   exporter, uncomment the `debug:` block in your collector config, add `debug`
+   to the relevant pipeline exporters list, and rebuild or remount the config.
+   Remove the debug exporter before production use; it writes full telemetry
+   payloads to collector logs.
 4. Confirm data appears.
 5. Add metrics and logs after traces work.
 
