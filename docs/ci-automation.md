@@ -419,20 +419,24 @@ and policy templates applied by `cpflow setup-app` at first deploy with `CPLN_TO
 pull request being deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even
 when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
 the code executes inside the review app workload and can read any secrets mounted into the workload environment.
-The generated setup action also exports `CPLN_TOKEN_STAGING` as `CPLN_TOKEN` for later runner shell steps, so keep any
-custom runner steps after setup trusted. PR-controlled `release_script` and hook commands normally run through
-`cpflow run` in the latest image, not as runner shell, so they do not read that runner token directly unless a custom
-workflow passes a local token through. Inside the Control Plane workload, a separate runtime `CPLN_TOKEN` is available
-only when the workload spec has an `identityLink`; `skip_secrets_setup` skips automatic identity creation and binding,
-but templates can still attach an identity. Do not treat `skip_secrets_setup` as a token-removal control. This is why
+The generated setup action also exports `CPLN_TOKEN_STAGING` as `CPLN_TOKEN` to `$GITHUB_ENV` for later runner shell
+steps, so keep any custom runner steps after setup trusted. PR-controlled `release_script` and hook commands normally run
+through `cpflow run` in remote Control Plane containers from the latest image, not as runner shell steps, so they do not
+read that runner token directly unless a custom workflow passes a local token through. Inside the Control Plane workload,
+a separate runtime `CPLN_TOKEN` is available only when the workload spec has an `identityLink`; `skip_secrets_setup`
+skips automatic identity creation and binding, but templates can still attach an identity. Because `cpflow setup-app`
+reads `controlplane.yml` from the PR checkout, a PR can also set `skip_secrets_setup: false` or omit it to re-enable
+automatic identity binding unless the trusted workflow passes `--skip-secrets-setup` as a CLI flag. Do not treat
+`skip_secrets_setup` in `controlplane.yml` as a token-removal control or reliable security boundary. This is why
 workload-mounted secrets and the staging service-account token must remain disposable and scoped to minimum permissions.
 
 The generated flow uses these defaults:
 
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
-  requires either a `+review-app-deploy` comment from a trusted commenter or a manual workflow dispatch by a repository
-  collaborator. The trusted-commenter gate applies to every `+review-app-deploy` comment, whether or not a review app
-  already exists. Later pushes to a base-repository branch PR redeploy automatically without another approval because the
+  requires either a `+review-app-deploy` comment from a trusted commenter (`OWNER`, `MEMBER`, or `COLLABORATOR`
+  association, regardless of permission level) or a manual workflow dispatch by a repository collaborator with write
+  access. The trusted-commenter gate applies to every `+review-app-deploy` comment, whether or not a review app already
+  exists. Later pushes to a base-repository branch PR redeploy automatically without another approval because the
   auto-push path (`pull_request` event) has no trusted-commenter check; only the `issue_comment` path does;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts commands to
@@ -465,20 +469,22 @@ generated staging/review org and make that token disposable and unable to access
 
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
 PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
-on any app whose name does not match the review-app prefix. This shell-level guard is effective because the delete
-workflow checks out base-branch code, not PR or fork code. If you customize this workflow, never check out PR or fork code
-in the same job as the delete step; doing so could let a PR replace the guard script itself. This is still not a token
-policy, so use a scoped staging service account limited to review/staging operations. A configured `hooks.pre_deletion`
-command still runs through the latest PR-built image on all delete paths: PR-close teardown, `+review-app-delete`
-comments, manual dispatch, and scheduled cleanup. Review-app credentials must remain disposable even during deletion.
+on any app whose name does not match the review-app prefix. This shell-level guard is effective because the generated
+delete workflow checks out base/default-branch code, not PR or fork code: its repository checkout has no `ref:` override,
+so `pull_request_target` runs use the base branch. If you customize this workflow, never check out PR or fork code in the
+same job as the delete step; doing so could let a PR replace the guard script itself and would also make
+`hooks.pre_deletion` come from the PR's `controlplane.yml`. This is still not a token policy, so use a scoped staging
+service account limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the
+latest PR-built image on all delete paths: PR-close teardown, `+review-app-delete` comments, manual dispatch, and
+scheduled cleanup. Review-app credentials must remain disposable even during deletion.
 
 If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
 fork-controlled ref to `actions/checkout`, `git fetch`, `git merge`, `git cherry-pick`, or any other step that fetches,
 materializes, or executes the ref. Those operations run untrusted fork code with repository secret access. Referencing the
 SHA as an opaque identifier for deployment status updates, comments, or API calls is safe because SHA values are hex-only
-and cannot contain shell metacharacters. Do not apply that reasoning to other PR event fields such as `head.ref` or
-`head.label`; pass user-controlled strings through environment variables instead of interpolating them directly into
-`run:` steps.
+and cannot contain shell metacharacters. Do not apply that reasoning to other attacker-controlled PR event fields such as
+`head.ref`, `head.label`, `title`, `body`, `head.repo.full_name`, or repository descriptions; pass user-controlled strings
+through environment variables instead of interpolating them directly into `run:` steps.
 
 These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
 For repositories with external contributors, keep review-app credentials and runtime values disposable:
