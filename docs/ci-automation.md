@@ -27,6 +27,8 @@ End-to-end rollout in one view:
 4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
+AI rollout: if you want an agent to run this setup, run `cpflow ai-github-flow-prompt` after the readiness check and give that output to the agent. It prints a repo-specific prompt with the rollout steps, blockers, and default app prefix filled in.
+
 See [Bootstrap a Project](#bootstrap-a-project) for command details, [Repo Readiness Checklist](#repo-readiness-checklist) for what "ready" means, and [AI Playbook](#ai-playbook) to run the rollout through an agent.
 
 ## Bootstrap a Project
