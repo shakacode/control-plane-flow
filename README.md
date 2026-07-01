@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./docs/assets/logo/icon-tile.svg" alt="Control Plane Flow (cpflow) logo" width="160" height="160" />
+</p>
+
 # The power of Kubernetes with the ease of Heroku!
 
 <meta name="author" content="Justin Gordon and Sergey Tarasov" />
@@ -30,7 +34,7 @@ To bootstrap a new project, run three commands from the repo root:
 
 The generated scaffold is a starting point. After generation, adapt `.controlplane/` for app-specific workloads (Sidekiq, Node renderer), wire any private-dependency Docker build settings (SSH key, optional known-host overrides), and verify that the production Docker build succeeds.
 
-See [CI automation](./docs/ci-automation.md) for the full setup and required GitHub secrets and variables. For an AI agent rollout, see the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` inside the target repo to print a copy-paste prompt with that repo's default app prefix filled in.
+See [CI automation](./docs/ci-automation.md) for the full setup and required GitHub secrets and variables. For an AI agent rollout, copy the [AI rollout prompt](./docs/ai-github-flow-prompt.md). If `cpflow` is already available in the target repo, `cpflow ai-github-flow-prompt` prints the same prompt with that repo's default app prefix filled in.
 
 For a live reference, see the [demo app](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.controlplane) and its [GitHub Actions flow](https://github.com/shakacode/react-webpack-rails-tutorial/tree/master/.github).
 Here is a brief [video overview](https://www.youtube.com/watch?v=llaQoAV_6Iw).
@@ -61,11 +65,12 @@ Additionally, the documentation includes numerous examples and practical tips fo
 10. [Scheduled Jobs](#scheduled-jobs)
 11. [CLI Commands Reference](#cli-commands-reference)
 12. [Mapping of Heroku Commands to `cpflow` and `cpln`](#mapping-of-heroku-commands-to-cpflow-and-cpln)
-13. [Examples](#examples)
-14. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
-15. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)
-16. [Tips](https://www.shakacode.com/control-plane-flow/docs/tips/)
-17. [Thruster HTTP/2 Proxy on Control Plane](https://www.shakacode.com/control-plane-flow/docs/thruster/)
+13. [Telemetry](https://www.shakacode.com/control-plane-flow/docs/telemetry/)
+14. [Examples](#examples)
+15. [Migrating Postgres Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/postgres/)
+16. [Migrating Redis Database from Heroku Infrastructure](https://www.shakacode.com/control-plane-flow/docs/redis/)
+17. [Tips](https://www.shakacode.com/control-plane-flow/docs/tips/)
+18. [Thruster HTTP/2 Proxy on Control Plane](https://www.shakacode.com/control-plane-flow/docs/thruster/)
 
 ## Key Features
 
@@ -241,6 +246,18 @@ aliases:
     #   it would be 'my-app-review-secrets-policy'
     secrets_policy_name: my-secrets-policy
 
+    # Optional: grant each app identity access to shared org-level secrets
+    # without hardcoding shared secret names in workload templates.
+    #
+    # This is useful for review apps that share one staging database secret
+    # instead of provisioning a database per PR. Create the shared secret and
+    # policy once, then reference the secret in templates with
+    # {{SHARED_SECRET_DATABASE}}.
+    # shared_secret_grants:
+    #   - name: database
+    #     secret_name: my-shared-database-secrets
+    #     policy_name: my-shared-database-secrets-policy
+
     # Configure the workload name used as a template for one-off scripts, like a Heroku one-off dyno.
     one_off_workload: rails
 
@@ -310,6 +327,8 @@ apps:
       post_creation: bundle exec rake db:prepare
 
       # Used by the command `cpflow delete` to run a hook before deleting the app.
+      # For a shared database, prefer admin-side cleanup instead: `cpflow delete` runs this hook before removing the
+      # workloads, so live connections can block the drop. See docs/tips.md ("Share One Control Plane Postgres").
       pre_deletion: bundle exec rake db:drop
 
   my-app-production:
@@ -363,7 +382,7 @@ cpflow generate-github-actions
 bin/test-cpflow-github-flow
 ```
 
-`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate-github-actions` also writes `bin/test-cpflow-github-flow` for local validation and `bin/pin-cpflow-github-ref` for temporarily pinning downstream wrappers to an upstream commit SHA during pre-release testing. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, start with the [AI rollout prompt](./docs/ai-github-flow-prompt.md) or run `cpflow ai-github-flow-prompt` in the target repo rather than giving a vague "set up CI" request.
+`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate-github-actions` also writes `bin/test-cpflow-github-flow` for local validation and `bin/pin-cpflow-github-ref` for temporarily pinning downstream wrappers to an upstream commit SHA during pre-release testing. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, give it the [AI rollout prompt](./docs/ai-github-flow-prompt.md) rather than a vague "set up CI" request.
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 

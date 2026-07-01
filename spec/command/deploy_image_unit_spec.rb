@@ -77,10 +77,25 @@ describe Command::DeployImage do
         Config,
         app: "test-app",
         org: "test-org",
-        options: { run_release_phase: false },
-        use_digest_image_ref?: false
+        options: { run_release_phase: run_release_phase },
+        use_digest_image_ref?: false,
+        identity: "test-app-identity",
+        identity_link: "/org/test-org/gvc/test-app/identity/test-app-identity",
+        shared_secret_grants: [
+          {
+            name: "database",
+            secret_name: "shared-database-secrets",
+            policy_name: "shared-database-secrets-policy"
+          },
+          {
+            name: "uploads",
+            secret_name: "shared-uploads-secrets",
+            policy_name: "shared-uploads-secrets-policy"
+          }
+        ]
       )
     end
+    let(:run_release_phase) { false }
     let(:cp) { instance_double(Controlplane) }
     let(:command) { described_class.new(config) }
     let(:workload_data) do
@@ -95,6 +110,14 @@ describe Command::DeployImage do
       }
     end
 
+    def policy_data
+      {
+        "targetKind" => "secret",
+        "targetLinks" => ["//secret/shared-database-secrets"],
+        "bindings" => []
+      }
+    end
+
     before do
       allow(config).to receive(:[]).with(:app_workloads).and_return(["frontend"])
       allow(cp).to receive(:fetch_workload!).with("frontend").and_return(workload_data)
@@ -103,10 +126,203 @@ describe Command::DeployImage do
       allow(cp).to receive_messages(
         latest_image: "test-app:1",
         fetch_image_details: {},
-        workload_set_image_ref: true
+        workload_set_image_ref: true,
+        bind_identity_to_policy: true
       )
+      allow(cp).to receive(:fetch_policy)
+        .with("shared-database-secrets-policy")
+        .and_return(policy_data)
+      allow(cp).to receive(:fetch_policy)
+        .with("shared-uploads-secrets-policy")
+        .and_return(uploads_policy_data)
       allow(command).to receive(:cp).and_return(cp)
       allow(Resolv).to receive(:getaddress).and_return("1.2.3.4")
+    end
+
+    def uploads_policy_data
+      {
+        "targetKind" => "secret",
+        "targetLinks" => ["//secret/shared-uploads-secrets"],
+        "bindings" => []
+      }
+    end
+
+    it "binds configured shared secret policies before deploying workloads" do
+      command.call
+
+      expect(cp).to have_received(:bind_identity_to_policy)
+        .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+      expect(cp).to have_received(:bind_identity_to_policy)
+        .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-uploads-secrets-policy")
+    end
+
+    context "when the identity is bound to the shared policy without reveal permission" do
+      def policy_data
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["//secret/shared-database-secrets"],
+          "bindings" => [
+            {
+              "permissions" => %w[view],
+              "principalLinks" => ["/org/test-org/gvc/test-app/identity/test-app-identity"]
+            }
+          ]
+        }
+      end
+
+      it "adds the reveal binding" do
+        command.call
+
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+      end
+    end
+
+    context "when the identity is already bound to the shared policy with reveal permission" do
+      def policy_data
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["//secret/shared-database-secrets"],
+          "bindings" => [
+            {
+              "permissions" => %w[reveal],
+              "principalLinks" => ["/org/test-org/gvc/test-app/identity/test-app-identity"]
+            }
+          ]
+        }
+      end
+
+      it "does not bind that policy again" do
+        command.call
+
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+          .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-uploads-secrets-policy")
+      end
+    end
+
+    context "when the shared policy returns a fully-qualified secret target link" do
+      def policy_data
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["/org/test-org/secret/shared-database-secrets"],
+          "bindings" => []
+        }
+      end
+
+      it "accepts the policy target" do
+        command.call
+
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+      end
+    end
+
+    context "when the shared policy does not target the configured shared secret" do
+      def uploads_policy_data
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["//secret/other-shared-secret"],
+          "bindings" => []
+        }
+      end
+
+      it "raises before granting reveal on the wrong policy" do
+        expect { command.call }
+          .to raise_error(
+            "Shared secret policy 'shared-uploads-secrets-policy' for shared_secret_grants entry " \
+            "'uploads' must target only secret 'shared-uploads-secrets'."
+          )
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+    end
+
+    context "when the shared policy also targets another secret" do
+      def uploads_policy_data
+        {
+          "targetKind" => "secret",
+          "targetLinks" => ["//secret/shared-uploads-secrets", "//secret/other-shared-secret"],
+          "bindings" => []
+        }
+      end
+
+      it "raises before granting reveal on the broader policy" do
+        expect { command.call }
+          .to raise_error(
+            "Shared secret policy 'shared-uploads-secrets-policy' for shared_secret_grants entry " \
+            "'uploads' must target only secret 'shared-uploads-secrets'."
+          )
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+    end
+
+    context "when running a release phase" do
+      let(:run_release_phase) { true }
+
+      before do
+        allow(config).to receive(:[]).with(:release_script).and_return("bundle exec rails db:migrate")
+        allow(command).to receive(:run_release_script)
+      end
+
+      it "binds configured shared secret policies before the release script" do
+        command.call
+
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
+          .ordered
+        expect(command).to have_received(:run_release_script).ordered
+      end
+    end
+
+    context "when release phase config is invalid" do
+      let(:run_release_phase) { true }
+
+      before do
+        allow(config).to receive(:[]).with(:release_script).and_raise("Can't find option 'release_script'")
+      end
+
+      it "raises before binding shared secret policies" do
+        expect { command.call }.to raise_error("Can't find option 'release_script'")
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+    end
+
+    context "when the requested release phase is blank" do
+      let(:run_release_phase) { true }
+
+      before do
+        allow(config).to receive(:[]).with(:release_script).and_return(nil)
+      end
+
+      it "raises before binding shared secret policies or deploying workloads" do
+        expect { command.call }
+          .to raise_error("release_script must be configured when --run-release-phase is provided.")
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+        expect(cp).not_to have_received(:workload_set_image_ref)
+      end
+    end
+
+    context "when the image preflight fails" do
+      before do
+        allow(cp).to receive(:fetch_image_details).and_return(nil)
+      end
+
+      it "raises before binding shared secret policies" do
+        expect { command.call }.to raise_error(/Image 'test-app:1' does not exist/)
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+    end
+
+    context "when a workload preflight fails" do
+      before do
+        allow(cp).to receive(:fetch_workload!).with("frontend").and_raise("Workload missing")
+      end
+
+      it "raises before binding shared secret policies" do
+        expect { command.call }.to raise_error("Workload missing")
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
     end
 
     it "shows the workload name in the deploy step message, not the container name" do

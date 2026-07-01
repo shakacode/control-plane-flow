@@ -41,10 +41,16 @@ apps:
   __APP_PREFIX__-review:
     <<: *common
     match_if_app_name_starts_with: true
-    # Uncomment to automatically initialize and tear down review-app databases:
+    # To save review-app database cost, create one shared staging database
+    # secret and policy, then uncomment this block and use
+    # {{SHARED_SECRET_DATABASE}} in templates that need DATABASE_URL.
+    # shared_secret_grants:
+    #   - name: database
+    #     secret_name: __APP_PREFIX__-review-database-secrets
+    #     policy_name: __APP_PREFIX__-review-database-secrets-policy
+    # Uncomment to automatically initialize review-app databases:
     # hooks:
     #   post_creation: bundle exec rails db:prepare
-    #   pre_deletion: bundle exec rails db:drop
 
   __APP_PREFIX__-production:
     <<: *production

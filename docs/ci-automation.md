@@ -10,15 +10,24 @@ The goal is to bring the Heroku Flow model into any `cpflow` project:
 4. Promote the already-built staging artifact to production from the Actions tab.
 5. Let a nightly workflow clean up stale review apps.
 
+For public repositories, review apps are intentionally limited to branches in the base repository. Fork pull requests can
+receive help comments, but generated deploy workflows skip fork heads because review-app deployment builds Docker images
+with repository secrets. The skip is enforced by complementary guards on different trigger axes; see
+[Review app security for repositories with external contributors](#review-app-security-for-repositories-with-external-contributors)
+before customizing these workflows. If a forked change needs a review app, a maintainer should first review the code and
+move the change into a trusted branch in the base repository.
+
 ## Quick Start
 
 End-to-end rollout in one view:
 
 1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
 2. `cpflow generate` — creates `.controlplane/` if missing.
-3. `cpflow generate-github-actions` — adds thin `cpflow-*` workflow wrappers that call upstream reusable workflows.
+3. `cpflow generate-github-actions` — adds `cpflow-*` workflow wrappers. Review-app, staging, cleanup, and helper workflows call upstream reusable workflows; production promotion is a normal caller-repo job so it can own the protected production Environment.
 4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
+
+AI rollout: copy the [AI rollout prompt](./ai-github-flow-prompt.md) when you want an agent to run this setup. The prompt works whether `cpflow` is already installed or the agent needs to install it first. If `cpflow` is already available in the target repo, `cpflow ai-github-flow-prompt` prints the same prompt with the default app prefix filled in.
 
 See [Bootstrap a Project](#bootstrap-a-project) for command details, [Repo Readiness Checklist](#repo-readiness-checklist) for what "ready" means, and [AI Playbook](#ai-playbook) to run the rollout through an agent.
 
@@ -137,7 +146,8 @@ apps:
     match_if_app_name_starts_with: true
     hooks:
       post_creation: bundle exec rails db:prepare
-      pre_deletion: bundle exec rails db:drop
+      # pre_deletion intentionally omitted for shared databases: `cpflow delete` runs it before removing the workloads,
+      # so live connections can block the drop. Prefer admin-side cleanup. See docs/tips.md ("Share One Control Plane Postgres").
 
   my-app-production:
     <<: *common
@@ -155,12 +165,18 @@ Important points:
 - Review-app workflows infer the staging Control Plane org from that review app entry's `cpln_org`.
 - `upstream: my-app-staging` is what lets the production promotion workflow copy the exact staging artifact.
 - If your main web workload is not named `rails`, set the optional `PRIMARY_WORKLOAD` repository variable described below.
+- For public demos, starter staging apps, and long-lived review apps, prefer `capacityAI: true` with one warm replica
+  and the workload's autoscaling metric disabled, so Control Plane can right-size CPU and memory allocation at that
+  fixed replica count. See
+  [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 
 ## Required GitHub Repository Settings
 
 For a normal generated review-app setup, configure one repository secret:
 
-- `CPLN_TOKEN_STAGING`: token for the staging Control Plane org
+- `CPLN_TOKEN_STAGING`: token for the staging/review Control Plane org. Generate it from a Control Plane service account
+  whose policies only allow review/staging CI operations; it must not read production secrets or manage production
+  workloads.
 
 No GitHub repository variables are required for review apps when `.controlplane/controlplane.yml`
 has exactly one review app entry with `match_if_app_name_starts_with: true` and
@@ -196,23 +212,62 @@ For production promotion, also configure:
 - `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
 
+Enter GitHub variables such as `CPLN_ORG_STAGING`,
+`CPLN_ORG_PRODUCTION`, `STAGING_APP_NAME`, and `PRODUCTION_APP_NAME`
+as plain single-line values. The generated production promotion workflow trims
+accidental leading/trailing whitespace and line endings from Control Plane org
+names before building registry URLs, but embedded line breaks are rejected
+because they could change the target org name after normalization.
+
+Production promotion copies the exact image currently deployed on the selected
+staging workload. If that staging image is digest-pinned, the digest is used for
+the source copy while the production tag is derived from the tag portion. Tags
+with a `_<commit>` suffix keep that suffix in production; plain numeric tags are
+also valid and promote to the next plain production tag. The copy step uses
+`docker buildx imagetools create --prefer-index=false --tag` with isolated
+Docker credentials, which preserves multi-architecture manifests, preserves
+single-platform manifest format when supported, and avoids pulling image layers
+onto the GitHub Actions runner.
+
+Before copying the image, production promotion compares the environment variable
+names exposed by staging and production at both the GVC level and each configured
+app workload's container level. Variables present in staging are treated as
+required for production, while production-only variables emit warnings. A missing
+production workload variable such as a renderer password or runtime secret fails
+the promotion before the image copy starts.
+
 Do not put `CPLN_TOKEN_PRODUCTION` in repository or organization secrets for
-sensitive production systems. The generated promotion reusable workflow declares
-`environment: production`; the generated caller passes that environment name
-through `production_environment`. GitHub waits for the `production`
-environment's protection rules before injecting `CPLN_TOKEN_PRODUCTION` into
-the upstream production job.
+sensitive production systems. Production promotion intentionally runs as a
+normal caller-repo workflow job with `environment: production`, then checks out
+the pinned `control-plane-flow` release for shared actions. GitHub exposes the
+production token to that job only after the `production` environment gate.
+GitHub does not expose which secret scope supplied a nonempty value at runtime,
+so a broader repository or organization secret with the same name can mask a
+missing environment secret. Keep the production token absent from broader secret
+scopes.
 
-GitHub's reusable-workflow syntax still requires the upstream workflow to
-declare `CPLN_TOKEN_PRODUCTION` as an optional `workflow_call` secret so static
-validation accepts `secrets.CPLN_TOKEN_PRODUCTION`, but the generated caller
-must not pass it. GitHub uses the secret from the reusable workflow job's
-`production` environment when that environment is configured.
+Do not move production promotion behind a cross-repo reusable workflow. GitHub
+does not expose the caller repository's environment secrets to that called
+workflow, so `secrets.CPLN_TOKEN_PRODUCTION` remains empty even when the
+`production` Environment contains the secret. Generated reusable-workflow
+callers still pass only the named secrets each upstream workflow needs and do
+not use `secrets: inherit`; production promotion is the caller-owned exception.
 
-Generated caller workflows pass only the named secrets each reusable workflow
-needs. They do not use `secrets: inherit`; the production token is supplied by
-the protected `production` Environment after approval, not forwarded from a
-repository secret.
+If promotion fails in the `Validate production token` step with
+`CPLN_TOKEN_PRODUCTION is not set. Add it as a secret on the 'production' GitHub Environment.`,
+check the environment scope first. Also verify that the `promote-to-production`
+job declares `environment: production` and that no same-named repository or
+organization secret exists. Create or verify the environment secret with:
+You need permission to manage repository environments and secrets to run these
+commands.
+
+```sh
+gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production
+# Paste the token value when prompted.
+gh secret list --repo OWNER/REPO --env production
+gh secret list --repo OWNER/REPO
+gh secret list --org OWNER | grep '^CPLN_TOKEN_PRODUCTION[[:space:]]' || true
+```
 
 ## First-Time Control Plane Bootstrap
 
@@ -256,6 +311,12 @@ cpflow setup-app -a my-app-production --org my-org-production --skip-post-creati
 Use production-only runtime secrets and values for the production app. The
 protected GitHub Environment controls who can run the promotion workflow, but
 the production app resources still need to exist before the first promotion.
+After bootstrap, populate the production app secret dictionary with the values
+referenced by `.controlplane/templates`, then run `cpflow apply-template` against
+production when templates change so the workload env references remain persisted.
+Production promotion checks for missing GVC and workload container env names
+before copying the staging image, so a staging-only runtime variable will stop
+the run early instead of deploying an image that cannot boot.
 
 Review apps are different: the generated `+review-app-deploy` workflow creates
 temporary PR apps as needed, including the identity and secret policy binding.
@@ -263,6 +324,28 @@ You still need the shared review-app runtime secret values described by your
 templates, and the staging token must have access to create and update
 review-app GVCs, workloads, images, identities, policies, and secrets in the
 staging org.
+
+If review apps share an existing staging database or another existing secret,
+declare it with `shared_secret_grants` on the review app config entry. The
+deploy workflow runs `setup-app` for new review apps and `deploy-image` for
+image updates; those commands bind or repair the review app identity's `reveal`
+permission on each configured shared policy. The delete and cleanup workflows
+call `cpflow delete`, which removes those bindings as review apps go away. This
+lets one shared database or license secret serve many short-lived review apps
+without granting every review identity access to unrelated app secrets.
+
+```yaml
+apps:
+  my-app-review:
+    match_if_app_name_starts_with: true
+    shared_secret_grants:
+      - name: database
+        secret_name: my-app-review-database-secrets
+        policy_name: my-app-review-database-secrets-policy
+```
+
+Then reference `cpln://secret/{{SHARED_SECRET_DATABASE}}.DATABASE_URL` from the
+workload template.
 
 ### Production Promotion Safety
 
@@ -279,12 +362,25 @@ The standard path is:
 7. Store `CPLN_ORG_PRODUCTION` and `PRODUCTION_APP_NAME` as `production`
    environment variables, or as repository variables only when those names are
    intentionally non-sensitive.
+8. Keep GitHub variable values single-line; a pasted trailing newline is trimmed
+   for Control Plane org names, but embedded line breaks are rejected before
+   deployment, copy, health-check, or rollback steps run.
+9. Bootstrap or re-apply the persistent production app templates before first
+   promotion so app workload container env references and Control Plane secret
+   dictionaries exist in production.
+10. Expect promotion to preserve the selected staging image reference. Digest
+   references are copied by digest, commit-suffixed tags keep the commit suffix,
+   and plain numeric tags remain valid.
+11. Expect production health and rollback readiness polling to require Control
+   Plane `status.ready` and `status.readyLatest` before checking the endpoint.
 
 GitHub only exposes environment secrets to jobs that reference the environment
-after configured protection rules pass. GitHub also does not allow a caller job
-that directly invokes a reusable workflow to set `environment`; for that reason,
-the reusable promotion workflow itself declares `environment: production`. See
-GitHub's docs for [managing environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),
+after configured protection rules pass. GitHub does not allow a caller job that
+directly invokes a reusable workflow to set `environment`, and cross-repo
+reusable workflows do not receive the caller repository's environment secrets.
+For that reason, generated production promotion stays as a normal caller-repo
+job with `environment: production`. See GitHub's docs for
+[managing environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),
 [deployment protection rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments),
 and [reusable workflow limitations](https://docs.github.com/en/actions/reference/reusable-workflows-reference#supported-keywords-for-jobs-that-call-a-reusable-workflow).
 
@@ -297,6 +393,9 @@ Recommended org layout:
 
 - keep review apps and staging in a staging org that developers can access
 - keep production in a separate org with tighter access controls
+- for public repositories, use a staging/review token generated from a service account whose policies only allow
+  review/staging CI operations; use a dedicated review-app org only if you also customize the generated
+  workflow/configuration to target that org separately
 
 Optional repository secret for private dependency builds:
 
@@ -312,6 +411,105 @@ Advanced optional repository variables:
 - `REVIEW_APP_DEPLOYING_ICON_URL`: custom image URL for the animated icon in review-app PR comments. Ignore this for the standard setup; it is cosmetic only.
 - `CPLN_CLI_VERSION`: pin only when Control Plane CLI compatibility requires it.
 - `CPFLOW_VERSION`: pin a published RubyGems version only when intentionally overriding the default build-from-ref behavior.
+
+## Review App Security for Repositories with External Contributors
+
+Review-app deployment and teardown can execute pull request code. Even when the workflow itself is trusted, the
+Dockerfile, package scripts, Rails initializers, server-rendering code, application runtime, any `release_script` or
+`hooks.post_creation` defined in the PR's `.controlplane/controlplane.yml`, and `.controlplane/templates/*.yaml` identity
+and policy templates applied by `cpflow setup-app` at first deploy with `CPLN_TOKEN_STAGING` can all be changed by the
+pull request being deployed. Teardown can also run a `hooks.pre_deletion` command through the latest PR-built image, even
+when the hook command comes from the base-branch config. A PR author can embed malicious code in that image; at runtime
+the code executes inside the review app workload and can read any secrets mounted into the workload environment.
+The generated setup action also exports `CPLN_TOKEN_STAGING` as `CPLN_TOKEN` via `GITHUB_ENV`, making it available in the
+process environment of every subsequent runner step for the rest of the job, so keep any custom runner steps after setup
+trusted. PR-controlled `release_script` and hook commands normally run through `cpflow run` in remote Control Plane
+containers from the latest image, not as runner shell steps, so they do not read that runner token directly unless a
+custom workflow passes a local token through. Inside the Control Plane workload, a separate runtime `CPLN_TOKEN` is
+available only when the workload spec has an `identityLink`; `skip_secrets_setup` skips automatic identity creation and
+binding, but templates can still attach an identity. Because `cpflow setup-app` reads `controlplane.yml` from the PR
+checkout, a PR can also set `skip_secrets_setup: false` or omit it to re-enable automatic identity binding unless the
+trusted workflow passes `--skip-secrets-setup` as a CLI flag. Do not treat `skip_secrets_setup` in `controlplane.yml` as
+a token-removal control or reliable security boundary. This is why workload-mounted secrets and the staging
+service-account token must remain disposable and scoped to minimum permissions.
+
+The generated flow uses these defaults:
+
+- same-repository pull requests can update existing review apps automatically on each push; creating the first review app
+  requires either a `+review-app-deploy` comment from a trusted commenter (`OWNER`, `MEMBER`, or `COLLABORATOR`
+  association, regardless of permission level) or a manual workflow dispatch by a repository collaborator with write
+  access. The trusted-commenter gate applies to every `+review-app-deploy` comment, whether or not a review app already
+  exists. Later pushes to a base-repository branch PR redeploy automatically without another approval because the
+  auto-push path (`pull_request` event) has no trusted-commenter check; only the `issue_comment` path does;
+- fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
+  condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts commands to
+  trusted author associations (`OWNER`, `MEMBER`, `COLLABORATOR`) but does not check fork status; the fork check for
+  comment events is enforced inside the reusable workflow's source-validation step. These complementary guards cover
+  different axes, so preserve both. A trusted commenter can comment on a fork PR and pass the caller's
+  `author_association` check; the reusable workflow's source-validation step is what blocks that fork head from being
+  deployed. Removing the source-validation guard opens a path to deploy untrusted code with repository-secret access,
+  because `issue_comment` events execute with base-repository secret access. Removing the `pull_request` guard still
+  lets untrusted fork code into the staging environment even though GitHub withholds repository secrets from fork
+  `pull_request` runs. Keep both workflow guards in place because the workflow builds Docker images with repository
+  secrets;
+- review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
+  so it runs in the base-repository context and has repository-secret access for teardown. That is also why you must
+  never check out PR or fork code in this job; see the customization guidance below. The PR-close path does not require a
+  trusted commenter. The generated `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs
+  (`contents: read`, `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that
+  `permissions:` block because omitting it can fall back to broader repository defaults;
+- manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
+  comment, and does not require a trusted commenter;
+- trusted comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
+  commenter receives a rocket reaction and the skip appears only in the Actions step summary. Review the fork code
+  carefully, then move the change to a branch in the base repository if it needs a generated review app. That build will
+  run with repository-secret access;
+- production promotion is manual and uses production environment secrets separately from review and staging.
+
+The generated review-app workflow targets the staging/review Control Plane org inferred from `cpln_org` in
+`controlplane.yml`, or overridden by `CPLN_ORG_STAGING`, and uses the token from `CPLN_TOKEN_STAGING`. A fully separate
+review-app org or token requires workflow/configuration customization; otherwise, keep review apps and staging in the
+generated staging/review org and make that token disposable and unable to access production resources.
+
+The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
+PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
+on any app whose name does not match the review-app prefix. This shell-level guard is effective because the generated
+delete workflow checks out base/default-branch code, not PR or fork code: its repository checkout has no `ref:` override,
+so `pull_request_target` runs use the base branch. If you customize this workflow, never check out PR or fork code in the
+same job as the delete step; doing so could let a PR replace the guard script itself and would also make
+`hooks.pre_deletion` come from the PR's `controlplane.yml`. This is still not a token policy, so use a scoped staging
+service account limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the
+latest PR-built image on all delete paths: PR-close teardown, `+review-app-delete` comments, manual dispatch, and
+scheduled cleanup. Review-app credentials must remain disposable even during deletion.
+
+If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
+fork-controlled ref to `actions/checkout`, `git fetch`, `git merge`, `git cherry-pick`, or any other step that fetches,
+materializes, or executes the ref. Those operations run untrusted fork code with repository secret access. Referencing the
+SHA as an opaque identifier for deployment status updates, comments, or API calls is safe because SHA values are hex-only
+and cannot contain shell metacharacters. Do not apply that reasoning to other attacker-controlled PR event fields such as
+`head.ref`, `head.label`, `title`, `body`, `head.repo.full_name`, or repository descriptions; pass user-controlled strings
+through environment variables instead of interpolating them directly into `run:` steps.
+
+These defaults protect repository secrets from direct fork PR execution, but they do not make deployed PR code harmless.
+For repositories with external contributors, keep review-app credentials and runtime values disposable:
+
+- do not mount production secrets, staging customer data, package-publishing tokens, payment keys, or monitoring tokens
+  into review apps;
+- do not use `DOCKER_BUILD_SSH_KEY` with a long-lived personal key or broad deploy key; see
+  [Docker Builds with Private Dependencies](#docker-builds-with-private-dependencies) for the minimum-access deploy-key
+  requirements;
+- do not use broad Control Plane `superusers` tokens for review-app CI; use a review/staging service account scoped only to
+  review/staging CI operations;
+- keep review databases, Redis instances, object stores, and renderer credentials separate from staging and production;
+- rotate any credential that may have been exposed to a malicious review-app build;
+- use scheduled cleanup so stale review apps stop consuming compute and secrets access. Cleanup deletes apps through
+  `cpflow delete`, so any configured `hooks.pre_deletion` still runs through the latest PR-built image; review-app
+  credentials must remain disposable for this path too.
+
+Secret indirection such as `cpln://secret/...` protects values in Control Plane configuration. It does not protect a
+value after that secret is mounted into a workload that runs pull request code. See
+[Secrets and ENV Values - Review app secrets](./secrets-and-env-values.md#review-app-secrets) for review-app secret
+handling guidance.
 
 ## Docker Builds with Private Dependencies
 
@@ -337,6 +535,10 @@ DOCKER_BUILD_EXTRA_ARGS=--build-arg=BUNDLE_WITHOUT=development:test
 
 The action will start an SSH agent, add the key, write `known_hosts`, and pass `--ssh=default` to `cpflow build-image`. When `DOCKER_BUILD_SSH_KNOWN_HOSTS` is unset, the generated action uses pinned GitHub.com host keys by default. If your Dockerfile relies on `RUN --mount=type=ssh`, validate the build locally with `cpflow build-image -a <app> --ssh=default` before relying on CI.
 
+Do not configure `DOCKER_BUILD_SSH_KEY` unless the Dockerfile truly needs it. When configured, it is available to all
+review-app and staging Docker builds; follow the review-app security guidance above by using a read-only, revocable
+deploy key scoped to the minimum private dependency access, and never use a personal SSH key.
+
 ## Generated Workflow Behavior
 
 `cpflow-review-app-help.yml`
@@ -352,18 +554,31 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 
 `cpflow-deploy-review-app.yml`
 
-- Creates a review app when someone comments `+review-app-deploy`.
+- Creates a review app when someone comments `+review-app-deploy` or via manual workflow dispatch by a repository
+  collaborator.
+- For manual dispatch, provide the PR number; the workflow rejects fork PRs at runtime because it builds Docker images
+  with repository secrets.
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
+- Supports cost-conscious review apps when paired with one warm replica, Capacity AI, and a disabled autoscaling
+  metric for public demos, starter staging apps, and long-lived review apps; see
+  [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 - Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
-- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets.
+- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. A trusted comment on a
+  fork PR still does not deploy the fork head, and manual dispatch must use a base-repository PR number; dispatching with
+  a fork PR number causes a hard workflow failure. To give a fork PR a review app, review the code carefully first, then
+  move the change to a branch in the base repository. The build will then run with repository-secret access.
 
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `+review-app-delete`.
-- Also deletes it automatically when the pull request closes.
-- Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
+- Also supports manual workflow dispatch by a repository collaborator without requiring a trusted-commenter command.
+- Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
+  are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
+  review-app credentials must remain disposable.
+- Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
+  automatic PR-close teardown do not require a trusted commenter.
 
 `cpflow-deploy-staging.yml`
 
@@ -376,8 +591,8 @@ The action will start an SSH agent, add the key, write `known_hosts`, and pass `
 
 - Manually promotes the staging artifact to production with a confirmation input.
 - Runs the production job in the `production` GitHub Environment, so configured reviewers approve the job before production environment secrets are available.
-- Verifies that production has the env var names staging expects.
-- Runs a health check against `PRIMARY_WORKLOAD`.
+- Verifies that production has the GVC and app workload container env var names staging expects.
+- Runs a health check against `PRIMARY_WORKLOAD` only after Control Plane reports the latest workload version ready.
 - Attempts a rollback of every configured application workload if the new production image does not come up healthy.
 - Creates a GitHub release after a successful promotion.
 
@@ -405,32 +620,37 @@ or clones that copy the workflow before configuring Control Plane can remove
 wrapper-level `if:` guard shown in that file, for example
 `vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''`.
 
-## Upstream Reusable Workflows
+## Upstream Workflows And Actions
 
-The generated workflows are intentionally small wrappers. The deployment logic,
-comment formatting, Control Plane CLI setup, Docker image build, and cleanup helpers
-live in upstream reusable workflows and composite actions in this repository.
+Most generated workflows are intentionally small wrappers. The deployment
+logic, comment formatting, Control Plane CLI setup, Docker image build, and
+cleanup helpers live in upstream reusable workflows and composite actions in
+this repository. Production promotion is expanded into the caller repository so
+it can own `environment: production`, but it still checks out the same upstream
+ref for shared composite actions.
 
-- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream reusable-workflow ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
+- `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream `control-plane-flow` ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
 - `cpflow-build-docker-image`: builds and pushes the app image with the desired commit SHA
 - `cpflow-delete-control-plane-app`: safely deletes temporary apps and refuses to touch names outside the configured review-app prefix
 
 ## Version Pins: GitHub Ref vs RubyGems
 
-The generated `cpflow-*` workflow files are thin wrappers around reusable
-workflows in `shakacode/control-plane-flow`. GitHub loads reusable workflows
-from a repository ref, not from the Ruby gem, so each wrapper has an upstream
-GitHub ref:
+Generated `cpflow-*` workflow files pin `shakacode/control-plane-flow` from
+GitHub, not from the Ruby gem. Reusable workflow wrappers pin that source with
+an upstream `uses:` ref:
 
 ```yaml
 uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@<ref>
 ```
 
-That single `uses:` ref is the downstream lock. GitHub exposes the reusable
-workflow's own repository, ref, and SHA to the called job, so the upstream
-workflow checks out the matching `control-plane-flow` source automatically from
-that context. Downstream wrappers should not pass `control_plane_flow_ref`; if
-you see that input in generated wrappers, regenerate with a newer `cpflow`.
+Production promotion pins the same source in its `Checkout control-plane-flow
+actions` step because it is a caller-owned job, not a reusable workflow caller.
+Those refs are the downstream lock. GitHub exposes a reusable workflow's own
+repository, ref, and SHA to called jobs, so reusable upstream workflows check out
+matching `control-plane-flow` source automatically from that context. Downstream
+reusable-workflow wrappers should not pass `control_plane_flow_ref`; if you see
+that input outside the production promotion setup step, regenerate with a newer
+`cpflow`.
 
 There are two locks, and they protect different things:
 
@@ -528,10 +748,12 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
    bin/pin-cpflow-github-ref <upstream-pr-sha>
    ```
 
-   The helper updates every generated `cpflow-*` workflow wrapper. It accepts
-   release tags and full commit SHAs by default, rejects branch names such as
-   `main` or `feature/foo`, and requires `--allow-moving-ref` for short-lived
-   local experiments that should not be committed.
+   The helper updates every generated reusable-workflow `uses:` ref plus the
+   production workflow's pinned `control-plane-flow` checkout and setup
+   validation ref. It accepts release tags and full commit SHAs by default,
+   rejects branch names such as `main` or `feature/foo`, and requires
+   `--allow-moving-ref` for short-lived local experiments that should not be
+   committed.
 
 3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same
    upstream SHA that supplies the reusable workflow and composite actions. If
@@ -566,9 +788,10 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
    `bin/pin-cpflow-github-ref vX.Y.Z` only for a ref-only update when the
    generated templates are already current.
 
-This tests the real reusable workflow, shared composite actions, and source-built
-`cpflow` gem from one immutable upstream commit. It avoids merging upstream blind
-and avoids running production automation against a moving branch.
+This tests the real reusable workflows, the production workflow's checked-out
+shared composite actions, and the source-built `cpflow` gem from one immutable
+upstream commit. It avoids merging upstream blind and avoids running production
+automation against a moving branch.
 
 ## Local Generated-Flow Checks
 
@@ -580,9 +803,11 @@ bin/test-cpflow-github-flow
 
 The helper runs `cpflow github-flow-readiness`, parses generated workflow YAML,
 checks composite action metadata for literal GitHub expressions in descriptions,
-checks that all generated wrappers use one upstream ref consistently, rejects
-broad `secrets: inherit` usage in generated cpflow wrappers, rejects obsolete
-`control_plane_flow_ref` wrapper inputs, and runs
+checks that all generated wrappers and the production `control-plane-flow`
+checkout use one upstream ref consistently, rejects broad `secrets: inherit`
+usage in generated cpflow wrappers, rejects obsolete `control_plane_flow_ref`
+wrapper inputs, verifies production promotion remains a caller-owned
+`environment: production` job, and runs
 `actionlint` against `.github/workflows/cpflow-*.yml`. Its `actionlint` command
 keeps the existing shellcheck ignore and also ignores stale local `actionlint`
 false positives for GitHub's newer reusable-workflow `job.workflow_*` fields.
@@ -627,15 +852,17 @@ In practice, porting the flow into a demo app usually follows five phases.
 
 13. Validate the real production Docker build before relying on the workflows, especially if asset compilation or SSR requires Node, extra system packages, multiple processes, extra Docker build flags, or persistent writable paths.
 14. Expect review app deploys to run only for branches in the base repository; fork PRs still get help comments, but deploys are skipped because the workflow uses repository secrets.
+15. For public repositories, confirm that review-app secrets are disposable and that `CPLN_TOKEN_STAGING` cannot access production resources.
 
 ## AI Playbook
 
-If you want an AI agent to apply this flow to another project, start with
-`cpflow github-flow-readiness`, then use the standalone
-[AI rollout prompt](./ai-github-flow-prompt.md). It captures the exact wording,
-hard stop conditions, and definition of done for this workflow. You can also
-run `cpflow ai-github-flow-prompt` from inside the target repo to print the
-current prompt with that repo's default app prefix already filled in.
+If you want an AI agent to apply this flow to another project, use the
+standalone [AI rollout prompt](./ai-github-flow-prompt.md). It captures the
+exact wording, hard stop conditions, and definition of done for this workflow,
+and it works whether `cpflow` is already installed or the agent needs to install
+it first. When `cpflow` is already available in the target repo,
+`cpflow ai-github-flow-prompt` prints the same prompt with that repo's default
+app prefix already filled in.
 
 Short version:
 

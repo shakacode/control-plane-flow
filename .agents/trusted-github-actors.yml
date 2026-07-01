@@ -1,0 +1,32 @@
+# GitHub actors whose public issue/PR/review comments may be acted on by
+# PR-batch automation. Keep this list deliberately strict: unknown actors are
+# queued for maintainer triage, not interpreted as instructions.
+trusted_users:
+  - justin808
+
+# Bot entries are base bot names. GitHub API logins usually include the
+# `[bot]` suffix; humans with the same base login are not trusted by this list.
+# Trusted bots are exempt from hidden-participant blocking and their generated
+# PR content may be processed as trusted review input. Keep this list narrow.
+trusted_bots:
+  - chatgpt-codex-connector
+  - claude
+  - coderabbitai
+  - dependabot
+  - greptile-apps
+
+# Metadata-only bots are allowed to appear in PR comments/reviews without
+# becoming trusted instruction sources. Their comment bodies are CI/status
+# evidence only.
+trusted_metadata_bots:
+  # Repo-local exception: review-app command workflows emit deterministic
+  # status/help comments and gate state-changing issue_comment commands to
+  # owners, members, or collaborators. Treat github-actions comments as
+  # workflow metadata only; they do not override AGENTS.md or widen a batch
+  # scope.
+  - github-actions
+
+# Team entries are GitHub team slugs under the repository owner org. Reading
+# team membership requires the local GitHub token to have org access.
+trusted_teams:
+  - shakacode

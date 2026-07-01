@@ -1,31 +1,33 @@
 # AI Rollout Prompt for Control Plane GitHub Flow
 
-Use this file when you want an AI agent to add the reusable `cpflow` review-app,
-staging, and production-promotion flow to a repository.
-
-If `cpflow` is already installed in the target repo, you can print the current
-copy-paste version of this prompt with:
-
-```sh
-cpflow ai-github-flow-prompt
-```
-
-That local-only command works even before `cpln` is installed and fills in the
-repo-name default app prefix for the current checkout. You can also run
-`cpflow github-flow-readiness` first to check the same blocker categories the
-prompt tells the agent to stop on.
+Copy the recommended prompt below when you want an AI agent to add the reusable
+`cpflow` review-app, staging, and production-promotion flow to a repository.
+It works whether `cpflow` is already installed or the agent needs to install it
+first.
 
 ## Recommended Prompt
 
 ```text
-Set up Control Plane GitHub Flow for this repo. Start with `cpflow github-flow-readiness` and stop on any reported blockers. The repo must be deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished, inaccessible from CI, or requires credentials that are not already modeled in the repo or GitHub settings, stop and report the blocker instead of generating workflow files. If the repo is a legacy sample pinned to an obsolete Ruby or Bundler toolchain, if it does not even have a production Dockerfile yet, or if it is a monorepo without an already-decided single app boundary for this flow, stop and report that as a prerequisite instead of forcing the rollout.
+Set up Control Plane GitHub Flow for this repo. First make sure the `cpflow` CLI is available: use the repo's existing `bundle exec cpflow` if present, otherwise install the published `cpflow` Ruby gem with `gem install cpflow`; if neither is possible, stop and report that blocker. Use the same `cpflow` invocation for the rest of the rollout. Start with `cpflow github-flow-readiness` and stop on any reported blockers. The repo must be deployable from a clean clone: published package versions, complete runtime scaffold, and a production Dockerfile that can build the app. If any package version is unpublished, inaccessible from CI, or requires credentials that are not already modeled in the repo or GitHub settings, stop and report the blocker instead of generating workflow files. If the repo is a legacy sample pinned to an obsolete Ruby or Bundler toolchain, if it does not even have a production Dockerfile yet, or if it is a monorepo without an already-decided single app boundary for this flow, stop and report that as a prerequisite instead of forcing the rollout.
 
-If `.controlplane/` is missing, run `cpflow generate`. Treat the generated app names as the repo-name default and rename them only if the project needs a different prefix. Then run `cpflow generate-github-actions` (or `cpflow generate-github-actions --staging-branch BRANCH` when staging should deploy from a branch other than `main`/`master`), keep review apps opt-in via `+review-app-deploy`, make sure any `STAGING_APP_BRANCH` repository variable is also present in the generated staging workflow's `on.push.branches` filter, and list the GitHub secrets and variables that must be configured. Do not hand-edit duplicated upstream refs into the generated wrappers: the only downstream Control Plane Flow pin should be the reusable workflow `uses: ...@vX.Y.Z` value generated from the installed `cpflow` gem version, and upstream workflows load their matching shared actions automatically. When bumping the `cpflow` gem in a downstream repo, run `cpflow update-github-actions` (or `bundle exec cpflow update-github-actions`) and validate with `bin/test-cpflow-github-flow` in the same PR so the checked-in wrappers move to the matching release tag. Keep the standard path simple: review apps require only `CPLN_TOKEN_STAGING` when the generated review app config can be inferred. Document the one-time Control Plane bootstrap command for persistent staging and production apps with `cpflow setup-app --skip-post-creation-hook`; for existing apps or later template updates, document `cpflow apply-template` and the need for the app identity to have `reveal` on the app secret policy. Do not imply the staging deploy or promotion workflows create those persistent GVCs. For production promotion, document a protected `production` GitHub Environment with required reviewers, prevent self-review, and `CPLN_TOKEN_PRODUCTION` stored as an environment secret, not as a repository or organization secret.
+If `.controlplane/` is missing, run `cpflow generate`. Treat the generated app names as the repo-name default and rename them only if the project needs a different prefix. Then run `cpflow generate-github-actions` (or `cpflow generate-github-actions --staging-branch BRANCH` when staging should deploy from a branch other than `main`/`master`), keep review apps opt-in via `+review-app-deploy`, make sure any `STAGING_APP_BRANCH` repository variable is also present in the generated staging workflow's `on.push.branches` filter, and list the GitHub secrets and variables that must be configured. Do not hand-edit duplicated upstream refs into the generated wrappers: the only downstream Control Plane Flow pin should be the reusable workflow `uses: ...@vX.Y.Z` value generated from the installed `cpflow` gem version, and upstream workflows load their matching shared actions automatically. When bumping the `cpflow` gem in a downstream repo, run `cpflow update-github-actions` (or `bundle exec cpflow update-github-actions`) and validate with `bin/test-cpflow-github-flow` in the same PR so the checked-in wrappers move to the matching release tag. Keep the normal generated review-app setup simple: review apps require only `CPLN_TOKEN_STAGING` when the generated review app config can be inferred. For public demos, starter staging apps, and long-lived review apps, keep the app workload `type: standard` with one warm replica, set its autoscaling metric to `disabled`, and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed replica count. Shared Postgres and other stateful workloads are the usual exceptions and should stay manually sized; Capacity AI is for supported stateless app/service workloads. If true idle scale-to-zero is explicitly required, create a separate `serverless` workload before first deploy or plan a delete/recreate migration because Control Plane will not change an existing `standard` workload to `serverless` in place. For shared review-app resources such as one staging database, use `shared_secret_grants` and `{{SHARED_SECRET_DATABASE}}` placeholders instead of hardcoding the base app secret name; this keeps review-app policy binding and cleanup automatic while avoiding per-PR database cost. Document the one-time Control Plane bootstrap command for persistent staging and production apps with `cpflow setup-app --skip-post-creation-hook`; for existing apps or later template updates, document `cpflow apply-template` and the need for the app identity to have `reveal` on the app secret policy. Do not imply the staging deploy or promotion workflows create those persistent GVCs. For production promotion, document a protected `production` GitHub Environment with required reviewers, prevent self-review, and `CPLN_TOKEN_PRODUCTION` stored as an environment secret, not as a repository or organization secret.
 
 Keep Node available in the final image if asset compilation or SSR depends on ExecJS, Yarn, `pnpm`, or npm after the main install layer. Make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement. Preserve repo-defined frontend build hooks: if `config/shakapacker.yml` defines a `precompile_hook`, or React on Rails enables `config.auto_load_bundle = true`, confirm the generated Dockerfile runs that codegen step before `rails assets:precompile`. If `config/database.yml` shows SQLite in production, confirm that the generated scaffold uses persistent `db` and `storage` volumes plus a release script that runs `rails db:prepare`; otherwise keep the default Postgres workload. If the public workload is not named `rails`, set `PRIMARY_WORKLOAD` or adjust the generated workflows. Inspect the Dockerfile and package sources for private GitHub dependencies or `RUN --mount=type=ssh`; if present, wire `DOCKER_BUILD_SSH_KEY`, optionally set `DOCKER_BUILD_SSH_KNOWN_HOSTS` for non-GitHub SSH hosts, and keep `DOCKER_BUILD_EXTRA_ARGS` to newline-delimited single tokens such as `--build-arg=FOO=bar`.
 
 Run the real local validations you can: Docker build if feasible, repo tests or smoke checks, YAML validation, and any CI-equivalent build steps. Push the branch and check the GitHub Actions results. Only stop early for a real external blocker or a product decision that changes scope.
 ```
+
+## Local Shortcut
+
+If `cpflow` is already available in the target repo, this local-only command
+prints the same recommended prompt with the repo-name default app prefix filled
+in:
+
+```sh
+cpflow ai-github-flow-prompt
+```
+
+That command works even before `cpln` is installed.
 
 ## Hard Stop Conditions
 

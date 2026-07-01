@@ -197,7 +197,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("actions/github-script@v7")
     end
 
-    it "generates thin wrapper workflows that call upstream reusable workflows" do
+    it "generates thin reusable-workflow wrappers for non-production flows" do
       contents = review_app_workflow_path.read
       default_ref = "v#{Cpflow::VERSION}"
 
@@ -274,14 +274,24 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "generates local helpers for pinning and validating cpflow workflow refs" do
       expect(pin_cpflow_ref_path.read).to include("Use a full 40-character commit SHA")
+      expect(pin_cpflow_ref_path.read).to include("production")
+      expect(pin_cpflow_ref_path.read).to include("control_plane_flow_ref:")
       expect(pin_cpflow_ref_path.read).to include("Pathname.new(path).relative_path_from(root).to_s")
       expect(test_cpflow_flow_path.read).to include("cpflow github-flow-readiness")
       expect(test_cpflow_flow_path.read).to include(
         "passes obsolete control_plane_flow_ref"
       )
       expect(test_cpflow_flow_path.read).to include("uses secrets: inherit")
-      expect(test_cpflow_flow_path.read).to include("must set production_environment")
-      expect(test_cpflow_flow_path.read).to include("must not pass CPLN_TOKEN_PRODUCTION as a caller secret")
+      expect(test_cpflow_flow_path.read).to include("must not call the cross-repo production reusable workflow")
+      expect(test_cpflow_flow_path.read).to include("must run as a normal caller-repo job")
+      expect(test_cpflow_flow_path.read).to include("promote-to-production job is missing")
+      expect(test_cpflow_flow_path.read).to include("must declare environment: production")
+      expect(test_cpflow_flow_path.read).to include("EXPECTED_CPFLOW_CHECKOUT_ACTION")
+      expect(test_cpflow_flow_path.read).to include("must check out")
+      expect(test_cpflow_flow_path.read).to include("must pin the Checkout control-plane-flow actions step")
+      expect(test_cpflow_flow_path.read).to include(
+        "shakacode/control-plane-flow/.github/workflows/cpflow-promote-staging-to-production.yml@vX.Y.Z"
+      )
       expect(test_cpflow_flow_path.read).to include("cpflow workflow wrappers use multiple upstream refs")
       expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
     end
@@ -682,13 +692,43 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("Before the first staging deploy")
       expect(help_md).to include("cpflow setup-app -a")
       expect(help_md).to include("app secret policy")
+      expect(help_md).to include("For public repositories, use a staging/review token")
+      expect(help_md).to include("production Control Plane resources")
+      expect(help_md).to include("Generated review-app deploys skip fork PR")
+      expect(help_md).to include("heads because Docker builds use repository secrets")
+      expect(help_md).to include("Review apps run pull request code")
+      expect(help_md).to include("review-app secret dictionaries limited to disposable databases")
+      expect(help_md).to include("Add it as a secret on the 'production' GitHub Environment")
+      expect(help_md).to include("permission to manage repository environments and secrets")
+      expect(help_md).to include("gh secret set CPLN_TOKEN_PRODUCTION --repo OWNER/REPO --env production")
+      expect(help_md).to include("gh secret list --repo OWNER/REPO --env production")
       expect(help_md).not_to include("control_plane_flow_ref")
+    end
+
+    it "documents Capacity AI guidance in the generated help markdown" do
+      help_md = playground.join(".github/cpflow-help.md").read
+      normalized_help = help_md.gsub(/\s+/, " ")
+      # Exact phrasing -- update alongside the cpflow-help.md template if this copy changes.
+      expected_guidance =
+        "keep the app workload `type: standard` with one warm replica, " \
+        "set its autoscaling metric to `disabled`, " \
+        "and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed " \
+        "replica count"
+
+      expect(normalized_help).to include(expected_guidance)
+      expect(help_md).to include("Shared Postgres")
+      expect(help_md).to include("stateful workloads")
+      expect(help_md).to include("supported stateless app/service workloads")
+      expect(help_md).to include("delete/recreate migration")
+      expect(help_md).not_to include("serverless web workload with `minScale: 0`")
     end
 
     it "documents Docker build vars in the help markdown" do
       help_md_path = playground.join(".github/cpflow-help.md")
       contents = help_md_path.read
       expect(contents).to include("DOCKER_BUILD_EXTRA_ARGS")
+      expect(contents).to include("Read-only, revocable deploy key")
+      expect(contents).to include("Do not use a personal SSH key")
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
     end
 
@@ -741,12 +781,23 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
       contents = reusable_promote_workflow_path.read
       wrapper = promote_workflow_path.read
+      default_ref = "v#{Cpflow::VERSION}"
+      production_workflow_ref = "shakacode/control-plane-flow/.github/workflows/" \
+                                "cpflow-promote-staging-to-production.yml"
 
-      expect(wrapper).to include("callers must grant the union of callee permissions")
-      expect(wrapper).to include("The caller passes the environment name")
-      expect(wrapper).to include("production_environment: production")
+      expect(wrapper).to include("This normal caller-repo job declares the protected production Environment")
+      expect(wrapper).to include("environment: production")
+      expect(wrapper).to include("HEALTH_CHECK_RETRIES: ${{ vars.HEALTH_CHECK_RETRIES || '24' }}")
+      expect(wrapper).to include("COPY_IMAGE_RETRIES: ${{ vars.COPY_IMAGE_RETRIES || '3' }}")
+      expect(wrapper).to include("COPY_IMAGE_RETRY_INTERVAL: ${{ vars.COPY_IMAGE_RETRY_INTERVAL || '20' }}")
+      expect(wrapper).to include("ROLLBACK_READINESS_RETRIES: ${{ vars.ROLLBACK_READINESS_RETRIES || '24' }}")
+      expect(wrapper).to include("repository: shakacode/control-plane-flow")
+      expect(wrapper).to include("ref: #{default_ref}")
+      expect(wrapper).to include("control_plane_flow_ref: #{production_workflow_ref}@#{default_ref}")
       expect(wrapper).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
-      expect(wrapper).not_to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(wrapper).to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(wrapper).not_to include("uses: #{production_workflow_ref}")
+      expect(wrapper).not_to include("production_environment: production")
       expect(wrapper).not_to include("secrets: inherit")
       expect(contents).to include("group: cpflow-promote-staging-to-production")
       expect(contents).to include("contents: read")
@@ -755,12 +806,30 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("environment: ${{ inputs.production_environment }}")
       expect(contents).to include("Validate production token")
       expect(contents).to include("CPLN_TOKEN_PRODUCTION is not set")
+      expect(contents).to include("Normalize Control Plane org names")
+      expect(contents).to include("contains embedded line endings")
+      expect(contents).to include("steps.cpln-orgs.outputs.production")
+      expect(wrapper).to include("Normalize Control Plane org names")
+      expect(wrapper).to include("contains embedded line endings")
+      expect(wrapper).to include("steps.cpln-orgs.outputs.production")
       expect(contents).to include("wrapper intentionally passes only CPLN_TOKEN_STAGING")
       expect(contents).to include("create-github-release:")
       expect(contents).to include("contents: write")
       expect(contents).to include("working_directory: .cpflow")
       expect(contents).to include("GH_REPO: ${{ github.repository }}")
       expect(contents).to include("Production-only variables")
+      expect(contents).to include("WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}")
+      expect(contents).to include("list_workload_env_names()")
+      expect(contents).to include("check_required_vars intentionally mutates env_check_failed")
+      expect(contents).to include(
+        "Production workload '${workload_name}' is missing environment variables that exist in staging"
+      )
+      expect(wrapper).to include("WORKLOAD_NAMES: ${{ steps.workloads.outputs.names }}")
+      expect(wrapper).to include("list_workload_env_names()")
+      expect(wrapper).to include("check_required_vars intentionally mutates env_check_failed")
+      expect(wrapper).to include(
+        "Production workload '${workload_name}' is missing environment variables that exist in staging"
+      )
       expect(contents).to include("PRIMARY_WORKLOAD is not configured")
       expect(contents).to include(%(puts "primary=\#{primary}"))
       expect(contents).to include("PRIMARY_WORKLOAD: ${{ steps.workloads.outputs.primary }}")
@@ -769,11 +838,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Could not parse rollback state")
       expect(contents).to include("Could not parse captured containers")
       expect(contents).to include("Could not build rollback image list")
+      expect(contents).to include(".status.readyLatest // false")
+      expect(wrapper).to include(".status.readyLatest // false")
       expect(contents).to include("Container set changed")
-      expect(contents).to include("index($container.name)")
+      expect(contents).to include('jq -r \'.[] | "\\(.name)\\t\\(.image)"\'')
+      expect(contents).to include("spec.containers.${container_name}.image")
+      expect(contents).not_to include("spec.containers[${index}].image")
+      expect(contents).not_to include("index($container.name)")
       expect(contents).to include(
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
+      expect(contents).to include("workflow-level concurrency group keeps production promotion copy")
       expect(contents).to include(
         "failure() && steps.capture-current.outputs.rollback_state != '' && " \
         "steps.capture-current.outputs.rollback_state != '{}'"
@@ -786,6 +861,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "copies the image currently deployed on staging instead of the newest pushed staging image" do
       contents = reusable_promote_workflow_path.read
+      wrapper = promote_workflow_path.read
 
       expect(contents).to include("id: staging-image")
       expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln workload get')
@@ -793,10 +869,84 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include('selected_workload="${PRIMARY_WORKLOAD:-}"')
       expect(contents).to include("staging_image=\"${staging_image_ref##*/image/}\"")
       expect(contents).to include("STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}")
+      expect(contents).to include(
+        'staging_org="$(sanitize_control_plane_name "CPLN_ORG_STAGING" ' \
+        '"${CPLN_ORG_STAGING}")"'
+      )
+      expect(contents).to include(
+        'production_org="$(sanitize_control_plane_name "CPLN_ORG_PRODUCTION" ' \
+        '"${CPLN_ORG_PRODUCTION}")"'
+      )
+      expect(contents).to include("use lowercase alphanumeric characters and hyphens only")
+      expect(contents).to include("CPLN_ORG_STAGING: ${{ steps.cpln-orgs.outputs.staging }}")
+      expect(contents).to include("CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}")
+      expect(contents).to include("COPY_IMAGE_RETRIES must be a non-negative integer")
+      expect(contents).to include("COPY_IMAGE_RETRY_INTERVAL must be a non-negative integer")
+      expect(contents).to include("copy_image_attempts=$((copy_image_retries + 1))")
+      expect(contents).to include("Staging image '${STAGING_IMAGE}' was not found")
+      expect(contents).to include(
+        "uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5"
+      )
+      expect(contents).to include("id: copy-image")
+      expect(contents).to include('staging_image="${STAGING_IMAGE}"')
+      expect(contents).to include("STAGING_IMAGE is not set or is empty")
+      expect(contents).not_to include('staging_image="${STAGING_IMAGE%%@*}"')
+      expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image}"')
+      expect(contents).to include('if [[ "${staging_image}" == *@* ]]; then')
+      expect(contents).to include('staging_tag="${staging_image##*@}"')
+      expect(contents).to include('elif [[ "${staging_image}" == *:* ]]; then')
+      expect(contents).to include('staging_tag="${staging_image##*:}"')
+      expect(contents).to include('staging_commit=""')
+      expect(contents).to include('if [[ "${staging_tag}" == *_* ]]; then')
+      expect(contents).to include('staging_commit="${staging_tag##*_}"')
+      expect(contents).to include("workflow-level concurrency group serializes this sequence")
+      expect(contents).to include("top-level concurrency group: cpflow-promote-staging-to-production")
+      expect(contents).to include("Staging image '${staging_image}' did not include a '_<commit>' suffix")
+      expect(wrapper).to include("Staging image '${staging_image}' did not include a '_<commit>' suffix")
+      expect(wrapper).to include("top-level concurrency group: cpflow-promote-staging-to-production")
+      expect(contents).to include('--prop "name~${PRODUCTION_APP_NAME}:" --max 0')
+      expect(contents).to include("Could not determine the next production image number")
+      expect(contents).to include('production_image="${PRODUCTION_APP_NAME}:$((latest_number + 1))"')
+      expect(contents).to include('production_image="${production_image}_${staging_commit}"')
+      expect(contents).to include('docker_config_dir="$(mktemp -d)"')
+      expect(contents).to include("cleanup_copy_credentials")
+      expect(contents).to include('export DOCKER_CONFIG="${docker_config_dir}"')
+      expect(contents).to include('staging_registry="${CPLN_ORG_STAGING}.registry.cpln.io"')
+      expect(contents).to include('production_registry="${CPLN_ORG_PRODUCTION}.registry.cpln.io"')
+      expect(contents).to include('source_image_ref="${staging_registry}/${STAGING_IMAGE}"')
+      expect(contents).to include('production_image_ref="${production_registry}/${production_image}"')
+      expect(contents).to include("CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}")
+      expect(contents).to include('docker login "${staging_registry}"')
+      expect(contents).to include('docker login "${production_registry}"')
+      expect(contents).to include("Failed to authenticate to staging registry")
+      expect(contents).to include("Failed to authenticate to production registry")
+      expect(contents).to include('docker buildx imagetools inspect "${production_image_ref}"')
+      expect(contents).to include('for attempt in $(seq 1 "${copy_image_attempts}"); do')
+      expect(contents).to include('docker buildx imagetools inspect "${source_image_ref}"')
+      expect(contents).to include(
+        "docker buildx imagetools create --prefer-index=false --tag " \
+        "\"${production_image_ref}\" \"${source_image_ref}\""
+      )
+      expect(contents).to include('echo "image=${production_image}" >> "$GITHUB_OUTPUT"')
+      expect(contents).to include("COPIED_IMAGE: ${{ steps.copy-image.outputs.image }}")
+      expect(contents).to include('deployed_image="${COPIED_IMAGE}"')
+      expect(contents).to include('deployed_image="${PREVIOUS_IMAGE}"')
+      expect(contents).to include("Image copy attempt ${attempt}/${copy_image_attempts} failed")
+      expect(contents).to include("no attempts remain")
       expect(contents).to include("workload_name: ${{ steps.workloads.outputs.primary }}")
       expect(contents).not_to include("workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}")
-      expect(contents).to include('cpflow copy-image-from-upstream -a "${PRODUCTION_APP_NAME}" ' \
-                                  '--org "${CPLN_ORG_PRODUCTION}" --image "${STAGING_IMAGE}"')
+      expect(contents).not_to include("CPLN_UPSTREAM_TOKEN:")
+      expect(contents).not_to include("Pass the upstream token")
+      expect(contents).not_to include('cpln profile create "${upstream_profile}"')
+      expect(contents).not_to include("--profile \"${upstream_profile}\"")
+      expect(contents).not_to include("cpln image docker-login")
+      expect(contents).not_to include('cpln image copy "${STAGING_IMAGE}"')
+      expect(contents).not_to include('docker manifest inspect "${source_image_ref}"')
+      expect(contents).not_to include('docker pull "${source_image_ref}"')
+      expect(contents).not_to include('docker tag "${source_image_ref}" "${production_image_ref}"')
+      expect(contents).not_to include('docker push "${production_image_ref}"')
+      expect(contents).not_to include("cpflow copy-image-from-upstream")
+      expect(contents).not_to include("--cleanup")
     end
 
     it "detects release phase support from controlplane.yml instead of cpflow config text" do
@@ -828,6 +978,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("Workload '${CPFLOW_WORKLOAD_NAME}' not found")
       expect(contents).to include("Set PRIMARY_WORKLOAD to the correct workload name.")
       expect(contents).to include("has no endpoint yet; waiting for one to be assigned")
+      expect(contents).to include(".status.readyLatest // false")
+      expect(contents).to include("readyLatest=${latest_ready}")
     end
 
     it "writes the delete-app script with the not-found guard message" do

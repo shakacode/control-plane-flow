@@ -29,6 +29,9 @@ module Command
       {{APP_IMAGE_LINK}}    - full link for latest app image, ready to be used for the value of `containers[].image` in the templates
       {{APP_IDENTITY}}      - default identity
       {{APP_IDENTITY_LINK}} - full link for identity, ready to be used for the value of `identityLink` in the templates
+      {{APP_SECRETS}}       - app secret dictionary name
+      {{APP_SECRETS_POLICY}} - app secret policy name
+      {{SHARED_SECRET_<NAME>}} - shared secret dictionary name from `shared_secret_grants`
       ```
     DESC
     EXAMPLES = <<~EX

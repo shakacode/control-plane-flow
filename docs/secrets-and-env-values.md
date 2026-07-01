@@ -9,9 +9,32 @@ For your "review apps," it is convenient to have simple ENVs stored in plain tex
 keep some ENVs, like the Rails' `SECRET_KEY_BASE`, out of your source code. For staging and production apps, you will
 set these values directly at the GVC or workload levels, so none of these ENV values are committed to the source code.
 
+## Review app secrets
+
+Review apps run application code from pull requests. For repositories with external contributors, do not put sensitive
+production or long-lived staging secrets in review apps. A secret reference such as `cpln://secret/...` protects the
+value while it is stored in Control Plane configuration, but the value becomes readable by application code after it is
+mounted into the review-app workload. Use generated dummy values, disposable databases, review-only renderer credentials,
+and revocable service tokens for review apps.
+
 For storing ENVs in the source code, we can use a level of indirection so that you can store an ENV value in your source
 code like `cpln://secret/my-app-review-env-secrets.SECRET_KEY_BASE` and then have the secret value stored at the org
 level, which applies to your GVCs mapped to that org.
+
+Avoid pointing review-app templates at shared production secret dictionaries. If staging and review apps live in the same
+Control Plane org, keep review-app secret dictionaries separate from persistent staging secrets, and restrict the Control
+Plane identity bound to review workloads so it can reveal only the values those workloads need.
+
+Review-app identity and policy templates in `.controlplane/templates/`, plus any `shared_secret_grants` in
+`controlplane.yml`, are read from the PR branch at deploy time for same-repository PRs. `cpflow setup-app` applies
+templates at first review-app creation, and `cpflow deploy-image` can bind configured shared-secret policies on later
+redeploys. A PR can modify either path to bind the review workload's identity to any secret dictionary, including staging
+ones. Each generated trigger path has its own fork guard; see
+[Review app security for repositories with external contributors](./ci-automation.md#review-app-security-for-repositories-with-external-contributors)
+for details. Removing any guard leaves one or more trigger paths unprotected.
+
+For repositories with external contributors, treat the entire review-app identity and policy scope as untrusted and ensure
+the staging token cannot reach sensitive resources even if the PR changes the template.
 
 For setting up secrets, you'll need:
 
@@ -28,6 +51,59 @@ You can do this during the initial app setup, like this:
 5. In the Control Plane console, upper left "Manage Org" menu, click on "Secrets"
 6. Find the created secret (it will be in the `$APP_PREFIX-secrets` format) and add the secret env vars there
 7. Use `cpln://secret/...` in the app to access the secret env vars (e.g., `cpln://secret/$APP_PREFIX-secrets.SOME_VAR`)
+
+## Shared Secrets for Review Apps
+
+Review apps often need access to a shared staging resource, such as one staging PostgreSQL workload or managed database.
+Creating a database per pull request is expensive and slow, so you can create one shared org-level secret and policy,
+then let each temporary review-app identity reveal that shared secret.
+
+Create the shared dictionary secret and policy once in the staging org. The policy must target exactly the shared secret:
+
+```yaml
+kind: policy
+name: my-app-review-database-secrets-policy
+targetKind: secret
+targetLinks:
+  - //secret/my-app-review-database-secrets
+```
+
+Then declare the grant in the review app entry in `.controlplane/controlplane.yml`:
+
+```yaml
+apps:
+  my-app-review:
+    match_if_app_name_starts_with: true
+    shared_secret_grants:
+      - name: database
+        secret_name: my-app-review-database-secrets
+        policy_name: my-app-review-database-secrets-policy
+```
+
+Use the generated placeholder in templates instead of hardcoding the secret name:
+
+```yaml
+env:
+  - name: DATABASE_URL
+    value: cpln://secret/{{SHARED_SECRET_DATABASE}}.DATABASE_URL
+```
+
+`name` must be lower snake case. It becomes `{{SHARED_SECRET_<NAME>}}`, uppercased, in templates. `secret_name`
+and `policy_name` must be Control Plane resource names: lowercase letters, numbers, and dashes only, starting and ending
+with a letter or number.
+
+`cpflow setup-app` still creates the per-app secret and policy for app-specific values, and also binds the app identity
+to every configured shared policy. `cpflow deploy-image` repairs missing shared policy bindings before workloads are
+updated, which helps existing review apps recover after the config is added. `cpflow delete` and `cpflow cleanup-stale-apps`
+remove those shared policy bindings when a review app is deleted.
+
+For shared databases, keep runtime data isolated by using a per-review-app database name, schema, or tenant key. A common
+pattern is to keep the host, user, and password in the shared secret, then have `hooks.post_creation` create the
+PR-specific database/schema. Avoid a generic `hooks.pre_deletion` that drops the database: `cpflow delete` runs the
+pre-deletion hook before it removes the app workloads, so live connections can make PostgreSQL reject the drop. Stop the
+review app workloads first, or run cleanup from trusted admin automation against the shared Postgres workload. See
+[Share One Control Plane Postgres for Staging and Review Apps](tips.md#share-one-control-plane-postgres-for-staging-and-review-apps)
+for the full pattern.
 
 Here are the manual steps for reference. We recommend that you follow the steps above:
 
