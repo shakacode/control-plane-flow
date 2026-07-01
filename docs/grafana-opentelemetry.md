@@ -176,13 +176,18 @@ commit from the image tag.
 Recommended app workload env:
 
 ```yaml
-# ENABLE_OPEN_TELEMETRY is a custom application guard used by the initializer
-# above. Set it only after the collector is deployed, or replace it with the
-# rollout guard your application already uses.
-# ENABLE_OPEN_TELEMETRY: "true"
-OTEL_SERVICE_NAME: "<workload-name>"
-OTEL_EXPORTER_OTLP_ENDPOINT: "http://open-telemetry-collector.{{APP_NAME}}.cpln.local:4318"
-OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+env:
+  # ENABLE_OPEN_TELEMETRY is a custom application guard used by the initializer
+  # above. Set it only after the collector is deployed, or replace it with the
+  # rollout guard your application already uses.
+  # - name: ENABLE_OPEN_TELEMETRY
+  #   value: "true"
+  - name: OTEL_SERVICE_NAME
+    value: "<workload-name>"
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://open-telemetry-collector.{{APP_NAME}}.cpln.local:4318"
+  - name: OTEL_EXPORTER_OTLP_PROTOCOL
+    value: "http/protobuf"
 ```
 
 `OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var; set it
@@ -254,11 +259,14 @@ Tune CPU and memory from staging observations before production rollout.
 Recommended env:
 
 ```yaml
-# Custom collector variables, not standard OpenTelemetry env vars. The collector
-# reads them through ${VAR} substitution in the config YAML, so each must be
-# referenced as ${TELEMETRY_...} in that config to take effect.
-TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
-TELEMETRY_BACKEND_TOKEN: "cpln://secret/{{APP_NAME}}-telemetry-backend.TELEMETRY_BACKEND_TOKEN"
+env:
+  # Custom collector variables, not standard OpenTelemetry env vars. The collector
+  # reads them through ${env:VAR} substitution in the config YAML, so each must be
+  # referenced as ${env:TELEMETRY_...} in that config to take effect.
+  - name: TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT
+    value: "0.0.0.0:4318"
+  - name: TELEMETRY_BACKEND_TOKEN
+    value: "cpln://secret/{{APP_NAME}}-telemetry-backend.TELEMETRY_BACKEND_TOKEN"
 ```
 
 The `cpln://secret/<dictionary-name>.<KEY>` reference syntax is documented in
@@ -382,7 +390,6 @@ connectors:
     namespace: http_root_span_latency
     dimensions:
       - name: service.name
-      - name: status.code
       - name: original_cpln_workload
       - name: http.route
     exclude_dimensions:
@@ -403,19 +410,19 @@ connectors:
           - 10s
 ```
 
-`span.name` is excluded because raw Rails span names can carry too much
-cardinality. `status.code` is listed explicitly so the dashboard's "error count
-and error rate" panel is derivable regardless of connector defaults; it has only a few values
-(`STATUS_CODE_OK`, `STATUS_CODE_ERROR`, `STATUS_CODE_UNSET`), so the cardinality
-cost is negligible. Compute error rate from the connector's request-count series
-split by `status.code` (errored calls ÷ total calls), and confirm the exact
-metric and label names against your collector image since they vary by
-spanmetrics version. OpenTelemetry sets server span status to `Error` for 5xx
-but not 4xx — add `http.response.status_code` as a dimension if you need 4xx
-granularity. Before enabling the connector, inspect `http.route` values in a
-real staging trace and confirm they are route patterns such as `/users/:id`,
-not raw request paths such as `/users/12345` — raw paths are one of the most
-common causes of a spanmetrics setup overwhelming Prometheus storage.
+`span.name` and `span.kind` are excluded because raw Rails span names can carry
+too much cardinality and the root-span filter makes span kind redundant for this
+dashboard. The spanmetrics connector emits status code as a default dimension
+(`status.code`, or `otel.status_code` when that feature gate is enabled), so do
+not add it again under `dimensions`. Compute error rate from the connector's
+request-count series split by that status-code label (errored calls ÷ total
+calls), and confirm the exact metric and label names against your collector image
+since they vary by spanmetrics version. OpenTelemetry sets server span status to
+`Error` for 5xx but not 4xx — add `http.response.status_code` as a dimension if
+you need 4xx granularity. Before enabling the connector, inspect `http.route`
+values in a real staging trace and confirm they are route patterns such as
+`/users/:id`, not raw request paths such as `/users/12345` — raw paths are one of
+the most common causes of a spanmetrics setup overwhelming Prometheus storage.
 
 Wire the receiver, processors, connector, and exporters together in one generated
 collector config, with the processor order described above. The minimal example
@@ -428,7 +435,7 @@ receivers:
   otlp:
     protocols:
       http:
-        endpoint: "${TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT}"
+        endpoint: "${env:TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT}"
 
 exporters:
   prometheus:
@@ -515,12 +522,15 @@ Use a non-production GVC for the first rollout.
 3. Add the internal collector workload with external ingress closed.
 4. Deploy the collector while app telemetry is still disabled.
 5. Confirm the collector starts cleanly and exposes `/metrics`.
-6. Enable OpenTelemetry for one non-production app workload.
-7. Confirm generated metrics appear at the collector `/metrics` endpoint.
-8. Confirm Control Plane Grafana can query those metrics.
-9. Draft the dashboard from queries or exported JSON and get human review before
+6. Choose and record the non-production sampling setting before enabling app
+   spans. Start low for high-traffic workloads, then adjust after collector CPU,
+   memory, and egress are visible.
+7. Enable OpenTelemetry for one non-production app workload.
+8. Confirm generated metrics appear at the collector `/metrics` endpoint.
+9. Confirm Control Plane Grafana can query those metrics.
+10. Draft the dashboard from queries or exported JSON and get human review before
    saving it in a shared Grafana folder.
-10. Add alerts only after the dashboard queries are stable.
+11. Add alerts only after the dashboard queries are stable.
 
 For production, repeat the same sequence with explicit approval, a written
 rollback, and a short observation window after each change.
@@ -621,6 +631,8 @@ Before enabling in staging:
 Before enabling in production:
 
 - staging has run long enough to observe collector CPU and memory
+- sampling is explicitly configured and reviewed for expected traffic, egress,
+  and metric accuracy
 - dashboards are reviewed by a human
 - alerts are routed to a non-paging or test contact point first
 - rollback steps are written down
