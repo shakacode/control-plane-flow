@@ -19,9 +19,10 @@ queries. A collector can receive traces/logs, normalize them, generate focused
 Prometheus metrics, and expose those metrics for Control Plane Grafana to scrape.
 
 For the generic Control Plane telemetry template shape, start with
-[Telemetry](/docs/telemetry/index.md). This guide is the Rails and Grafana
-companion: it focuses on application instrumentation, spanmetrics, dashboards,
-and alerting.
+[Telemetry](/docs/telemetry/index.md) and
+[Collector Workload](/docs/telemetry/collector.md). This guide is the Rails and
+Grafana companion: it focuses on application instrumentation, spanmetrics,
+dashboards, and alerting.
 
 ## High-Level Architecture
 
@@ -180,7 +181,7 @@ Recommended app workload env:
 # rollout guard your application already uses.
 # ENABLE_OPEN_TELEMETRY: "true"
 OTEL_SERVICE_NAME: "<workload-name>"
-OTEL_EXPORTER_OTLP_ENDPOINT: "http://open-telemetry-collector.<app-name>.cpln.local:4318"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://open-telemetry-collector.{{APP_NAME}}.cpln.local:4318"
 OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
 ```
 
@@ -188,10 +189,11 @@ OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
 per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` must be a collector
 base URL using the internal collector workload hostname in the same GVC — not
 `localhost` and not a signal-specific path such as `/v1/traces`. The generic
-telemetry docs use `open-telemetry-collector.<app-name>.cpln.local`; replace
-`<app-name>` with the deployed app name, or keep an equivalent internal hostname
-if your collector workload is named differently. Without these env vars the
-exporter defaults to
+telemetry docs use `open-telemetry-collector.{{APP_NAME}}.cpln.local`;
+`cpflow apply-template` replaces `{{APP_NAME}}` with the deployed app name. If
+you apply the YAML directly, replace it manually or keep an equivalent internal
+hostname if your collector workload is named differently. Without these env vars
+the exporter defaults to
 `http://localhost:4318`, which usually does not exist on a Control Plane
 workload, so spans are dropped silently. (Port 4317 is the gRPC default and
 applies to the separate `opentelemetry-exporter-otlp-grpc` gem, which this
@@ -221,6 +223,10 @@ useful on traces but too high-cardinality for ordinary dashboard labels.
 ## Collector Workload
 
 Create an internal collector workload in the same GVC as the app workloads.
+Use [Collector Workload](/docs/telemetry/collector.md) as the canonical template
+for workload shape, identity, secret policy, config delivery, and port/config
+alignment. The values below are a Rails/Grafana starter profile layered on top of
+that template.
 
 Recommended ports:
 
@@ -323,7 +329,7 @@ processors:
 `IsRootSpan()` requires collector-contrib v0.105.0 or later (added in
 [contrib #32918](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/32918)).
 On an older pinned image, replace the two `IsRootSpan()` lines with an explicit
-parent-span-id check — a root span has an empty parent span ID — and validate it
+parent-span-id check — a root span has a zero parent span ID — and validate it
 against that exact image:
 
 ```yaml
@@ -344,17 +350,17 @@ processors:
         - 'attributes["root_span"] != true'
 ```
 
-The filter processor drops spans that match the condition, and
-`error_mode: ignore` can hide expression mistakes: a broken condition becomes a
-no-op that passes every span — including child spans — into the spanmetrics
-connector, inflating metric cardinality with no error logged. Keep
-`error_mode: propagate` in development and staging, and include a known trace
-with one root span and one child span in collector validation. Keep
-`propagate` as the default production setting too: a collector restart failure is
-usually easier to detect and recover from than a silent no-op filter that floods
-spanmetrics with child spans. If a team deliberately chooses `ignore`, do it
-only after the dropped-span alert in [Alert Starting Point](#alert-starting-point)
-is active and routed to an owner.
+The filter processor drops spans that match the condition. `error_mode: ignore`
+logs expression errors and continues, while `silent` continues without logging.
+For this filter, either mode can turn a broken condition into a no-op that passes
+every span — including child spans — into the spanmetrics connector, inflating
+metric cardinality. Keep `error_mode: propagate` in development and staging, and
+include a known trace with one root span and one child span in collector
+validation. Keep `propagate` as the default production setting too: OTTL
+evaluation errors and dropped payloads are easier to alert on than a no-op filter
+that floods spanmetrics with child spans. If a team deliberately chooses
+`ignore`, do it only after the OTTL-error and dropped-span alerts in
+[Alert Starting Point](#alert-starting-point) are active and routed to an owner.
 
 Processor order is load-bearing here. The condition `attributes["root_span"] != true`
 matches spans where the attribute is **absent** as well as where it is `false`, so
