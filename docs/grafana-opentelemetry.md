@@ -323,11 +323,6 @@ Normalize span attributes before generating metrics:
 
 ```yaml
 processors:
-  memory_limiter:
-    check_interval: 1s
-    limit_percentage: 80
-    spike_limit_percentage: 20
-
   transform/normalize:
     trace_statements:
       - context: span
@@ -431,7 +426,10 @@ Wire the receiver, processors, connector, and exporters together in one generate
 collector config, with the processor order described above. The minimal example
 below includes the top-level component stubs referenced by `service.pipelines`;
 the spanmetrics connector terminates the traces pipeline and feeds the metrics
-pipeline:
+pipeline. The focused snippets above are repeated here intentionally so this
+block can be copied as one complete starting point; keep the focused snippets and
+this consolidated example in sync when changing processor names, filters, or
+histogram buckets:
 
 ```yaml
 receivers:
@@ -441,6 +439,11 @@ receivers:
         endpoint: "0.0.0.0:4318"
 
 processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
   transform/normalize:
     trace_statements:
       - context: span
