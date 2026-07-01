@@ -19,8 +19,9 @@ queries. A collector can receive traces/logs, normalize them, generate focused
 Prometheus metrics, and expose those metrics for Control Plane Grafana to scrape.
 
 For the generic Control Plane telemetry template shape, start with
-[Telemetry](/docs/telemetry/). This guide is the Rails and Grafana companion: it
-focuses on application instrumentation, spanmetrics, dashboards, and alerting.
+[Telemetry](/docs/telemetry/index.md). This guide is the Rails and Grafana
+companion: it focuses on application instrumentation, spanmetrics, dashboards,
+and alerting.
 
 ## High-Level Architecture
 
@@ -110,7 +111,13 @@ locally or in CI, include the same gems in those Bundler groups too;
 telemetry.
 
 Keep OpenTelemetry disabled by default until the collector is deployed and
-reviewed. Place this in a Rails initializer such as
+reviewed. The `ENABLE_OPEN_TELEMETRY` flag below is a custom application guard,
+not a standard OpenTelemetry environment variable; use it only when this
+initializer reads that flag. Otherwise, rely on your app's own rollout guard plus
+standard SDK variables such as `OTEL_SERVICE_NAME` and
+`OTEL_EXPORTER_OTLP_ENDPOINT`, as described in
+[Application Instrumentation](/docs/telemetry/application-instrumentation.md).
+Place this in a Rails initializer such as
 `config/initializers/opentelemetry.rb` so the Rails instrumentation hooks into
 the framework boot sequence:
 
@@ -168,20 +175,23 @@ commit from the image tag.
 Recommended app workload env:
 
 ```yaml
-# Set ENABLE_OPEN_TELEMETRY to "true" only after the collector is deployed
-# (see Rollout Order). Leave it unset until then so the initializer guard keeps
-# telemetry disabled.
+# ENABLE_OPEN_TELEMETRY is a custom application guard used by the initializer
+# above. Set it only after the collector is deployed, or replace it with the
+# rollout guard your application already uses.
 # ENABLE_OPEN_TELEMETRY: "true"
 OTEL_SERVICE_NAME: "<workload-name>"
-OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+OTEL_EXPORTER_OTLP_ENDPOINT: "http://open-telemetry-collector.<app-name>.cpln.local:4318"
 OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
 ```
 
 `OTEL_SERVICE_NAME` is the standard OpenTelemetry service name env var; set it
 per workload when possible. `OTEL_EXPORTER_OTLP_ENDPOINT` must be a collector
-base URL — replace `otel-collector` with the actual collector workload name in
-the same GVC — not `localhost` and not a signal-specific path such as
-`/v1/traces`. Without these env vars the exporter defaults to
+base URL using the internal collector workload hostname in the same GVC — not
+`localhost` and not a signal-specific path such as `/v1/traces`. The generic
+telemetry docs use `open-telemetry-collector.<app-name>.cpln.local`; replace
+`<app-name>` with the deployed app name, or keep an equivalent internal hostname
+if your collector workload is named differently. Without these env vars the
+exporter defaults to
 `http://localhost:4318`, which usually does not exist on a Control Plane
 workload, so spans are dropped silently. (Port 4317 is the gRPC default and
 applies to the separate `opentelemetry-exporter-otlp-grpc` gem, which this
@@ -215,7 +225,7 @@ Create an internal collector workload in the same GVC as the app workloads.
 Recommended ports:
 
 - `4318`: OTLP HTTP receiver
-- `8889`: Prometheus metrics endpoint
+- `9292`: Prometheus metrics endpoint
 - `55679`: zpages/debug endpoint, internal only
 
 Recommended firewall:
@@ -228,7 +238,7 @@ Recommended starter container resources:
 
 ```yaml
 containers:
-  - name: otel-collector
+  - name: open-telemetry-collector
     cpu: 250m
     memory: 512Mi
 ```
@@ -238,29 +248,28 @@ Tune CPU and memory from staging observations before production rollout.
 Recommended env:
 
 ```yaml
-# Custom app variables, not standard OpenTelemetry env vars. The collector reads
-# them through ${VAR} substitution in the config YAML, so each must be referenced
-# as ${OPEN_TELEMETRY_...} in that config to take effect.
-OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
-OPEN_TELEMETRY_CONFIG: "cpln://secret/<collector-config-secret>"
-# Set to a hash of the config content so secret updates force a workload spec
-# change and collector restart. Update it on every config change; if it goes
-# stale the workload spec is unchanged, no restart happens, and the collector
-# silently keeps running the previous config. Compute it from the generated
-# config, for example:
-#   sha256sum .controlplane/open_telemetry/main_collector_config.yml | awk '{print $1}'
-OPEN_TELEMETRY_CONFIG_HASH: "<hash-of-config>"
+# Custom collector variables, not standard OpenTelemetry env vars. The collector
+# reads them through ${VAR} substitution in the config YAML, so each must be
+# referenced as ${TELEMETRY_...} in that config to take effect.
+TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT: "0.0.0.0:4318"
+TELEMETRY_BACKEND_TOKEN: "cpln://secret/{{APP_NAME}}-telemetry-backend.TELEMETRY_BACKEND_TOKEN"
 ```
 
-The `cpln://secret/...` reference syntax is documented in
-[Secrets and ENV Values](/docs/secrets-and-env-values.md).
+The `cpln://secret/<dictionary-name>.<KEY>` reference syntax is documented in
+[Secrets and ENV Values](/docs/secrets-and-env-values.md). If you mount config
+from a dictionary secret instead of baking it into the image, include the
+dictionary key suffix as well, for example
+`cpln://secret/<collector-config-secret>.CONFIG_YAML`. When the collector config
+changes, update the mounted secret or image and run
+`cpflow ps:restart -a $APP_NAME -w open-telemetry-collector` so the workload
+loads the new config.
 
 Expose the collector's metrics endpoint to Control Plane:
 
 ```yaml
 metrics:
   path: "/metrics"
-  port: 8889
+  port: 9292
 ```
 
 ## Collector Config
@@ -413,11 +422,11 @@ receivers:
   otlp:
     protocols:
       http:
-        endpoint: "${OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT}"
+        endpoint: "${TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT}"
 
 exporters:
   prometheus:
-    endpoint: "0.0.0.0:8889"
+    endpoint: "0.0.0.0:9292"
 
 extensions:
   zpages:
@@ -478,7 +487,6 @@ Good candidates for shared templates:
 - standard OTLP receiver ports
 - standard Prometheus metrics endpoint
 - resource attribute normalization
-- collector config hash environment variable
 - validation script names and CI checks
 
 Keep application-specific choices in the application repository:
@@ -493,9 +501,9 @@ Keep application-specific choices in the application repository:
 
 Use a non-production GVC for the first rollout.
 
-1. Add application OpenTelemetry gems and initializer. Leave
-   `ENABLE_OPEN_TELEMETRY` unset so the initializer guard keeps telemetry
-   disabled.
+1. Add application OpenTelemetry gems and initializer. If you use the custom
+   `ENABLE_OPEN_TELEMETRY` guard above, leave it unset so the initializer guard
+   keeps telemetry disabled.
 2. Add collector config source files, generated config, and local validation
    scripts.
 3. Add the internal collector workload with external ingress closed.
