@@ -19,7 +19,14 @@
     - [Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-13. [Useful Links](#useful-links)
+13. [Right-Sizing Non-Production Workloads](#right-sizing-non-production-workloads)
+    - [Enable Capacity AI on Idle Workloads](#enable-capacity-ai-on-idle-workloads)
+    - [Don't Autoscale Idle Workloads on CPU](#dont-autoscale-idle-workloads-on-cpu)
+    - [Right-Size Reserved CPU and Memory](#right-size-reserved-cpu-and-memory)
+    - [Drop Workloads You Don't Use](#drop-workloads-you-dont-use)
+    - [Share One Postgres Across Non-Production Apps](#share-one-postgres-across-non-production-apps)
+    - [Keep Templates as the Source of Truth](#keep-templates-as-the-source-of-truth)
+14. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -564,7 +571,7 @@ spec:
     capacityAI: true
 ```
 
-See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
+See [`templates/rails.yml`](https://github.com/shakacode/control-plane-flow/blob/main/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
 `identityLink`, and the other required fields must be preserved when you copy the snippet above.
 
 This is not the same as scale-to-zero. Capacity AI can reduce over-allocation for mostly idle demos, but it will not
@@ -679,7 +686,130 @@ No re-deploy is needed; the workloads come back with the same images they had be
 > keep running while only the web tier sleeps. `cpflow ps:stop -a $APP_NAME` suspends every configured workload, web
 > included, and `cleanup-stale-apps --mode=stop` applies the same pause behavior to stale review apps.
 
+## Right-Sizing Non-Production Workloads
+
+[Minimizing Non-Production App Costs](#minimizing-non-production-app-costs) above focuses on review-app lifecycle
+controls: scale-to-zero, explicit pauses, and stale app cleanup. Long-lived staging and demo apps are the other common
+source of avoidable Control Plane spend: they tend to keep generously-sized workloads running full-time. The levers
+below apply to any non-production environment (staging, demos, and review apps alike).
+
+### Enable Capacity AI on Idle Workloads
+
+Control Plane bills the CPU and memory a running replica *reserves*. With `minScale: 1` and
+Capacity AI off, a workload reserves its full `cpu`/`memory` around the clock, even when the
+app is idle. **Capacity AI** lets Control Plane right-size that reservation toward actual
+usage, so an idle non-production workload costs a fraction of its ceiling.
+
+Set it in `defaultOptions`:
+
+```yaml
+kind: workload
+name: rails
+spec:
+  defaultOptions:
+    capacityAI: true
+```
+
+Also disable CPU-utilization autoscaling for idle non-production workloads; the
+next section shows the complete `capacityAI` and autoscaling shape together.
+
+Tradeoff: Control Plane reprovisions the replica when it adjusts the reservation. For
+stateless web/renderer workloads that's negligible. For stateful workloads, see the
+[guidance above](#enable-capacity-ai-for-demo-and-starter-staging-apps) — Postgres,
+Redis, Elasticsearch, Mongo, and similar services should remain manually sized.
+
+### Don't Autoscale Idle Workloads on CPU
+
+CPU-utilization autoscaling adds nothing for an idle non-production app and works against
+Capacity AI. Disable it and let Capacity AI handle right-sizing:
+
+```yaml
+kind: workload
+name: rails
+spec:
+  defaultOptions:
+    capacityAI: true
+    autoscaling:
+      metric: disabled
+      minScale: 1
+      maxScale: 1
+```
+
+(For the web tier you can go further and scale to zero — see
+[Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps).)
+
+### Right-Size Reserved CPU and Memory
+
+The shipped templates use production-leaning defaults. Check each workload's reserved
+`cpu`/`memory` against its real usage — the workload's **Metrics** tab in Control Plane
+shows Grafana CPU/memory graphs — because non-production workloads are routinely
+over-provisioned.
+
+Postgres is the usual offender: a demo or staging database does **not** need a full core.
+Pinning `cpu: 1000m` keeps a whole reserved CPU running 24/7, while an idle Postgres
+typically sits at single-digit millicores. Something like `cpu: 250m` / `memory: 512Mi`
+is a field-tested non-production starting point; raise memory toward `1Gi` if the
+workload's Metrics tab shows pressure during seeds, imports, or larger staging datasets.
+
+```yaml
+kind: workload
+name: postgres
+spec:
+  containers:
+    - name: postgres
+      cpu: 250m
+      memory: 512Mi
+```
+
+### Drop Workloads You Don't Use
+
+Every workload listed under `app_workloads` / `additional_workloads` is another full-time
+container. Remove the ones a non-production app doesn't actually need.
+
+A common one is a separate background-job worker when the app has no jobs to run. On Rails
+8, [Solid Queue](https://github.com/rails/solid_queue) can run inside Puma instead of as its
+own workload — set `SOLID_QUEUE_IN_PUMA=true` when the app uses the Rails 8 default
+`config/puma.rb`, or add `plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]` manually for
+apps upgraded from Rails 7. Then drop the `worker` workload from `app_workloads` and
+`setup_app_templates` in `.controlplane/controlplane.yml`, and delete its template.
+Solid Queue is database-backed, so job processing needs no Redis; if your app uses Redis for caching or Action Cable,
+keep that workload.
+
+### Share One Postgres Across Non-Production Apps
+
+Running a dedicated Postgres workload — and its SSD volume — for every staging and review
+app multiplies standing cost. For non-production, several apps can share a single Postgres
+server, each using its own database:
+
+- Point each app's `DATABASE_URL` environment variable (in `.controlplane/templates/`) at the shared instance — for
+  example `postgres://user:pass@postgres.staging-shared-postgres.cpln.local:5432/my_app_staging` — and give each app a
+  distinct database name in the path.
+- Set `inboundAllowType` to the narrowest scope that covers your use case — `workload-list` gives the tightest blast
+  radius when you can keep an explicit per-workload allowlist current, while `same-org` is the practical default when
+  client apps are too dynamic to maintain manually. `same-gvc` only works when the shared Postgres and every client app
+  live in the same GVC, which is not the cross-GVC setup described in
+  [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps).
+  Overly broad allow-types expand the attack surface, especially when review apps can run untrusted PR code.
+- Store shared database credentials in Control Plane secrets for long-lived staging and demos; plaintext
+  `DATABASE_URL` values are only reasonable for disposable non-production experiments.
+- Prefer per-app database roles over a shared superuser or broad `CREATEDB` role, especially when review apps can run
+  untrusted PR code.
+
+A managed alternative is a single small RDS instance hosting many databases; see
+[Hetzner RDS Postgres](https://pelle.io/posts/hetzner-rds-postgres).
+
+### Keep Templates as the Source of Truth
+
+It's tempting to tune `cpu`, `capacityAI`, or autoscaling directly in the Control Plane UI.
+Don't: `cpflow apply-template` reconciles workloads from your `.controlplane/templates/`, so console edits are
+overwritten when it runs next; non-interactive CI runs with `--yes` do that silently, while interactive runs prompt
+before re-creating existing workloads. Make cost changes in the templates and deploy them.
+
+If you want drift caught automatically, manage long-lived environments with Terraform via
+[`cpflow terraform`](/docs/terraform/overview.md) — `terraform plan` reports any difference
+between the repo and live infrastructure before you apply.
+
 ## Useful Links
 
 - For best practices for the app's Dockerfile, see: https://lipanski.com/posts/dockerfile-ruby-best-practices
-- For migrating from Heroku Postgres to RDS, see: https://pelle.io/posts/hetzner-rds-postgres
+- For Hetzner RDS Postgres, see: https://pelle.io/posts/hetzner-rds-postgres
