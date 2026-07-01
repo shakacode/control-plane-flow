@@ -37,6 +37,9 @@ class TemplateParser
   private
 
   def replace_variables(yaml_file) # rubocop:disable Metrics/MethodLength
+    original_yaml_file = yaml_file
+    yaml_file = replace_legacy_variables(yaml_file)
+
     yaml_file = yaml_file
                 .gsub("{{APP_ORG}}", config.org)
                 .gsub("{{APP_NAME}}", config.app)
@@ -52,14 +55,8 @@ class TemplateParser
       yaml_file = yaml_file.gsub(placeholder, secret_name)
     end
 
-    find_deprecated_variables(yaml_file)
-
-    # Kept for backwards compatibility
+    find_deprecated_variables(original_yaml_file)
     yaml_file
-      .gsub("APP_ORG", config.org)
-      .gsub("APP_GVC", config.app)
-      .gsub("APP_LOCATION", config.location)
-      .then { |updated_yaml| replace_legacy_image_variable(updated_yaml) }
   end
 
   def replace_image_variables(yaml_file)
@@ -72,20 +69,38 @@ class TemplateParser
     yaml_file
   end
 
-  def replace_legacy_image_variable(yaml_file)
-    return yaml_file unless yaml_file.match?(/\bAPP_IMAGE\b/)
+  # Kept for backwards compatibility.
+  def replace_legacy_variables(yaml_file)
+    yaml_file
+      .gsub(deprecated_variable_pattern("APP_ORG"), config.org)
+      .gsub(deprecated_variable_pattern("APP_GVC"), config.app)
+      .gsub(deprecated_variable_pattern("APP_LOCATION"), config.location)
+      .then { |updated_yaml| replace_legacy_image_variable(updated_yaml) }
+  end
 
-    yaml_file.gsub(/\bAPP_IMAGE\b/, latest_image)
+  def replace_legacy_image_variable(yaml_file)
+    return yaml_file unless deprecated_variable_used?(yaml_file, "APP_IMAGE")
+
+    yaml_file.gsub(deprecated_variable_pattern("APP_IMAGE"), latest_image)
   end
 
   def latest_image
+    # Share one image value across modern and legacy image replacements in this parser instance.
     @latest_image ||= cp.latest_image
   end
 
   def find_deprecated_variables(yaml_file)
     new_variables.each do |old_key, new_key|
-      @deprecated_variables[old_key] = new_key if yaml_file.include?(old_key)
+      @deprecated_variables[old_key] = new_key if deprecated_variable_used?(yaml_file, old_key)
     end
+  end
+
+  def deprecated_variable_used?(yaml_file, old_key)
+    yaml_file.match?(deprecated_variable_pattern(old_key))
+  end
+
+  def deprecated_variable_pattern(old_key)
+    /(?<!\{\{)\b#{Regexp.escape(old_key)}\b(?!\}\})/
   end
 
   def new_variables
