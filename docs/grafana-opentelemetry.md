@@ -18,6 +18,10 @@ The fastest dashboards usually come from generated metrics, not raw trace or log
 queries. A collector can receive traces/logs, normalize them, generate focused
 Prometheus metrics, and expose those metrics for Control Plane Grafana to scrape.
 
+For the generic Control Plane telemetry template shape, start with
+[Telemetry](/docs/telemetry/). This guide is the Rails and Grafana companion: it
+focuses on application instrumentation, spanmetrics, dashboards, and alerting.
+
 ## High-Level Architecture
 
 ```text
@@ -149,7 +153,7 @@ if ENV["ENABLE_OPEN_TELEMETRY"] == "true"
 
     config.use "OpenTelemetry::Instrumentation::Rails"
     config.use "OpenTelemetry::Instrumentation::PG", { db_statement: :obfuscate }
-    config.use "OpenTelemetry::Instrumentation::Redis"
+    config.use "OpenTelemetry::Instrumentation::Redis", { db_statement: :obfuscate }
     config.use "OpenTelemetry::Instrumentation::Sidekiq"
     config.use "OpenTelemetry::Instrumentation::Faraday"
     config.use "OpenTelemetry::Instrumentation::HTTP"
@@ -336,9 +340,12 @@ The filter processor drops spans that match the condition, and
 no-op that passes every span — including child spans — into the spanmetrics
 connector, inflating metric cardinality with no error logged. Keep
 `error_mode: propagate` in development and staging, and include a known trace
-with one root span and one child span in collector validation. Once the
-expression is verified, production configs can switch to `ignore` so a later
-expression regression cannot fail collector startup.
+with one root span and one child span in collector validation. Keep
+`propagate` as the default production setting too: a collector restart failure is
+usually easier to detect and recover from than a silent no-op filter that floods
+spanmetrics with child spans. If a team deliberately chooses `ignore`, do it
+only after the dropped-span alert in [Alert Starting Point](#alert-starting-point)
+is active and routed to an owner.
 
 Processor order is load-bearing here. The condition `attributes["root_span"] != true`
 matches spans where the attribute is **absent** as well as where it is `false`, so
@@ -360,6 +367,7 @@ connectors:
     namespace: http_root_span_latency
     dimensions:
       - name: service.name
+      - name: status.code
       - name: original_cpln_workload
       - name: http.route
     exclude_dimensions:
@@ -381,8 +389,8 @@ connectors:
 ```
 
 `span.name` is excluded because raw Rails span names can carry too much
-cardinality. `status.code` is kept as a dimension so the dashboard's "error
-count and error rate" panel is derivable; it has only a few values
+cardinality. `status.code` is listed explicitly so the dashboard's "error count
+and error rate" panel is derivable regardless of connector defaults; it has only a few values
 (`STATUS_CODE_OK`, `STATUS_CODE_ERROR`, `STATUS_CODE_UNSET`), so the cardinality
 cost is negligible. Compute error rate from the connector's request-count series
 split by `status.code` (errored calls ÷ total calls), and confirm the exact
@@ -394,11 +402,23 @@ real staging trace and confirm they are route patterns such as `/users/:id`,
 not raw request paths such as `/users/12345` — raw paths are one of the most
 common causes of a spanmetrics setup overwhelming Prometheus storage.
 
-Wire the receiver, processors, connector, and exporters together in
-`service.pipelines`, with the processor order described above. The spanmetrics
-connector terminates the traces pipeline and feeds the metrics pipeline:
+Wire the receiver, processors, connector, and exporters together in one generated
+collector config, with the processor order described above. The minimal example
+below includes the top-level receiver and exporter stubs referenced by
+`service.pipelines`; the spanmetrics connector terminates the traces pipeline and
+feeds the metrics pipeline:
 
 ```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "${OPEN_TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT}"
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
 extensions:
   zpages:
     endpoint: "0.0.0.0:55679"
@@ -542,8 +562,8 @@ Start with low-noise alerts:
 - Rack timeout count
 - collector unhealthy or no metrics arriving
 - collector span throughput spiking above baseline, or the filter's dropped-span
-  count falling to zero — an early signal that an `error_mode: ignore` filter
-  silently became a no-op (metric names vary by collector version)
+  count falling to zero — an early signal that a transform/filter regression is
+  passing child spans into spanmetrics (metric names vary by collector version)
 
 The [RAM](/docs/tips.md#ram) and [CPU](/docs/tips.md#cpu) sections in Tips walk
 through creating the memory, restart, and CPU alerts in Grafana.
