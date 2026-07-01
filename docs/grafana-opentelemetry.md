@@ -239,11 +239,10 @@ Recommended ports:
 - `9292`: Prometheus metrics endpoint
 - `55679`: zpages/debug endpoint, internal only
 
-Recommended firewall:
-
-- internal inbound: same GVC
-- external ingress: closed
-- outbound egress: only what the collector needs
+Use the [Collector Workload firewall example](/docs/telemetry/collector.md#control-plane-workload-template)
+as the canonical YAML shape. For this Rails/Grafana profile, keep internal
+inbound limited to the same GVC, external ingress closed, and outbound egress
+limited to the telemetry backend hostnames or CIDRs the collector needs.
 
 Recommended starter container resources:
 
@@ -424,9 +423,9 @@ the most common causes of a spanmetrics setup overwhelming Prometheus storage.
 
 Wire the receiver, processors, connector, and exporters together in one generated
 collector config, with the processor order described above. The minimal example
-below includes the top-level receiver and exporter stubs referenced by
-`service.pipelines`; the spanmetrics connector terminates the traces pipeline and
-feeds the metrics pipeline:
+below includes the top-level component stubs referenced by `service.pipelines`;
+the spanmetrics connector terminates the traces pipeline and feeds the metrics
+pipeline:
 
 ```yaml
 receivers:
@@ -434,6 +433,23 @@ receivers:
     protocols:
       http:
         endpoint: "0.0.0.0:4318"
+
+processors:
+  transform/normalize:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["instrumentation.name"], instrumentation_scope.name)
+          - set(attributes["root_span"], true) where IsRootSpan()
+          - set(attributes["root_span"], false) where not IsRootSpan()
+
+  filter/non_root_spans:
+    error_mode: propagate
+    traces:
+      span:
+        - 'attributes["root_span"] != true'
+
+  batch: {}
 
 exporters:
   prometheus:
