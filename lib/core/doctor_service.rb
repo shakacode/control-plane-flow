@@ -103,8 +103,9 @@ class DoctorService
   def existing_arg_template_filenames = resolve_template_filenames(config.args)
 
   def resolve_template_filenames(template_names)
-    filenames = template_names.map { |name| @template_parser.template_filename(name) }
-    ensure_templates_exist!(template_names, filenames)
+    unique_template_names = template_names.uniq
+    filenames = unique_template_names.map { |name| @template_parser.template_filename(name) }
+    ensure_templates_exist!(unique_template_names, filenames)
     filenames
   end
 

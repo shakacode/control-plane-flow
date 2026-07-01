@@ -98,6 +98,16 @@ describe Command::Doctor do
       expect(result[:stderr]).to include("- kind: gvc, name: #{app}")
     end
 
+    it "passes when all templates render cleanly without setup templates selected" do
+      app = dummy_test_app("nothing")
+      stub_template_filenames("app")
+
+      result = run_cpflow_command("doctor", "--validations", "templates", "-a", app)
+
+      expect(result[:status]).to eq(0)
+      expect(result[:stderr]).to include("[PASS] templates")
+    end
+
     it "passes if unselected templates render duplicate kind/names" do
       app = dummy_test_app("alternate-app-template")
 
