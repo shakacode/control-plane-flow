@@ -6,20 +6,21 @@
 4. [CPU](#cpu)
 5. [Remote IP](#remote-ip)
 6. [Secrets and ENV Values](/docs/secrets-and-env-values.md)
-7. [CI](#ci)
-8. [Logs](#logs)
-9. [Grafana and OpenTelemetry](#grafana-and-opentelemetry)
-10. [Memcached](#memcached)
-11. [Sidekiq](#sidekiq)
+7. [Telemetry](#telemetry)
+8. [CI](#ci)
+9. [Logs](#logs)
+10. [Grafana and OpenTelemetry](#grafana-and-opentelemetry)
+11. [Memcached](#memcached)
+12. [Sidekiq](#sidekiq)
     - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
     - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-12. [Minimizing Review App Costs](#minimizing-review-app-costs)
+13. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
     - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
-    - [Scale the Web Workload to Zero](#scale-the-web-workload-to-zero)
+    - [Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-13. [Useful Links](#useful-links)
+14. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -115,6 +116,14 @@ So `REMOTE_ADDR` should not be used directly, only `request.remote_ip`.
 
 > **Warning:** Do not use `REMOTE_ADDR` for authentication, rate limiting, auditing, or IP allowlists. Always use
 > framework-specific mechanisms that understand proxy headers (such as Rails' `request.remote_ip`).
+
+## Telemetry
+
+If your app emits OpenTelemetry, StatsD, or structured log signals, run an
+OpenTelemetry Collector as a Control Plane workload in the same GVC and point
+application env vars at the collector's internal service name. See the
+[telemetry guide](https://www.shakacode.com/control-plane-flow/docs/telemetry/) for the template shape, recommended ports,
+review-app guardrails, and troubleshooting commands.
 
 ## CI
 
@@ -277,10 +286,13 @@ To do this:
 
 To set up a liveness probe on port 7433, see: https://github.com/arturictus/sidekiq_alive
 
-## Minimizing Review App Costs
+## Minimizing Non-Production App Costs
 
 Long-tail review apps — PRs that linger for days or weeks with little traffic — can drive up Control Plane spend if every
 workload runs full-time. `cpflow` already provides several knobs to manage this without custom orchestration.
+The same cost-control pass applies to public demos, starter staging apps, and long-lived review apps: start with
+Capacity AI for app workloads, then reserve true scale-to-zero for apps where cold starts and planned migrations are
+acceptable.
 
 > **Note:** Scaling workloads to zero or stopping review apps does not reduce costs from external databases, managed
 > Redis instances, object storage, or other third-party services. Those continue to bill independently of Control Plane
@@ -536,19 +548,49 @@ A few tradeoffs remain even after the cost savings:
   per-app key prefix or logical database index is only conventional separation when apps share credentials. If review
   app code is not trusted, use enforced isolation such as per-app ACL users/credentials or separate instances.
 
-### Scale the Web Workload to Zero
+### Enable Capacity AI for Demo and Starter Staging Apps
 
-`templates/rails.yml` ships with `type: standard`, `minScale: 1`, `maxScale: 1`. That's a safe default for production,
-but for review apps where cold-start latency is acceptable you can switch the web workload to a serverless type that
-scales to zero replicas when idle. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or
-create a review-app-specific template (for example `rails-review.yml`) and list it under `setup_app_templates` for the
-review-app entry in `.controlplane/controlplane.yml`.
+`templates/rails.yml` ships with CPU autoscaling pinned to one replica (`minScale: 1`, `maxScale: 1`) and
+`capacityAI: false`. That's a conservative production-safe default, but for public demos, starter staging apps, and
+long-lived review apps, Capacity AI can right-size CPU and memory allocation while keeping the same warm replica count.
+For these non-production apps, keep the Rails workload as `type: standard`, disable the explicit autoscaling metric,
+and enable Capacity AI. Apply the snippet below to your project's `.controlplane/templates/rails.yml`, or create an
+environment-specific template (for example `rails-review.yml` or `rails-demo-staging.yml`) and list it under
+`setup_app_templates` for the matching app entry in `.controlplane/controlplane.yml`.
 
 ```yaml
-# Only `type` and `minScale` change from templates/rails.yml; `maxScale`, `capacityAI` and `timeoutSeconds`
-# are shown for context so the full `defaultOptions` block reaches the destination intact.
-# Update the relevant fields in your full templates/rails.yml (or a review-app-specific template); keep
-# containers, firewallConfig, identityLink, and everything else from that file intact.
+# Only `autoscaling.metric` and `capacityAI` change from templates/rails.yml.
+# `type: standard` is shown here to confirm this is not a serverless migration.
+# Keep containers, firewallConfig, identityLink, and everything else from the template intact.
+kind: workload
+name: rails
+spec:
+  type: standard
+  defaultOptions:
+    autoscaling:
+      minScale: 1
+      maxScale: 1
+      metric: disabled
+    capacityAI: true
+```
+
+See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
+`identityLink`, and the other required fields must be preserved when you copy the snippet above.
+
+This is not the same as scale-to-zero. Capacity AI can reduce over-allocation for mostly idle demos, but it will not
+make costs approach zero when a workload has steady RAM usage or background load. Expect it to settle over several
+hours, and treat memory sizing as a separate cost lever.
+
+Shared Postgres is the usual exception: keep shared databases manually sized rather than enabling Capacity AI
+indiscriminately. Apply this guidance to stateless app/service workloads first (Rails, renderers, workers, and similar
+staging-only services). Stateful workloads are not supported by Capacity AI, so keep stateful Redis, Elasticsearch,
+Mongo, and similar support services manually sized unless you intentionally deploy them as supported stateless
+workloads.
+
+If you intentionally need true idle scale-to-zero, use a separate `type: serverless` workload with `minScale: 0` and
+an HTTP wake-up autoscaling metric such as `rps` or `concurrency`:
+
+```yaml
 kind: workload
 name: rails
 spec:
@@ -557,19 +599,15 @@ spec:
     autoscaling:
       minScale: 0
       maxScale: 1
-    capacityAI: false    # keep your existing value
-    timeoutSeconds: 60   # keep your existing value
+      metric: rps
+      target: 1
 ```
 
-See [`templates/rails.yml`](/templates/rails.yml) for the full default — `containers`, `firewallConfig`,
-`identityLink`, and the other required fields must be preserved when you copy the snippet above.
+Existing `type: standard` workloads cannot change to `serverless` in place; that requires a planned delete/recreate
+migration and can interrupt traffic.
 
-Control Plane spins the workload back up on the next request. Only `type: serverless` workloads support `minScale: 0`;
-`type: standard` always keeps at least one replica running.
-
-Tradeoff: the first request after a quiet period pays the cold-start cost (typically 15–60 seconds for a Rails
-image, depending on app size and boot configuration). For review apps that's usually fine; for production it
-usually isn't.
+> **Warning:** Treat a `standard` to `serverless` conversion as an operational migration because deleting a running
+> workload can interrupt traffic.
 
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See

@@ -705,6 +705,24 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).not_to include("control_plane_flow_ref")
     end
 
+    it "documents Capacity AI guidance in the generated help markdown" do
+      help_md = playground.join(".github/cpflow-help.md").read
+      normalized_help = help_md.gsub(/\s+/, " ")
+      # Exact phrasing -- update alongside the cpflow-help.md template if this copy changes.
+      expected_guidance =
+        "keep the app workload `type: standard` with one warm replica, " \
+        "set its autoscaling metric to `disabled`, " \
+        "and enable `capacityAI: true` so Control Plane can right-size CPU and memory allocation at that fixed " \
+        "replica count"
+
+      expect(normalized_help).to include(expected_guidance)
+      expect(help_md).to include("Shared Postgres")
+      expect(help_md).to include("stateful workloads")
+      expect(help_md).to include("supported stateless app/service workloads")
+      expect(help_md).to include("delete/recreate migration")
+      expect(help_md).not_to include("serverless web workload with `minScale: 0`")
+    end
+
     it "documents Docker build vars in the help markdown" do
       help_md_path = playground.join(".github/cpflow-help.md")
       contents = help_md_path.read

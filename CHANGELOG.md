@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow**, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance. [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
+
 ## [5.1.1] - 2026-06-03
 
 ### Changed
