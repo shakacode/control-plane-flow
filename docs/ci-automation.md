@@ -189,7 +189,11 @@ disambiguate generated review-app config:
 
 - `CPLN_ORG_STAGING`: override the staging/review org inferred from `cpln_org`, for example `company-staging`
 - `REVIEW_APP_PREFIX`: override the inferred review-app prefix; required only when multiple review app prefixes exist in `controlplane.yml`
-- `PRIMARY_WORKLOAD`: override the public workload used to discover the public endpoint and do production health checks; defaults to `rails`
+- `PRIMARY_WORKLOAD`: override the public workload used to discover the public endpoint and do review/production health checks; defaults to `rails`
+- `REVIEW_APP_HEALTH_CHECK_RETRIES`: override review-app health polling attempts; defaults to `24`
+- `REVIEW_APP_HEALTH_CHECK_INTERVAL`: override seconds between review-app health attempts; defaults to `15`
+- `REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES`: override space-separated healthy HTTP statuses for review apps; defaults to `200 301 302`
+- `REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME`: override per-request review-app curl timeout in seconds; defaults to `10`
 
 If `controlplane.yml` defines more than one app with
 `match_if_app_name_starts_with: true`, inference intentionally fails. Set
@@ -595,6 +599,12 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - Runs a health check against `PRIMARY_WORKLOAD` only after Control Plane reports the latest workload version ready.
 - Attempts a rollback of every configured application workload if the new production image does not come up healthy.
 - Creates a GitHub release after a successful promotion.
+
+`cpflow-deploy-review-app.yml`
+
+- Builds and deploys the pull request image after the review app exists or is created.
+- Waits for `PRIMARY_WORKLOAD` to report `readyLatest=true` and return an accepted HTTP status before marking the GitHub deployment successful.
+- Uses `REVIEW_APP_HEALTH_CHECK_*` repository variables to tune review-app health checks independently from production promotion.
 
 `cpflow-cleanup-stale-review-apps.yml`
 

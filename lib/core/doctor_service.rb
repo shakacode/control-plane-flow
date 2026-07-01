@@ -34,14 +34,11 @@ class DoctorService
     exit(ExitCode::ERROR_DEFAULT) if @any_failed_validation
   end
 
-  def validate_config
-    check_for_app_names_contained_in_others
-  end
+  def validate_config = check_for_app_names_contained_in_others
 
   def validate_templates
     @template_parser = TemplateParser.new(@command)
-    filenames = Dir.glob("#{@template_parser.template_dir}/*.yml")
-    templates = @template_parser.parse(filenames)
+    templates = @template_parser.parse(template_filenames)
 
     check_for_duplicate_templates(templates)
     warn_deprecated_template_variables
@@ -86,6 +83,41 @@ class DoctorService
            .map { |(kind, name), _| "  - kind: #{kind}, name: #{name}" }
            .join("\n")
     raise ValidationError, "#{Shell.color("ERROR: #{message}", :red)}\n#{list}"
+  end
+
+  def template_filenames
+    return existing_arg_template_filenames if config.args.any?
+
+    message = "ERROR: Can't find current config, please specify an app."
+    raise ValidationError, Shell.color(message, :red) if config.current.nil?
+
+    template_names = config.current[:setup_app_templates]
+    # Fall back to every template in the directory when setup_app_templates is unconfigured.
+    return Dir.glob("#{@template_parser.template_dir}/*.yml") if template_names.nil? || template_names.empty?
+
+    # When setup_app_templates is configured, validate only that selected subset,
+    # including the deprecation scan.
+    resolve_template_filenames(template_names)
+  end
+
+  def existing_arg_template_filenames = resolve_template_filenames(config.args)
+
+  def resolve_template_filenames(template_names)
+    unique_template_names = template_names.uniq
+    filenames = unique_template_names.map { |name| @template_parser.template_filename(name) }
+    ensure_templates_exist!(unique_template_names, filenames)
+    filenames
+  end
+
+  def ensure_templates_exist!(template_names, filenames)
+    missing_templates = template_names.zip(filenames).reject { |_, filename| File.exist?(filename) }
+    return if missing_templates.empty?
+
+    missing_templates_str = missing_templates.map do |name, filename|
+      "  - #{name} (#{filename})"
+    end.join("\n")
+    message = "#{Shell.color('Missing templates:', :red)}\n#{missing_templates_str}"
+    raise ValidationError, message
   end
 
   def warn_deprecated_template_variables
