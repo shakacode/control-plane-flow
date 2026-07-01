@@ -9,24 +9,25 @@
 7. [Telemetry](#telemetry)
 8. [CI](#ci)
 9. [Logs](#logs)
-10. [Memcached](#memcached)
-11. [Sidekiq](#sidekiq)
+10. [Grafana and OpenTelemetry](#grafana-and-opentelemetry)
+11. [Memcached](#memcached)
+12. [Sidekiq](#sidekiq)
     - [Quieting Non-Critical Workers During Deployments](#quieting-non-critical-workers-during-deployments)
     - [Setting Up a Pre Stop Hook](#setting-up-a-pre-stop-hook)
     - [Setting Up a Liveness Probe](#setting-up-a-liveness-probe)
-12. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
+13. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
     - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
     - [Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
-13. [Right-Sizing Non-Production Workloads](#right-sizing-non-production-workloads)
+14. [Right-Sizing Non-Production Workloads](#right-sizing-non-production-workloads)
     - [Enable Capacity AI on Idle Workloads](#enable-capacity-ai-on-idle-workloads)
     - [Don't Autoscale Idle Workloads on CPU](#dont-autoscale-idle-workloads-on-cpu)
     - [Right-Size Reserved CPU and Memory](#right-size-reserved-cpu-and-memory)
     - [Drop Workloads You Don't Use](#drop-workloads-you-dont-use)
     - [Share One Postgres Across Non-Production Apps](#share-one-postgres-across-non-production-apps)
     - [Keep Templates as the Source of Truth](#keep-templates-as-the-source-of-truth)
-14. [Useful Links](#useful-links)
+15. [Useful Links](#useful-links)
 
 ## GVCs vs. Orgs
 
@@ -218,6 +219,15 @@ logcli query '{gvc="my-app"}' \
 To check for truncation, compare line count to the limit: `wc -l < incident.log` near `--limit` means the export was
 likely cut off. Prefer narrowing the time window (and concatenating the sub-ranges) over raising `--limit`, since the
 server-side cap may be lower than the flag value.
+
+## Grafana and OpenTelemetry
+
+Control Plane's built-in Grafana gives useful workload metrics such as CPU, memory, restarts, and request rate. For
+Rails applications that need app-level request latency, database spans, Redis spans, Sidekiq job metrics, or
+trace-to-log correlation, add OpenTelemetry and an internal collector workload that exposes generated Prometheus
+metrics.
+
+See [Grafana and OpenTelemetry on Control Plane](/docs/grafana-opentelemetry.md) for the full setup guide.
 
 ## Memcached
 
