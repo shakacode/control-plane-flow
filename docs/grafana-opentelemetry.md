@@ -308,6 +308,7 @@ Suggested structure:
 Minimum collector config components:
 
 - OTLP HTTP receiver
+- memory limiter processor
 - transform processor for normalized span attributes
 - spanmetrics connector for generated metrics
 - Prometheus exporter
@@ -322,6 +323,11 @@ Normalize span attributes before generating metrics:
 
 ```yaml
 processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
   transform/normalize:
     trace_statements:
       - context: span
@@ -451,6 +457,30 @@ processors:
 
   batch: {}
 
+connectors:
+  spanmetrics/http_root_span_latency:
+    namespace: http_root_span_latency
+    dimensions:
+      - name: service.name
+      - name: original_cpln_workload
+      - name: http.route
+    exclude_dimensions:
+      - span.name
+      - span.kind
+    histogram:
+      explicit:
+        buckets:
+          - 5ms
+          - 10ms
+          - 50ms
+          - 100ms
+          - 250ms
+          - 500ms
+          - 1s
+          - 2s
+          - 5s
+          - 10s
+
 exporters:
   prometheus:
     endpoint: "0.0.0.0:9292"
@@ -467,6 +497,7 @@ service:
       receivers:
         - otlp
       processors:
+        - memory_limiter
         - transform/normalize
         - filter/non_root_spans
         - batch
@@ -476,6 +507,7 @@ service:
       receivers:
         - spanmetrics/http_root_span_latency
       processors:
+        - memory_limiter
         - batch
       exporters:
         - prometheus
