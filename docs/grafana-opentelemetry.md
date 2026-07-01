@@ -242,8 +242,8 @@ Recommended ports:
 Recommended firewall:
 
 - internal inbound: same GVC
-- external inbound: none
-- outbound: only what the collector needs
+- external ingress: closed
+- outbound egress: only what the collector needs
 
 Recommended starter container resources:
 
@@ -260,11 +260,9 @@ Recommended env:
 
 ```yaml
 env:
-  # Custom collector variables, not standard OpenTelemetry env vars. The collector
+  # Custom backend variables, not standard OpenTelemetry env vars. The collector
   # reads them through ${env:VAR} substitution in the config YAML, so each must be
   # referenced as ${env:TELEMETRY_...} in that config to take effect.
-  - name: TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT
-    value: "0.0.0.0:4318"
   - name: TELEMETRY_BACKEND_TOKEN
     value: "cpln://secret/{{APP_NAME}}-telemetry-backend.TELEMETRY_BACKEND_TOKEN"
 ```
@@ -435,7 +433,7 @@ receivers:
   otlp:
     protocols:
       http:
-        endpoint: "${env:TELEMETRY_COLLECTOR_RECEIVER_ENDPOINT}"
+        endpoint: "0.0.0.0:4318"
 
 exporters:
   prometheus:
