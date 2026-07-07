@@ -5,6 +5,9 @@ Copy the recommended prompt below when you want an AI agent to add the reusable
 It works whether `cpflow` is already installed or the agent needs to install it
 first.
 
+After publishing a new `cpflow` gem that changes this flow, validate the prompt
+with the [AI rollout end-to-end test](./ai-rollout-e2e-test.md).
+
 ## Recommended Prompt
 
 ```text

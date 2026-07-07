@@ -874,6 +874,11 @@ it first. When `cpflow` is already available in the target repo,
 `cpflow ai-github-flow-prompt` prints the same prompt with that repo's default
 app prefix already filled in.
 
+After publishing a new `cpflow` gem, use the
+[AI rollout end-to-end test](./ai-rollout-e2e-test.md) to validate the prompt
+against a real React on Rails app and feed the results back into the prompt,
+docs, readiness checks, or generator.
+
 Short version:
 
 ```text

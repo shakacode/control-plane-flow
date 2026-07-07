@@ -102,6 +102,10 @@ GEM_RELEASE_MAX_RETRIES=<n>
 12. Prints the downstream GitHub Actions follow-up command:
     `cpflow update-github-actions`.
 
+When a release changes the GitHub Actions flow, AI rollout prompt, readiness
+checks, generator output, or React on Rails deployment behavior, run the
+[AI rollout end-to-end test](./ai-rollout-e2e-test.md) after publishing the gem.
+
 The older `bundle exec rake "create_release[4.2.0,false]"` task name remains as
 a compatibility alias, but new releases should use `bundle exec rake release`.
 
