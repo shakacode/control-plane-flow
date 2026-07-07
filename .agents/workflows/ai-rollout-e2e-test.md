@@ -28,8 +28,9 @@ on Rails app repository:
 You are testing published Control Plane Flow version X.Y.Z on this React on Rails app.
 
 Do not use a local `control-plane-flow` checkout or unpublished gem code. Install or invoke the published gem only. Prefer `gem install cpflow -v X.Y.Z`; if the target repo already has a Bundler-managed `cpflow`, use `bundle exec cpflow` only after confirming it resolves to version X.Y.Z. Report a blocker if you cannot install or invoke that published version.
+After you verify the correct invocation, use that same invocation for every later `cpflow` command. For example, use `bundle exec cpflow github-flow-readiness` if Bundler was the verified path.
 
-Once `cpflow` is available, run `cpflow ai-github-flow-prompt` and follow the printed recommended prompt exactly. Use that prompt to run readiness, generate or update `.controlplane/`, generate GitHub Actions, preserve React on Rails build behavior, document required GitHub settings, validate locally, push a branch, and open a PR.
+Once `cpflow` is available, run the verified invocation with `ai-github-flow-prompt` and follow the printed recommended prompt exactly. Use that prompt to run readiness, generate or update `.controlplane/`, generate GitHub Actions, preserve React on Rails build behavior, document required GitHub settings, validate locally, push a branch, and open a PR.
 
 Important constraints:
 - Start with `cpflow github-flow-readiness` and stop on any real blocker.
@@ -56,7 +57,7 @@ Run the strongest local checks available, including `cpflow github-flow-readines
 
 If credentials are available for a disposable staging/review Control Plane org, validate one trusted-branch review app:
 1. confirm the help workflow exposes the expected review-app commands
-2. comment `+review-app-deploy` on the target-app PR
+2. comment `+review-app-deploy` on the target-app PR from an `OWNER`, `MEMBER`, or `COLLABORATOR` account
 3. wait for the review-app workflow
 4. visit the reported app URL
 5. verify the Rails page and React entry point
