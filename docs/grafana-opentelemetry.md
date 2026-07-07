@@ -19,7 +19,7 @@ queries. A collector can receive traces/logs, normalize them, generate focused
 Prometheus metrics, and expose those metrics for Control Plane Grafana to scrape.
 
 For the generic Control Plane telemetry template shape, start with
-[Telemetry](/docs/telemetry/index.md) and
+[Telemetry](/docs/telemetry/) and
 [Collector Workload](/docs/telemetry/collector.md). This guide is the Rails and
 Grafana companion: it focuses on application instrumentation, spanmetrics,
 dashboards, and alerting.

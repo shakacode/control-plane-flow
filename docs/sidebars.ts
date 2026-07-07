@@ -35,6 +35,7 @@ const sidebars: SidebarsConfig = {
         'telemetry/application-instrumentation',
         'telemetry/pipelines',
         'telemetry/review-apps',
+        'grafana-opentelemetry',
         'telemetry/troubleshooting',
       ],
     },
@@ -43,6 +44,7 @@ const sidebars: SidebarsConfig = {
       label: 'Data Services',
       items: [
         'postgres',
+        'rds-private-networking',
         'redis',
       ],
     },
