@@ -25,6 +25,11 @@ value is here.
 - **Docs checks**: `.agents/bin/docs` (`bundle exec rake check_command_docs`).
 - **Tests**: `.agents/bin/test` (`bundle exec rspec`).
 - **Build / type checks**: `n/a` (gem).
+- **Internal release QA prompts**: use
+  [`.agents/workflows/ai-rollout-e2e-test.md`](.agents/workflows/ai-rollout-e2e-test.md)
+  after publishing a `cpflow` gem that changes GitHub Actions, AI rollout
+  prompts, readiness checks, generator output, or React on Rails deployment
+  behavior.
 - **Review gate**: AI reviewers are advisory unless they confirm a blocker; the
   merge gate is the full `gh pr checks` list green, all review threads resolved,
   and mergeable clean.
