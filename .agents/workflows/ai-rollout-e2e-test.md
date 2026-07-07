@@ -40,6 +40,11 @@ Important constraints:
 - Record every place where the prompt or command output was confusing, incomplete, or caused you to guess.
 ```
 
+This internal test prompt intentionally prefers `gem install cpflow -v X.Y.Z`
+because it verifies the published gem. The public rollout prompt may prefer an
+app's existing `bundle exec cpflow` path first when the app already manages
+`cpflow` through Bundler.
+
 ## Prompt 2: Validate the Generated Flow
 
 Use this after the agent opens or prepares the target-app PR:
