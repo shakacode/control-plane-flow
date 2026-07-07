@@ -48,6 +48,35 @@ apps:
       - app
       - rails
 
+  dummy-test-duplicate-templates-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - app
+      - app-without-identity
+
+  dummy-test-alternate-app-template-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - app-review
+
+  dummy-test-deprecated-template-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - app-with-deprecated-variables-no-image
+
+  dummy-test-missing-template-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    setup_app_templates:
+      - nonexistent
+
   dummy-test-full-{GLOBAL_IDENTIFIER}:
     <<: *common
 

@@ -439,8 +439,23 @@ jobs:
 
           cpflow deploy-image "${deploy_args[@]}"
 
-      - name: Retrieve app URL
+      - name: Wait for deployment health
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
+        id: health-check
+        uses: ./.cpflow/.github/actions/cpflow-wait-for-health
+        with:
+          workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}
+          app_name: ${{ steps.review-config.outputs.app_name }}
+          org: ${{ steps.review-config.outputs.cpln_org }}
+          # Review apps use their own health knobs so teams can keep production
+          # promotion stricter or slower without changing PR feedback behavior.
+          max_retries: ${{ vars.REVIEW_APP_HEALTH_CHECK_RETRIES || '24' }}
+          interval_seconds: ${{ vars.REVIEW_APP_HEALTH_CHECK_INTERVAL || '15' }}
+          accepted_statuses: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}
+          curl_max_time: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}
+
+      - name: Retrieve app URL
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success') && steps.health-check.outcome == 'success'
         id: workload
         working-directory: app
         shell: bash
