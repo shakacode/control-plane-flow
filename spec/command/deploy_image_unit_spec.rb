@@ -3,6 +3,32 @@
 require "spec_helper"
 
 describe Command::DeployImage do
+  describe "OPTIONS" do
+    it "declares --workload as repeatable" do
+      workload_option = described_class::OPTIONS.find { |option| option[:name] == :workload }
+
+      expect(workload_option[:params]).to include(type: :string, repeatable: true, aliases: ["-w"])
+    end
+
+    it "passes repeated --workload flags through Thor as an array" do
+      config = instance_double(Config)
+      command = instance_double(described_class, call: true)
+      captured_options = nil
+      allow(Config).to receive(:new) do |_args, options, _required_options|
+        captured_options = options
+        config
+      end
+      allow(described_class).to receive(:new).with(config).and_return(command)
+      allow(Cpflow::Cli).to receive(:show_info_header)
+
+      result = run_cpflow_command("deploy-image", "-a", "test-app", "-w", "frontend", "-w", "worker")
+
+      expect(result[:status]).to eq(0), result[:stderr]
+      expect(captured_options[:workload]).to eq(%w[frontend worker])
+      expect(command).to have_received(:call)
+    end
+  end
+
   describe "#resolve_image_to_deploy" do
     def build_command(image_details:, use_digest_image_ref: true)
       image = "test-app:1"
@@ -71,13 +97,16 @@ describe Command::DeployImage do
     end
   end
 
+  # rubocop:disable RSpec/MultipleMemoizedHelpers
   describe "#call" do
     let(:config) do
       instance_double(
         Config,
         app: "test-app",
         org: "test-org",
-        options: { run_release_phase: run_release_phase },
+        location: "aws-us-west-2",
+        options: options,
+        deploy_order: deploy_order,
         use_digest_image_ref?: false,
         identity: "test-app-identity",
         identity_link: "/org/test-org/gvc/test-app/identity/test-app-identity",
@@ -95,6 +124,8 @@ describe Command::DeployImage do
         ]
       )
     end
+    let(:options) { { run_release_phase: run_release_phase } }
+    let(:deploy_order) { nil }
     let(:run_release_phase) { false }
     let(:cp) { instance_double(Controlplane) }
     let(:command) { described_class.new(config) }
@@ -340,6 +371,189 @@ describe Command::DeployImage do
         .with("frontend", container: "rails", image: "test-app:1")
     end
 
+    context "when specific workloads are requested" do
+      let(:options) { { run_release_phase: false, workload: ["worker"] } }
+      let(:worker_data) do
+        {
+          "name" => "worker",
+          "spec" => {
+            "containers" => [
+              { "name" => "sidekiq", "image" => "/org/test-org/image/test-app:1" }
+            ]
+          },
+          "status" => { "endpoint" => "https://worker-test.cpln.app" }
+        }
+      end
+
+      before do
+        allow(config).to receive(:[]).with(:app_workloads).and_return(%w[frontend worker])
+        allow(cp).to receive(:fetch_workload!).with("worker").and_return(worker_data)
+      end
+
+      it "deploys only the requested workloads" do
+        command.call
+
+        expect(cp).not_to have_received(:fetch_workload!).with("frontend")
+        expect(cp).to have_received(:workload_set_image_ref)
+          .with("worker", container: "sidekiq", image: "test-app:1")
+        expect(cp).not_to have_received(:workload_set_image_ref)
+          .with("frontend", container: "rails", image: "test-app:1")
+      end
+    end
+
+    context "when a requested workload is not configured" do
+      let(:options) { { run_release_phase: false, workload: ["missing"] } }
+
+      it "raises before fetching or deploying workloads" do
+        expect { command.call }
+          .to raise_error("Workload 'missing' must be listed in app_workloads for app 'test-app'.")
+        expect(cp).not_to have_received(:fetch_workload!)
+        expect(cp).not_to have_received(:workload_set_image_ref)
+      end
+    end
+
+    context "when deploy_order is configured" do
+      let(:deploy_order) { [["node-renderer"], ["rails"]] }
+      let(:node_renderer_data) do
+        {
+          "name" => "node-renderer",
+          "spec" => {
+            "containers" => [
+              { "name" => "renderer", "image" => "/org/test-org/image/test-app:1" }
+            ]
+          },
+          "status" => { "endpoint" => "https://renderer-test.cpln.app" }
+        }
+      end
+      let(:rails_data) do
+        {
+          "name" => "rails",
+          "spec" => {
+            "containers" => [
+              { "name" => "rails", "image" => "/org/test-org/image/test-app:1" }
+            ]
+          },
+          "status" => { "endpoint" => "https://rails-test.cpln.app" }
+        }
+      end
+      let(:sidekiq_data) do
+        {
+          "name" => "sidekiq",
+          "spec" => {
+            "containers" => [
+              { "name" => "worker", "image" => "/org/test-org/image/test-app:1" }
+            ]
+          },
+          "status" => { "endpoint" => "https://sidekiq-test.cpln.app" }
+        }
+      end
+
+      before do
+        allow(config).to receive(:[]).with(:app_workloads).and_return(%w[node-renderer rails sidekiq])
+        allow(cp).to receive(:fetch_workload!).with("node-renderer").and_return(node_renderer_data)
+        allow(cp).to receive(:fetch_workload!).with("rails").and_return(rails_data)
+        allow(cp).to receive(:fetch_workload!).with("sidekiq").and_return(sidekiq_data)
+        allow(cp).to receive_messages(workload_suspended?: false, workload_deployments_ready?: true)
+      end
+
+      it "deploys ordered groups and waits for each group before deploying the next" do
+        events = []
+        allow(cp).to receive(:workload_set_image_ref) { |workload, **| events << [:deploy, workload] }
+        allow(cp).to receive(:workload_suspended?) do |workload|
+          events << [:suspended?, workload]
+          false
+        end
+        allow(cp).to receive(:workload_deployments_ready?) do |workload, **|
+          events << [:ready, workload]
+          true
+        end
+
+        command.call
+
+        expect(events).to eq(
+          [
+            [:deploy, "node-renderer"],
+            [:suspended?, "node-renderer"],
+            [:ready, "node-renderer"],
+            [:deploy, "rails"],
+            [:suspended?, "rails"],
+            [:ready, "rails"],
+            [:deploy, "sidekiq"],
+            [:suspended?, "sidekiq"],
+            [:ready, "sidekiq"]
+          ]
+        )
+      end
+
+      it "skips readiness waits for suspended workloads" do
+        allow(cp).to receive(:workload_suspended?).with("node-renderer").and_return(true)
+
+        command.call
+
+        expect(cp).not_to have_received(:workload_deployments_ready?)
+          .with("node-renderer", location: "aws-us-west-2", expected_status: true)
+      end
+
+      it "prints one deployed endpoints summary after all ordered groups finish" do
+        expect { command.call }.to output(
+          satisfy do |stderr|
+            stderr.scan("Deployed endpoints:").size == 1 &&
+              stderr.include?("  - node-renderer: https://renderer-test.cpln.app") &&
+              stderr.include?("  - rails: https://rails-test.cpln.app") &&
+              stderr.include?("  - sidekiq: https://sidekiq-test.cpln.app")
+          end
+        ).to_stderr
+      end
+
+      it "prints deployed endpoints before aborting when an ordered readiness wait fails" do
+        allow(command).to receive(:wait_for_workloads_ready) do |group|
+          exit(ExitCode::ERROR_DEFAULT) if group == ["rails"]
+        end
+
+        expect do
+          expect { command.call }
+            .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+        end.to output(
+          satisfy do |stderr|
+            stderr.scan("Deployed endpoints:").size == 1 &&
+              stderr.include?("  - node-renderer: https://renderer-test.cpln.app") &&
+              stderr.include?("  - rails: https://rails-test.cpln.app") &&
+              !stderr.include?("  - sidekiq: https://sidekiq-test.cpln.app")
+          end
+        ).to_stderr
+      end
+    end
+
+    context "when specific workloads are requested with deploy_order configured" do
+      let(:options) { { run_release_phase: false, workload: ["worker"] } }
+      let(:deploy_order) { [["frontend"]] }
+      let(:worker_data) do
+        {
+          "name" => "worker",
+          "spec" => {
+            "containers" => [
+              { "name" => "sidekiq", "image" => "/org/test-org/image/test-app:1" }
+            ]
+          },
+          "status" => { "endpoint" => "https://worker-test.cpln.app" }
+        }
+      end
+
+      before do
+        allow(config).to receive(:[]).with(:app_workloads).and_return(%w[frontend worker])
+        allow(cp).to receive(:fetch_workload!).with("worker").and_return(worker_data)
+        allow(cp).to receive_messages(workload_suspended?: false, workload_deployments_ready?: true)
+      end
+
+      it "lets the explicit workload selection override deploy_order" do
+        command.call
+
+        expect(cp).to have_received(:workload_set_image_ref)
+          .with("worker", container: "sidekiq", image: "test-app:1")
+        expect(cp).not_to have_received(:workload_deployments_ready?)
+      end
+    end
+
     context "when a workload has multiple containers matching the app image" do
       let(:workload_data) do
         {
@@ -388,4 +602,5 @@ describe Command::DeployImage do
       end
     end
   end
+  # rubocop:enable RSpec/MultipleMemoizedHelpers
 end

@@ -166,6 +166,28 @@ class Config # rubocop:disable Metrics/ClassLength
     current&.dig(:use_digest_image_ref) == true
   end
 
+  def deploy_order
+    return nil unless current&.key?(:deploy_order)
+
+    @deploy_order ||= normalize_deploy_order(
+      current.fetch(:deploy_order),
+      app_workloads_for_deploy_order!(current, app),
+      app
+    )
+  end
+
+  def validate_deploy_orders!
+    apps.each do |app_name, app_options|
+      next unless app_options.key?(:deploy_order)
+
+      normalize_deploy_order(
+        app_options.fetch(:deploy_order),
+        app_workloads_for_deploy_order!(app_options, app_name),
+        app_name
+      )
+    end
+  end
+
   private
 
   def ensure_current_config!
@@ -250,6 +272,78 @@ class Config # rubocop:disable Metrics/ClassLength
 
       seen_names[name] = true
     end
+  end
+
+  def app_workloads_for_deploy_order!(app_options, app_name)
+    app_workloads = app_options[:app_workloads]
+    return app_workloads if app_workloads.is_a?(Array)
+
+    raise "deploy_order for app '#{app_name}' requires app_workloads to be an array."
+  end
+
+  def normalize_deploy_order(raw_deploy_order, app_workloads, app_name)
+    ensure_deploy_order_array!(raw_deploy_order, app_name)
+    context = {
+      app_workload_names: app_workloads.map(&:to_s),
+      seen_workloads: {},
+      app_name: app_name
+    }
+
+    raw_deploy_order.map.with_index do |group, index|
+      normalize_deploy_order_group(group, index, context)
+    end
+  end
+
+  def ensure_deploy_order_array!(raw_deploy_order, app_name)
+    raise "deploy_order for app '#{app_name}' must be an array of workload groups." unless raw_deploy_order.is_a?(Array)
+    return unless raw_deploy_order.empty?
+
+    raise "deploy_order for app '#{app_name}' must include at least one workload group."
+  end
+
+  def normalize_deploy_order_group(group, index, context)
+    group_number = index + 1
+    ensure_deploy_order_group_array!(group, group_number, context.fetch(:app_name))
+
+    group.map.with_index do |workload, workload_index|
+      normalize_deploy_order_workload(workload, group_number, workload_index, context)
+    end
+  end
+
+  def ensure_deploy_order_group_array!(group, group_number, app_name)
+    unless group.is_a?(Array)
+      raise "deploy_order group ##{group_number} for app '#{app_name}' must be an array of workload names."
+    end
+    return unless group.empty?
+
+    raise "deploy_order group ##{group_number} for app '#{app_name}' must include at least one workload."
+  end
+
+  def normalize_deploy_order_workload(workload, group_number, workload_index, context)
+    app_name = context.fetch(:app_name)
+    unless workload.is_a?(String) && !workload.strip.empty?
+      raise "deploy_order group ##{group_number} entry ##{workload_index + 1} " \
+            "for app '#{app_name}' must be a workload name."
+    end
+
+    workload_name = workload.strip
+    ensure_deploy_order_workload_configured!(workload_name, context.fetch(:app_workload_names), app_name)
+    ensure_deploy_order_workload_unique!(workload_name, context.fetch(:seen_workloads), app_name)
+    workload_name
+  end
+
+  def ensure_deploy_order_workload_configured!(workload_name, app_workload_names, app_name)
+    return if app_workload_names.include?(workload_name)
+
+    raise "deploy_order workload '#{workload_name}' must be listed in app_workloads for app '#{app_name}'."
+  end
+
+  def ensure_deploy_order_workload_unique!(workload_name, seen_workloads, app_name)
+    if seen_workloads[workload_name]
+      raise "deploy_order workload '#{workload_name}' must appear only once for app '#{app_name}'."
+    end
+
+    seen_workloads[workload_name] = true
   end
 
   def ensure_app!

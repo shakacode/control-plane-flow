@@ -227,4 +227,96 @@ describe Config do
       end
     end
   end
+
+  describe "#deploy_order" do
+    def build_config(current, app: "test-app")
+      instance = described_class.allocate
+      instance.instance_variable_set(:@app, app)
+      allow(instance).to receive(:current).and_return(current)
+      instance
+    end
+
+    it "defaults to no deploy order" do
+      config = build_config({ app_workloads: %w[rails sidekiq] })
+
+      expect(config.deploy_order).to be_nil
+    end
+
+    it "normalizes deploy order groups" do
+      config = build_config(
+        {
+          app_workloads: %w[node-renderer rails sidekiq],
+          deploy_order: [["node-renderer"], %w[rails sidekiq]]
+        }
+      )
+
+      expect(config.deploy_order).to eq([["node-renderer"], %w[rails sidekiq]])
+    end
+
+    it "raises when deploy order is not an array" do
+      config = build_config({ app_workloads: %w[rails], deploy_order: "rails" })
+
+      expect { config.deploy_order }
+        .to raise_error("deploy_order for app 'test-app' must be an array of workload groups.")
+    end
+
+    it "raises when deploy order is empty" do
+      config = build_config({ app_workloads: %w[rails], deploy_order: [] })
+
+      expect { config.deploy_order }
+        .to raise_error("deploy_order for app 'test-app' must include at least one workload group.")
+    end
+
+    it "raises when a deploy order group is not an array" do
+      config = build_config({ app_workloads: %w[rails], deploy_order: ["rails"] })
+
+      expect { config.deploy_order }
+        .to raise_error("deploy_order group #1 for app 'test-app' must be an array of workload names.")
+    end
+
+    it "raises when a deploy order group is empty" do
+      config = build_config({ app_workloads: %w[rails], deploy_order: [[]] })
+
+      expect { config.deploy_order }
+        .to raise_error("deploy_order group #1 for app 'test-app' must include at least one workload.")
+    end
+
+    it "raises when a deploy order workload is not configured" do
+      config = build_config({ app_workloads: %w[rails], deploy_order: [["node-renderer"]] })
+
+      expect { config.deploy_order }
+        .to raise_error("deploy_order workload 'node-renderer' must be listed in app_workloads for app 'test-app'.")
+    end
+
+    it "raises when a deploy order workload is duplicated" do
+      config = build_config({ app_workloads: %w[rails sidekiq], deploy_order: [%w[rails], %w[sidekiq rails]] })
+
+      expect { config.deploy_order }
+        .to raise_error("deploy_order workload 'rails' must appear only once for app 'test-app'.")
+    end
+  end
+
+  describe "#validate_deploy_orders!" do
+    def build_config(apps)
+      instance = described_class.allocate
+      allow(instance).to receive(:apps).and_return(apps)
+      instance
+    end
+
+    it "validates deploy_order for each app and skips apps without deploy_order" do
+      config = build_config(
+        {
+          test_app: {
+            app_workloads: %w[node-renderer rails sidekiq],
+            deploy_order: [["node-renderer"], %w[rails sidekiq]]
+          },
+          worker_app: { app_workloads: %w[worker] },
+          invalid_app: { app_workloads: %w[frontend], deploy_order: [["missing"]] }
+        }
+      )
+
+      expect { config.validate_deploy_orders! }
+        .to raise_error("deploy_order workload 'missing' must be listed in app_workloads for app 'invalid_app'.")
+    end
+  end
 end

@@ -14,6 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
+- **Added ordered per-workload deploys with repeatable `cpflow deploy-image -w/--workload` filtering and optional `deploy_order` groups in `controlplane.yml`.** [PR 397](https://github.com/shakacode/control-plane-flow/pull/397) by [Justin Gordon](https://github.com/justin808). Fixes [issue 396](https://github.com/shakacode/control-plane-flow/issues/396). `cpflow deploy-image` can now deploy selected app workloads, and production promotion inherits `deploy_order` so workloads such as a Node renderer can roll out and become ready before Rails.
 - **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow**, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance. [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
 - **Added a Rails-focused Grafana and OpenTelemetry guide for building Control Plane dashboards from generated span and log metrics**, including collector workload guidance, spanmetrics setup, rollout order, alerting, and validation checklists. [PR 352](https://github.com/shakacode/control-plane-flow/pull/352) by [Justin Gordon](https://github.com/justin808).
 

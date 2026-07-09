@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class DoctorService
+class DoctorService # rubocop:disable Metrics/ClassLength
   class ValidationError < StandardError; end
 
   extend Forwardable
@@ -34,7 +34,10 @@ class DoctorService
     exit(ExitCode::ERROR_DEFAULT) if @any_failed_validation
   end
 
-  def validate_config = check_for_app_names_contained_in_others
+  def validate_config
+    check_for_app_names_contained_in_others
+    check_deploy_orders
+  end
 
   def validate_templates
     @template_parser = TemplateParser.new(@command)
@@ -55,6 +58,12 @@ class DoctorService
            .map { |app_prefix, app_name| "  - '#{app_prefix}' is a prefix of '#{app_name}'" }
            .join("\n")
     raise ValidationError, "#{Shell.color("ERROR: #{message}", :red)}\n#{list}"
+  end
+
+  def check_deploy_orders
+    config.validate_deploy_orders!
+  rescue RuntimeError => e
+    raise ValidationError, Shell.color("ERROR: #{e.message}", :red)
   end
 
   def find_app_names_contained_in_others # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
