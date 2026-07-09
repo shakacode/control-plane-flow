@@ -664,7 +664,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('select(.name == "app_domain")')
       expect(contents).to include('host_suffix = ".cpln.app"')
       expect(contents).to include('cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"')
-      expect(contents).to include('.gsub(cpln_gvc_alias_token, cpln_gvc_alias)')
+      expect(contents).to include(".gsub(cpln_gvc_alias_token, cpln_gvc_alias)")
       expect(contents).to include('.gsub("{{APP_NAME}}", app_name)')
       expect(contents).to include('echo "app_url=${app_url}"')
       expect(contents).to include("APP_URL: ${{ steps.workload.outputs.app_url }}")
