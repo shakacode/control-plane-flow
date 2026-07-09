@@ -466,7 +466,14 @@ jobs:
           app_url="${workload_url}"
 
           if [[ -n "${workload_url}" ]]; then
-            gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json 2>/dev/null || true)"
+            gvc_stderr="$(mktemp)"
+            if ! gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json 2>"${gvc_stderr}")"; then
+              echo "::warning::Could not read GVC app_domain; falling back to workload endpoint."
+              sed 's/^/cpln gvc get: /' "${gvc_stderr}" >&2
+              gvc_json=""
+            fi
+            rm -f "${gvc_stderr}"
+
             app_domain_template="$(
               jq -r '.spec.env[]? | select(.name == "app_domain") | .value // empty' <<< "${gvc_json}" | head -n 1
             )"
@@ -475,7 +482,13 @@ jobs:
               app_url="$(
                 ruby -ruri -e '
                   workload_name, workload_url, app_domain_template, app_name = ARGV
-                  uri = URI(workload_url)
+                  begin
+                    uri = URI(workload_url)
+                  rescue URI::InvalidURIError
+                    puts workload_url
+                    exit
+                  end
+
                   host_prefix = "#{workload_name}-"
                   host_suffix = ".cpln.app"
 
@@ -484,13 +497,23 @@ jobs:
                     exit
                   end
 
-                  cpln_gvc_alias = uri.host.delete_prefix(host_prefix).delete_suffix(host_suffix)
+                  raw_cpln_gvc_alias = uri.host.delete_prefix(host_prefix).delete_suffix(host_suffix)
+                  cpln_gvc_alias = raw_cpln_gvc_alias.split(".").first
+                  # Avoid a literal command-substitution token here because actionlint flags it inside single-quoted Ruby.
                   cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"
                   app_url = app_domain_template
                     .gsub(cpln_gvc_alias_token, cpln_gvc_alias)
                     .gsub("{{APP_NAME}}", app_name)
 
-                  app_url = "#{app_url}/" unless app_url.end_with?("/")
+                  begin
+                    app_uri = URI(app_url)
+                    if app_uri.path.to_s.empty? && app_uri.query.nil? && app_uri.fragment.nil?
+                      app_url = "#{app_url}/"
+                    end
+                  rescue URI::InvalidURIError
+                    # Keep the substituted template visible instead of hiding a bad app_domain value.
+                  end
+
                   puts app_url
                 ' "${workload_name}" "${workload_url}" "${app_domain_template}" "${APP_NAME}"
               )"
