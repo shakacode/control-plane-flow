@@ -535,7 +535,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_contents).not_to include('"${{ job.status }}"')
       expect(review_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
       expect(review_contents).to include("DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}")
-      expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.workload_url }}")
+      expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.app_url }}")
       expect(review_contents).to include("JOB_STATUS: ${{ job.status }}")
 
       delete_contents = reusable_delete_review_workflow_path.read
@@ -654,6 +654,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "accepted_statuses: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}"
       )
       expect(contents).to include("curl_max_time: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}")
+    end
+
+    it "prefers the deployed app_domain for review-app links when available" do
+      contents = reusable_review_app_workflow_path.read
+
+      expect(contents).to include('workload_url="$(cpln workload get "${workload_name}"')
+      expect(contents).to include('gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json')
+      expect(contents).to include('select(.name == "app_domain")')
+      expect(contents).to include('host_suffix = ".cpln.app"')
+      expect(contents).to include('cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"')
+      expect(contents).to include('.gsub(cpln_gvc_alias_token, cpln_gvc_alias)')
+      expect(contents).to include('.gsub("{{APP_NAME}}", app_name)')
+      expect(contents).to include('echo "app_url=${app_url}"')
+      expect(contents).to include("APP_URL: ${{ steps.workload.outputs.app_url }}")
+      expect(contents).not_to include("APP_URL: ${{ steps.workload.outputs.workload_url }}")
     end
 
     it "supports an animated deploy status icon with a repository override" do

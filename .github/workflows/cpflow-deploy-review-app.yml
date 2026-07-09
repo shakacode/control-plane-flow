@@ -463,7 +463,44 @@ jobs:
           set -euo pipefail
           workload_name="${PRIMARY_WORKLOAD:-rails}"
           workload_url="$(cpln workload get "${workload_name}" --gvc "${APP_NAME}" --org "${CPLN_ORG}" -o json | jq -r '.status.endpoint // empty')"
-          echo "workload_url=${workload_url}" >> "$GITHUB_OUTPUT"
+          app_url="${workload_url}"
+
+          if [[ -n "${workload_url}" ]]; then
+            gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json 2>/dev/null || true)"
+            app_domain_template="$(
+              jq -r '.spec.env[]? | select(.name == "app_domain") | .value // empty' <<< "${gvc_json}" | head -n 1
+            )"
+
+            if [[ -n "${app_domain_template}" ]]; then
+              app_url="$(
+                ruby -ruri -e '
+                  workload_name, workload_url, app_domain_template, app_name = ARGV
+                  uri = URI(workload_url)
+                  host_prefix = "#{workload_name}-"
+                  host_suffix = ".cpln.app"
+
+                  unless uri.host&.start_with?(host_prefix) && uri.host&.end_with?(host_suffix)
+                    puts workload_url
+                    exit
+                  end
+
+                  cpln_gvc_alias = uri.host.delete_prefix(host_prefix).delete_suffix(host_suffix)
+                  cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"
+                  app_url = app_domain_template
+                    .gsub(cpln_gvc_alias_token, cpln_gvc_alias)
+                    .gsub("{{APP_NAME}}", app_name)
+
+                  app_url = "#{app_url}/" unless app_url.end_with?("/")
+                  puts app_url
+                ' "${workload_name}" "${workload_url}" "${app_domain_template}" "${APP_NAME}"
+              )"
+            fi
+          fi
+
+          {
+            echo "workload_url=${workload_url}"
+            echo "app_url=${app_url}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Finalize deployment status
         if: always() && steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
@@ -471,7 +508,7 @@ jobs:
         env:
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
           DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}
-          APP_URL: ${{ steps.workload.outputs.workload_url }}
+          APP_URL: ${{ steps.workload.outputs.app_url }}
           JOB_STATUS: ${{ job.status }}
         with:
           script: |
