@@ -17,6 +17,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 - **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow**, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance. [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
 - **Added a Rails-focused Grafana and OpenTelemetry guide for building Control Plane dashboards from generated span and log metrics**, including collector workload guidance, spanmetrics setup, rollout order, alerting, and validation checklists. [PR 352](https://github.com/shakacode/control-plane-flow/pull/352) by [Justin Gordon](https://github.com/justin808).
 
+### Fixed
+
+- **Fixed generated review-app status links so reusable deployments prefer the deployed app domain instead of the raw Control Plane workload endpoint.** [PR 395](https://github.com/shakacode/control-plane-flow/pull/395) by [Justin Gordon](https://github.com/justin808).
+
 ## [5.1.1] - 2026-06-03
 
 ### Changed
