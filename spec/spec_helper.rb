@@ -140,11 +140,21 @@ RSpec.configure do |config|
   config.default_retry_count = ENV["RSPEC_RETRY_COUNT"] || 3
 
   config.before(:suite) do
-    DummyAppSetup.setup
+    if CommandHelpers.cpln_org_configured?
+      DummyAppSetup.setup
+    else
+      CommandHelpers.configure_config_file
+    end
   end
 
   config.after(:suite) do
-    DummyAppSetup.cleanup unless ENV.fetch("SKIP_CLEANUP", nil) == "true"
+    next if ENV.fetch("SKIP_CLEANUP", nil) == "true"
+
+    if CommandHelpers.cpln_org_configured?
+      DummyAppSetup.cleanup
+    else
+      CommandHelpers.delete_config_file
+    end
   end
 
   config.before do

@@ -8,7 +8,7 @@ require_relative "spawned_command"
 module CommandHelpers # rubocop:disable Metrics/ModuleLength
   module_function
 
-  DUMMY_TEST_ORG = ENV.fetch("CPLN_ORG")
+  DUMMY_TEST_ORG = ENV.fetch("CPLN_ORG", nil)
   DUMMY_TEST_APP_PREFIX = "dummy-test"
 
   CREATE_APP_PARAMS = {
@@ -88,7 +88,13 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   end
 
   def dummy_test_org
-    DUMMY_TEST_ORG
+    return DUMMY_TEST_ORG if cpln_org_configured?
+
+    raise "CPLN_ORG must be set for specs that interact with a Control Plane org. See spec/README.md."
+  end
+
+  def cpln_org_configured?
+    !DUMMY_TEST_ORG.nil? && !DUMMY_TEST_ORG.empty?
   end
 
   def dummy_test_app_global_identifier
