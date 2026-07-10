@@ -18,6 +18,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 - **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow**, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance. [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
 - **Added a Rails-focused Grafana and OpenTelemetry guide for building Control Plane dashboards from generated span and log metrics**, including collector workload guidance, spanmetrics setup, rollout order, alerting, and validation checklists. [PR 352](https://github.com/shakacode/control-plane-flow/pull/352) by [Justin Gordon](https://github.com/justin808).
 
+### Fixed
+
+- **Fixed `cpflow` crashing at load time with `invalid byte sequence in US-ASCII (ArgumentError)` on systems without a UTF-8 locale.** `Command::Base.all_commands` now reads command files with an explicit UTF-8 encoding instead of relying on `Encoding.default_external`. Fixes [issue 372](https://github.com/shakacode/control-plane-flow/issues/372).
+
 ## [5.1.1] - 2026-06-03
 
 ### Changed
