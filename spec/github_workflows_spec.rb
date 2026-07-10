@@ -14,18 +14,33 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     let(:job) { workflow.fetch("jobs").fetch("rspec") }
 
-    it "serializes all slow runs while keeping fast queues per PR (or ref)" do
-      # Slow scheduled and manual runs share a queue because they touch the same
-      # live domain. Fast runs remain scoped by PR number (or ref) so unrelated
+    it "serializes shared-org runs while keeping fast queues per PR (or ref)" do
+      # Scheduled, slow, and specific runs that can touch the live domain share
+      # one queue. Fast runs remain scoped by PR number (or ref) so unrelated
       # PRs don't share one blocking queue. Queued runs never cancel each other.
       expected_group =
         "cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-" \
-        "${{ inputs.test_tag == 'slow' && 'slow-suite' || github.event.pull_request.number || github.ref }}"
+        "${{ inputs.uses_shared_org && 'shared-org' || github.event.pull_request.number || github.ref }}"
 
       expect(job.fetch("concurrency")).to eq(
         "group" => expected_group,
         "cancel-in-progress" => false
       )
+    end
+  end
+
+  describe "RSpec workflow callers" do
+    def workflow_file(name)
+      YAML.safe_load_file(File.expand_path("../.github/workflows/#{name}", __dir__), aliases: true)
+    end
+
+    it "marks slow and specific runs as shared-org consumers" do
+      rspec_jobs = workflow_file("rspec.yml").fetch("jobs")
+      specific_jobs = workflow_file("rspec-specific.yml").fetch("jobs")
+
+      expect(rspec_jobs.fetch("rspec-slow").fetch("with")).to include("uses_shared_org" => true)
+      expect(specific_jobs.fetch("rspec-specific").fetch("with")).to include("uses_shared_org" => true)
+      expect(rspec_jobs.fetch("rspec-fast").fetch("with")).not_to have_key("uses_shared_org")
     end
   end
 

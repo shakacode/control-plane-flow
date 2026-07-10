@@ -38,6 +38,7 @@ jobs:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: slow
+      uses_shared_org: true
     secrets: inherit
 
   report-scheduled-slow-suite-failure:
