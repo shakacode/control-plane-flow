@@ -49,7 +49,7 @@ module Command
 
     def self.all_commands # rubocop:disable Metrics/MethodLength
       Dir["#{__dir__}/**/*.rb"].each_with_object({}) do |file, result|
-        content = File.read(file)
+        content = File.read(file, encoding: "UTF-8")
 
         classname = content.match(/^\s+class (?!Base\b)(\w+) < (?:.*(?!Command::)Base)(?:$| .*$)/)&.captures&.first
         next unless classname

@@ -70,4 +70,18 @@ describe Command::Base do
       end
     end
   end
+
+  describe ".all_commands" do
+    it "loads every command when the default external encoding is not UTF-8" do
+      original_encoding = Encoding.default_external
+
+      begin
+        Encoding.default_external = Encoding::US_ASCII
+        expect { described_class.all_commands }.not_to raise_error
+        expect(described_class.all_commands).not_to be_empty
+      ensure
+        Encoding.default_external = original_encoding
+      end
+    end
+  end
 end
