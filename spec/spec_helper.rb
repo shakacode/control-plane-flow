@@ -16,11 +16,12 @@ SimpleCov.start do
   # The 2026-07-10 green CI fast-suite baseline is 85.32% line coverage.
   # Gate only the full CI fast command so local, slow, and specific-path runs can report partial coverage.
   # Re-baseline from a green CI fast-suite artifact before changing this value.
-  # Inspect only the standard RSpec flags used by the fast CI command. Unknown options fail closed,
-  # avoiding a second RSpec argument parse while still allowing ordinary display/order flags.
+  # Inspect only the standard RSpec flags used by the fast CI command. Unknown options fail the
+  # matching CI invocation, avoiding a second RSpec argument parse and silent coverage-gate drift.
   ci_arguments = ARGV.dup
   excludes_slow_specs = false
   explicit_spec_paths = false
+  unrecognized_ci_option = false
 
   while (argument = ci_arguments.shift)
     case argument
@@ -33,8 +34,16 @@ SimpleCov.start do
     when /\A(?:--format|--out|--order|--seed|--require|--load-path)=/, /\A-(?:f|o|r|I).+/
       # This option carries its value inline.
     else
-      explicit_spec_paths = true
+      if argument.start_with?("-")
+        unrecognized_ci_option = true
+      else
+        explicit_spec_paths = true
+      end
     end
+  end
+
+  if ENV["CI"] == "true" && excludes_slow_specs && unrecognized_ci_option
+    raise "Unrecognized RSpec option in the fast CI coverage invocation; update coverage-floor detection."
   end
 
   full_fast_ci = ENV["CI"] == "true" && excludes_slow_specs && !explicit_spec_paths
