@@ -14,6 +14,7 @@ module Command
       - It performs the following steps:
         - Runs `cpflow copy-image-from-upstream` to copy the latest image from upstream
         - Runs `cpflow deploy-image` to deploy the image
+        - Honors `deploy_order` from `.controlplane/controlplane.yml` through `cpflow deploy-image`
         - If `.controlplane/controlplane.yml` includes the `release_script`, `cpflow deploy-image` will use the `--run-release-phase` option
         - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
         - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest

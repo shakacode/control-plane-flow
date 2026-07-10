@@ -268,8 +268,18 @@ aliases:
     # On the other hand, if you have a workload for Redis, that would NOT use the application Docker image
     # and not be listed here.
     app_workloads:
+      - node-renderer
       - rails
       - sidekiq
+
+    # Optional ordered deploy groups for `cpflow deploy-image` and
+    # `cpflow promote-app-from-upstream`. Each group is deployed and waited on
+    # before the next group starts. Any app workloads omitted here deploy last
+    # as an implicit final group. Explicit `deploy-image -w/--workload` options
+    # override this ordering for one-off deploys.
+    deploy_order:
+      - [node-renderer]
+      - [rails, sidekiq]
 
     # Additional "service type" workloads, using non-application Docker images.
     # These are only used by the `info` and `ps:` commands in order to get all of the defined workloads.
