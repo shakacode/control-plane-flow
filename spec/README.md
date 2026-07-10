@@ -3,7 +3,7 @@
 Some specs exercise only local behavior and can run without Control Plane credentials. This verified offline smoke suite does not contact a Control Plane org:
 
 ```sh
-env -u CPLN_ORG bundle exec rspec \
+CPLN_ORG='' bundle exec rspec \
   spec/patches \
   spec/support_specs \
   spec/core/repo_introspection_spec.rb \
