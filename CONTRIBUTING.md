@@ -71,7 +71,9 @@ export CPLN_ORG=shakacode-heroku-to-control-plane-ci
 export RSPEC_RETRY_RETRY_COUNT=1
 ```
 
-Tests are separated between fast and slow. Slow tests can take a long time and usually involve building / deploying images and waiting for workloads to be ready / not ready, so they should only be run once in a while.
+Tests are separated between fast and slow. Slow tests can take a long time and usually involve building / deploying images and waiting for workloads to be ready / not ready. GitHub Actions runs the slow suite nightly at 02:00 UTC, and you can still start it manually with `workflow_dispatch`. Both paths use the same shared-org queue, so overlapping live-org runs remain serialized.
+
+When a scheduled slow-suite run fails, GitHub Actions creates or updates one `Scheduled slow suite failing` issue with a link to the latest failed run. Resolve that issue after a scheduled slow-suite run succeeds.
 
 If you add a slow test, tag it with `slow`. Tests without a `slow` tag are considered fast by default.
 

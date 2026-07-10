@@ -14,18 +14,33 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     let(:job) { workflow.fetch("jobs").fetch("rspec") }
 
-    it "scopes the Control Plane org queue per PR (or ref) and never cancels queued runs" do
-      # The group keys on PR number (or ref for non-PR events), so a PR's own runs
-      # serialize against each other but unrelated PRs don't share one blocking
-      # queue. cancel-in-progress is false, so queued runs wait rather than cancel.
+    it "serializes shared-org runs while keeping fast queues per PR (or ref)" do
+      # Scheduled, slow, and specific runs that can touch the live domain share
+      # one queue. Fast runs remain scoped by PR number (or ref) so unrelated
+      # PRs don't share one blocking queue. Queued runs never cancel each other.
       expected_group =
-        "cpln-shared-org-${{ vars.CPLN_ORG || github.run_id }}-" \
-        "${{ github.event.pull_request.number || github.ref }}"
+        "cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-" \
+        "${{ inputs.uses_shared_org && 'shared-org' || github.event.pull_request.number || github.ref }}"
 
       expect(job.fetch("concurrency")).to eq(
         "group" => expected_group,
         "cancel-in-progress" => false
       )
+    end
+  end
+
+  describe "RSpec workflow callers" do
+    def workflow_file(name)
+      YAML.safe_load_file(File.expand_path("../.github/workflows/#{name}", __dir__), aliases: true)
+    end
+
+    it "marks slow and specific runs as shared-org consumers" do
+      rspec_jobs = workflow_file("rspec.yml").fetch("jobs")
+      specific_jobs = workflow_file("rspec-specific.yml").fetch("jobs")
+
+      expect(rspec_jobs.fetch("rspec-slow").fetch("with")).to include("uses_shared_org" => true)
+      expect(specific_jobs.fetch("rspec-specific").fetch("with")).to include("uses_shared_org" => true)
+      expect(rspec_jobs.fetch("rspec-fast").fetch("with")).not_to have_key("uses_shared_org")
     end
   end
 
