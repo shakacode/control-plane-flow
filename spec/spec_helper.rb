@@ -16,12 +16,28 @@ SimpleCov.start do
   # The 2026-07-10 green CI fast-suite baseline is 85.32% line coverage.
   # Gate only the full CI fast command so local, slow, and specific-path runs can report partial coverage.
   # Re-baseline from a green CI fast-suite artifact before changing this value.
-  rspec_options = RSpec::Core::ConfigurationOptions.new(ARGV)
-  rspec_filters = RSpec::Core::FilterManager.new
-  rspec_options.configure_filter_manager(rspec_filters)
-  full_fast_ci = ENV["CI"] == "true" &&
-                 rspec_filters.exclusions[:slow] == true &&
-                 rspec_options.options.fetch(:files_or_directories_to_run, []).empty?
+  # Inspect only the standard RSpec flags used by the fast CI command. Unknown options fail closed,
+  # avoiding a second RSpec argument parse while still allowing ordinary display/order flags.
+  ci_arguments = ARGV.dup
+  excludes_slow_specs = false
+  explicit_spec_paths = false
+
+  while (argument = ci_arguments.shift)
+    case argument
+    when "--tag", "-t"
+      excludes_slow_specs ||= ci_arguments.shift == "~slow"
+    when /\A(?:--tag=|-t)(.+)\z/
+      excludes_slow_specs ||= Regexp.last_match(1) == "~slow"
+    when "--format", "-f", "--out", "-o", "--order", "--seed", "--require", "-r", "--load-path", "-I"
+      ci_arguments.shift
+    when /\A(?:--format|--out|--order|--seed|--require|--load-path)=/, /\A-(?:f|o|r|I).+/
+      # This option carries its value inline.
+    else
+      explicit_spec_paths = true
+    end
+  end
+
+  full_fast_ci = ENV["CI"] == "true" && excludes_slow_specs && !explicit_spec_paths
   minimum_coverage line: 84 if full_fast_ci
 
   enable_for_subprocesses true
