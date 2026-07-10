@@ -16,8 +16,12 @@ SimpleCov.start do
   # The 2026-07-10 green CI fast-suite baseline is 85.32% line coverage.
   # Gate only the full CI fast command so local, slow, and specific-path runs can report partial coverage.
   # Re-baseline from a green CI fast-suite artifact before changing this value.
+  rspec_options = RSpec::Core::ConfigurationOptions.new(ARGV)
+  rspec_filters = RSpec::Core::FilterManager.new
+  rspec_options.configure_filter_manager(rspec_filters)
   full_fast_ci = ENV["CI"] == "true" &&
-                 ARGV == ["--format", "documentation", "--tag", "~slow"]
+                 rspec_filters.exclusions[:slow] == true &&
+                 rspec_options.options.fetch(:files_or_directories_to_run).empty?
   minimum_coverage line: 84 if full_fast_ci
 
   enable_for_subprocesses true
