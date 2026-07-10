@@ -14,9 +14,11 @@ SimpleCov.start do
   enable_coverage :branch
 
   # The 2026-07-10 green CI fast-suite baseline is 85.32% line coverage.
-  # Keep this floor CI-only so focused local specs can still report partial coverage.
+  # Gate only the full CI fast command so local, slow, and specific-path runs can report partial coverage.
   # Re-baseline from a green CI fast-suite artifact before changing this value.
-  minimum_coverage line: 84 if ENV["CI"]
+  full_fast_ci = ENV["CI"] == "true" &&
+                 ARGV == ["--format", "documentation", "--tag", "~slow"]
+  minimum_coverage line: 84 if full_fast_ci
 
   enable_for_subprocesses true
   at_fork do |pid|
