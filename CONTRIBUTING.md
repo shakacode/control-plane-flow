@@ -56,7 +56,9 @@ twice.
 
 ## Testing
 
-We use real apps for the tests. You'll need to have full access to a Control Plane org, and then set it as the env var `CPLN_ORG` when running the tests (or in the `.env` file):
+See [the spec README](./spec/README.md) for credential-free local examples and the distinction between offline and Control Plane-backed specs.
+
+Specs that use real apps need full access to a Control Plane org. Set it as the `CPLN_ORG` environment variable when running the full suite (or in the `.env` file):
 
 ```sh
 CPLN_ORG=your-org-for-tests bundle exec rspec
