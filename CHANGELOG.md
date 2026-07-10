@@ -20,7 +20,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- **Fixed `cpflow` crashing at load time with `invalid byte sequence in US-ASCII (ArgumentError)` on systems without a UTF-8 locale.** `Command::Base.all_commands` now reads command files with an explicit UTF-8 encoding instead of relying on `Encoding.default_external`. Fixes [issue 372](https://github.com/shakacode/control-plane-flow/issues/372).
+- **Fixed `cpflow` crashing at load time with `invalid byte sequence in US-ASCII (ArgumentError)` on systems without a UTF-8 locale.** [PR 404](https://github.com/shakacode/control-plane-flow/pull/404) by [Justin Gordon](https://github.com/justin808). `Command::Base.all_commands` now reads command files with an explicit UTF-8 encoding instead of relying on `Encoding.default_external`. Fixes [issue 372](https://github.com/shakacode/control-plane-flow/issues/372).
 
 ## [5.1.1] - 2026-06-03
 
