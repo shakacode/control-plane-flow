@@ -148,10 +148,8 @@ RSpec.configure do |config|
   end
 
   config.after(:suite) do
-    next if ENV.fetch("SKIP_CLEANUP", nil) == "true"
-
     if CommandHelpers.cpln_org_configured?
-      DummyAppSetup.cleanup
+      DummyAppSetup.cleanup unless ENV.fetch("SKIP_CLEANUP", nil) == "true"
     else
       CommandHelpers.delete_config_file
     end
