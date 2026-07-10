@@ -21,7 +21,7 @@ SimpleCov.start do
   rspec_options.configure_filter_manager(rspec_filters)
   full_fast_ci = ENV["CI"] == "true" &&
                  rspec_filters.exclusions[:slow] == true &&
-                 rspec_options.options.fetch(:files_or_directories_to_run).empty?
+                 rspec_options.options.fetch(:files_or_directories_to_run, []).empty?
   minimum_coverage line: 84 if full_fast_ci
 
   enable_for_subprocesses true
