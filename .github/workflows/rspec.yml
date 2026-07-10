@@ -16,11 +16,14 @@ on:
       - 'LICENSE'
       - 'COMM-LICENSE.txt'
   workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
 
 jobs:
   rspec-fast:
     name: RSpec (Fast)
     uses: ./.github/workflows/rspec-shared.yml
+    if: github.event_name != 'schedule'
     with:
       os_version: ubuntu-latest
       ruby_version: "3.2"
@@ -30,9 +33,56 @@ jobs:
   rspec-slow:
     name: RSpec (Slow)
     uses: ./.github/workflows/rspec-shared.yml
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     with:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: slow
     secrets: inherit
+
+  report-scheduled-slow-suite-failure:
+    name: Report scheduled slow suite failure
+    needs: rspec-slow
+    if: ${{ always() && github.event_name == 'schedule' && needs.rspec-slow.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create or update the scheduled slow suite failure issue
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            const title = "Scheduled slow suite failing";
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              "The scheduled RSpec slow suite failed.",
+              "",
+              `Latest failed run: ${runUrl}`,
+              "",
+              "Resolve this issue after a scheduled slow-suite run succeeds."
+            ].join("\n");
+            const { data: search } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+              per_page: 100
+            });
+            const existingIssue = search.items.find(
+              (issue) => issue.title === title
+            );
+
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body
+              });
+              core.info(`Updated issue #${existingIssue.number}.`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+              core.info(`Created issue #${issue.number}.`);
+            }
