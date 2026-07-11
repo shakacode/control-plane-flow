@@ -17,21 +17,13 @@ jobs:
         with:
           script: |
             const body = [
-              "# 🚀 Quick Review App Commands",
+              "# Review app commands",
               "",
-              "Welcome! Here are the commands you can use in this PR:",
-              "They require the repository to have cpflow review apps configured, including the `CPLN_TOKEN_STAGING` secret.",
+              "- `+review-app-deploy`",
+              "- `+review-app-delete`",
+              "- `+review-app-help`",
               "",
-              "### `+review-app-deploy`",
-              "Deploy your PR branch for testing.",
-              "",
-              "### `+review-app-delete`",
-              "Remove the review app when done.",
-              "",
-              "### `+review-app-help`",
-              "Show detailed instructions, environment setup, and configuration options.",
-              "",
-              "_Comment `+review-app-help` for full setup details._"
+              "For setup details, comment `+review-app-help`."
             ].join("\n");
 
             await github.rest.issues.createComment({

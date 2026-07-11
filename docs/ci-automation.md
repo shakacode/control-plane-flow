@@ -24,7 +24,7 @@ End-to-end rollout in one view:
 1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
 2. `cpflow generate` — creates `.controlplane/` if missing.
 3. `cpflow generate-github-actions` — adds `cpflow-*` workflow wrappers. Review-app, staging, cleanup, and helper workflows call upstream reusable workflows; production promotion is a normal caller-repo job so it can own the protected production Environment.
-4. Configure the GitHub [repository secrets and variables](#required-github-repository-settings) the workflows expect.
+4. Configure the [GitHub Actions secrets and variables](#github-actions-secrets-and-variables) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
 AI rollout: copy the [AI rollout prompt](./ai-github-flow-prompt.md) when you want an agent to run this setup. The prompt works whether `cpflow` is already installed or the agent needs to install it first. If `cpflow` is already available in the target repo, `cpflow ai-github-flow-prompt` prints the same prompt with the default app prefix filled in.
@@ -170,15 +170,18 @@ Important points:
   fixed replica count. See
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 
-## Required GitHub Repository Settings
+## GitHub Actions Secrets and Variables
 
-For a normal generated review-app setup, configure one repository secret:
+### GitHub Actions Secrets
 
-- `CPLN_TOKEN_STAGING`: token for the staging/review Control Plane org. Generate it from a Control Plane service account
-  whose policies only allow review/staging CI operations; it must not read production secrets or manage production
-  workloads.
+For a normal generated review-app setup, configure one GitHub Actions secret:
 
-No GitHub repository variables are required for review apps when `.controlplane/controlplane.yml`
+- `CPLN_TOKEN_STAGING`: service-account token scoped to the staging Control Plane org on controlplane.com. Its policies
+  should allow only review/staging CI operations; it must not read production secrets or manage production workloads.
+
+### GitHub Actions Variables
+
+No GitHub Actions variables are required for review apps when `.controlplane/controlplane.yml`
 has exactly one review app entry with `match_if_app_name_starts_with: true` and
 that entry has a `cpln_org`. The inferred values come from that config file:
 the review-app prefix is the app key with `match_if_app_name_starts_with: true`,
@@ -187,7 +190,7 @@ when you need to test a fork or clone against a different Control Plane org,
 choose a different review-app prefix, expose a different public workload, or
 disambiguate generated review-app config:
 
-- `CPLN_ORG_STAGING`: override the staging/review org inferred from `cpln_org`, for example `company-staging`
+- `CPLN_ORG_STAGING`: Control Plane org on controlplane.com for staging and review apps. Overrides the org inferred from `cpln_org`, for example `company-staging`
 - `REVIEW_APP_PREFIX`: override the inferred review-app prefix; required only when multiple review app prefixes exist in `controlplane.yml`
 - `PRIMARY_WORKLOAD`: override the public workload used to discover the public endpoint and do review/production health checks; defaults to `rails`
 - `REVIEW_APP_HEALTH_CHECK_RETRIES`: override review-app health polling attempts; defaults to `24`

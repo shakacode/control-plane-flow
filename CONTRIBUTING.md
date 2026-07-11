@@ -117,7 +117,7 @@ cpflow test
 
   It generates the templates into a tmp playground and asserts on their contents — most regressions in the templates will fail there.
 - **Lint the templates.** Generated workflows are checked with `actionlint` in CI. Install it locally and run `actionlint lib/github_flow_templates/.github/workflows/*.yml` to catch issues before pushing.
-- **Test PR-branch workflow edits in a real repo.** Comment-triggered runs (`+review-app-deploy`, `+review-app-delete`, `+review-app-help`) execute the workflow code from the repository's default branch, so they will not exercise your PR-branch changes. Generate the workflows into a downstream test repo, push to a feature branch, then dispatch each affected workflow with `gh`:
+- **Advanced: testing changes to generated workflows.** Comment-triggered runs (`+review-app-deploy`, `+review-app-delete`, `+review-app-help`) execute the workflow code from the repository's default branch, so they will not exercise your PR-branch changes. Generate the workflows into a downstream test repo, push to a feature branch, then dispatch each affected workflow with `gh`:
 
   ```sh
   gh workflow run cpflow-deploy-review-app.yml --ref <your-pr-branch> -f pr_number=<pr-number>
