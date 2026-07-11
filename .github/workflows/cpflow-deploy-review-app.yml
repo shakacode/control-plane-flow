@@ -499,6 +499,10 @@ jobs:
 
                   raw_cpln_gvc_alias = uri.host.delete_prefix(host_prefix).delete_suffix(host_suffix)
                   cpln_gvc_alias = raw_cpln_gvc_alias.split(".").first
+                  if cpln_gvc_alias.to_s.empty?
+                    puts workload_url
+                    exit
+                  end
                   # Avoid a literal command-substitution token here because actionlint flags it inside single-quoted Ruby.
                   cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"
                   app_url = app_domain_template

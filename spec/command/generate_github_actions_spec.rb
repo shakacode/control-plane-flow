@@ -721,6 +721,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(
         run_review_app_url_script(
           workload_name: "rails",
+          workload_url: "https://rails-.cpln.app",
+          app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("https://rails-.cpln.app")
+
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
           workload_url: "https://custom.example.test",
           app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
           app_name: "hichee-review-1"
