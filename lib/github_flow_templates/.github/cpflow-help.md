@@ -18,7 +18,7 @@ For complete setup, version-pinning, and troubleshooting guidance, see the upstr
 [CI automation guide](https://github.com/shakacode/control-plane-flow/blob/__CPFLOW_GITHUB_ACTIONS_REF__/docs/ci-automation.md).
 
 <details>
-<summary>GitHub Actions setup and advanced options</summary>
+<summary>GitHub Actions setup options</summary>
 
 ## GitHub Actions Secrets
 
@@ -64,6 +64,8 @@ Optional overrides exist for forks, clones, and unusual apps:
 | `CPLN_ORG_STAGING` | Control Plane org on controlplane.com for staging and review apps. Overrides the org inferred from `controlplane.yml`. |
 | `REVIEW_APP_PREFIX` | Override the review-app prefix inferred from `controlplane.yml`. |
 | `PRIMARY_WORKLOAD` | Public workload used for review URLs and health checks; defaults to `rails`. |
+
+</details>
 
 ## Staging And Production
 
@@ -124,6 +126,9 @@ gh secret list --org OWNER | grep '^CPLN_TOKEN_PRODUCTION[[:space:]]' || true
 
 Before the first promotion, bootstrap the production app the same way in the
 production org, using production-only secrets and values.
+
+<details>
+<summary>Version locking and advanced options</summary>
 
 ## Version Locking
 
