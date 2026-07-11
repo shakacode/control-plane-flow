@@ -49,7 +49,7 @@ module Command
 
     def self.all_commands # rubocop:disable Metrics/MethodLength
       Dir["#{__dir__}/**/*.rb"].each_with_object({}) do |file, result|
-        content = File.read(file)
+        content = File.read(file, encoding: "UTF-8")
 
         classname = content.match(/^\s+class (?!Base\b)(\w+) < (?:.*(?!Command::)Base)(?:$| .*$)/)&.captures&.first
         next unless classname
@@ -96,7 +96,7 @@ module Command
       }
     end
 
-    def self.workload_option(required: false)
+    def self.workload_option(required: false, repeatable: false)
       {
         name: :workload,
         params: {
@@ -104,6 +104,7 @@ module Command
           banner: "WORKLOAD_NAME",
           desc: "Workload name",
           type: :string,
+          repeatable: repeatable,
           required: required
         }
       }
@@ -581,6 +582,20 @@ module Command
       end
 
       success
+    end
+
+    def wait_for_workloads_ready(workloads, reverse: false)
+      workloads_to_wait_for = reverse ? workloads.reverse : workloads
+
+      workloads_to_wait_for.each do |workload|
+        if cp.workload_suspended?(workload)
+          progress.puts("Workload '#{workload}' is suspended. Skipping...")
+        else
+          step("Waiting for workload '#{workload}' to be ready", retry_on_failure: true) do
+            cp.workload_deployments_ready?(workload, location: config.location, expected_status: true)
+          end
+        end
+      end
     end
 
     def cp

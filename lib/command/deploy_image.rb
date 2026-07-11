@@ -3,40 +3,108 @@
 require "resolv"
 
 module Command
-  class DeployImage < Base
+  class DeployImage < Base # rubocop:disable Metrics/ClassLength
     NAME = "deploy-image"
     OPTIONS = [
       app_option(required: true),
+      workload_option(repeatable: true),
       run_release_phase_option,
       use_digest_image_ref_option
     ].freeze
     DESCRIPTION = "Deploys the latest image to app workloads, and runs a release script (optional)"
     LONG_DESCRIPTION = <<~DESC
       - Deploys the latest image to app workloads
+      - Use `--workload`/`-w` one or more times to deploy only selected app workloads
+      - If `deploy_order` is configured and no `--workload` is provided, deploys ordered workload groups one at a time and waits for each group to be ready before continuing
+      - Workloads listed in `app_workloads` but omitted from `deploy_order` deploy last as an implicit final group
       - Runs a release script before deploying if `release_script` is specified in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
       - The release script is run in the context of `cpflow run` with the latest image
       - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest
       - Repairs missing `shared_secret_grants` policy bindings before running a release phase or updating workloads
     DESC
+    EXAMPLES = <<~EX
+      ```sh
+      # Deploys the latest image to all app workloads.
+      cpflow deploy-image -a $APP_NAME
+
+      # Deploys only one app workload.
+      cpflow deploy-image -a $APP_NAME -w node-renderer
+
+      # Deploys only selected app workloads.
+      cpflow deploy-image -a $APP_NAME -w node-renderer -w sidekiq
+      ```
+    EX
 
     def call
       release_script = release_script_to_run
       image = resolve_image_to_deploy
       shared_secret_policy_grant_pairs = resolve_shared_secret_policy_grants
-      workload_data_by_name = app_workload_data
+      workload_data_by_name = app_workload_data(workload_names_to_deploy)
 
       bind_shared_secret_policy_grants(shared_secret_policy_grant_pairs)
       run_release_script(release_script) if release_script
-      deploy_image_to_workloads(image, workload_data_by_name)
+      deploy_image(image, workload_data_by_name)
     end
 
     private
 
-    def app_workload_data
-      config[:app_workloads].to_h do |workload|
+    def workload_names_to_deploy
+      app_workloads = config[:app_workloads]
+      requested_workloads = requested_workload_names
+      return app_workloads if requested_workloads.empty?
+
+      ensure_workloads_configured!(requested_workloads, app_workloads)
+      requested_workloads
+    end
+
+    def ensure_workloads_configured!(requested_workloads, app_workloads)
+      requested_workloads.each do |workload|
+        next if app_workloads.include?(workload)
+
+        raise "Workload '#{workload}' must be listed in app_workloads for app '#{config.app}'."
+      end
+    end
+
+    def app_workload_data(workloads)
+      workloads.to_h do |workload|
         [workload, cp.fetch_workload!(workload)]
       end
+    end
+
+    def deploy_image(image, workload_data_by_name)
+      deployed_endpoints = {}
+
+      if deploy_in_order?
+        deploy_image_to_ordered_workloads(image, workload_data_by_name, deployed_endpoints)
+      else
+        deployed_endpoints.merge!(deploy_image_to_workloads(image, workload_data_by_name))
+      end
+    ensure
+      print_deployed_endpoints(deployed_endpoints)
+    end
+
+    def deploy_in_order?
+      requested_workload_names.empty? && config.deploy_order
+    end
+
+    def deployment_groups(workload_data_by_name)
+      ordered_groups = config.deploy_order
+      ordered_workloads = ordered_groups.flatten
+      unordered_workloads = workload_data_by_name.keys - ordered_workloads
+
+      [*ordered_groups, unordered_workloads].reject(&:empty?)
+    end
+
+    def deploy_image_to_ordered_workloads(image, workload_data_by_name, deployed_endpoints)
+      deployment_groups(workload_data_by_name).each do |group|
+        deployed_endpoints.merge!(deploy_image_to_workloads(image, workload_data_by_name.slice(*group)))
+        wait_for_workloads_ready(group)
+      end
+    end
+
+    def requested_workload_names
+      @requested_workload_names ||= Array(config.options[:workload]).map(&:to_s).uniq
     end
 
     def deploy_image_to_workloads(image, workload_data_by_name) # rubocop:disable Metrics/MethodLength
@@ -57,6 +125,10 @@ module Command
         end
       end
 
+      deployed_endpoints
+    end
+
+    def print_deployed_endpoints(deployed_endpoints)
       progress.puts("\nDeployed endpoints:")
       deployed_endpoints.each do |workload, endpoint|
         progress.puts("  - #{workload}: #{endpoint}")

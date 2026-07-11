@@ -12,10 +12,25 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-07-10
+
 ### Added
 
-- **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow**, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance. [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
-- **Added a Rails-focused Grafana and OpenTelemetry guide for building Control Plane dashboards from generated span and log metrics**, including collector workload guidance, spanmetrics setup, rollout order, alerting, and validation checklists. [PR 352](https://github.com/shakacode/control-plane-flow/pull/352) by [Justin Gordon](https://github.com/justin808).
+- **Added ordered per-workload deploys with repeatable `cpflow deploy-image -w/--workload` filtering and optional `deploy_order` groups in `controlplane.yml`.** [PR 397](https://github.com/shakacode/control-plane-flow/pull/397) by [Justin Gordon](https://github.com/justin808). Fixes [issue 396](https://github.com/shakacode/control-plane-flow/issues/396). `cpflow deploy-image` can now deploy selected app workloads, and production promotion inherits `deploy_order` so workloads such as a Node renderer can roll out and become ready before Rails.
+- **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance.** [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
+- **Added a Rails-focused Grafana and OpenTelemetry guide for building Control Plane dashboards from generated span and log metrics, including collector workload guidance, spanmetrics setup, rollout order, alerting, and validation checklists.** [PR 352](https://github.com/shakacode/control-plane-flow/pull/352) by [Justin Gordon](https://github.com/justin808).
+
+### Changed
+
+- **Removed the generated `pre_deletion: rails db:drop` example from `controlplane.yml` so new configurations do not encourage teardown that can fail while app workloads still hold database connections.** [PR 348](https://github.com/shakacode/control-plane-flow/pull/348) by [Justin Gordon](https://github.com/justin808).
+- **Updated the generated GitHub Actions help and AI rollout prompt to recommend Capacity AI for idle standard workloads and clarify the separate serverless scale-to-zero path.** [PR 364](https://github.com/shakacode/control-plane-flow/pull/364) by [Justin Gordon](https://github.com/justin808).
+- **Updated `cpflow ai-github-flow-prompt` so rollout agents install a missing `cpflow` gem or clearly report the installation blocker.** [PR 371](https://github.com/shakacode/control-plane-flow/pull/371) by [Justin Gordon](https://github.com/justin808).
+
+### Fixed
+
+- **Fixed `doctor` and `setup-app` template validation to inspect only configured `setup_app_templates`, avoiding duplicate-resource errors from unused alternative templates while preserving the all-template fallback.** [PR 363](https://github.com/shakacode/control-plane-flow/pull/363) by [Justin Gordon](https://github.com/justin808).
+- **Fixed generated review-app deploy workflows so they wait for workload readiness and an accepted HTTP response before marking a GitHub deployment successful.** [PR 363](https://github.com/shakacode/control-plane-flow/pull/363) by [Justin Gordon](https://github.com/justin808).
+- **Fixed `cpflow` crashing at load time with `invalid byte sequence in US-ASCII (ArgumentError)` on systems without a UTF-8 locale.** [PR 404](https://github.com/shakacode/control-plane-flow/pull/404) by [Justin Gordon](https://github.com/justin808). `Command::Base.all_commands` now reads command files with an explicit UTF-8 encoding instead of relying on `Encoding.default_external`. Fixes [issue 372](https://github.com/shakacode/control-plane-flow/issues/372).
 
 ### Fixed
 
@@ -432,7 +447,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.2.0...main
+[5.2.0]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...v5.2.0
 [5.1.1]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...v5.1.1
 [5.1.0]: https://github.com/shakacode/control-plane-flow/compare/v5.0.4...v5.1.0
 [5.0.4]: https://github.com/shakacode/control-plane-flow/compare/v5.0.3...v5.0.4

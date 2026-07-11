@@ -13,6 +13,42 @@ require "timecop"
 SimpleCov.start do
   enable_coverage :branch
 
+  # The 2026-07-10 green CI fast-suite baseline is 85.32% line coverage.
+  # Gate only the full CI fast command so local, slow, and specific-path runs can report partial coverage.
+  # Re-baseline from a green CI fast-suite artifact before changing this value.
+  # Inspect only the standard RSpec flags used by the fast CI command. Unknown options fail the
+  # matching CI invocation, avoiding a second RSpec argument parse and silent coverage-gate drift.
+  ci_arguments = ARGV.dup
+  excludes_slow_specs = false
+  explicit_spec_paths = false
+  unrecognized_ci_option = false
+
+  while (argument = ci_arguments.shift)
+    case argument
+    when "--tag", "-t"
+      excludes_slow_specs ||= ci_arguments.shift == "~slow"
+    when /\A(?:--tag=|-t)(.+)\z/
+      excludes_slow_specs ||= Regexp.last_match(1) == "~slow"
+    when "--format", "-f", "--out", "-o", "--order", "--seed", "--require", "-r", "--load-path", "-I"
+      ci_arguments.shift
+    when /\A(?:--format|--out|--order|--seed|--require|--load-path)=/, /\A-(?:f|o|r|I).+/
+      # This option carries its value inline.
+    else
+      if argument.start_with?("-")
+        unrecognized_ci_option = true
+      else
+        explicit_spec_paths = true
+      end
+    end
+  end
+
+  if ENV["CI"] == "true" && excludes_slow_specs && unrecognized_ci_option
+    raise "Unrecognized RSpec option in the fast CI coverage invocation; update coverage-floor detection."
+  end
+
+  full_fast_ci = ENV["CI"] == "true" && excludes_slow_specs && !explicit_spec_paths
+  minimum_coverage line: 84 if full_fast_ci
+
   enable_for_subprocesses true
   at_fork do |pid|
     # This needs a unique name so it won't be overwritten
@@ -140,11 +176,19 @@ RSpec.configure do |config|
   config.default_retry_count = ENV["RSPEC_RETRY_COUNT"] || 3
 
   config.before(:suite) do
-    DummyAppSetup.setup
+    if CommandHelpers.cpln_org_configured?
+      DummyAppSetup.setup
+    else
+      CommandHelpers.configure_config_file
+    end
   end
 
   config.after(:suite) do
-    DummyAppSetup.cleanup unless ENV.fetch("SKIP_CLEANUP", nil) == "true"
+    if CommandHelpers.cpln_org_configured?
+      DummyAppSetup.cleanup unless ENV.fetch("SKIP_CLEANUP", nil) == "true"
+    else
+      CommandHelpers.delete_config_file
+    end
   end
 
   config.before do

@@ -149,6 +149,9 @@ cpflow delete -a $APP_NAME -w $WORKLOAD_NAME
 ### `deploy-image`
 
 - Deploys the latest image to app workloads
+- Use `--workload`/`-w` one or more times to deploy only selected app workloads
+- If `deploy_order` is configured and no `--workload` is provided, deploys ordered workload groups one at a time and waits for each group to be ready before continuing
+- Workloads listed in `app_workloads` but omitted from `deploy_order` deploy last as an implicit final group
 - Runs a release script before deploying if `release_script` is specified in the `.controlplane/controlplane.yml` file and `--run-release-phase` is provided
 - The release script is run in the context of `cpflow run` with the latest image
 - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -156,7 +159,14 @@ cpflow delete -a $APP_NAME -w $WORKLOAD_NAME
 - Repairs missing `shared_secret_grants` policy bindings before running a release phase or updating workloads
 
 ```sh
+# Deploys the latest image to all app workloads.
 cpflow deploy-image -a $APP_NAME
+
+# Deploys only one app workload.
+cpflow deploy-image -a $APP_NAME -w node-renderer
+
+# Deploys only selected app workloads.
+cpflow deploy-image -a $APP_NAME -w node-renderer -w sidekiq
 ```
 
 ### `doctor`
@@ -374,6 +384,7 @@ cpflow open-console -a $APP_NAME
 - It performs the following steps:
   - Runs `cpflow copy-image-from-upstream` to copy the latest image from upstream
   - Runs `cpflow deploy-image` to deploy the image
+  - Honors `deploy_order` from `.controlplane/controlplane.yml` through `cpflow deploy-image`
   - If `.controlplane/controlplane.yml` includes the `release_script`, `cpflow deploy-image` will use the `--run-release-phase` option
   - If the release script exits with a non-zero code, the command will stop executing and also exit with a non-zero code
   - If `use_digest_image_ref` is `true` in the `.controlplane/controlplane.yml` file or `--use-digest-image-ref` option is provided, deployed image's reference will include its digest

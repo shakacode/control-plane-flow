@@ -30,6 +30,23 @@ describe Command::Doctor do
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("[PASS] config")
     end
+
+    it "fails cleanly if deploy_order is invalid" do
+      temporarily_switch_config_file("valid-app-names")
+
+      progress = StringIO.new
+      config = instance_double(Config, apps: { "test-app" => { app_workloads: %w[rails] } })
+      command = instance_double(described_class, config: config, progress: progress)
+
+      allow(config).to receive(:validate_deploy_orders!)
+        .and_raise("deploy_order workload 'node-renderer' must be listed in app_workloads for app 'test-app'.")
+
+      expect { DoctorService.new(command).run_validations(["config"]) }.to raise_error(SystemExit)
+      expect(progress.string).to include("[FAIL] config")
+      expect(progress.string)
+        .to include("deploy_order workload 'node-renderer' must be listed in app_workloads for app 'test-app'.")
+      expect(progress.string).not_to include("NoMethodError")
+    end
   end
 
   context "when validating templates" do

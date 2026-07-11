@@ -49,6 +49,26 @@ describe Cpflow do
     expect(Integer(stdout_lines.fetch(1))).to be_positive
   end
 
+  it "loads with a US-ASCII external encoding" do
+    child_env = ENV.each_key.grep(/\ABUNDLE/).to_h { |key| [key, nil] }
+    child_env["LC_ALL"] = "C"
+    child_env["LANG"] = "C"
+    child_env["RUBYLIB"] = nil
+    child_env["RUBYOPT"] = nil
+
+    stdout, stderr, status = Open3.capture3(
+      child_env,
+      RbConfig.ruby,
+      "-I",
+      File.expand_path("../lib", __dir__),
+      "-e",
+      "require \"cpflow\"; puts Cpflow::VERSION"
+    )
+
+    expect(status).to be_success, stderr
+    expect(stdout).to include(Cpflow::VERSION)
+  end
+
   non_boolean_options_by_key_name.each do |option_key_name, option|
     it "raises error if no value is provided for '#{option_key_name}' option" do
       result = run_cpflow_command("test", option_key_name)

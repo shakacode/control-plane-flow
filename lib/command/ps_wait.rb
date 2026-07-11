@@ -26,19 +26,11 @@ module Command
       ```
     EX
 
-    def call # rubocop:disable Metrics/MethodLength
+    def call
       @workloads = [config.options[:workload]] if config.options[:workload]
       @workloads ||= config[:app_workloads] + config[:additional_workloads]
 
-      @workloads.reverse_each do |workload|
-        if cp.workload_suspended?(workload)
-          progress.puts("Workload '#{workload}' is suspended. Skipping...")
-        else
-          step("Waiting for workload '#{workload}' to be ready", retry_on_failure: true) do
-            cp.workload_deployments_ready?(workload, location: config.location, expected_status: true)
-          end
-        end
-      end
+      wait_for_workloads_ready(@workloads, reverse: true)
     end
   end
 end
