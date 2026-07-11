@@ -565,7 +565,7 @@ cpflow terraform import
 Regenerates the generated cpflow GitHub Actions wrappers and helper files
 from the currently installed cpflow gem. Use this after updating the
 cpflow gem so checked-in workflow wrappers move to the matching upstream
-release tag, for example `v5.1.1`.
+release tag, for example `v5.2.0`.
 
 If the existing generated staging workflow uses a custom single staging
 branch, the command preserves it. Pass `--staging-branch BRANCH` to set or
