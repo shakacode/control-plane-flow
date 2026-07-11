@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
 require "pathname"
 require "tmpdir"
 require "yaml"
@@ -56,6 +57,23 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
   def reusable_pr_open_help_workflow_path
     shared_workflow_path("cpflow-review-app-help")
+  end
+
+  def review_app_url_ruby_script
+    match = reusable_review_app_workflow_path.read.match(
+      /ruby -ruri -e '\n(?<script>.*?)\n\s*' "\$\{workload_name\}"/m
+    )
+
+    match[:script].lines.map { |line| line.delete_prefix("                  ") }.join
+  end
+
+  def run_review_app_url_script(**args)
+    script_args = args.fetch_values(:workload_name, :workload_url, :app_domain_template, :app_name)
+    stdout, stderr, status = Open3.capture3("ruby", "-ruri", "-e", review_app_url_ruby_script, *script_args)
+
+    expect(stderr).to eq("")
+    expect(status).to be_success
+    stdout.strip
   end
 
   def command_body_match_expression(command)
@@ -535,7 +553,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_contents).not_to include('"${{ job.status }}"')
       expect(review_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
       expect(review_contents).to include("DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}")
-      expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.workload_url }}")
+      expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.app_url }}")
       expect(review_contents).to include("JOB_STATUS: ${{ job.status }}")
 
       delete_contents = reusable_delete_review_workflow_path.read
@@ -654,6 +672,69 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "accepted_statuses: ${{ vars.REVIEW_APP_HEALTH_CHECK_ACCEPTED_STATUSES || '200 301 302' }}"
       )
       expect(contents).to include("curl_max_time: ${{ vars.REVIEW_APP_HEALTH_CHECK_CURL_MAX_TIME || '10' }}")
+    end
+
+    it "prefers the deployed app_domain for review-app links when available" do
+      contents = reusable_review_app_workflow_path.read
+
+      expect(contents).to include('workload_url="$(cpln workload get "${workload_name}"')
+      expect(contents).to include('gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json')
+      expect(contents).to include("Could not read GVC app_domain; falling back to workload endpoint.")
+      expect(contents).to include('select(.name == "app_domain")')
+      expect(contents).to include('host_suffix = ".cpln.app"')
+      expect(contents).to include('cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"')
+      expect(contents).to include(".gsub(cpln_gvc_alias_token, cpln_gvc_alias)")
+      expect(contents).to include('.gsub("{{APP_NAME}}", app_name)')
+      expect(contents).to include('echo "app_url=${app_url}"')
+      expect(contents).to include("APP_URL: ${{ steps.workload.outputs.app_url }}")
+      expect(contents).not_to include("APP_URL: ${{ steps.workload.outputs.workload_url }}")
+    end
+
+    it "builds review-app app_domain URLs from workload endpoints" do
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
+          workload_url: "https://rails-abc123.cpln.app",
+          app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("https://rails-abc123.example.test/")
+
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
+          workload_url: "https://rails-abc123.org-prefix.cpln.app",
+          app_domain_template: "https://preview.example.test/{{APP_NAME}}?alias=$(CPLN_GVC_ALIAS)",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("https://preview.example.test/hichee-review-1?alias=abc123")
+
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
+          workload_url: "not a uri",
+          app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("not a uri")
+
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
+          workload_url: "https://rails-.cpln.app",
+          app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("https://rails-.cpln.app")
+
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
+          workload_url: "https://custom.example.test",
+          app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("https://custom.example.test")
     end
 
     it "supports an animated deploy status icon with a repository override" do

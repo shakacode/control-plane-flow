@@ -31,6 +31,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 - **Fixed `doctor` and `setup-app` template validation to inspect only configured `setup_app_templates`, avoiding duplicate-resource errors from unused alternative templates while preserving the all-template fallback.** [PR 363](https://github.com/shakacode/control-plane-flow/pull/363) by [Justin Gordon](https://github.com/justin808).
 - **Fixed generated review-app deploy workflows so they wait for workload readiness and an accepted HTTP response before marking a GitHub deployment successful.** [PR 363](https://github.com/shakacode/control-plane-flow/pull/363) by [Justin Gordon](https://github.com/justin808).
 - **Fixed `cpflow` crashing at load time with `invalid byte sequence in US-ASCII (ArgumentError)` on systems without a UTF-8 locale.** [PR 404](https://github.com/shakacode/control-plane-flow/pull/404) by [Justin Gordon](https://github.com/justin808). `Command::Base.all_commands` now reads command files with an explicit UTF-8 encoding instead of relying on `Encoding.default_external`. Fixes [issue 372](https://github.com/shakacode/control-plane-flow/issues/372).
+- **Fixed generated review-app status links so reusable deployments prefer the deployed app domain instead of the raw Control Plane workload endpoint.** [PR 395](https://github.com/shakacode/control-plane-flow/pull/395) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.1.1] - 2026-06-03
 
