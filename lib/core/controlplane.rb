@@ -232,7 +232,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
-    perform!(cmd)
+    perform(cmd)
   end
 
   def set_workload_env_var(workload, container:, name:, value:)

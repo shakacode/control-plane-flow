@@ -4,6 +4,13 @@ require "resolv"
 
 module Command
   class DeployImage < Base # rubocop:disable Metrics/ClassLength
+    WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS = 30
+    WORKLOAD_IMAGE_UPDATE_STEP_OPTIONS = {
+      retry_on_failure: true,
+      max_retry_count: WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS - 1,
+      wait: 1
+    }.freeze
+
     NAME = "deploy-image"
     OPTIONS = [
       app_option(required: true),
@@ -115,8 +122,10 @@ module Command
           next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}[:@]})
 
           container_name = container["name"]
-          step("Deploying image '#{image}' for workload '#{workload}'") do
-            cp.workload_set_image_ref(workload, container: container_name, image: image)
+          step("Deploying image '#{image}' for workload '#{workload}'", **WORKLOAD_IMAGE_UPDATE_STEP_OPTIONS) do
+            updated = cp.workload_set_image_ref(workload, container: container_name, image: image)
+            next false unless updated
+
             deployed_endpoints[workload] = endpoint_for_workload(workload_data)
           end
           # Deploy the first matching app-image container per workload; CPLN workloads

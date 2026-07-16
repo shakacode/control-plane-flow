@@ -371,6 +371,37 @@ describe Command::DeployImage do
         .with("frontend", container: "rails", image: "test-app:1")
     end
 
+    it "retries a transient workload image update before recording the deployed endpoint" do
+      update_results = [false, true]
+      allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to output(%r{- frontend: https://frontend-test\.cpln\.app}).to_stderr
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").twice
+      expect(Kernel).to have_received(:sleep).with(1).once
+    end
+
+    it "fails after the bounded workload image update retry window without recording an endpoint" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref).and_return(false)
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS).times
+      expect(Kernel).to have_received(:sleep)
+        .with(1).at_least(:once)
+      expect(progress.string).to include("failed!")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
     context "when specific workloads are requested" do
       let(:options) { { run_release_phase: false, workload: ["worker"] } }
       let(:worker_data) do

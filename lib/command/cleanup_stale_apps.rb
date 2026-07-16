@@ -101,9 +101,21 @@ module Command
     def process_app(app)
       if mode == "stop"
         progress.puts("Stopping app '#{app}'")
-        run_cpflow_command("ps:stop", "-a", app)
+        stop_configured_live_workloads(app)
       else
         run_cpflow_command("delete", "-a", app, "--yes")
+      end
+    end
+
+    def stop_configured_live_workloads(app)
+      live_workloads = cp.fetch_workloads(app).fetch("items", []).map { |workload| workload.fetch("name") }
+      app_config = config.find_app_config(app)
+      raise "Can't find config for stale app '#{app}'." unless app_config
+
+      configured_workloads = Array(app_config[:app_workloads]) + Array(app_config[:additional_workloads])
+
+      (configured_workloads & live_workloads).each do |workload|
+        run_cpflow_command("ps:stop", "-a", app, "--workload", workload)
       end
     end
 
