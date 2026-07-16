@@ -384,6 +384,26 @@ describe Command::DeployImage do
       expect(Kernel).to have_received(:sleep).with(1).once
     end
 
+    it "does not repeat a successful image update when endpoint resolution fails" do
+      progress = StringIO.new
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Resolv).to receive(:getaddress).and_raise(Resolv::ResolvError)
+      allow(cp).to receive(:fetch_workload_deployments)
+        .with("frontend")
+        .and_return({ "items" => [{ "status" => { "endpoint" => nil } }] })
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").once
+      expect(cp).to have_received(:fetch_workload_deployments).with("frontend").once
+      expect(Kernel).not_to have_received(:sleep)
+      expect(progress.string).to include("failed!")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
     it "fails after the bounded workload image update retry window without recording an endpoint" do
       progress = StringIO.new
       allow(cp).to receive(:workload_set_image_ref).and_return(false)
