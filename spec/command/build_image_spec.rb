@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "shellwords"
 
 describe Command::BuildImage do
   context "when Docker is not running" do

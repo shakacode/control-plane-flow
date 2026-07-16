@@ -117,6 +117,28 @@ describe Command::CleanupStaleApps do
       expect(command).not_to have_received(:run_cpflow_command)
         .with("ps:stop", "-a", "stale-app", "--workload", "unconfigured-worker")
     end
+
+    it "raises when the stale app config does not define app_workloads" do
+      allow(config).to receive(:find_app_config)
+        .with("stale-app")
+        .and_return({ additional_workloads: ["postgres"] })
+
+      expect { command.send(:process_app, "stale-app") }
+        .to raise_error("Can't find option 'app_workloads' for app 'stale-app' in 'controlplane.yml'.")
+      expect(cp).not_to have_received(:fetch_workloads)
+      expect(command).not_to have_received(:run_cpflow_command)
+    end
+
+    it "raises when the stale app config does not define additional_workloads" do
+      allow(config).to receive(:find_app_config)
+        .with("stale-app")
+        .and_return({ app_workloads: ["rails"] })
+
+      expect { command.send(:process_app, "stale-app") }
+        .to raise_error("Can't find option 'additional_workloads' for app 'stale-app' in 'controlplane.yml'.")
+      expect(cp).not_to have_received(:fetch_workloads)
+      expect(command).not_to have_received(:run_cpflow_command)
+    end
   end
 
   context "when 'stale_app_image_deployed_days' is not defined" do
