@@ -384,6 +384,19 @@ describe Command::DeployImage do
       expect(Kernel).to have_received(:sleep).with(1).once
     end
 
+    it "tolerates workload update propagation beyond the previous 30-second window" do
+      update_results = ([false] * 30) + [true]
+      allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to output(%r{- frontend: https://frontend-test\.cpln\.app}).to_stderr
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").exactly(31).times
+      expect(Kernel).to have_received(:sleep).with(1).exactly(30).times
+    end
+
     it "does not repeat a successful image update when endpoint resolution fails" do
       progress = StringIO.new
       allow(command).to receive(:progress).and_return(progress)
