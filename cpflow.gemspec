@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.post_install_message = <<~MESSAGE
     cpflow #{Cpflow::VERSION} installed.
 
-    If this repo uses generated cpflow GitHub Actions, run cpflow update-github-actions after upgrading.
+    If this repo uses generated cpflow GitHub Actions, run cpflow update-github-actions (or bundle exec cpflow update-github-actions) after upgrading.
 
     Docs: https://shakacode.com/control-plane-flow/docs/
   MESSAGE
