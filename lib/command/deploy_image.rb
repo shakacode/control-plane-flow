@@ -4,7 +4,7 @@ require "resolv"
 
 module Command
   class DeployImage < Base # rubocop:disable Metrics/ClassLength
-    WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS = 120
+    WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS = 30
 
     NAME = "deploy-image"
     OPTIONS = [
