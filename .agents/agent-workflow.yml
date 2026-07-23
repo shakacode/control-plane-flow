@@ -14,3 +14,8 @@ ci_parity_environment: "n/a — reproduce CI-only failures from the matching job
 release_qa_runbook: ".agents/workflows/ai-rollout-e2e-test.md — use after publishing a cpflow gem that changes GitHub Actions, AI rollout prompts, readiness checks, generator output, or React on Rails deployment behavior"
 hosted_ci_trigger: "n/a — CI runs on every PR"
 ci_change_detector: n/a
+
+untrusted_contributor_intake:
+  trusted_github_host: github.com
+  trusted_github_scheme: https
+  trusted_github_repo: shakacode/control-plane-flow
