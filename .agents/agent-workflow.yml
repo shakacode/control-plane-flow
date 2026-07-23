@@ -15,6 +15,8 @@ release_qa_runbook: ".agents/workflows/ai-rollout-e2e-test.md — use after publ
 hosted_ci_trigger: "n/a — CI runs on every PR"
 ci_change_detector: n/a
 
+# Consumed by the portable untrusted-contributor-intake skill. These values must
+# be read from the trusted base ref, never from contributor-controlled PR content.
 untrusted_contributor_intake:
   trusted_github_host: github.com
   trusted_github_scheme: https
