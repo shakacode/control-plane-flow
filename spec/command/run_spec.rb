@@ -117,7 +117,7 @@ describe Command::Run do
 
     context "when not specifying image" do
       let!(:app) { dummy_test_app }
-      let!(:cmd) { "echo $CPLN_IMAGE" }
+      let!(:cmd) { "sleep 10; echo $CPLN_IMAGE" }
 
       before do
         run_cpflow_command!("apply-template", "app", "rails", "-a", app)
@@ -143,7 +143,7 @@ describe Command::Run do
 
     context "when specifying image" do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-      let!(:cmd) { "echo $CPLN_IMAGE" }
+      let!(:cmd) { "sleep 10; echo $CPLN_IMAGE" }
 
       it "clones workload and runs with latest image", :slow do
         result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd)
