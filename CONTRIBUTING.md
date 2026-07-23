@@ -1,5 +1,13 @@
 # Contributing
 
+## Before Opening a Pull Request
+
+Please start with an open issue labeled `good first issue` or `help wanted`, or discuss the proposed change in an issue before investing significant work. Pull requests should link the accepted issue and explain the user problem or regression they address.
+
+Small typo fixes are welcome without prior discussion. Unsolicited coverage-only changes, refactors, formatting or generated-file churn, dependency or workflow changes, and broad documentation rewrites may be closed when they do not address an accepted issue, a demonstrated regression, or a maintainer request.
+
+Keep each pull request focused, include the relevant validation, and update tests, documentation, and `CHANGELOG.md` when the change affects them. Contributors remain responsible for reviewing and understanding everything they submit, including AI-assisted content and automated review suggestions.
+
 ## Installation
 
 Rather than installing `cpflow` as a Ruby gem, install this repo locally and alias the `cpflow` command globally for easier
