@@ -132,17 +132,23 @@ describe Controlplane do
 
     before do
       allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_return({ "items" => [{ "name" => "my-org" }] }) # rubocop:disable RSpec/AnyInstance
-      allow(described_instance).to receive(:perform).and_return(false)
+      allow(Shell).to receive(:cmd)
+        .with(
+          "cpln workload update rails --gvc my-app --org my-org " \
+          "--set spec.containers.web.image=/org/my-org/image/my-app:2",
+          capture_stderr: true
+        )
+        .and_return({ success: false, output: "409 Conflict" })
     end
 
-    it "returns a false command result so the caller can retry the workload update" do
+    it "returns the captured command result so the caller can classify the failure" do
       result = described_instance.workload_set_image_ref(
         "rails",
         container: "web",
         image: "my-app:2"
       )
 
-      expect(result).to be(false)
+      expect(result).to eq(success: false, output: "409 Conflict")
     end
   end
 end

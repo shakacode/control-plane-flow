@@ -157,7 +157,7 @@ describe Command::DeployImage do
       allow(cp).to receive_messages(
         latest_image: "test-app:1",
         fetch_image_details: {},
-        workload_set_image_ref: true,
+        workload_set_image_ref: { success: true, output: "" },
         bind_identity_to_policy: true
       )
       allow(cp).to receive(:fetch_policy)
@@ -372,7 +372,10 @@ describe Command::DeployImage do
     end
 
     it "retries a transient workload image update before recording the deployed endpoint" do
-      update_results = [false, true]
+      update_results = [
+        { success: false, output: "temporary failure" },
+        { success: true, output: "" }
+      ]
       allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
       allow(Kernel).to receive(:sleep)
 
@@ -384,9 +387,10 @@ describe Command::DeployImage do
       expect(Kernel).to have_received(:sleep).with(1).once
     end
 
-    it "tolerates workload update propagation beyond 30 seconds" do
+    it "retries a workload update conflict beyond the general 30-attempt limit" do
       progress = StringIO.new
-      update_results = ([false] * 30) + [true]
+      update_results = ([{ success: false, output: "409 Conflict" }] * 30) +
+                       [{ success: true, output: "" }]
       allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
       allow(command).to receive(:progress).and_return(progress)
       allow(Kernel).to receive(:sleep)
@@ -421,7 +425,8 @@ describe Command::DeployImage do
 
     it "fails after the bounded workload image update retry window without recording an endpoint" do
       progress = StringIO.new
-      allow(cp).to receive(:workload_set_image_ref).and_return(false)
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: "400 Bad Request" })
       allow(command).to receive(:progress).and_return(progress)
       allow(Kernel).to receive(:sleep)
 
@@ -434,6 +439,25 @@ describe Command::DeployImage do
       expect(Kernel).to have_received(:sleep)
         .with(1).at_least(:once)
       expect(progress.string).to include("failed!")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
+    it "fails after the extended conflict retry window without recording an endpoint" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: "409 Conflict" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS).times
+      expect(Kernel).to have_received(:sleep)
+        .with(1).exactly(described_class::WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS - 1).times
+      expect(progress.string).to include("409 Conflict")
       expect(progress.string).not_to include("- frontend:")
     end
 
@@ -524,7 +548,10 @@ describe Command::DeployImage do
 
       it "deploys ordered groups and waits for each group before deploying the next" do
         events = []
-        allow(cp).to receive(:workload_set_image_ref) { |workload, **| events << [:deploy, workload] }
+        allow(cp).to receive(:workload_set_image_ref) do |workload, **|
+          events << [:deploy, workload]
+          { success: true, output: "" }
+        end
         allow(cp).to receive(:workload_suspended?) do |workload|
           events << [:suspended?, workload]
           false
