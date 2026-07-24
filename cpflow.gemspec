@@ -17,7 +17,7 @@ Gem::Specification.new do |spec|
 
     If this repo uses generated cpflow GitHub Actions, run cpflow update-github-actions (or bundle exec cpflow update-github-actions) after upgrading.
 
-    Docs: https://shakacode.com/control-plane-flow/docs/
+    Docs: https://shakacode.com/control-plane-flow/docs/ci-automation/#updating-generated-github-actions-after-gem-updates
   MESSAGE
 
   spec.required_ruby_version = ">= 3.0.0"
