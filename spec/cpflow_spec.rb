@@ -136,6 +136,6 @@ describe Cpflow do
     spec = Gem::Specification.load(File.expand_path("../cpflow.gemspec", __dir__))
 
     expect(spec.post_install_message).to include("cpflow update-github-actions")
-    expect(spec.post_install_message).to include("bin/test-cpflow-github-flow")
+    expect(spec.post_install_message).to include("https://shakacode.com/control-plane-flow/docs/ci-automation/#updating-generated-github-actions-after-gem-updates")
   end
 end
