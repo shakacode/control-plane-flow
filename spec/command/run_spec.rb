@@ -163,7 +163,8 @@ describe Command::Run do
     context "when specifying token" do
       let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-      let!(:cmd) { "if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi" }
+      # Keep the job active until Control Plane exposes its replica so `run` can attach logs.
+      let!(:cmd) { "sleep 10; if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi" }
 
       it "clones workload and runs with remote token", :slow do
         result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd)

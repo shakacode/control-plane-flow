@@ -16,6 +16,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - **Simplified generated review-app help comments to a three-command quick reference, moved setup behind expandable details, and clarified GitHub Actions secret and variable terminology.** [PR 410](https://github.com/shakacode/control-plane-flow/pull/410) by [Justin Gordon](https://github.com/justin808).
 
+### Fixed
+
+- **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, and transient workload image deployment.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile, and workload image updates retry for a bounded window before failing. Fixes [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
+
 ## [5.2.0] - 2026-07-10
 
 ### Added

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "shellwords"
 
 describe Command::BuildImage do
   context "when Docker is not running" do
@@ -67,7 +68,13 @@ describe Command::BuildImage do
     end
 
     it "passes additional options to `docker build`", :slow do
-      allow(Process).to receive(:spawn).with(match(/docker build.+?TEST=123/)).and_call_original
+      docker_build_with_test_arg = satisfy do |command|
+        tokens = Shellwords.split(command)
+
+        tokens.first(2) == %w[docker build] && tokens.each_cons(2).include?(["--build-arg", "TEST=123"])
+      end
+
+      allow(Process).to receive(:spawn).with(docker_build_with_test_arg).and_call_original
       allow(Process).to receive(:spawn).with(include("docker push")).and_call_original
 
       result = run_cpflow_command("build-image", "-a", app, "--build-arg", "TEST=123")

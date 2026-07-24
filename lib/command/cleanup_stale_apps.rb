@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class CleanupStaleApps < Base
+  class CleanupStaleApps < Base # rubocop:disable Metrics/ClassLength
     CLEANUP_MODE_OPTION = {
       name: :mode,
       params: {
@@ -101,10 +101,29 @@ module Command
     def process_app(app)
       if mode == "stop"
         progress.puts("Stopping app '#{app}'")
-        run_cpflow_command("ps:stop", "-a", app)
+        stop_configured_live_workloads(app)
       else
         run_cpflow_command("delete", "-a", app, "--yes")
       end
+    end
+
+    def stop_configured_live_workloads(app)
+      app_config = config.find_app_config(app)
+      raise "Can't find config for stale app '#{app}'." unless app_config
+
+      configured_workloads = required_app_option(app_config, app, :app_workloads) +
+                             required_app_option(app_config, app, :additional_workloads)
+      live_workloads = cp.fetch_workloads(app).fetch("items", []).map { |workload| workload.fetch("name") }
+
+      (configured_workloads & live_workloads).each do |workload|
+        run_cpflow_command("ps:stop", "-a", app, "--workload", workload)
+      end
+    end
+
+    def required_app_option(app_config, app, option)
+      raise "Can't find option '#{option}' for app '#{app}' in 'controlplane.yml'." unless app_config.key?(option)
+
+      app_config.fetch(option)
     end
 
     def action_description

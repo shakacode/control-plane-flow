@@ -77,6 +77,70 @@ describe Command::CleanupStaleApps do
     end
   end
 
+  describe "#process_app" do
+    let(:config) do
+      instance_double(
+        Config,
+        options: { mode: "stop" },
+        find_app_config: {
+          app_workloads: ["rails"],
+          additional_workloads: ["postgres"]
+        }
+      )
+    end
+    let(:cp) do
+      instance_double(
+        Controlplane,
+        fetch_workloads: {
+          "items" => [
+            { "name" => "postgres" },
+            { "name" => "unconfigured-worker" }
+          ]
+        }
+      )
+    end
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(command).to receive(:cp).and_return(cp)
+      allow(command).to receive(:run_cpflow_command)
+    end
+
+    it "stops only configured workloads that exist in the stale app" do
+      command.send(:process_app, "stale-app")
+
+      expect(cp).to have_received(:fetch_workloads).with("stale-app")
+      expect(command).to have_received(:run_cpflow_command)
+        .with("ps:stop", "-a", "stale-app", "--workload", "postgres").once
+      expect(command).not_to have_received(:run_cpflow_command)
+        .with("ps:stop", "-a", "stale-app", "--workload", "rails")
+      expect(command).not_to have_received(:run_cpflow_command)
+        .with("ps:stop", "-a", "stale-app", "--workload", "unconfigured-worker")
+    end
+
+    it "raises when the stale app config does not define app_workloads" do
+      allow(config).to receive(:find_app_config)
+        .with("stale-app")
+        .and_return({ additional_workloads: ["postgres"] })
+
+      expect { command.send(:process_app, "stale-app") }
+        .to raise_error("Can't find option 'app_workloads' for app 'stale-app' in 'controlplane.yml'.")
+      expect(cp).not_to have_received(:fetch_workloads)
+      expect(command).not_to have_received(:run_cpflow_command)
+    end
+
+    it "raises when the stale app config does not define additional_workloads" do
+      allow(config).to receive(:find_app_config)
+        .with("stale-app")
+        .and_return({ app_workloads: ["rails"] })
+
+      expect { command.send(:process_app, "stale-app") }
+        .to raise_error("Can't find option 'additional_workloads' for app 'stale-app' in 'controlplane.yml'.")
+      expect(cp).not_to have_received(:fetch_workloads)
+      expect(command).not_to have_received(:run_cpflow_command)
+    end
+  end
+
   context "when 'stale_app_image_deployed_days' is not defined" do
     let!(:app) { dummy_test_app("nothing") }
 

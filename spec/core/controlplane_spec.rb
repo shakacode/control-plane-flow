@@ -125,4 +125,24 @@ describe Controlplane do
       end
     end
   end
+
+  describe "#workload_set_image_ref" do
+    let(:fake_config) { Struct.new(:app, :org).new("my-app", "my-org") }
+    let(:described_instance) { described_class.new(fake_config) }
+
+    before do
+      allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_return({ "items" => [{ "name" => "my-org" }] }) # rubocop:disable RSpec/AnyInstance
+      allow(described_instance).to receive(:perform).and_return(false)
+    end
+
+    it "returns a false command result so the caller can retry the workload update" do
+      result = described_instance.workload_set_image_ref(
+        "rails",
+        container: "web",
+        image: "my-app:2"
+      )
+
+      expect(result).to be(false)
+    end
+  end
 end
