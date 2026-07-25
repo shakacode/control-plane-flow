@@ -21,3 +21,4 @@ untrusted_contributor_intake:
   trusted_github_host: github.com
   trusted_github_scheme: https
   trusted_github_repo: shakacode/control-plane-flow
+repo_prefix: CPF
