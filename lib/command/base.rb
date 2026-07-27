@@ -474,7 +474,7 @@ module Command
       {
         name: :preserve_existing_runtime,
         params: {
-          desc: "Preserves deployed app images and existing secret resources while applying templates",
+          desc: "Preserves deployed app images and skips existing secret resources entirely while applying templates",
           type: :boolean,
           required: required
         }

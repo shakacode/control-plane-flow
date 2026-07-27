@@ -18,7 +18,7 @@ module Command
       - Publishes (creates or updates) those at Control Plane infrastructure
       - Picks templates from the `.controlplane/templates` directory
       - Templates are ordinary Control Plane templates but with variable preprocessing
-      - Use `--preserve-existing-runtime` to retain deployed app images and skip existing secret resources while applying other template changes
+      - Use `--preserve-existing-runtime` to retain deployed app images and skip existing secret resources entirely while applying other template changes
 
       **Preprocessed template variables:**
 
@@ -166,16 +166,10 @@ module Command
 
     def cache_existing_workloads(templates)
       template_names = templates.filter_map { |template| template["name"] if template["kind"] == "workload" }
-      configured_names = configured_app_workload_names
-      @existing_workloads = (template_names + configured_names).uniq.to_h do |name|
-        [name, cp.fetch_workload(name)]
+      @existing_workloads = Array(cp.fetch_workloads.fetch("items")).to_h do |workload|
+        [workload.fetch("name"), workload]
       end
-    end
-
-    def configured_app_workload_names
-      Array(config[:app_workloads])
-    rescue RuntimeError
-      []
+      template_names.each { |name| @existing_workloads[name] = nil unless @existing_workloads.key?(name) }
     end
 
     def fetch_workload(name)
@@ -185,7 +179,7 @@ module Command
     end
 
     def existing_app_image
-      # New workloads need any deployed app image until deploy-image moves every app workload to the new image.
+      # The first listed match is only a temporary fallback until deploy-image updates every app workload.
       @existing_workloads.values.compact.filter_map do |workload|
         images = Array(workload.dig("spec", "containers")).filter_map { |container| container["image"] }
         images.find { |image| app_image?(image) }

@@ -335,7 +335,9 @@ prompts noninteractively, preserves deployed app-image references and existing
 secret resources, and repairs the configured app and shared-secret policy
 bindings. Preserving image references keeps release-phase and ordered-deploy
 gates in control of image rollout; a template failure stops the workflow before
-the image build or deployment.
+the image build or deployment. Existing secret templates are skipped as whole
+resources, so refresh neither changes existing values nor adds newly templated
+keys; provision required new keys separately before deployment.
 You still need the shared review-app runtime secret values described by your
 templates, and the staging token must have access to create and update
 review-app GVCs, workloads, images, identities, policies, and secrets in the

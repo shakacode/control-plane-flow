@@ -24,7 +24,7 @@ module Command
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
-      - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving deployed app images and existing secret resources, repairing secrets access bindings, and skipping the post-creation hook
+      - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving deployed app images, skipping existing secret resources entirely, repairing secrets access bindings, and skipping the post-creation hook
     DESC
     VALIDATIONS = %w[config templates].freeze
 

@@ -13,9 +13,11 @@ describe Command::ApplyTemplate do
         options: options,
         app: "test-review-123",
         org: "test-org",
-        identity: "test-review-123-identity"
+        identity: "test-review-123-identity",
+        current: { app_workloads: app_workloads }
       )
     end
+    let(:app_workloads) { %w[rails worker] }
     let(:cp) { instance_double(Controlplane) }
     let(:parser) { instance_double(TemplateParser) }
     let(:command) { described_class.new(config) }
@@ -65,10 +67,13 @@ describe Command::ApplyTemplate do
       allow(File).to receive(:exist?).and_call_original
       allow(File).to receive(:exist?).with(match(/spec_helper\.rb#/)).and_return(true)
       allow(command).to receive(:cp).and_return(cp)
-      allow(config).to receive(:[]).with(:app_workloads).and_return(%w[rails worker])
+      allow(config).to receive(:[]).with(:app_workloads).and_return(app_workloads)
       allow(cp).to receive(:fetch_secret).with("test-review-123-pg").and_return({ "name" => "test-review-123-pg" })
+      allow(cp).to receive_messages(
+        fetch_workloads: { "items" => [existing_rails].compact },
+        fetch_workload: nil
+      )
       allow(cp).to receive(:fetch_workload).with("rails").and_return(existing_rails)
-      allow(cp).to receive(:fetch_workload).with("worker").and_return(nil)
       allow(cp).to receive(:apply_hash) do |template|
         applied_templates << Marshal.load(Marshal.dump(template))
         [{ kind: template.fetch("kind"), name: template.fetch("name") }]
@@ -93,6 +98,17 @@ describe Command::ApplyTemplate do
 
         expect(applied_templates.map { |template| template.dig("spec", "containers", 0, "image") })
           .to eq([deployed_image, deployed_image])
+      end
+    end
+
+    context "when a configured workload was renamed" do
+      let(:app_workloads) { %w[web] }
+      let(:templates) { [workload_template("web")] }
+
+      it "uses the removed workload's deployed app image as the safe fallback" do
+        command.call
+
+        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
       end
     end
 
