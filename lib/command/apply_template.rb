@@ -179,7 +179,8 @@ module Command
     end
 
     def existing_app_image
-      app_images = @existing_workloads.values.compact.flat_map do |workload|
+      ready_workloads = @existing_workloads.values.compact.select { |workload| workload_ready?(workload) }
+      app_images = ready_workloads.flat_map do |workload|
         Array(workload.dig("spec", "containers")).filter_map do |container|
           container["image"] if deployable_app_image?(container["image"])
         end
@@ -190,14 +191,15 @@ module Command
     end
 
     def preserve_workload_images(template, fallback_image) # rubocop:disable Metrics/MethodLength
-      existing_containers = Array(fetch_workload(template["name"])&.dig("spec", "containers"))
+      existing_workload = fetch_workload(template["name"])
+      existing_containers = Array(existing_workload&.dig("spec", "containers"))
                             .to_h { |container| [container["name"], container] }
 
       Array(template.dig("spec", "containers")).each do |container|
         next unless app_image?(container["image"])
 
         existing_image = existing_containers.dig(container["name"], "image")
-        preserved_image = deployable_app_image?(existing_image) ? existing_image : fallback_image
+        preserved_image = preserved_image(existing_workload, existing_image, fallback_image)
         unless preserved_image
           raise "Cannot safely refresh app image for workload '#{template['name']}' " \
                 "without an unambiguous deployed app image."
@@ -205,6 +207,16 @@ module Command
 
         container["image"] = preserved_image
       end
+    end
+
+    def preserved_image(existing_workload, existing_image, fallback_image)
+      return existing_image if workload_ready?(existing_workload) && deployable_app_image?(existing_image)
+
+      fallback_image
+    end
+
+    def workload_ready?(workload)
+      workload&.dig("status", "readyLatest") == true
     end
 
     def app_image?(image)

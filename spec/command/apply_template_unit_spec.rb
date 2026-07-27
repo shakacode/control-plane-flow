@@ -39,6 +39,7 @@ describe Command::ApplyTemplate do
       {
         "kind" => "workload",
         "name" => "rails",
+        "status" => { "readyLatest" => true },
         "spec" => {
           "containers" => [
             { "name" => "rails", "image" => deployed_image }
@@ -120,6 +121,7 @@ describe Command::ApplyTemplate do
         [
           existing_rails,
           workload_template("worker").tap do |workload|
+            workload["status"] = { "readyLatest" => true }
             workload.dig("spec", "containers", 0)["image"] =
               "/org/test-org/image/test-review-123:7_other"
           end
@@ -140,6 +142,7 @@ describe Command::ApplyTemplate do
         [
           existing_rails,
           workload_template("worker").tap do |workload|
+            workload["status"] = { "readyLatest" => true }
             workload.dig("spec", "containers", 0)["image"] = "test-review-123:8_good"
           end
         ]
@@ -159,6 +162,7 @@ describe Command::ApplyTemplate do
         [
           existing_rails,
           workload_template("rails-runner").tap do |workload|
+            workload["status"] = { "readyLatest" => true }
             workload.dig("spec", "containers", 0)["image"] =
               "test-review-123:#{Controlplane::NO_IMAGE_AVAILABLE}"
           end
@@ -166,6 +170,26 @@ describe Command::ApplyTemplate do
       end
 
       it "ignores the sentinel when choosing the safe fallback" do
+        command.call
+
+        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
+      end
+    end
+
+    context "when the matching workload's latest revision is not ready" do
+      let(:app_workloads) { %w[worker] }
+      let(:templates) { [workload_template("worker")] }
+      let(:existing_workloads) do
+        [
+          existing_rails,
+          workload_template("worker").tap do |workload|
+            workload["status"] = { "readyLatest" => false }
+            workload.dig("spec", "containers", 0)["image"] = latest_image
+          end
+        ]
+      end
+
+      it "uses a ready workload's deployed app image" do
         command.call
 
         expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
