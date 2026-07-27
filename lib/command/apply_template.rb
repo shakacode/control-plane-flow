@@ -181,7 +181,7 @@ module Command
     def existing_app_image
       app_images = @existing_workloads.values.compact.flat_map do |workload|
         Array(workload.dig("spec", "containers")).filter_map do |container|
-          container["image"] if app_image?(container["image"])
+          container["image"] if deployable_app_image?(container["image"])
         end
       end
       image_prefix = "/org/#{config.org}/image/"
@@ -211,6 +211,10 @@ module Command
       image.to_s.match?(
         %r{\A(?:/org/#{Regexp.escape(config.org)}/image/)?#{Regexp.escape(config.app)}[:@]}
       )
+    end
+
+    def deployable_app_image?(image)
+      app_image?(image) && !image.to_s.end_with?(Controlplane::NO_IMAGE_AVAILABLE)
     end
 
     def add_app_identity_template(templates)

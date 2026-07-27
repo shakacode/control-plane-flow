@@ -152,6 +152,26 @@ describe Command::ApplyTemplate do
       end
     end
 
+    context "when an existing runner workload uses the missing-image sentinel" do
+      let(:app_workloads) { %w[web] }
+      let(:templates) { [workload_template("web")] }
+      let(:existing_workloads) do
+        [
+          existing_rails,
+          workload_template("rails-runner").tap do |workload|
+            workload.dig("spec", "containers", 0)["image"] =
+              "test-review-123:#{Controlplane::NO_IMAGE_AVAILABLE}"
+          end
+        ]
+      end
+
+      it "ignores the sentinel when choosing the safe fallback" do
+        command.call
+
+        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
+      end
+    end
+
     context "without a deployed app image" do
       let(:existing_rails) { nil }
 
