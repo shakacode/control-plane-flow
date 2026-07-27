@@ -209,7 +209,9 @@ module Command
     end
 
     def app_image?(image)
-      image.to_s.match?(%r{\A/org/#{Regexp.escape(config.org)}/image/#{Regexp.escape(config.app)}[:@]})
+      image.to_s.match?(
+        %r{\A(?:/org/#{Regexp.escape(config.org)}/image/)?#{Regexp.escape(config.app)}[:@]}
+      )
     end
 
     def add_app_identity_template(templates)

@@ -84,6 +84,18 @@ describe Command::ApplyTemplate do
         .to eq([deployed_image, deployed_image])
     end
 
+    context "with bare app image references" do
+      let(:latest_image) { "test-review-123:9_bad" }
+      let(:deployed_image) { "test-review-123:8_good" }
+
+      it "preserves the deployed image" do
+        command.call
+
+        expect(applied_templates.map { |template| template.dig("spec", "containers", 0, "image") })
+          .to eq([deployed_image, deployed_image])
+      end
+    end
+
     context "without a deployed app image" do
       let(:existing_rails) { nil }
 
