@@ -331,12 +331,15 @@ For an existing review app, each deployment runs
 `cpflow setup-app --refresh-templates` before building and deploying the new
 image. Refresh mode reapplies the configured `setup_app_templates` without
 deleting the GVC or running `hooks.post_creation`, answers template replacement
-prompts noninteractively, preserves deployed app-image references and existing
-secret resources, and repairs the configured app and shared-secret policy
-bindings. Preserving image references keeps release-phase and ordered-deploy
-gates in control of image rollout; a template failure stops the workflow before
-the image build or deployment. Existing secret templates are skipped as whole
-resources, so refresh neither changes existing values nor adds newly templated
+prompts noninteractively, preserves each matching workload container's exact
+configured app-image reference even when the app is unhealthy or workloads use
+different image versions, and repairs the configured app and shared-secret
+policy bindings. A missing or invalid workload image uses only an unambiguous
+app image from ready workloads; refresh fails closed rather than selecting the
+registry's newest image. Preserving image references keeps release-phase and
+ordered-deploy gates in control of image rollout; a template failure stops the
+workflow before the image build or deployment. Existing secret templates are skipped
+as whole resources, so refresh neither changes existing values nor adds newly templated
 keys; provision required new keys separately before deployment.
 You still need the shared review-app runtime secret values described by your
 templates, and the staging token must have access to create and update
