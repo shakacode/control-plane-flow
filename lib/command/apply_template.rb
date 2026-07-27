@@ -197,7 +197,7 @@ module Command
         next unless app_image?(container["image"])
 
         existing_image = existing_containers.dig(container["name"], "image")
-        preserved_image = app_image?(existing_image) ? existing_image : fallback_image
+        preserved_image = deployable_app_image?(existing_image) ? existing_image : fallback_image
         unless preserved_image
           raise "Cannot safely refresh app image for workload '#{template['name']}' " \
                 "without an unambiguous deployed app image."

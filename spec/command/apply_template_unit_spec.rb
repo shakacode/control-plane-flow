@@ -153,8 +153,8 @@ describe Command::ApplyTemplate do
     end
 
     context "when an existing runner workload uses the missing-image sentinel" do
-      let(:app_workloads) { %w[web] }
-      let(:templates) { [workload_template("web")] }
+      let(:app_workloads) { %w[rails-runner] }
+      let(:templates) { [workload_template("rails-runner")] }
       let(:existing_workloads) do
         [
           existing_rails,
