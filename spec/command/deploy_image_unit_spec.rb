@@ -373,7 +373,9 @@ describe Command::DeployImage do
       end
 
       it "deploys successfully and reports that no public endpoint is available" do
-        expect { command.call }.to output(/- frontend: \(no public endpoint\)/).to_stderr
+        expect do
+          expect { command.call }.not_to raise_error
+        end.to output(/- frontend: \(no public endpoint\)/).to_stderr
 
         expect(cp).to have_received(:workload_set_image_ref)
           .with("frontend", container: "rails", image: "test-app:1")
