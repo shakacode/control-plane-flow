@@ -170,7 +170,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "exposes overridable cpflow and cpln-cli version inputs" do
       contents = setup_action_path.read
       expect(contents).to include("cpln_cli_version:")
-      expect(contents).to include('default_cpln_cli_version="3.10.2"')
+      expect(contents).to include('default_cpln_cli_version="3.11.0"')
       expect(contents).to include("control_plane_flow_ref:")
       expect(reusable_staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
       expect(reusable_staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
