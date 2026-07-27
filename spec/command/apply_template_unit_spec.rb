@@ -206,6 +206,23 @@ describe Command::ApplyTemplate do
       end
     end
 
+    context "when runtime preservation is requested for a missing app" do
+      before do
+        allow(cp).to receive(:fetch_workloads).and_return(nil)
+        allow(cp).to receive(:fetch_gvc!).and_raise(
+          "Can't find app 'test-review-123', please create it with 'cpflow setup-app -a test-review-123'."
+        )
+      end
+
+      it "uses the established missing-app error" do
+        expect { command.call }
+          .to raise_error("Can't find app 'test-review-123', " \
+                          "please create it with 'cpflow setup-app -a test-review-123'.")
+        expect(cp).to have_received(:fetch_gvc!)
+        expect(applied_templates).to be_empty
+      end
+    end
+
     context "without runtime preservation" do
       let(:options) { { yes: true, preserve_existing_runtime: false } }
 

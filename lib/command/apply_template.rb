@@ -166,7 +166,9 @@ module Command
 
     def cache_existing_workloads(templates)
       template_names = templates.filter_map { |template| template["name"] if template["kind"] == "workload" }
-      @existing_workloads = Array(cp.fetch_workloads.fetch("items")).to_h do |workload|
+      workloads = cp.fetch_workloads
+      cp.fetch_gvc! unless workloads
+      @existing_workloads = Array(workloads.fetch("items")).to_h do |workload|
         [workload.fetch("name"), workload]
       end
       template_names.each { |name| @existing_workloads[name] = nil unless @existing_workloads.key?(name) }
