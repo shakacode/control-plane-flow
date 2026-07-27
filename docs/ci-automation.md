@@ -327,6 +327,15 @@ the run early instead of deploying an image that cannot boot.
 
 Review apps are different: the generated `+review-app-deploy` workflow creates
 temporary PR apps as needed, including the identity and secret policy binding.
+For an existing review app, each deployment runs
+`cpflow setup-app --refresh-templates` before building and deploying the new
+image. Refresh mode reapplies the configured `setup_app_templates` without
+deleting the GVC or running `hooks.post_creation`, answers template replacement
+prompts noninteractively, preserves deployed app-image references and existing
+secret resources, and repairs the configured app and shared-secret policy
+bindings. Preserving image references keeps release-phase and ordered-deploy
+gates in control of image rollout; a template failure stops the workflow before
+the image build or deployment.
 You still need the shared review-app runtime secret values described by your
 templates, and the staging token must have access to create and update
 review-app GVCs, workloads, images, identities, policies, and secrets in the
@@ -334,12 +343,13 @@ staging org.
 
 If review apps share an existing staging database or another existing secret,
 declare it with `shared_secret_grants` on the review app config entry. The
-deploy workflow runs `setup-app` for new review apps and `deploy-image` for
-image updates; those commands bind or repair the review app identity's `reveal`
-permission on each configured shared policy. The delete and cleanup workflows
-call `cpflow delete`, which removes those bindings as review apps go away. This
-lets one shared database or license secret serve many short-lived review apps
-without granting every review identity access to unrelated app secrets.
+deploy workflow runs `setup-app` for new review apps, refreshes templates for
+existing review apps, and then runs `deploy-image`; those commands bind or
+repair the review app identity's `reveal` permission on each configured shared
+policy. The delete and cleanup workflows call `cpflow delete`, which removes
+those bindings as review apps go away. This lets one shared database or license
+secret serve many short-lived review apps without granting every review
+identity access to unrelated app secrets.
 
 ```yaml
 apps:

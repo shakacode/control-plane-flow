@@ -459,6 +459,28 @@ module Command
       }
     end
 
+    def self.refresh_templates_option(required: false)
+      {
+        name: :refresh_templates,
+        params: {
+          desc: "Refreshes configured templates for an existing app without running post-creation hooks",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
+    def self.preserve_existing_runtime_option(required: false)
+      {
+        name: :preserve_existing_runtime,
+        params: {
+          desc: "Preserves deployed app images and existing secret resources while applying templates",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.skip_pre_deletion_hook_option(required: false)
       {
         name: :skip_pre_deletion_hook,

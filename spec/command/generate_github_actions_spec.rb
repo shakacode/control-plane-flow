@@ -449,6 +449,23 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "refreshes existing review app templates before building and deploying the image" do
+      workflow = YAML.load_file(reusable_review_app_workflow_path, aliases: true)
+      steps = workflow.dig("jobs", "deploy", "steps")
+      refresh_step = steps.find { |step| step["name"] == "Refresh existing review app templates" }
+      refresh_command = 'cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}" --refresh-templates'
+
+      expect(refresh_step).to include(
+        "if" => "steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && " \
+                "steps.check-app.outputs.exists == 'true'",
+        "working-directory" => "app",
+        "run" => include("set -euo pipefail", refresh_command)
+      )
+      expect(refresh_step).not_to have_key("continue-on-error")
+      expect(steps.index(refresh_step)).to be < steps.index { |step| step["name"] == "Build Docker image" }
+      expect(steps.index(refresh_step)).to be < steps.index { |step| step["name"] == "Deploy to Control Plane" }
+    end
+
     it "gates review-app deploys by author_association and skips fork PRs" do
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
