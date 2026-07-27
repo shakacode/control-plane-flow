@@ -9,7 +9,8 @@ module Command
       app_option(required: true),
       location_option,
       skip_confirm_option,
-      add_app_identity_option
+      add_app_identity_option,
+      preserve_existing_runtime_option
     ].freeze
     DESCRIPTION = "Applies application-specific configs from templates"
     LONG_DESCRIPTION = <<~DESC
@@ -17,6 +18,7 @@ module Command
       - Publishes (creates or updates) those at Control Plane infrastructure
       - Picks templates from the `.controlplane/templates` directory
       - Templates are ordinary Control Plane templates but with variable preprocessing
+      - Use `--preserve-existing-runtime` to retain deployed app images and skip existing secret resources entirely while applying other template changes
 
       **Preprocessed template variables:**
 
@@ -58,6 +60,7 @@ module Command
       @skipped_templates = []
 
       templates = @template_parser.parse(@names_to_filenames.values)
+      templates = preserve_existing_runtime(templates) if config.options[:preserve_existing_runtime]
       pending_templates = confirm_templates(templates)
       add_app_identity_template(pending_templates) if config.options[:add_app_identity]
       pending_templates.each do |template|
@@ -117,7 +120,7 @@ module Command
     end
 
     def confirm_workload(template) # rubocop:disable Naming/PredicateMethod
-      workload = cp.fetch_workload(template["name"])
+      workload = fetch_workload(template["name"])
       return true unless workload
 
       confirmed = confirm_apply("Workload '#{template['name']}' already exists, do you want to re-create it?")
@@ -144,6 +147,88 @@ module Command
       progress.puts if @asked_for_confirmation
 
       pending_templates
+    end
+
+    def preserve_existing_runtime(templates)
+      cache_existing_workloads(templates)
+      fallback_image = existing_app_image
+
+      templates.filter_map do |template|
+        if template["kind"] == "secret" && cp.fetch_secret(template["name"])
+          report_skipped(template)
+          next
+        end
+
+        preserve_workload_images(template, fallback_image) if template["kind"] == "workload"
+        template
+      end
+    end
+
+    def cache_existing_workloads(templates)
+      template_names = templates.filter_map { |template| template["name"] if template["kind"] == "workload" }
+      workloads = cp.fetch_workloads
+      cp.fetch_gvc! unless workloads
+      @existing_workloads = Array(workloads.fetch("items")).to_h do |workload|
+        [workload.fetch("name"), workload]
+      end
+      template_names.each { |name| @existing_workloads[name] = nil unless @existing_workloads.key?(name) }
+    end
+
+    def fetch_workload(name)
+      return @existing_workloads[name] if @existing_workloads&.key?(name)
+
+      cp.fetch_workload(name)
+    end
+
+    def existing_app_image
+      ready_workloads = @existing_workloads.values.compact.select { |workload| workload_ready?(workload) }
+      app_images = ready_workloads.flat_map do |workload|
+        Array(workload.dig("spec", "containers")).filter_map do |container|
+          container["image"] if deployable_app_image?(container["image"])
+        end
+      end
+      image_prefix = "/org/#{config.org}/image/"
+      canonical_images = app_images.map { |image| image.delete_prefix(image_prefix) }
+      app_images.first if canonical_images.uniq.one?
+    end
+
+    def preserve_workload_images(template, fallback_image) # rubocop:disable Metrics/MethodLength
+      existing_workload = fetch_workload(template["name"])
+      existing_containers = Array(existing_workload&.dig("spec", "containers"))
+                            .to_h { |container| [container["name"], container] }
+
+      Array(template.dig("spec", "containers")).each do |container|
+        next unless app_image?(container["image"])
+
+        existing_image = existing_containers.dig(container["name"], "image")
+        preserved_image = preserved_image(existing_workload, existing_image, fallback_image)
+        unless preserved_image
+          raise "Cannot safely refresh app image for workload '#{template['name']}' " \
+                "without an unambiguous deployed app image."
+        end
+
+        container["image"] = preserved_image
+      end
+    end
+
+    def preserved_image(existing_workload, existing_image, fallback_image)
+      return existing_image if workload_ready?(existing_workload) && deployable_app_image?(existing_image)
+
+      fallback_image
+    end
+
+    def workload_ready?(workload)
+      workload&.dig("status", "readyLatest") == true
+    end
+
+    def app_image?(image)
+      image.to_s.match?(
+        %r{\A(?:/org/#{Regexp.escape(config.org)}/image/)?#{Regexp.escape(config.app)}[:@]}
+      )
+    end
+
+    def deployable_app_image?(image)
+      app_image?(image) && !image.to_s.end_with?(Controlplane::NO_IMAGE_AVAILABLE)
     end
 
     def add_app_identity_template(templates)

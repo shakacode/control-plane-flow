@@ -270,6 +270,14 @@ jobs:
           set -euo pipefail
           cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}"
 
+      - name: Refresh existing review app templates
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists == 'true'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}" --refresh-templates
+
       - name: Create initial PR comment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
         id: create-comment

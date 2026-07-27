@@ -29,6 +29,7 @@ cpflow ai-github-flow-prompt
 - Publishes (creates or updates) those at Control Plane infrastructure
 - Picks templates from the `.controlplane/templates` directory
 - Templates are ordinary Control Plane templates but with variable preprocessing
+- Use `--preserve-existing-runtime` to retain deployed app images and skip existing secret resources entirely while applying other template changes
 
 **Preprocessed template variables:**
 
@@ -539,6 +540,7 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
+- Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving deployed app images, skipping existing secret resources entirely, repairing secrets access bindings, and skipping the post-creation hook
 
 ```sh
 cpflow setup-app -a $APP_NAME

@@ -107,12 +107,18 @@ module Command
       @requested_workload_names ||= Array(config.options[:workload]).map(&:to_s).uniq
     end
 
+    def app_image?(image)
+      image.to_s.match?(
+        %r{\A(?:/org/#{Regexp.escape(config.org)}/image/)?#{Regexp.escape(config.app)}[:@]}
+      )
+    end
+
     def deploy_image_to_workloads(image, workload_data_by_name) # rubocop:disable Metrics/MethodLength
       deployed_endpoints = {}
 
       workload_data_by_name.each do |workload, workload_data|
         workload_data.dig("spec", "containers").each do |container|
-          next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}[:@]})
+          next unless app_image?(container["image"])
 
           container_name = container["name"]
           step("Deploying image '#{image}' for workload '#{workload}'") do
