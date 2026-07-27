@@ -131,7 +131,7 @@ module Command
     def print_deployed_endpoints(deployed_endpoints)
       progress.puts("\nDeployed endpoints:")
       deployed_endpoints.each do |workload, endpoint|
-        progress.puts("  - #{workload}: #{endpoint}")
+        progress.puts("  - #{workload}: #{endpoint || '(no public endpoint)'}")
       end
     end
 
@@ -172,9 +172,15 @@ module Command
 
     def endpoint_for_workload(workload_data)
       endpoint = workload_data.dig("status", "endpoint")
+      return fallback_endpoint_for_workload(workload_data) unless endpoint
+
       Resolv.getaddress(endpoint.split("/").last)
       endpoint
     rescue Resolv::ResolvError
+      fallback_endpoint_for_workload(workload_data)
+    end
+
+    def fallback_endpoint_for_workload(workload_data)
       deployments = cp.fetch_workload_deployments(workload_data["name"])
       deployments.dig("items", 0, "status", "endpoint")
     end

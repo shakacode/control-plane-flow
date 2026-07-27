@@ -15,6 +15,11 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 ### Changed
 
 - **Simplified generated review-app help comments to a three-command quick reference, moved setup behind expandable details, and clarified GitHub Actions secret and variable terminology.** [PR 410](https://github.com/shakacode/control-plane-flow/pull/410) by [Justin Gordon](https://github.com/justin808).
+- **Updated reusable GitHub Actions setup to install Control Plane CLI 3.11.0 by default.**
+
+### Fixed
+
+- **Fixed `cpflow deploy-image` crashing when an internal-only workload has no public endpoint.** Deployments now consult the existing deployment fallback and report when no public endpoint is available.
 
 ## [5.2.0] - 2026-07-10
 

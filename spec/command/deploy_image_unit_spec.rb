@@ -364,6 +364,44 @@ describe Command::DeployImage do
       expect { command.call }.to output(%r{- frontend: https://frontend-test\.cpln\.app}).to_stderr
     end
 
+    context "when a workload has no public endpoint" do
+      before do
+        workload_data["status"] = {}
+        allow(cp).to receive(:fetch_workload_deployments)
+          .with("frontend")
+          .and_return({ "items" => [{ "status" => {} }] })
+      end
+
+      it "deploys successfully and reports that no public endpoint is available" do
+        expect { command.call }.to output(/- frontend: \(no public endpoint\)/).to_stderr
+
+        expect(cp).to have_received(:workload_set_image_ref)
+          .with("frontend", container: "rails", image: "test-app:1")
+        expect(cp).to have_received(:fetch_workload_deployments).with("frontend")
+      end
+    end
+
+    context "when the workload endpoint does not resolve" do
+      before do
+        allow(Resolv).to receive(:getaddress).and_raise(Resolv::ResolvError)
+        allow(cp).to receive(:fetch_workload_deployments)
+          .with("frontend")
+          .and_return(
+            {
+              "items" => [
+                { "status" => { "endpoint" => "https://frontend-fallback.cpln.app" } }
+              ]
+            }
+          )
+      end
+
+      it "reports the endpoint from the latest deployment" do
+        expect { command.call }.to output(%r{- frontend: https://frontend-fallback\.cpln\.app}).to_stderr
+
+        expect(cp).to have_received(:fetch_workload_deployments).with("frontend")
+      end
+    end
+
     it "uses the container name for the API call that updates the image ref" do
       command.call
 
