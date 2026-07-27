@@ -46,6 +46,7 @@ describe Command::ApplyTemplate do
         }
       }
     end
+    let(:existing_workloads) { [existing_rails].compact }
     let(:applied_templates) { [] }
 
     def workload_template(name)
@@ -70,7 +71,7 @@ describe Command::ApplyTemplate do
       allow(config).to receive(:[]).with(:app_workloads).and_return(app_workloads)
       allow(cp).to receive(:fetch_secret).with("test-review-123-pg").and_return({ "name" => "test-review-123-pg" })
       allow(cp).to receive_messages(
-        fetch_workloads: { "items" => [existing_rails].compact },
+        fetch_workloads: { "items" => existing_workloads },
         fetch_workload: nil
       )
       allow(cp).to receive(:fetch_workload).with("rails").and_return(existing_rails)
@@ -109,6 +110,26 @@ describe Command::ApplyTemplate do
         command.call
 
         expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
+      end
+    end
+
+    context "when existing workloads have different deployed app images" do
+      let(:app_workloads) { %w[web] }
+      let(:templates) { [workload_template("web")] }
+      let(:existing_workloads) do
+        [
+          existing_rails,
+          workload_template("worker").tap do |workload|
+            workload.dig("spec", "containers", 0)["image"] =
+              "/org/test-org/image/test-review-123:7_other"
+          end
+        ]
+      end
+
+      it "fails before applying an ambiguous fallback image" do
+        expect { command.call }
+          .to raise_error(/Cannot safely refresh app image for workload 'web'/)
+        expect(applied_templates).to be_empty
       end
     end
 
