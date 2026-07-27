@@ -183,8 +183,10 @@ module Command
         Array(workload.dig("spec", "containers")).filter_map do |container|
           container["image"] if app_image?(container["image"])
         end
-      end.uniq
-      app_images.first if app_images.one?
+      end
+      image_prefix = "/org/#{config.org}/image/"
+      canonical_images = app_images.map { |image| image.delete_prefix(image_prefix) }
+      app_images.first if canonical_images.uniq.one?
     end
 
     def preserve_workload_images(template, fallback_image) # rubocop:disable Metrics/MethodLength

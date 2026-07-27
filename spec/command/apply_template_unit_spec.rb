@@ -133,6 +133,25 @@ describe Command::ApplyTemplate do
       end
     end
 
+    context "when equivalent deployed app images use bare and linked references" do
+      let(:app_workloads) { %w[web] }
+      let(:templates) { [workload_template("web")] }
+      let(:existing_workloads) do
+        [
+          existing_rails,
+          workload_template("worker").tap do |workload|
+            workload.dig("spec", "containers", 0)["image"] = "test-review-123:8_good"
+          end
+        ]
+      end
+
+      it "uses the equivalent deployed image as the safe fallback" do
+        command.call
+
+        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
+      end
+    end
+
     context "without a deployed app image" do
       let(:existing_rails) { nil }
 
