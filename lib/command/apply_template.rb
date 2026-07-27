@@ -185,6 +185,7 @@ module Command
     end
 
     def existing_app_image
+      # New workloads need any deployed app image until deploy-image moves every app workload to the new image.
       @existing_workloads.values.compact.filter_map do |workload|
         images = Array(workload.dig("spec", "containers")).filter_map { |container| container["image"] }
         images.find { |image| app_image?(image) }
