@@ -411,6 +411,19 @@ describe Command::DeployImage do
         .with("frontend", container: "rails", image: "test-app:1")
     end
 
+    context "when a workload uses a bare app image reference" do
+      before do
+        workload_data.dig("spec", "containers", 0)["image"] = "test-app:1"
+      end
+
+      it "updates the app image" do
+        command.call
+
+        expect(cp).to have_received(:workload_set_image_ref)
+          .with("frontend", container: "rails", image: "test-app:1")
+      end
+    end
+
     context "when specific workloads are requested" do
       let(:options) { { run_release_phase: false, workload: ["worker"] } }
       let(:worker_data) do
