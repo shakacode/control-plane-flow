@@ -118,6 +118,7 @@ module Command
           step("Deploying image '#{image}' for workload '#{workload}'") do
             cp.workload_set_image_ref(workload, container: container_name, image: image)
             deployed_endpoints[workload] = endpoint_for_workload(workload_data)
+            # A missing public endpoint is valid; the image update still completed successfully.
             true
           end
           # Deploy the first matching app-image container per workload; CPLN workloads
