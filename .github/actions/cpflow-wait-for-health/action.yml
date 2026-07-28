@@ -1,9 +1,9 @@
 name: Wait for Control Plane workload health
 description: >-
   Polls Control Plane until the latest workload version is ready, then checks
-  the workload endpoint with curl. Exits success when the HTTP response status
-  is in the accepted list. Fails non-zero (and reports `healthy=false`) once
-  retries are exhausted.
+  the standard workload endpoint and ready location endpoints with curl. Exits
+  success when the HTTP response status is in the accepted list. Fails non-zero
+  (and reports `healthy=false`) once retries are exhausted.
 
 inputs:
   workload_name:
@@ -39,6 +39,9 @@ outputs:
   healthy:
     description: '"true" once a healthy response was observed; "false" otherwise.'
     value: ${{ steps.poll.outputs.healthy }}
+  endpoint:
+    description: The workload or location endpoint that returned an accepted status.
+    value: ${{ steps.poll.outputs.endpoint }}
 
 runs:
   using: composite
@@ -59,6 +62,28 @@ runs:
 
         read -r -a accepted_statuses <<< "${CPFLOW_ACCEPTED_STATUSES}"
 
+        check_endpoint() {
+          local endpoint="$1"
+          local endpoint_type="$2"
+          local http_status
+
+          http_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time "${CPFLOW_CURL_MAX_TIME}" "${endpoint}" 2>/dev/null || true)"
+          http_status="${http_status:-000}"
+          echo "${endpoint_type}: ${endpoint}, HTTP status: ${http_status}"
+
+          for accepted in "${accepted_statuses[@]}"; do
+            if [[ "${http_status}" == "${accepted}" ]]; then
+              {
+                echo "healthy=true"
+                echo "endpoint=${endpoint}"
+              } >> "$GITHUB_OUTPUT"
+              return 0
+            fi
+          done
+
+          return 1
+        }
+
         for attempt in $(seq 1 "${CPFLOW_MAX_RETRIES}"); do
           echo "Health check attempt ${attempt}/${CPFLOW_MAX_RETRIES}"
 
@@ -72,22 +97,36 @@ runs:
           workload_ready="$(echo "${workload_json}" | jq -r '.status.ready // false')"
           latest_ready="$(echo "${workload_json}" | jq -r '.status.readyLatest // false')"
           readiness_status="$(echo "${workload_json}" | jq -r '.health.readiness // "unknown"')"
-          endpoint="$(echo "${workload_json}" | jq -r '.status.endpoint // empty')"
+          workload_endpoint="$(echo "${workload_json}" | jq -r '.status.endpoint // empty')"
 
           if [[ "${workload_ready}" != "true" || "${latest_ready}" != "true" ]]; then
             echo "Workload status: ready=${workload_ready}, readyLatest=${latest_ready}, readiness=${readiness_status}; waiting for latest deployment."
-          elif [[ -n "${endpoint}" ]]; then
-            http_status="$(curl -s -o /dev/null -w '%{http_code}' --max-time "${CPFLOW_CURL_MAX_TIME}" "${endpoint}" 2>/dev/null || echo 000)"
-            echo "Endpoint: ${endpoint}, HTTP status: ${http_status}"
-
-            for accepted in "${accepted_statuses[@]}"; do
-              if [[ "${http_status}" == "${accepted}" ]]; then
-                echo "healthy=true" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-            done
           else
-            echo "Workload '${CPFLOW_WORKLOAD_NAME}' has no endpoint yet; waiting for one to be assigned."
+            if [[ -n "${workload_endpoint}" ]] && check_endpoint "${workload_endpoint}" "Workload endpoint"; then
+              exit 0
+            fi
+
+            location_endpoint_count=0
+            if deployments_json="$(cpln workload get-deployments "${CPFLOW_WORKLOAD_NAME}" --gvc "${CPFLOW_APP_NAME}" --org "${CPFLOW_ORG}" -o json 2>/dev/null)"; then
+              while IFS= read -r location_endpoint; do
+                location_endpoint_count=$((location_endpoint_count + 1))
+                if [[ -n "${location_endpoint}" &&
+                      "${location_endpoint}" != "${workload_endpoint}" ]] &&
+                  check_endpoint "${location_endpoint}" "Location endpoint"; then
+                  exit 0
+                fi
+              done < <(
+                printf '%s\n' "${deployments_json}" |
+                  jq -r '.items[]? | select(.status.ready == true and (.status.deploying // false) == false) | .status.endpoint // empty' |
+                  awk '!seen[$0]++'
+              )
+            else
+              echo "::warning::Could not list location endpoints for workload '${CPFLOW_WORKLOAD_NAME}'; retrying."
+            fi
+
+            if [[ -z "${workload_endpoint}" && "${location_endpoint_count}" -eq 0 ]]; then
+              echo "Workload '${CPFLOW_WORKLOAD_NAME}' has no endpoint yet; waiting for one to be assigned."
+            fi
           fi
 
           if [[ "${attempt}" -lt "${CPFLOW_MAX_RETRIES}" ]]; then

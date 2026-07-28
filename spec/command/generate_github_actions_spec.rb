@@ -108,6 +108,62 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     shared_action_path("cpflow-wait-for-health")
   end
 
+  def run_wait_for_health_action(workload_json:, deployments_json:) # rubocop:disable Metrics/MethodLength
+    action = YAML.load_file(wait_for_health_action_path, aliases: true)
+    script = action.fetch("runs").fetch("steps").find { |step| step["id"] == "poll" }.fetch("run")
+
+    Dir.mktmpdir("cpflow-wait-for-health") do |tmpdir|
+      tmp_path = Pathname.new(tmpdir)
+      bin_path = tmp_path.join("bin")
+      bin_path.mkdir
+      workload_path = tmp_path.join("workload.json")
+      deployments_path = tmp_path.join("deployments.json")
+      output_path = tmp_path.join("github-output")
+
+      workload_path.write(JSON.generate(workload_json))
+      deployments_path.write(JSON.generate(deployments_json))
+      bin_path.join("cpln").write(<<~BASH)
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "$2" in
+          get) cat "${CPFLOW_TEST_WORKLOAD_JSON}" ;;
+          get-deployments) cat "${CPFLOW_TEST_DEPLOYMENTS_JSON}" ;;
+          *) exit 2 ;;
+        esac
+      BASH
+      bin_path.join("curl").write(<<~BASH)
+        #!/usr/bin/env bash
+        set -euo pipefail
+        endpoint="${*: -1}"
+        if [[ "${endpoint}" == *.cpln.app ]]; then
+          printf '000'
+          exit 6
+        fi
+        printf '200'
+      BASH
+      FileUtils.chmod(0o755, [bin_path.join("cpln"), bin_path.join("curl")])
+
+      env = {
+        "PATH" => "#{bin_path}:#{ENV.fetch('PATH')}",
+        "BASH_ENV" => "/dev/null",
+        "ENV" => "/dev/null",
+        "GITHUB_OUTPUT" => output_path.to_s,
+        "CPFLOW_TEST_WORKLOAD_JSON" => workload_path.to_s,
+        "CPFLOW_TEST_DEPLOYMENTS_JSON" => deployments_path.to_s,
+        "CPFLOW_WORKLOAD_NAME" => "rails",
+        "CPFLOW_APP_NAME" => "hichee-review-9652",
+        "CPFLOW_ORG" => "hichee-staging",
+        "CPFLOW_MAX_RETRIES" => "1",
+        "CPFLOW_INTERVAL_SECONDS" => "0",
+        "CPFLOW_ACCEPTED_STATUSES" => "200 301 302",
+        "CPFLOW_CURL_MAX_TIME" => "1"
+      }
+      stdout, stderr, status = Open3.capture3(env, "bash", stdin_data: script)
+
+      [stdout, stderr, status, output_path.exist? ? output_path.read : ""]
+    end
+  end
+
   def delete_app_script_path
     Cpflow.root_path.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
   end
@@ -694,7 +750,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "prefers the deployed app_domain for review-app links when available" do
       contents = reusable_review_app_workflow_path.read
 
-      expect(contents).to include('workload_url="$(cpln workload get "${workload_name}"')
+      expect(contents).to include('workload_url="${{ steps.health-check.outputs.endpoint }}"')
       expect(contents).to include('gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json')
       expect(contents).to include("Could not read GVC app_domain; falling back to workload endpoint.")
       expect(contents).to include('select(.name == "app_domain")')
@@ -1107,6 +1163,72 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("has no endpoint yet; waiting for one to be assigned")
       expect(contents).to include(".status.readyLatest // false")
       expect(contents).to include("readyLatest=${latest_ready}")
+      expect(contents).to include(".items[]?")
+      expect(contents).to include(".status.deploying // false")
+    end
+
+    it "uses a healthy location endpoint when the standard endpoint is disabled on BYOK" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-72vs5vhw7ybfe.cpln.app"
+        },
+        "health" => { "readiness" => "Ready" }
+      }
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "hetzner-byok",
+            "status" => {
+              "ready" => true,
+              "endpoint" => "https://rails-72vs5vhw7ybfe.hetzner-byok.controlplane.us/"
+            }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(outputs).to include("healthy=true")
+      expect(outputs).to include(
+        "endpoint=https://rails-72vs5vhw7ybfe.hetzner-byok.controlplane.us/"
+      )
+    end
+
+    it "prefers a healthy standard workload endpoint" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-standard.example.test/"
+        },
+        "health" => { "readiness" => "Ready" }
+      }
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "hetzner-byok",
+            "status" => {
+              "ready" => true,
+              "endpoint" => "https://rails-location.example.test/"
+            }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(outputs).to include("endpoint=https://rails-standard.example.test/"), "#{stdout}\n#{stderr}\n#{outputs}"
+      expect(outputs).not_to include("endpoint=https://rails-location.example.test/")
     end
 
     it "writes the delete-app script with the not-found guard message" do

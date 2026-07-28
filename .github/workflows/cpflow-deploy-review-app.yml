@@ -470,7 +470,7 @@ jobs:
         run: |
           set -euo pipefail
           workload_name="${PRIMARY_WORKLOAD:-rails}"
-          workload_url="$(cpln workload get "${workload_name}" --gvc "${APP_NAME}" --org "${CPLN_ORG}" -o json | jq -r '.status.endpoint // empty')"
+          workload_url="${{ steps.health-check.outputs.endpoint }}"
           app_url="${workload_url}"
 
           if [[ -n "${workload_url}" ]]; then
