@@ -19,6 +19,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- **Fixed reusable deployment health checks on BYOK locations by falling back from a disabled standard workload endpoint to ready location endpoints and reusing the verified endpoint for review-app links.** [PR 426](https://github.com/shakacode/control-plane-flow/pull/426) by [Justin Gordon](https://github.com/justin808).
 - **Fixed template refresh recovery for unhealthy or partially deployed review apps by preserving each workload's configured app image independently, while limiting missing-image fallbacks to one unambiguous image from ready workloads.** [PR 425](https://github.com/shakacode/control-plane-flow/pull/425) by [Justin Gordon](https://github.com/justin808).
 - **Fixed reusable review-app deployments so existing apps receive changes from configured `setup_app_templates` before the new image is deployed, without deleting the GVC, rerunning post-creation hooks, replacing deployed images before rollout gates pass, or modifying existing secret resources.** [PR 424](https://github.com/shakacode/control-plane-flow/pull/424) by [Justin Gordon](https://github.com/justin808).
 - **Fixed `cpflow deploy-image` crashing when an internal-only workload has no public endpoint.** Deployments now consult the existing deployment fallback and report when no public endpoint is available. [PR 423](https://github.com/shakacode/control-plane-flow/pull/423) by [Justin Gordon](https://github.com/justin808).
