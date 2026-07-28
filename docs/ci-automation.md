@@ -394,7 +394,11 @@ The standard path is:
    references are copied by digest, commit-suffixed tags keep the commit suffix,
    and plain numeric tags remain valid.
 11. Expect production health and rollback readiness polling to require Control
-   Plane `status.ready` and `status.readyLatest` before checking the endpoint.
+   Plane `status.ready` and `status.readyLatest` before checking the standard
+   workload endpoint. If that endpoint is unavailable, as it can be on BYOK
+   locations, the health check waits until every reported deployment location
+   is ready and not deploying, then tries their endpoints sequentially. Each
+   additional location can add up to `curl_max_time` to an attempt.
 
 GitHub only exposes environment secrets to jobs that reference the environment
 after configured protection rules pass. GitHub does not allow a caller job that
