@@ -135,6 +135,42 @@ describe Command::ApplyTemplate do
       end
     end
 
+    context "when an unhealthy app has a partial deployment across workloads" do
+      let(:app_workloads) { %w[node-renderer rails sidekiq] }
+      let(:templates) do
+        [
+          workload_template("node-renderer"),
+          workload_template("rails"),
+          workload_template("sidekiq")
+        ]
+      end
+      let(:node_renderer_image) { "/org/test-org/image/test-review-123:0754cf4" }
+      let(:rails_image) { "/org/test-org/image/test-review-123:b6c1" }
+      let(:existing_workloads) do
+        [
+          workload_template("node-renderer").tap do |workload|
+            workload["status"] = { "readyLatest" => false }
+            workload.dig("spec", "containers", 0)["image"] = node_renderer_image
+          end,
+          workload_template("rails").tap do |workload|
+            workload["status"] = { "readyLatest" => false }
+            workload.dig("spec", "containers", 0)["image"] = rails_image
+          end,
+          workload_template("sidekiq").tap do |workload|
+            workload["status"] = { "readyLatest" => false }
+            workload.dig("spec", "containers", 0)["image"] = rails_image
+          end
+        ]
+      end
+
+      it "preserves each workload's configured app image without rolling out the template image" do
+        command.call
+
+        expect(applied_templates.map { |template| template.dig("spec", "containers", 0, "image") })
+          .to eq([node_renderer_image, rails_image, rails_image])
+      end
+    end
+
     context "when equivalent deployed app images use bare and linked references" do
       let(:app_workloads) { %w[web] }
       let(:templates) { [workload_template("web")] }
@@ -162,7 +198,7 @@ describe Command::ApplyTemplate do
         [
           existing_rails,
           workload_template("rails-runner").tap do |workload|
-            workload["status"] = { "readyLatest" => true }
+            workload["status"] = { "readyLatest" => false }
             workload.dig("spec", "containers", 0)["image"] =
               "test-review-123:#{Controlplane::NO_IMAGE_AVAILABLE}"
           end
@@ -179,20 +215,21 @@ describe Command::ApplyTemplate do
     context "when the matching workload's latest revision is not ready" do
       let(:app_workloads) { %w[worker] }
       let(:templates) { [workload_template("worker")] }
+      let(:unready_image) { "/org/test-org/image/test-review-123:7_current" }
       let(:existing_workloads) do
         [
           existing_rails,
           workload_template("worker").tap do |workload|
             workload["status"] = { "readyLatest" => false }
-            workload.dig("spec", "containers", 0)["image"] = latest_image
+            workload.dig("spec", "containers", 0)["image"] = unready_image
           end
         ]
       end
 
-      it "uses a ready workload's deployed app image" do
+      it "preserves the matching workload's configured app image" do
         command.call
 
-        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
+        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(unready_image)
       end
     end
 
