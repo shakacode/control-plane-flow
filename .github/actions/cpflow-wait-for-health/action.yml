@@ -84,6 +84,18 @@ runs:
           return 1
         }
 
+        summarize_cpln_error() {
+          local error_text="$1"
+
+          case "${error_text}" in
+            *401*|*403*|*[Uu]nauthorized*|*[Ff]orbidden*) echo "authorization failure" ;;
+            *404*|*"not found"*|*"Not Found"*) echo "resource not found" ;;
+            *429*|*"rate limit"*|*"Rate Limit"*) echo "rate limited" ;;
+            *"timed out"*|*[Tt]imeout*) echo "request timeout" ;;
+            *) echo "CLI error (details suppressed; ${#error_text} stderr bytes captured)" ;;
+          esac
+        }
+
         for attempt in $(seq 1 "${CPFLOW_MAX_RETRIES}"); do
           echo "Health check attempt ${attempt}/${CPFLOW_MAX_RETRIES}"
 
@@ -107,24 +119,45 @@ runs:
             fi
 
             location_endpoint_count=0
-            if deployments_json="$(cpln workload get-deployments "${CPFLOW_WORKLOAD_NAME}" --gvc "${CPFLOW_APP_NAME}" --org "${CPFLOW_ORG}" -o json 2>/dev/null)"; then
-              while IFS= read -r location_endpoint; do
-                location_endpoint_count=$((location_endpoint_count + 1))
-                if [[ -n "${location_endpoint}" &&
-                      "${location_endpoint}" != "${workload_endpoint}" ]] &&
-                  check_endpoint "${location_endpoint}" "Location endpoint"; then
-                  exit 0
-                fi
-              done < <(
+            deployments_listed=false
+            deployments_settled=false
+            deployments_stderr="$(mktemp)"
+            if deployments_json="$(cpln workload get-deployments "${CPFLOW_WORKLOAD_NAME}" --gvc "${CPFLOW_APP_NAME}" --org "${CPFLOW_ORG}" -o json 2>"${deployments_stderr}")"; then
+              deployments_listed=true
+              unsettled_location_count="$(
                 printf '%s\n' "${deployments_json}" |
-                  jq -r '.items[]? | select(.status.ready == true and (.status.deploying // false) == false) | .status.endpoint // empty' |
-                  awk '!seen[$0]++'
-              )
-            else
-              echo "::warning::Could not list location endpoints for workload '${CPFLOW_WORKLOAD_NAME}'; retrying."
-            fi
+                  jq '[.items[]? | select(.status.ready != true or (.status.deploying // false) == true)] | length'
+              )"
 
-            if [[ -z "${workload_endpoint}" && "${location_endpoint_count}" -eq 0 ]]; then
+              if [[ "${unsettled_location_count}" -gt 0 ]]; then
+                echo "Deployment locations are not all ready (${unsettled_location_count} unsettled); waiting before endpoint fallback."
+              else
+                deployments_settled=true
+                while IFS= read -r location_endpoint; do
+                  location_endpoint_count=$((location_endpoint_count + 1))
+                  if [[ -n "${location_endpoint}" &&
+                        "${location_endpoint}" != "${workload_endpoint}" ]] &&
+                    check_endpoint "${location_endpoint}" "Location endpoint"; then
+                    rm -f "${deployments_stderr}"
+                    exit 0
+                  fi
+                done < <(
+                  printf '%s\n' "${deployments_json}" |
+                    jq -r '.items[]? | .status.endpoint // empty' |
+                    awk '!seen[$0]++'
+                )
+              fi
+            else
+              deployments_error="$(<"${deployments_stderr}")"
+              deployments_error_summary="$(summarize_cpln_error "${deployments_error}")"
+              echo "::warning::Could not list location endpoints for workload '${CPFLOW_WORKLOAD_NAME}' (${deployments_error_summary}); retrying."
+            fi
+            rm -f "${deployments_stderr}"
+
+            if [[ -z "${workload_endpoint}" &&
+                  "${deployments_listed}" == "true" &&
+                  "${deployments_settled}" == "true" &&
+                  "${location_endpoint_count}" -eq 0 ]]; then
               echo "Workload '${CPFLOW_WORKLOAD_NAME}' has no endpoint yet; waiting for one to be assigned."
             fi
           fi

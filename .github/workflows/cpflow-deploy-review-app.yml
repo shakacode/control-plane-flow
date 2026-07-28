@@ -467,16 +467,18 @@ jobs:
         id: workload
         working-directory: app
         shell: bash
+        env:
+          VERIFIED_WORKLOAD_ENDPOINT: ${{ steps.health-check.outputs.endpoint }}
         run: |
           set -euo pipefail
           workload_name="${PRIMARY_WORKLOAD:-rails}"
-          workload_url="${{ steps.health-check.outputs.endpoint }}"
-          app_url="${workload_url}"
+          workload_url="$(cpln workload get "${workload_name}" --gvc "${APP_NAME}" --org "${CPLN_ORG}" -o json | jq -r '.status.endpoint // empty')"
+          app_url="${VERIFIED_WORKLOAD_ENDPOINT:-${workload_url}}"
 
           if [[ -n "${workload_url}" ]]; then
             gvc_stderr="$(mktemp)"
             if ! gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json 2>"${gvc_stderr}")"; then
-              echo "::warning::Could not read GVC app_domain; falling back to workload endpoint."
+              echo "::warning::Could not read GVC app_domain; falling back to verified workload endpoint."
               sed 's/^/cpln gvc get: /' "${gvc_stderr}" >&2
               gvc_json=""
             fi
@@ -487,13 +489,12 @@ jobs:
             )"
 
             if [[ -n "${app_domain_template}" ]]; then
-              app_url="$(
+              derived_app_url="$(
                 ruby -ruri -e '
                   workload_name, workload_url, app_domain_template, app_name = ARGV
                   begin
                     uri = URI(workload_url)
                   rescue URI::InvalidURIError
-                    puts workload_url
                     exit
                   end
 
@@ -501,14 +502,12 @@ jobs:
                   host_suffix = ".cpln.app"
 
                   unless uri.host&.start_with?(host_prefix) && uri.host&.end_with?(host_suffix)
-                    puts workload_url
                     exit
                   end
 
                   raw_cpln_gvc_alias = uri.host.delete_prefix(host_prefix).delete_suffix(host_suffix)
                   cpln_gvc_alias = raw_cpln_gvc_alias.split(".").first
                   if cpln_gvc_alias.to_s.empty?
-                    puts workload_url
                     exit
                   end
                   # Avoid a literal command-substitution token here because actionlint flags it inside single-quoted Ruby.
@@ -523,12 +522,13 @@ jobs:
                       app_url = "#{app_url}/"
                     end
                   rescue URI::InvalidURIError
-                    # Keep the substituted template visible instead of hiding a bad app_domain value.
+                    exit
                   end
 
                   puts app_url
                 ' "${workload_name}" "${workload_url}" "${app_domain_template}" "${APP_NAME}"
               )"
+              app_url="${derived_app_url:-${app_url}}"
             fi
           fi
 
