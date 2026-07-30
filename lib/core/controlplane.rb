@@ -181,9 +181,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     # The direct API response omits computed fields such as status.readyLatest.
     args = ["cpln", "workload", "get", workload, "--gvc", gvc, "--org", org, "-o", "json"]
     Shell.debug("CMD", Shellwords.join(args))
-    result = Shell.cmd(*args, capture_stderr: true)
+    result = Shell.cmd(*args, separate_stderr: true)
 
-    return Shell.warn("Failed to fetch status for '#{workload}': #{result[:output].to_s.strip}") unless result[:success]
+    unless result[:success]
+      return Shell.warn("Failed to fetch status for '#{workload}': #{result[:error_output].to_s.strip}")
+    end
 
     JSON.parse(result[:output])
   rescue JSON::ParserError => e

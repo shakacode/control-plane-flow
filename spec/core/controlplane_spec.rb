@@ -108,14 +108,14 @@ describe Controlplane do
       allow(Shell).to receive(:cmd).with(
         "cpln", "workload", "get", "rails",
         "--gvc", "my-app", "--org", "my-org", "-o", "json",
-        capture_stderr: true
-      ).and_return({ success: true, output: JSON.generate(workload) })
+        separate_stderr: true
+      ).and_return({ success: true, output: JSON.generate(workload), error_output: "update available" })
 
       expect(described_instance.fetch_workload_with_status("rails")).to eq(workload)
     end
 
     it "warns and returns nil when the CLI lookup fails" do
-      allow(Shell).to receive(:cmd).and_return({ success: false, output: "not authorized" })
+      allow(Shell).to receive(:cmd).and_return({ success: false, output: "", error_output: "not authorized" })
       allow(Shell).to receive(:warn)
 
       expect(described_instance.fetch_workload_with_status("rails")).to be_nil
@@ -125,7 +125,7 @@ describe Controlplane do
     end
 
     it "warns and returns nil when the CLI output is not JSON" do
-      allow(Shell).to receive(:cmd).and_return({ success: true, output: "not json" })
+      allow(Shell).to receive(:cmd).and_return({ success: true, output: "not json", error_output: "" })
       allow(Shell).to receive(:warn)
 
       expect(described_instance.fetch_workload_with_status("rails")).to be_nil
