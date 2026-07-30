@@ -114,6 +114,23 @@ describe Command::ApplyTemplate do
       end
     end
 
+    context "when the workload list omits readiness status" do
+      let(:app_workloads) { %w[node-renderer] }
+      let(:templates) { [workload_template("node-renderer")] }
+      let(:existing_workloads) { [existing_rails.except("status")] }
+
+      before do
+        allow(cp).to receive(:fetch_workload_with_status).with("rails").and_return(existing_rails)
+      end
+
+      it "uses workload details to find the ready fallback image" do
+        command.call
+
+        expect(cp).to have_received(:fetch_workload_with_status).with("rails")
+        expect(applied_templates.dig(0, "spec", "containers", 0, "image")).to eq(deployed_image)
+      end
+    end
+
     context "when existing workloads have different deployed app images" do
       let(:app_workloads) { %w[web] }
       let(:templates) { [workload_template("web")] }

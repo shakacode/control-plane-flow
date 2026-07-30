@@ -177,6 +177,15 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.workload_get(workload: workload, gvc: gvc, org: org)
   end
 
+  def fetch_workload_with_status(workload)
+    # The direct API response omits computed fields such as status.readyLatest.
+    args = ["cpln", "workload", "get", workload, "--gvc", gvc, "--org", org, "-o", "json"]
+    Shell.debug("CMD", Shellwords.join(args))
+    result = Shell.cmd(*args)
+
+    JSON.parse(result[:output]) if result[:success]
+  end
+
   def fetch_workload!(workload)
     workload_data = fetch_workload(workload)
     return workload_data if workload_data
