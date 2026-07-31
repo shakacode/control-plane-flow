@@ -65,14 +65,21 @@ class Shell
     tmp_stderr && !verbose
   end
 
-  def self.cmd(*cmd_to_run, capture_stderr: false)
-    output, status = capture_stderr ? Open3.capture2e(*cmd_to_run) : Open3.capture2(*cmd_to_run)
+  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false)
+    return cmd_with_separate_stderr(*cmd_to_run) if separate_stderr
 
+    output, status = capture_stderr ? Open3.capture2e(*cmd_to_run) : Open3.capture2(*cmd_to_run)
     {
       output: output,
       success: status.success?
     }
   end
+
+  def self.cmd_with_separate_stderr(*cmd_to_run)
+    output, error_output, status = Open3.capture3(*cmd_to_run)
+    { output: output, error_output: error_output, success: status.success? }
+  end
+  private_class_method :cmd_with_separate_stderr
 
   #
   # Hide sensitive data based on the passed pattern

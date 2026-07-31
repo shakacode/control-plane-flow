@@ -182,8 +182,7 @@ module Command
     end
 
     def unambiguous_ready_app_image
-      ready_workloads = @existing_workloads.values.compact.select { |workload| workload_ready?(workload) }
-      app_images = ready_workloads.flat_map do |workload|
+      app_images = ready_existing_app_workloads.flat_map do |workload|
         Array(workload.dig("spec", "containers")).filter_map do |container|
           container["image"] if deployable_app_image?(container["image"])
         end
@@ -191,6 +190,17 @@ module Command
       image_prefix = "/org/#{config.org}/image/"
       canonical_images = app_images.map { |image| image.delete_prefix(image_prefix) }
       app_images.first if canonical_images.uniq.one?
+    end
+
+    def ready_existing_app_workloads
+      @existing_workloads.values.compact.filter_map do |workload|
+        next unless Array(workload.dig("spec", "containers")).any? do |container|
+          deployable_app_image?(container["image"])
+        end
+
+        workload = workload_with_readiness(workload)
+        workload if workload_ready?(workload)
+      end
     end
 
     def preserve_workload_images(template, ready_fallback_image) # rubocop:disable Metrics/MethodLength
@@ -220,6 +230,12 @@ module Command
 
     def workload_ready?(workload)
       workload&.dig("status", "readyLatest") == true
+    end
+
+    def workload_with_readiness(workload)
+      return workload unless workload.dig("status", "readyLatest").nil?
+
+      cp.fetch_workload_with_status(workload.fetch("name")) || workload
     end
 
     def app_image?(image)

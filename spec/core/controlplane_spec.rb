@@ -95,6 +95,46 @@ describe Controlplane do
     end
   end
 
+  describe "#fetch_workload_with_status" do
+    let(:described_instance) do
+      described_class.allocate.tap do |instance|
+        instance.instance_variable_set(:@gvc, "my-app")
+        instance.instance_variable_set(:@org, "my-org")
+      end
+    end
+
+    it "returns the workload with computed status from the CLI" do
+      workload = { "name" => "rails", "status" => { "readyLatest" => true } }
+      allow(Shell).to receive(:cmd).with(
+        "cpln", "workload", "get", "rails",
+        "--gvc", "my-app", "--org", "my-org", "-o", "json",
+        separate_stderr: true
+      ).and_return({ success: true, output: JSON.generate(workload), error_output: "update available" })
+
+      expect(described_instance.fetch_workload_with_status("rails")).to eq(workload)
+    end
+
+    it "warns and returns nil when the CLI lookup fails" do
+      allow(Shell).to receive(:cmd).and_return({ success: false, output: "", error_output: "not authorized" })
+      allow(Shell).to receive(:warn)
+
+      expect(described_instance.fetch_workload_with_status("rails")).to be_nil
+      expect(Shell).to have_received(:warn).with(
+        "Failed to fetch status for 'rails': not authorized"
+      )
+    end
+
+    it "warns and returns nil when the CLI output is not JSON" do
+      allow(Shell).to receive(:cmd).and_return({ success: true, output: "not json", error_output: "" })
+      allow(Shell).to receive(:warn)
+
+      expect(described_instance.fetch_workload_with_status("rails")).to be_nil
+      expect(Shell).to have_received(:warn).with(
+        a_string_starting_with("Failed to parse status for 'rails':")
+      )
+    end
+  end
+
   describe "#image_build" do
     let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
     let!(:described_instance) { described_class.new(fake_config) }
