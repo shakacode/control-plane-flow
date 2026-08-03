@@ -585,7 +585,7 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - For manual dispatch, provide the PR number; the workflow rejects fork PRs at runtime because it builds Docker images
   with repository secrets.
 - Redeploys an existing review app automatically on later PR pushes.
-- Creates a GitHub deployment and comments with the review URL and logs.
+- Creates a transient, non-production GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
 - Supports cost-conscious review apps when paired with one warm replica, Capacity AI, and a disabled autoscaling
   metric for public demos, starter staging apps, and long-lived review apps; see

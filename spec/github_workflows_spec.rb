@@ -128,6 +128,15 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(workflow.dig("concurrency", "group")).to start_with("cpflow-review-app-")
       expect(workflow.dig("concurrency", "cancel-in-progress")).to be(false)
     end
+
+    it "creates future review deployments as transient environments" do
+      deploy_steps = deploy_workflow.fetch("jobs").fetch("deploy").fetch("steps")
+      init_step = deploy_steps.find { |step| step["name"] == "Initialize GitHub deployment" }
+      script = init_step.fetch("with").fetch("script")
+
+      expect(script).to include("transient_environment: true")
+      expect(script).to include("production_environment: false")
+    end
   end
 
   describe "Delete Control Plane App action" do
