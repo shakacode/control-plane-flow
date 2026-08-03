@@ -603,6 +603,8 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
   are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
   review-app credentials must remain disposable.
+- After Control Plane deletion succeeds, marks every GitHub deployment for the exact `review/<app-name>` environment
+  inactive so the repository does not retain a stale active review deployment.
 - Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
   automatic PR-close teardown do not require a trusted commenter.
 

@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  deployments: write
   issues: write
   pull-requests: write
 
@@ -141,6 +142,39 @@ jobs:
           cpln_org: ${{ steps.review-config.outputs.cpln_org }}
           review_app_prefix: ${{ steps.review-config.outputs.review_app_prefix }}
           working_directory: app
+
+      - name: Deactivate GitHub review deployments
+        if: success() && steps.config.outputs.ready == 'true'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        env:
+          APP_NAME: ${{ steps.review-config.outputs.app_name }}
+        with:
+          script: |
+            const environment = `review/${process.env.APP_NAME}`;
+            const deployments = await github.paginate(github.rest.repos.listDeployments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              environment,
+              per_page: 100
+            });
+
+            if (deployments.length === 0) {
+              core.info(`No GitHub deployments found for ${environment}.`);
+              return;
+            }
+
+            for (const deployment of deployments) {
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.id,
+                state: "inactive",
+                environment,
+                description: "Review app deleted"
+              });
+            }
+
+            core.info(`Deactivated ${deployments.length} GitHub deployment(s) for ${environment}.`);
 
       # Finalizer still runs after delete failures, but only after config validation
       # created the initial PR comment and workflow link env vars it updates.

@@ -19,6 +19,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- **Fixed review-app deletion leaving successful GitHub deployments active after the Control Plane app was removed.**
 - **Fixed template refreshes for existing apps whose workload-list response omits readiness status by consulting each workload's detailed state before selecting a safe fallback image.** [PR 429](https://github.com/shakacode/control-plane-flow/pull/429) by [Justin Gordon](https://github.com/justin808).
 - **Fixed reusable deployment health checks on BYOK locations by falling back from a disabled standard workload endpoint only after every location is settled, while preserving configured `app_domain` review-app links and using the verified location endpoint as the final URL fallback.** [PR 426](https://github.com/shakacode/control-plane-flow/pull/426) by [Justin Gordon](https://github.com/justin808).
 - **Fixed template refresh recovery for unhealthy or partially deployed review apps by preserving each workload's configured app image independently, while limiting missing-image fallbacks to one unambiguous image from ready workloads.** [PR 425](https://github.com/shakacode/control-plane-flow/pull/425) by [Justin Gordon](https://github.com/justin808).

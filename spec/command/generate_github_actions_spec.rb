@@ -655,6 +655,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "configures delete-review-app concurrency and handles missing comment ids" do
       contents = reusable_delete_review_workflow_path.read
+      wrapper = YAML.safe_load_file(delete_review_workflow_path, aliases: true)
       expect(contents).to include("concurrency:")
       expect(contents).to include('pull_request_friendly: "true"')
       expect(contents).to include("Checkout repository")
@@ -665,6 +666,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
       expect(delete_review_workflow_path.read).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
       expect(delete_review_workflow_path.read).not_to include("secrets: inherit")
+      expect(wrapper.fetch("permissions")).to include("deployments" => "write")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )

@@ -74,6 +74,25 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         "working_directory" => "app"
       )
     end
+
+    it "deactivates every GitHub deployment for the deleted review environment" do
+      expect(workflow.fetch("permissions")).to include("deployments" => "write")
+
+      step = step_named("Deactivate GitHub review deployments")
+      expect(step).to include(
+        "if" => "success() && steps.config.outputs.ready == 'true'",
+        "env" => {
+          "APP_NAME" => "${{ steps.review-config.outputs.app_name }}"
+        }
+      )
+
+      script = step.fetch("with").fetch("script")
+      expect(script).to include("const environment = `review/${process.env.APP_NAME}`;")
+      expect(script).to include("github.paginate(github.rest.repos.listDeployments")
+      expect(script).to include("for (const deployment of deployments)")
+      expect(script).to include("github.rest.repos.createDeploymentStatus")
+      expect(script).to include('state: "inactive"')
+    end
   end
 
   describe "Delete Control Plane App action" do
