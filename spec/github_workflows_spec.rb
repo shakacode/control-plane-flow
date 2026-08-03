@@ -54,6 +54,13 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     let(:steps) { workflow.fetch("jobs").fetch("delete-review-app").fetch("steps") }
 
+    let(:deploy_workflow) do
+      YAML.safe_load_file(
+        File.expand_path("../.github/workflows/cpflow-deploy-review-app.yml", __dir__),
+        aliases: true
+      )
+    end
+
     def step_named(name)
       steps.find { |step| step["name"] == name }
     end
@@ -80,6 +87,8 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
       step = step_named("Deactivate GitHub review deployments")
       expect(step).to include(
+        "id" => "deactivate-deployments",
+        "continue-on-error" => true,
         "if" => "success() && steps.config.outputs.ready == 'true'",
         "env" => {
           "APP_NAME" => "${{ steps.review-config.outputs.app_name }}"
@@ -92,6 +101,30 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(script).to include("for (const deployment of deployments)")
       expect(script).to include("github.rest.repos.createDeploymentStatus")
       expect(script).to include('state: "inactive"')
+    end
+
+    it "reports deployment cleanup failures accurately before failing the workflow" do
+      expect(step_named("Delete review app")).to include("id" => "delete-app")
+
+      finalizer = step_named("Finalize delete status")
+      expect(finalizer.fetch("env")).to include(
+        "DELETE_OUTCOME" => "${{ steps.delete-app.outcome }}",
+        "DEACTIVATION_OUTCOME" => "${{ steps.deactivate-deployments.outcome }}"
+      )
+      expect(finalizer.dig("with", "script")).to include(
+        "Review App Deleted, GitHub Deployment Cleanup Failed"
+      )
+
+      failure_step = step_named("Fail when GitHub deployment cleanup failed")
+      expect(failure_step.fetch("if")).to include("steps.deactivate-deployments.outcome == 'failure'")
+      expect(failure_step.fetch("run")).to include("exit 1")
+      expect(steps.index(finalizer)).to be < steps.index(failure_step)
+    end
+
+    it "serializes deploy and delete workflows in the same per-PR concurrency group" do
+      expect(workflow.fetch("concurrency")).to eq(deploy_workflow.fetch("concurrency"))
+      expect(workflow.dig("concurrency", "group")).to start_with("cpflow-review-app-")
+      expect(workflow.dig("concurrency", "cancel-in-progress")).to be(false)
     end
   end
 
