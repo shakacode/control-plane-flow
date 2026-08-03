@@ -660,6 +660,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("group: cpflow-review-app-")
       expect(contents).to include("id: delete-app")
       expect(contents).to include("id: deactivate-deployments")
+      expect(contents).to include("steps.delete-app.outcome == 'success'")
       expect(contents).to include("continue-on-error: true")
       expect(contents).to include("listDeploymentStatuses")
       expect(contents).to include('latestStatus?.state === "inactive"')

@@ -146,7 +146,7 @@ jobs:
 
       - name: Deactivate GitHub review deployments
         id: deactivate-deployments
-        if: success() && steps.config.outputs.ready == 'true'
+        if: steps.config.outputs.ready == 'true' && steps.delete-app.outcome == 'success'
         continue-on-error: true
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         env:

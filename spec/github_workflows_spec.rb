@@ -89,7 +89,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(step).to include(
         "id" => "deactivate-deployments",
         "continue-on-error" => true,
-        "if" => "success() && steps.config.outputs.ready == 'true'",
+        "if" => "steps.config.outputs.ready == 'true' && steps.delete-app.outcome == 'success'",
         "env" => {
           "APP_NAME" => "${{ steps.review-config.outputs.app_name }}"
         }
