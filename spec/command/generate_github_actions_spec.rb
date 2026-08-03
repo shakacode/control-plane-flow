@@ -655,7 +655,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "configures delete-review-app concurrency and handles missing comment ids" do
       contents = reusable_delete_review_workflow_path.read
+      wrapper = YAML.safe_load_file(delete_review_workflow_path, aliases: true)
       expect(contents).to include("concurrency:")
+      expect(contents).to include("group: cpflow-review-app-")
+      expect(contents).to include("id: delete-app")
+      expect(contents).to include("id: deactivate-deployments")
+      expect(contents).to include("steps.delete-app.outcome == 'success'")
+      expect(contents).to include("continue-on-error: true")
+      expect(contents).to include("listDeploymentStatuses")
+      expect(contents).to include('latestStatus?.state === "inactive"')
+      expect(contents).to include("Review App Deleted, GitHub Deployment Cleanup Failed")
+      expect(contents).to include("Fail when GitHub deployment cleanup failed")
       expect(contents).to include('pull_request_friendly: "true"')
       expect(contents).to include("Checkout repository")
       expect(contents).to include("path: app")
@@ -665,6 +675,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
       expect(delete_review_workflow_path.read).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
       expect(delete_review_workflow_path.read).not_to include("secrets: inherit")
+      expect(wrapper.fetch("permissions")).to include("deployments" => "write")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
@@ -675,7 +686,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("id: config")
       expect(contents).to match(/steps\.config\.outputs\.ready == 'true'/)
-      expect(contents).to include("Finalizer still runs after delete failures")
+      expect(contents).to include("Finalizer still runs after delete or deployment-cleanup failures")
       expect(contents).to include("if: always() && steps.config.outputs.ready == 'true'")
     end
 
@@ -696,7 +707,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
       expect(delete_contents).not_to include('"${{ job.status }}"')
       expect(delete_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
-      expect(delete_contents).to include("JOB_STATUS: ${{ job.status }}")
+      expect(delete_contents).to include("DELETE_OUTCOME: ${{ steps.delete-app.outcome }}")
+      expect(delete_contents).to include(
+        "DEACTIVATION_OUTCOME: ${{ steps.deactivate-deployments.outcome }}"
+      )
     end
 
     it "uses shell env vars for stale review cleanup inputs" do
