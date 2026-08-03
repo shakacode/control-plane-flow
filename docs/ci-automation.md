@@ -604,7 +604,8 @@ deploy key scoped to the minimum private dependency access, and never use a pers
   are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
   review-app credentials must remain disposable.
 - After Control Plane deletion succeeds, marks every GitHub deployment for the exact `review/<app-name>` environment
-  inactive so the repository does not retain a stale active review deployment. Deploy and delete workflows share one
+  inactive so the repository does not retain a stale active review deployment, while skipping deployments whose latest
+  status is already inactive so repeated teardown is idempotent. Deploy and delete workflows share one
   per-PR concurrency queue, ensuring an in-flight deploy finishes before deletion and cannot publish a later success
   status after the app is removed. If GitHub deployment cleanup fails after Control Plane deletion, the workflow reports
   that partial outcome accurately and still fails so the cleanup can be retried.

@@ -661,6 +661,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("id: delete-app")
       expect(contents).to include("id: deactivate-deployments")
       expect(contents).to include("continue-on-error: true")
+      expect(contents).to include("listDeploymentStatuses")
+      expect(contents).to include('latestStatus?.state === "inactive"')
       expect(contents).to include("Review App Deleted, GitHub Deployment Cleanup Failed")
       expect(contents).to include("Fail when GitHub deployment cleanup failed")
       expect(contents).to include('pull_request_friendly: "true"')

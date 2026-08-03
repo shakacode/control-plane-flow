@@ -98,6 +98,8 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       script = step.fetch("with").fetch("script")
       expect(script).to include("const environment = `review/${process.env.APP_NAME}`;")
       expect(script).to include("github.paginate(github.rest.repos.listDeployments")
+      expect(script).to include("github.rest.repos.listDeploymentStatuses")
+      expect(script).to include('latestStatus?.state === "inactive"')
       expect(script).to include("for (const deployment of deployments)")
       expect(script).to include("github.rest.repos.createDeploymentStatus")
       expect(script).to include('state: "inactive"')
