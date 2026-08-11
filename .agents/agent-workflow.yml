@@ -3,6 +3,8 @@
 # AGENTS.md directs portable skills here; it does not duplicate or override them.
 # Commands live as scripts in .agents/bin/ (see .agents/bin/README.md).
 base_branch: main
+merge_submission:
+  mode: direct
 changelog: "CHANGELOG.md — Keep-a-Changelog; user-visible changes only"
 follow_up_prefix: "Follow-up:"
 review_gate: "AI reviewers are advisory unless they confirm a blocker; merge gate is the full `gh pr checks` list green (not --required) + all threads resolved + mergeable clean"
