@@ -49,6 +49,13 @@ module Command
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
       - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
         Control Plane exposes a runner replica to attach logs to
+      - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC identity
+        (unlike `CPLN_GVC_ALIAS`, which changes when a GVC is deleted and recreated under the same name),
+        so that a command such as a release script can tell which GVC incarnation it is running in
+      - `CPFLOW_GVC_CREATED` is the ISO 8601 UTC timestamp of the GVC's creation, with millisecond precision
+        and a `Z` suffix (e.g. `2026-08-28T00:54:48.648Z`)
+      - Both variables are omitted entirely if the GVC cannot be read, so that a consumer can distinguish
+        a missing value from a real one
     DESC
     EXAMPLES = <<~EX.freeze
       ```sh
@@ -389,6 +396,7 @@ module Command
       job_start_hash["args"].push("-c")
       job_start_hash["env"] ||= []
       job_start_hash["env"].push({ "name" => "CPFLOW_RUNNER_SCRIPT", "value" => runner_script })
+      job_start_hash["env"].concat(gvc_identity_env_vars)
       if interactive
         job_start_hash["env"].push({ "name" => "CPFLOW_MONITORING_SCRIPT", "value" => interactive_monitoring_script })
 
@@ -411,6 +419,23 @@ module Command
       job_start_hash["memory"] = config.options[:memory] if config.options[:memory]
 
       job_start_hash.to_yaml
+    end
+
+    # Exposes the GVC's immutable identity to the job. cpflow authenticates client-side with the
+    # operator/CI credentials, so reading the GVC here adds no GVC-view binding to the app's workload
+    # identity and leaves nothing behind for the delete lifecycle to clean up.
+    #
+    # Returns no vars at all when the GVC cannot be read, so that a consumer keying a decision on the
+    # identity can distinguish "present" from "absent" instead of receiving empty values.
+    def gvc_identity_env_vars
+      gvc_data = cp.fetch_gvc
+      gvc_id = gvc_data && gvc_data["id"]
+      return [] unless gvc_id
+
+      env_vars = [{ "name" => "CPFLOW_GVC_ID", "value" => gvc_id }]
+      gvc_created = gvc_data["created"]
+      env_vars.push({ "name" => "CPFLOW_GVC_CREATED", "value" => gvc_created }) if gvc_created
+      env_vars
     end
 
     def interactive_monitoring_script
