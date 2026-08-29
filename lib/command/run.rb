@@ -49,6 +49,17 @@ module Command
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
       - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
         Control Plane exposes a runner replica to attach logs to
+      - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
+        identity, so that a command such as a release script can tell which GVC incarnation it is running in.
+        These change when a GVC is deleted and recreated under the same name, and only then, unlike
+        `CPLN_GVC_ALIAS`, which is also embedded in mutable derived values such as the app domain and so
+        cannot be attributed to recreation alone
+      - `CPFLOW_GVC_CREATED` is the GVC's creation timestamp as returned by the Control Plane API and passed
+        through unmodified, currently an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix
+        (e.g. `2026-08-28T00:54:48.648Z`)
+      - Both variables are always set, and are empty when the GVC cannot be read, so that a consumer can
+        fail closed. They are never omitted, because the runner inherits the original workload's
+        environment and an omitted variable could otherwise expose a stale inherited value
     DESC
     EXAMPLES = <<~EX.freeze
       ```sh
@@ -389,6 +400,7 @@ module Command
       job_start_hash["args"].push("-c")
       job_start_hash["env"] ||= []
       job_start_hash["env"].push({ "name" => "CPFLOW_RUNNER_SCRIPT", "value" => runner_script })
+      job_start_hash["env"].concat(gvc_identity_env_vars)
       if interactive
         job_start_hash["env"].push({ "name" => "CPFLOW_MONITORING_SCRIPT", "value" => interactive_monitoring_script })
 
@@ -411,6 +423,58 @@ module Command
       job_start_hash["memory"] = config.options[:memory] if config.options[:memory]
 
       job_start_hash.to_yaml
+    end
+
+    # Exposes the GVC's immutable identity to the job. cpflow authenticates client-side with the
+    # operator/CI credentials, so reading the GVC here adds no GVC-view binding to the app's workload
+    # identity and leaves nothing behind for the delete lifecycle to clean up.
+    #
+    # Both variables are always emitted, empty when unknown, rather than omitted. `update_runner_workload`
+    # copies the original workload's env wholesale into the runner, so omitting them would let a value
+    # inherited from the workload survive a failed read and be mistaken for a live identity. Emitting an
+    # explicit empty value is the only way a consumer can actually fail closed.
+    def gvc_identity_env_vars
+      gvc_data = fetch_gvc_for_identity
+      gvc_id = (gvc_data && gvc_data["id"]).to_s
+      # Gated on the id so a fresh id can never be paired with an inherited timestamp.
+      gvc_created = gvc_id.empty? ? "" : gvc_data["created"].to_s
+
+      [
+        { "name" => "CPFLOW_GVC_ID", "value" => gvc_id },
+        { "name" => "CPFLOW_GVC_CREATED", "value" => gvc_created }
+      ]
+    end
+
+    # The identity is an optional enrichment, so failing to read it must never stop the job, and the
+    # variables are still emitted (empty) rather than dropped.
+    # Two reasons the rescue is deliberately broad rather than a narrow class list:
+    #
+    # 1. Availability. `cpflow run` is also the release-phase mechanism for `deploy-image`, `setup-app`,
+    #    and `delete`, so a transient error on the GVC endpoint would otherwise fail a deploy over a
+    #    variable the command does not need.
+    # 2. Taxonomy. `handle_response` raises a bare `RuntimeError` for 401 and 5xx responses, so any
+    #    "narrow" list that actually covered the real failures would have to include `RuntimeError`.
+    #
+    # `MaintenanceMode#domain_workload_update_confirmed?` rescues `StandardError` against this same API
+    # client for the same reason. The rescued body is a single external call, so a bug in this file's own
+    # logic still raises.
+    def fetch_gvc_for_identity
+      cp.fetch_gvc
+    rescue StandardError => e
+      # Deliberately `Shell.warn` rather than a `step`. `step_finish` prints a red "failed!" banner
+      # whenever its block is falsy, regardless of `abort_on_error`, so routing an optional lookup
+      # through it would show a failure on every deploy for anyone whose token omits `gvc` view -- for
+      # a read that stops nothing and leaves the exit code at 0.
+      Shell.warn(gvc_identity_error_message(e))
+      nil
+    end
+
+    # A 403 here is normally a missing `view` grant on kind `gvc`, but `ForbiddenError` renders any
+    # `/org/...` URL as "Double check your org", which sends the operator after the wrong thing.
+    def gvc_identity_error_message(error)
+      "Continuing without the GVC identity, so CPFLOW_GVC_ID and CPFLOW_GVC_CREATED are set to empty " \
+        "strings. A permission failure here usually means the token lacks `view` on kind `gvc` for this " \
+        "app, even when the message below mentions the org. #{error.message}"
     end
 
     def interactive_monitoring_script

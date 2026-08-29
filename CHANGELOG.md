@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- **Added `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` to the environment of one-off jobs started by `cpflow run`, exposing the app's immutable GVC identity so that a release script can tell which GVC incarnation it is running in.** [PR 433](https://github.com/shakacode/control-plane-flow/pull/433) by [Justin Gordon](https://github.com/justin808). Fixes [issue 432](https://github.com/shakacode/control-plane-flow/issues/432). Unlike the mutable `CPLN_GVC_ALIAS`, these values identify the GVC incarnation itself, so they change only when a GVC is deleted and recreated under the same name. `CPFLOW_GVC_CREATED` is an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix. Both variables are always set and are empty when the GVC cannot be read, so a consumer can fail closed; they are never omitted, because the runner inherits the original workload's environment and an omitted variable could otherwise expose a stale inherited value.
+
 ### Changed
 
 - **Simplified generated review-app help comments to a three-command quick reference, moved setup behind expandable details, and clarified GitHub Actions secret and variable terminology.** [PR 410](https://github.com/shakacode/control-plane-flow/pull/410) by [Justin Gordon](https://github.com/justin808).

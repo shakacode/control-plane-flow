@@ -131,6 +131,125 @@ describe Command::Run do
     end
   end
 
+  describe "#build_job_start_yaml" do
+    let(:gvc_data) do
+      {
+        "id" => "36f3cf5b-cdfc-466c-9d21-43cc3888d496",
+        "name" => "test-app",
+        "created" => "2026-08-28T00:54:48.648Z"
+      }
+    end
+    let(:config) do
+      instance_double(
+        Config,
+        args: ["bin/rails db:migrate"],
+        current: {},
+        options: { use_local_token: false, entrypoint: nil, image: nil, cpu: nil, memory: nil }
+      )
+    end
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+    let(:job_env) { YAML.safe_load(command.send(:build_job_start_yaml)).fetch("env") }
+
+    def env_value(name)
+      job_env.find { |env_var| env_var["name"] == name }&.fetch("value")
+    end
+
+    before do
+      allow(command).to receive_messages(cp: cp)
+      allow(command).to receive(:base_workload_specs)
+        .with("rails")
+        .and_return([{}, { "name" => "rails", "image" => "/org/test-org/image/test-app:1" }])
+      allow(cp).to receive(:fetch_gvc).and_return(gvc_data)
+
+      command.instance_variable_set(:@original_workload, "rails")
+      command.instance_variable_set(:@interactive, false)
+      command.instance_variable_set(:@log_method, 3)
+    end
+
+    it "injects the immutable GVC identity into the job environment" do
+      expect(job_env).to include(
+        { "name" => "CPFLOW_GVC_ID", "value" => "36f3cf5b-cdfc-466c-9d21-43cc3888d496" },
+        { "name" => "CPFLOW_GVC_CREATED", "value" => "2026-08-28T00:54:48.648Z" }
+      )
+    end
+
+    it "still passes the command through the runner script" do
+      runner_script = job_env.find { |env_var| env_var["name"] == "CPFLOW_RUNNER_SCRIPT" }
+
+      expect(runner_script["value"]).to include("bin/rails db:migrate")
+    end
+
+    context "when the app has no GVC" do
+      let(:gvc_data) { nil }
+
+      it "sets both to empty, so an inherited value cannot pass as a live identity" do
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
+      end
+    end
+
+    context "when the GVC has an id but no creation timestamp" do
+      let(:gvc_data) { { "id" => "36f3cf5b-cdfc-466c-9d21-43cc3888d496", "name" => "test-app" } }
+
+      it "empties the timestamp, so a live id is never paired with an inherited one" do
+        expect(env_value("CPFLOW_GVC_ID")).to eq("36f3cf5b-cdfc-466c-9d21-43cc3888d496")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
+      end
+    end
+
+    context "when the token may not read the GVC" do
+      before do
+        forbidden_error = ControlplaneApiDirect::ForbiddenError.new(
+          url: "/org/test-org/gvc/test-app", response: "403 Forbidden"
+        )
+        allow(cp).to receive(:fetch_gvc).and_raise(forbidden_error)
+        allow(Shell).to receive(:warn)
+      end
+
+      it "still builds the job, because `run` never required GVC-read access" do
+        expect(env_value("CPFLOW_RUNNER_SCRIPT")).to include("bin/rails db:migrate")
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
+      end
+
+      it "names the missing grant, which the error message itself does not" do
+        job_env
+
+        expect(Shell).to have_received(:warn).with(/`view` on kind `gvc`/)
+      end
+
+      it "says the variables are set to empty rather than absent" do
+        job_env
+
+        expect(Shell).to have_received(:warn).with(/set to empty strings/)
+      end
+    end
+
+    # The API layer raises a bare RuntimeError for 401 and 5xx, so the rescue is intentionally wider
+    # than ForbiddenError. Narrowing it would fail deploys on a transient GVC-endpoint error.
+    context "when the GVC endpoint fails without a typed error" do
+      before do
+        allow(cp).to receive(:fetch_gvc).and_raise(RuntimeError, "500 Internal Server Error")
+        allow(Shell).to receive(:warn)
+      end
+
+      it "still builds the job" do
+        expect(env_value("CPFLOW_RUNNER_SCRIPT")).to include("bin/rails db:migrate")
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+      end
+    end
+
+    context "when the GVC has no id" do
+      let(:gvc_data) { { "name" => "test-app", "created" => "2026-08-28T00:54:48.648Z" } }
+
+      it "sets both to empty, so an inherited value cannot pass as a live identity" do
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
+      end
+    end
+  end
+
   describe "#run_interactive" do
     let(:config) { instance_double(Config, app: "test-app") }
     let(:cp) { instance_double(Controlplane) }
