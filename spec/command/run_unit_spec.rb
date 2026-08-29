@@ -187,6 +187,27 @@ describe Command::Run do
       end
     end
 
+    context "when reading the GVC fails" do
+      before do
+        allow(cp).to receive(:fetch_gvc).and_raise(StandardError, "403 Forbidden")
+        allow(Shell).to receive(:warn)
+      end
+
+      it "still builds the job, because the identity is an optional enrichment" do
+        job_env_names = job_env.map { |env_var| env_var["name"] }
+
+        expect(job_env_names).to include("CPFLOW_RUNNER_SCRIPT")
+        expect(job_env_names).not_to include("CPFLOW_GVC_ID")
+        expect(job_env_names).not_to include("CPFLOW_GVC_CREATED")
+      end
+
+      it "warns so the missing identity is visible rather than silent" do
+        job_env
+
+        expect(Shell).to have_received(:warn).with(/Failed to fetch GVC identity/)
+      end
+    end
+
     context "when the GVC has no id" do
       let(:gvc_data) { { "name" => "test-app", "created" => "2026-08-28T00:54:48.648Z" } }
 

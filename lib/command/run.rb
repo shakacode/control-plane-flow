@@ -425,10 +425,11 @@ module Command
     # operator/CI credentials, so reading the GVC here adds no GVC-view binding to the app's workload
     # identity and leaves nothing behind for the delete lifecycle to clean up.
     #
-    # Returns no vars at all when the GVC cannot be read, so that a consumer keying a decision on the
-    # identity can distinguish "present" from "absent" instead of receiving empty values.
+    # Returns no vars at all when the GVC cannot be read for any reason, so that a consumer keying a
+    # decision on the identity can distinguish "present" from "absent" instead of receiving empty
+    # values, and so that an unreadable GVC never turns into a failed job.
     def gvc_identity_env_vars
-      gvc_data = cp.fetch_gvc
+      gvc_data = fetch_gvc_for_identity
       gvc_id = gvc_data && gvc_data["id"]
       return [] unless gvc_id
 
@@ -436,6 +437,16 @@ module Command
       gvc_created = gvc_data["created"]
       env_vars.push({ "name" => "CPFLOW_GVC_CREATED", "value" => gvc_created }) if gvc_created
       env_vars
+    end
+
+    # The identity is an optional enrichment, so a failure to read it must not stop the job.
+    # `cpflow run` never required GVC-read access before, and taking it away from anyone whose
+    # credentials cannot read the GVC would be a regression rather than a new feature.
+    def fetch_gvc_for_identity
+      cp.fetch_gvc
+    rescue StandardError => e
+      Shell.warn("Failed to fetch GVC identity, continuing without it: #{e.message}")
+      nil
     end
 
     def interactive_monitoring_script
