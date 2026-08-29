@@ -429,9 +429,6 @@ module Command
     # operator/CI credentials, so reading the GVC here adds no GVC-view binding to the app's workload
     # identity and leaves nothing behind for the delete lifecycle to clean up.
     #
-    # Returns no vars at all when the GVC cannot be read for any reason, so that a consumer keying a
-    # decision on the identity can distinguish "present" from "absent" instead of receiving empty
-    # values, and so that an unreadable GVC never turns into a failed job.
     # Both variables are always emitted, empty when unknown, rather than omitted. `update_runner_workload`
     # copies the original workload's env wholesale into the runner, so omitting them would let a value
     # inherited from the workload survive a failed read and be mistaken for a live identity. Emitting an
