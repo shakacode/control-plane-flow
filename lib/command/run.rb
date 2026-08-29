@@ -448,7 +448,8 @@ module Command
       ]
     end
 
-    # The identity is an optional enrichment, so failing to read it must never stop the job.
+    # The identity is an optional enrichment, so failing to read it must never stop the job, and the
+    # variables are still emitted (empty) rather than dropped.
     # Two reasons the rescue is deliberately broad rather than a narrow class list:
     #
     # 1. Availability. `cpflow run` is also the release-phase mechanism for `deploy-image`, `setup-app`,
@@ -461,25 +462,22 @@ module Command
     # client for the same reason. The rescued body is a single external call, so a bug in this file's own
     # logic still raises.
     def fetch_gvc_for_identity
-      gvc_data = nil
-
-      step("Reading GVC identity", abort_on_error: false) do
-        gvc_data = cp.fetch_gvc
-        true
-      rescue StandardError => e
-        Shell.write_to_tmp_stderr(gvc_identity_error_message(e))
-        false
-      end
-
-      gvc_data
+      cp.fetch_gvc
+    rescue StandardError => e
+      # Deliberately `Shell.warn` rather than a `step`. `step_finish` prints a red "failed!" banner
+      # whenever its block is falsy, regardless of `abort_on_error`, so routing an optional lookup
+      # through it would show a failure on every deploy for anyone whose token omits `gvc` view -- for
+      # a read that stops nothing and leaves the exit code at 0.
+      Shell.warn(gvc_identity_error_message(e))
+      nil
     end
 
     # A 403 here is normally a missing `view` grant on kind `gvc`, but `ForbiddenError` renders any
     # `/org/...` URL as "Double check your org", which sends the operator after the wrong thing.
     def gvc_identity_error_message(error)
-      "Continuing without the GVC identity, so CPFLOW_GVC_ID and CPFLOW_GVC_CREATED are not set. " \
-        "A permission failure here usually means the token lacks `view` on kind `gvc` for this app, " \
-        "even when the message below mentions the org. #{error.message}"
+      "Continuing without the GVC identity, so CPFLOW_GVC_ID and CPFLOW_GVC_CREATED are set to empty " \
+        "strings. A permission failure here usually means the token lacks `view` on kind `gvc` for this " \
+        "app, even when the message below mentions the org. #{error.message}"
     end
 
     def interactive_monitoring_script

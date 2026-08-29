@@ -204,7 +204,7 @@ describe Command::Run do
           url: "/org/test-org/gvc/test-app", response: "403 Forbidden"
         )
         allow(cp).to receive(:fetch_gvc).and_raise(forbidden_error)
-        allow(Shell).to receive(:write_to_tmp_stderr)
+        allow(Shell).to receive(:warn)
       end
 
       it "still builds the job, because `run` never required GVC-read access" do
@@ -216,7 +216,13 @@ describe Command::Run do
       it "names the missing grant, which the error message itself does not" do
         job_env
 
-        expect(Shell).to have_received(:write_to_tmp_stderr).with(/`view` on kind `gvc`/)
+        expect(Shell).to have_received(:warn).with(/`view` on kind `gvc`/)
+      end
+
+      it "says the variables are set to empty rather than absent" do
+        job_env
+
+        expect(Shell).to have_received(:warn).with(/set to empty strings/)
       end
     end
 
@@ -225,7 +231,7 @@ describe Command::Run do
     context "when the GVC endpoint fails without a typed error" do
       before do
         allow(cp).to receive(:fetch_gvc).and_raise(RuntimeError, "500 Internal Server Error")
-        allow(Shell).to receive(:write_to_tmp_stderr)
+        allow(Shell).to receive(:warn)
       end
 
       it "still builds the job" do
