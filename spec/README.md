@@ -88,3 +88,22 @@ swept; they do not consume GVC quota, and the `after(:suite)` path removes them
 on any run that exits normally.
 
 `SKIP_CLEANUP=true` disables the sweep as well.
+
+### What the sweep does not reclaim
+
+The sweep deletes a stale fixture's volumesets, their attached workloads, and the
+GVC. It deliberately stops there.
+
+`Command::Delete` also unbinds the app identity from its secrets policy before
+deleting, and the sweep does not. Doing so needs `config.identity` and
+`config.secrets_policy`, which resolve from the app's entry in
+`controlplane.yml`; a stale fixture's run identifier is by definition absent from
+the current config, so the sweep has no entry to read. Identity bindings are
+org-scoped and survive GVC deletion, so a killed run that got as far as
+`setup-app`'s identity-binding step can leave one behind. That is a separate
+leak from the GVC-quota exhaustion this recovers, and it does not consume GVC
+quota. Reclaiming it would mean enumerating and deleting org-level policy
+objects, which is a materially wider destructive surface than this sweep takes on.
+
+Org-level images are likewise out of scope: they do not consume GVC quota, and
+the `after(:suite)` path removes them on any normally-exiting run.
