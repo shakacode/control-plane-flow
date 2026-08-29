@@ -74,10 +74,36 @@ module StaleDummyAppSweeper
     reason = keep_reason(gvc, now)
     return output.puts("  Keeping '#{name}': #{reason}") if reason
 
+    return unless delete_volumesets(api, org, name, output)
+
     api.gvc_delete(org: org, gvc: name)
     output.puts("  Deleted stale app '#{name}'")
   rescue StandardError => e
     output.puts("  Failed to delete stale app '#{gvc['name']}' (#{e.class}: #{e.message})")
+  end
+
+  # `Command::Delete` removes volumesets, and the workloads attached to them, before
+  # deleting the GVC (`delete_volumesets` then `delete_gvc`). A bare `gvc_delete` does
+  # not cascade to them, so a fixture carrying a volumeset -- the Postgres templates do
+  # -- would fail to delete or strand the volumeset. Mirror that order here.
+  #
+  # Returns false when cleanup failed, so the GVC is left for a later run rather than
+  # half-deleted.
+  def delete_volumesets(api, org, name, output)
+    volumesets = api.list_volumesets(org: org, gvc: name)["items"] || []
+    volumesets.each { |volumeset| delete_volumeset(api, org, name, volumeset, output) }
+
+    true
+  rescue StandardError => e
+    output.puts("  Keeping '#{name}': could not clear its volumesets (#{e.class}: #{e.message})")
+    false
+  end
+
+  def delete_volumeset(api, org, name, volumeset, output)
+    workloads = volumeset.dig("status", "workloadLinks")&.map { |link| link.split("/").last }
+    workloads&.each { |workload| api.delete_workload(org: org, gvc: name, workload: workload) }
+    api.delete_volumeset(org: org, gvc: name, volumeset: volumeset["name"])
+    output.puts("  Deleted volumeset '#{volumeset['name']}' from stale app '#{name}'")
   end
 
   # Returns why the GVC must be kept, or `nil` when it is safe to delete.

@@ -14,6 +14,9 @@ describe StaleDummyAppSweeper do
                                               dummy_test_app_global_identifier: current_identifier)
     allow(api).to receive(:gvc_list).with(org: org).and_return({ "items" => gvcs })
     allow(api).to receive(:gvc_delete)
+    allow(api).to receive(:list_volumesets).and_return({ "items" => [] })
+    allow(api).to receive(:delete_volumeset)
+    allow(api).to receive(:delete_workload)
   end
 
   def org
@@ -138,6 +141,35 @@ describe StaleDummyAppSweeper do
 
       expect(api).to have_received(:gvc_delete).with(org: org, gvc: "dummy-test-full-cccc")
       expect(output.string).to include("Failed to delete stale app 'dummy-test-full-bbbb'")
+    end
+  end
+
+  describe "fixtures that carry a volumeset" do
+    let(:stale) { "dummy-test-full-bbbb-cccc" }
+    let(:gvcs) { [gvc(stale, six_weeks_ago)] }
+
+    before do
+      allow(api).to receive(:list_volumesets).with(org: org, gvc: stale).and_return(
+        { "items" => [{ "name" => "postgres",
+                        "status" => { "workloadLinks" => ["/org/#{org}/gvc/#{stale}/workload/postgres"] } }] }
+      )
+    end
+
+    it "clears the volumeset and its workloads before the GVC, as Command::Delete does" do
+      sweep
+
+      expect(api).to have_received(:delete_workload).with(org: org, gvc: stale, workload: "postgres").ordered
+      expect(api).to have_received(:delete_volumeset).with(org: org, gvc: stale, volumeset: "postgres").ordered
+      expect(api).to have_received(:gvc_delete).with(org: org, gvc: stale).ordered
+    end
+
+    it "keeps the app for a later run when its volumesets cannot be cleared" do
+      allow(api).to receive(:delete_volumeset).and_raise("409 from the API")
+
+      sweep
+
+      expect(api).not_to have_received(:gvc_delete).with(org: org, gvc: stale)
+      expect(output.string).to include("could not clear its volumesets")
     end
   end
 end
