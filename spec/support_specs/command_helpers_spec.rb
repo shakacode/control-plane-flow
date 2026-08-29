@@ -78,4 +78,17 @@ describe CommandHelpers do
       expect(described_class.apps_to_delete).not_to include("dummy-test-upstream")
     end
   end
+
+  describe "names with a multi-segment suffix" do
+    it "stays inside the cleanup boundary, so generation and validation cannot drift" do
+      name = "#{CommandHelpers::DUMMY_TEST_APP_PREFIX}-default-ab12-release-a"
+
+      expect(CommandHelpers::DUMMY_TEST_APP_NAME_PATTERN).to match(name)
+    end
+
+    it "still excludes the permanent upstream fixture" do
+      expect(CommandHelpers::DUMMY_TEST_APP_NAME_PATTERN)
+        .not_to match("#{CommandHelpers::DUMMY_TEST_APP_PREFIX}-upstream")
+    end
+  end
 end

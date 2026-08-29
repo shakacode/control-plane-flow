@@ -19,8 +19,14 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   # merely begin with `dummy-test` (such as the `dummy-test-upstream` app named
   # by `upstream:` in the dummy `controlplane.yml`) outside the boundary. Never
   # relax this into a `start_with?`/`include?` check.
+  #
+  # The trailing group repeats, so a multi-segment suffix stays inside the boundary.
+  # `dummy_test_app` accepts any suffix, and a name it can generate but this rejects
+  # would silently stop being registered for cleanup -- the leak this exists to close.
+  # The run identifier is what keeps the boundary tight: `dummy-test-upstream` has no
+  # four-hex segment in that position, so it cannot match however the suffix repeats.
   DUMMY_TEST_APP_NAME_PATTERN =
-    /\A#{DUMMY_TEST_APP_PREFIX}-(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?[0-9a-f]{4}(?:-[a-z0-9]+)?\z/
+    /\A#{DUMMY_TEST_APP_PREFIX}-(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?[0-9a-f]{4}(?:-[a-z0-9]+)*\z/
 
   # Commands that can create an app's GVC. Every dummy app name passed to one of
   # these is registered for `after(:suite)` cleanup *before* the command runs, so

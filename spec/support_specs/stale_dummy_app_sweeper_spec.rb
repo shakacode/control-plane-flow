@@ -82,7 +82,8 @@ describe StaleDummyAppSweeper do
         gvc("dummy-test-upstream", six_weeks_ago),
         gvc("production-app", six_weeks_ago),
         gvc("not-dummy-test-bbbb", six_weeks_ago),
-        gvc("dummy-test-full-bbbb-with-a-trailing-tail", six_weeks_ago)
+        gvc("dummy-test-secrets", six_weeks_ago),
+        gvc("dummy-test-secrets-policy", six_weeks_ago)
       ]
     end
 
@@ -90,7 +91,7 @@ describe StaleDummyAppSweeper do
       sweep
 
       expect(api).not_to have_received(:gvc_delete)
-      expect(output.string).to include("Found 0 test fixture(s), ignoring 4 other GVC(s)")
+      expect(output.string).to include("Found 0 test fixture(s), ignoring 5 other GVC(s)")
     end
   end
 
@@ -170,6 +171,19 @@ describe StaleDummyAppSweeper do
 
       expect(api).not_to have_received(:gvc_delete).with(org: org, gvc: stale)
       expect(output.string).to include("could not clear its volumesets")
+    end
+  end
+
+  # `dummy_test_app` accepts any suffix, so a name it can generate must stay inside the
+  # boundary. A generated name the pattern rejected would silently stop being registered
+  # for cleanup, which is the leak this whole change exists to close.
+  context "with a stale fixture whose suffix has several segments" do
+    let(:gvcs) { [gvc("dummy-test-full-bbbb-with-a-trailing-tail", six_weeks_ago)] }
+
+    it "sweeps it, because `dummy_test_app` can generate that name" do
+      sweep
+
+      expect(api).to have_received(:gvc_delete).with(org: org, gvc: "dummy-test-full-bbbb-with-a-trailing-tail")
     end
   end
 end
