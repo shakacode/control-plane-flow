@@ -49,11 +49,14 @@ module Command
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
       - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
         Control Plane exposes a runner replica to attach logs to
-      - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC identity
-        (unlike `CPLN_GVC_ALIAS`, which changes when a GVC is deleted and recreated under the same name),
-        so that a command such as a release script can tell which GVC incarnation it is running in
-      - `CPFLOW_GVC_CREATED` is the ISO 8601 UTC timestamp of the GVC's creation, with millisecond precision
-        and a `Z` suffix (e.g. `2026-08-28T00:54:48.648Z`)
+      - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
+        identity, so that a command such as a release script can tell which GVC incarnation it is running in.
+        These change when a GVC is deleted and recreated under the same name, and only then, unlike
+        `CPLN_GVC_ALIAS`, which is also embedded in mutable derived values such as the app domain and so
+        cannot be attributed to recreation alone
+      - `CPFLOW_GVC_CREATED` is the GVC's creation timestamp as returned by the Control Plane API and passed
+        through unmodified, currently an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix
+        (e.g. `2026-08-28T00:54:48.648Z`)
       - Both variables are omitted entirely if the GVC cannot be read, so that a consumer can distinguish
         a missing value from a real one
     DESC
@@ -439,14 +442,38 @@ module Command
       env_vars
     end
 
-    # The identity is an optional enrichment, so a failure to read it must not stop the job.
-    # `cpflow run` never required GVC-read access before, and taking it away from anyone whose
-    # credentials cannot read the GVC would be a regression rather than a new feature.
+    # The identity is an optional enrichment, so failing to read it must never stop the job.
+    # Two reasons the rescue is deliberately broad rather than a narrow class list:
+    #
+    # 1. Availability. `cpflow run` is also the release-phase mechanism for `deploy-image`, `setup-app`,
+    #    and `delete`, so a transient error on the GVC endpoint would otherwise fail a deploy over a
+    #    variable the command does not need.
+    # 2. Taxonomy. `handle_response` raises a bare `RuntimeError` for 401 and 5xx responses, so any
+    #    "narrow" list that actually covered the real failures would have to include `RuntimeError`.
+    #
+    # `MaintenanceMode#domain_workload_update_confirmed?` rescues `StandardError` against this same API
+    # client for the same reason. The rescued body is a single external call, so a bug in this file's own
+    # logic still raises.
     def fetch_gvc_for_identity
-      cp.fetch_gvc
-    rescue StandardError => e
-      Shell.warn("Failed to fetch GVC identity, continuing without it: #{e.message}")
-      nil
+      gvc_data = nil
+
+      step("Reading GVC identity", abort_on_error: false) do
+        gvc_data = cp.fetch_gvc
+        true
+      rescue StandardError => e
+        Shell.write_to_tmp_stderr(gvc_identity_error_message(e))
+        false
+      end
+
+      gvc_data
+    end
+
+    # A 403 here is normally a missing `view` grant on kind `gvc`, but `ForbiddenError` renders any
+    # `/org/...` URL as "Double check your org", which sends the operator after the wrong thing.
+    def gvc_identity_error_message(error)
+      "Continuing without the GVC identity, so CPFLOW_GVC_ID and CPFLOW_GVC_CREATED are not set. " \
+        "A permission failure here usually means the token lacks `view` on kind `gvc` for this app, " \
+        "even when the message below mentions the org. #{error.message}"
     end
 
     def interactive_monitoring_script

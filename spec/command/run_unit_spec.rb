@@ -187,13 +187,16 @@ describe Command::Run do
       end
     end
 
-    context "when reading the GVC fails" do
+    context "when the token may not read the GVC" do
       before do
-        allow(cp).to receive(:fetch_gvc).and_raise(StandardError, "403 Forbidden")
-        allow(Shell).to receive(:warn)
+        forbidden_error = ControlplaneApiDirect::ForbiddenError.new(
+          url: "/org/test-org/gvc/test-app", response: "403 Forbidden"
+        )
+        allow(cp).to receive(:fetch_gvc).and_raise(forbidden_error)
+        allow(Shell).to receive(:write_to_tmp_stderr)
       end
 
-      it "still builds the job, because the identity is an optional enrichment" do
+      it "still builds the job, because `run` never required GVC-read access" do
         job_env_names = job_env.map { |env_var| env_var["name"] }
 
         expect(job_env_names).to include("CPFLOW_RUNNER_SCRIPT")
@@ -201,10 +204,26 @@ describe Command::Run do
         expect(job_env_names).not_to include("CPFLOW_GVC_CREATED")
       end
 
-      it "warns so the missing identity is visible rather than silent" do
+      it "names the missing grant, which the error message itself does not" do
         job_env
 
-        expect(Shell).to have_received(:warn).with(/Failed to fetch GVC identity/)
+        expect(Shell).to have_received(:write_to_tmp_stderr).with(/`view` on kind `gvc`/)
+      end
+    end
+
+    # The API layer raises a bare RuntimeError for 401 and 5xx, so the rescue is intentionally wider
+    # than ForbiddenError. Narrowing it would fail deploys on a transient GVC-endpoint error.
+    context "when the GVC endpoint fails without a typed error" do
+      before do
+        allow(cp).to receive(:fetch_gvc).and_raise(RuntimeError, "500 Internal Server Error")
+        allow(Shell).to receive(:write_to_tmp_stderr)
+      end
+
+      it "still builds the job" do
+        job_env_names = job_env.map { |env_var| env_var["name"] }
+
+        expect(job_env_names).to include("CPFLOW_RUNNER_SCRIPT")
+        expect(job_env_names).not_to include("CPFLOW_GVC_ID")
       end
     end
 

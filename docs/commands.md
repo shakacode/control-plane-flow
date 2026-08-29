@@ -483,11 +483,14 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
 - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
   Control Plane exposes a runner replica to attach logs to
-- Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC identity
-  (unlike `CPLN_GVC_ALIAS`, which changes when a GVC is deleted and recreated under the same name),
-  so that a command such as a release script can tell which GVC incarnation it is running in
-- `CPFLOW_GVC_CREATED` is the ISO 8601 UTC timestamp of the GVC's creation, with millisecond precision
-  and a `Z` suffix (e.g. `2026-08-28T00:54:48.648Z`)
+- Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
+  identity, so that a command such as a release script can tell which GVC incarnation it is running in.
+  These change when a GVC is deleted and recreated under the same name, and only then, unlike
+  `CPLN_GVC_ALIAS`, which is also embedded in mutable derived values such as the app domain and so
+  cannot be attributed to recreation alone
+- `CPFLOW_GVC_CREATED` is the GVC's creation timestamp as returned by the Control Plane API and passed
+  through unmodified, currently an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix
+  (e.g. `2026-08-28T00:54:48.648Z`)
 - Both variables are omitted entirely if the GVC cannot be read, so that a consumer can distinguish
   a missing value from a real one
 
