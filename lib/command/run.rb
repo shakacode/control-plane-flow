@@ -57,8 +57,9 @@ module Command
       - `CPFLOW_GVC_CREATED` is the GVC's creation timestamp as returned by the Control Plane API and passed
         through unmodified, currently an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix
         (e.g. `2026-08-28T00:54:48.648Z`)
-      - Both variables are omitted entirely if the GVC cannot be read, so that a consumer can distinguish
-        a missing value from a real one
+      - Both variables are always set, and are empty when the GVC cannot be read, so that a consumer can
+        fail closed. They are never omitted, because the runner inherits the original workload's
+        environment and an omitted variable could otherwise expose a stale inherited value
     DESC
     EXAMPLES = <<~EX.freeze
       ```sh
@@ -431,15 +432,20 @@ module Command
     # Returns no vars at all when the GVC cannot be read for any reason, so that a consumer keying a
     # decision on the identity can distinguish "present" from "absent" instead of receiving empty
     # values, and so that an unreadable GVC never turns into a failed job.
+    # Both variables are always emitted, empty when unknown, rather than omitted. `update_runner_workload`
+    # copies the original workload's env wholesale into the runner, so omitting them would let a value
+    # inherited from the workload survive a failed read and be mistaken for a live identity. Emitting an
+    # explicit empty value is the only way a consumer can actually fail closed.
     def gvc_identity_env_vars
       gvc_data = fetch_gvc_for_identity
-      gvc_id = gvc_data && gvc_data["id"]
-      return [] unless gvc_id
+      gvc_id = (gvc_data && gvc_data["id"]).to_s
+      # Gated on the id so a fresh id can never be paired with an inherited timestamp.
+      gvc_created = gvc_id.empty? ? "" : gvc_data["created"].to_s
 
-      env_vars = [{ "name" => "CPFLOW_GVC_ID", "value" => gvc_id }]
-      gvc_created = gvc_data["created"]
-      env_vars.push({ "name" => "CPFLOW_GVC_CREATED", "value" => gvc_created }) if gvc_created
-      env_vars
+      [
+        { "name" => "CPFLOW_GVC_ID", "value" => gvc_id },
+        { "name" => "CPFLOW_GVC_CREATED", "value" => gvc_created }
+      ]
     end
 
     # The identity is an optional enrichment, so failing to read it must never stop the job.

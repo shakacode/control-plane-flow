@@ -491,8 +491,9 @@ timeout 300 cpflow ps:wait -a $APP_NAME
 - `CPFLOW_GVC_CREATED` is the GVC's creation timestamp as returned by the Control Plane API and passed
   through unmodified, currently an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix
   (e.g. `2026-08-28T00:54:48.648Z`)
-- Both variables are omitted entirely if the GVC cannot be read, so that a consumer can distinguish
-  a missing value from a real one
+- Both variables are always set, and are empty when the GVC cannot be read, so that a consumer can
+  fail closed. They are never omitted, because the runner inherits the original workload's
+  environment and an omitted variable could otherwise expose a stale inherited value
 
 ```sh
 # Opens shell (bash by default).

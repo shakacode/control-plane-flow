@@ -151,6 +151,10 @@ describe Command::Run do
     let(:command) { described_class.new(config) }
     let(:job_env) { YAML.safe_load(command.send(:build_job_start_yaml)).fetch("env") }
 
+    def env_value(name)
+      job_env.find { |env_var| env_var["name"] == name }&.fetch("value")
+    end
+
     before do
       allow(command).to receive_messages(cp: cp)
       allow(command).to receive(:base_workload_specs)
@@ -179,11 +183,18 @@ describe Command::Run do
     context "when the app has no GVC" do
       let(:gvc_data) { nil }
 
-      it "injects no GVC identity, so an absent value is distinguishable from a real one" do
-        job_env_names = job_env.map { |env_var| env_var["name"] }
+      it "sets both to empty, so an inherited value cannot pass as a live identity" do
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
+      end
+    end
 
-        expect(job_env_names).not_to include("CPFLOW_GVC_ID")
-        expect(job_env_names).not_to include("CPFLOW_GVC_CREATED")
+    context "when the GVC has an id but no creation timestamp" do
+      let(:gvc_data) { { "id" => "36f3cf5b-cdfc-466c-9d21-43cc3888d496", "name" => "test-app" } }
+
+      it "empties the timestamp, so a live id is never paired with an inherited one" do
+        expect(env_value("CPFLOW_GVC_ID")).to eq("36f3cf5b-cdfc-466c-9d21-43cc3888d496")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
       end
     end
 
@@ -197,11 +208,9 @@ describe Command::Run do
       end
 
       it "still builds the job, because `run` never required GVC-read access" do
-        job_env_names = job_env.map { |env_var| env_var["name"] }
-
-        expect(job_env_names).to include("CPFLOW_RUNNER_SCRIPT")
-        expect(job_env_names).not_to include("CPFLOW_GVC_ID")
-        expect(job_env_names).not_to include("CPFLOW_GVC_CREATED")
+        expect(env_value("CPFLOW_RUNNER_SCRIPT")).to include("bin/rails db:migrate")
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
       end
 
       it "names the missing grant, which the error message itself does not" do
@@ -220,21 +229,17 @@ describe Command::Run do
       end
 
       it "still builds the job" do
-        job_env_names = job_env.map { |env_var| env_var["name"] }
-
-        expect(job_env_names).to include("CPFLOW_RUNNER_SCRIPT")
-        expect(job_env_names).not_to include("CPFLOW_GVC_ID")
+        expect(env_value("CPFLOW_RUNNER_SCRIPT")).to include("bin/rails db:migrate")
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
       end
     end
 
     context "when the GVC has no id" do
       let(:gvc_data) { { "name" => "test-app", "created" => "2026-08-28T00:54:48.648Z" } }
 
-      it "injects no GVC identity, so an absent value is distinguishable from a real one" do
-        job_env_names = job_env.map { |env_var| env_var["name"] }
-
-        expect(job_env_names).not_to include("CPFLOW_GVC_ID")
-        expect(job_env_names).not_to include("CPFLOW_GVC_CREATED")
+      it "sets both to empty, so an inherited value cannot pass as a live identity" do
+        expect(env_value("CPFLOW_GVC_ID")).to eq("")
+        expect(env_value("CPFLOW_GVC_CREATED")).to eq("")
       end
     end
   end
