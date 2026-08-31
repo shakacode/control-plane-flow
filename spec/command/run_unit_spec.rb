@@ -311,6 +311,7 @@ describe Command::Run do
   describe "#wait_for_replica_for_job" do
     let(:config) { instance_double(Config) }
     let(:cp) { instance_double(Controlplane) }
+    let(:progress) { StringIO.new }
     let(:command) { described_class.new(config) }
 
     before do
@@ -319,7 +320,141 @@ describe Command::Run do
 
       command.instance_variable_set(:@runner_workload, "rails-runner")
       command.instance_variable_set(:@job, "job-123")
+      command.instance_variable_set(:@job_timeout, described_class::DEFAULT_JOB_TIMEOUT)
       command.instance_variable_set(:@location, "aws-us-east-2")
+    end
+
+    it "returns as soon as a replica for the job is observed" do
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => ["rails-runner-job-123-replica"] })
+      allow(cp).to receive(:fetch_cron_workload)
+
+      result = command.send(:wait_for_replica_for_job)
+
+      expect(result).to eq("rails-runner-job-123-replica")
+      expect(command.instance_variable_get(:@replica)).to eq("rails-runner-job-123-replica")
+      expect(cp).not_to have_received(:fetch_cron_workload)
+    end
+
+    it "fails immediately with the terminal cron status when no replica was observed" do
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [] })
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "failed" }] })
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("status: failed")
+      expect(cp).to have_received(:fetch_workload_replicas).once
+      expect(cp).to have_received(:fetch_cron_workload).once
+    end
+
+    it "replaces an unsafe terminal cron status instead of printing it" do
+      unsafe_status = "failed\nunsafe-status-details"
+
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [] })
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => unsafe_status }] })
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("status: unknown")
+      expect(progress.string).not_to include(unsafe_status)
+    end
+
+    it "does not start a cron-status request after the replica request reaches the deadline" do
+      now = 0.0
+
+      command.instance_variable_set(:@job_timeout, 0.25)
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+      allow(Kernel).to receive(:sleep)
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2") do
+          now = 0.3
+          { "items" => [] }
+        end
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "active" }] })
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("observation limit: 0.25 seconds", "status: unavailable")
+      expect(cp).not_to have_received(:fetch_cron_workload)
+      expect(Kernel).not_to have_received(:sleep)
+    end
+
+    it "caps the observation limit at 1000 seconds when the runner job timeout is higher" do
+      now = 0.0
+
+      command.instance_variable_set(:@job_timeout, 2_000)
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2") do
+          now = 1_001.0
+          { "items" => [] }
+        end
+      allow(cp).to receive(:fetch_cron_workload)
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("observation limit: 1000 seconds", "status: unavailable")
+      expect(cp).not_to have_received(:fetch_cron_workload)
+    end
+
+    [nil, "active", "pending"].each do |status|
+      it "stops polling at the monotonic deadline when the cron status is #{status || 'unavailable'}" do
+        now = 0.0
+        sleeps = []
+        expected_status = status || "unavailable"
+        job_items = status ? [{ "id" => "job-123", "status" => status }] : []
+
+        command.instance_variable_set(:@job_timeout, 0.25)
+        allow(command).to receive(:step).and_call_original
+        allow(command).to receive(:progress).and_return(progress)
+        allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+        allow(Kernel).to receive(:sleep) do |duration|
+          sleeps << duration
+          now += duration
+        end
+        allow(cp).to receive(:fetch_workload_replicas)
+          .with("rails-runner", location: "aws-us-east-2")
+          .and_return({ "items" => [] })
+        allow(cp).to receive(:fetch_cron_workload)
+          .with("rails-runner", location: "aws-us-east-2")
+          .and_return({ "items" => job_items })
+
+        expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+        end
+
+        expect(progress.string).to include("observation limit: 0.25 seconds", "status: #{expected_status}")
+        expect(sleeps).to eq([0.25])
+        expect(cp).to have_received(:fetch_workload_replicas).once
+        expect(cp).to have_received(:fetch_cron_workload).once
+      end
     end
 
     it "stops waiting when the cron job finishes before a replica is observed" do
