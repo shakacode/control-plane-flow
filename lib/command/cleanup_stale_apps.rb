@@ -117,7 +117,7 @@ module Command
 
       (configured_workloads & live_workloads).each do |workload|
         step("Stopping workload '#{workload}'") do
-          cp.set_workload_suspend(workload, true)
+          cp.set_workload_suspend(workload, true, app)
         end
       end
     end

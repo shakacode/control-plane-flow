@@ -111,9 +111,9 @@ describe Command::CleanupStaleApps do
       command.send(:process_app, "stale-app")
 
       expect(cp).to have_received(:fetch_workloads).with("stale-app")
-      expect(cp).to have_received(:set_workload_suspend).with("postgres", true).once
-      expect(cp).not_to have_received(:set_workload_suspend).with("rails", true)
-      expect(cp).not_to have_received(:set_workload_suspend).with("unconfigured-worker", true)
+      expect(cp).to have_received(:set_workload_suspend).with("postgres", true, "stale-app").once
+      expect(cp).not_to have_received(:set_workload_suspend).with("rails", true, "stale-app")
+      expect(cp).not_to have_received(:set_workload_suspend).with("unconfigured-worker", true, "stale-app")
     end
 
     it "raises when the stale app config does not define app_workloads" do

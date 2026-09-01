@@ -173,8 +173,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.workload_list_by_org(org: a_org)
   end
 
-  def fetch_workload(workload)
-    api.workload_get(workload: workload, gvc: gvc, org: org)
+  def fetch_workload(workload, a_gvc = gvc)
+    api.workload_get(workload: workload, gvc: a_gvc, org: org)
   end
 
   def fetch_workload_with_status(workload)
@@ -199,12 +199,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
   private :workload_status_result
 
-  def fetch_workload!(workload)
-    workload_data = fetch_workload(workload)
+  def fetch_workload!(workload, a_gvc = gvc)
+    workload_data = fetch_workload(workload, a_gvc)
     return workload_data if workload_data
 
     raise "Can't find workload '#{workload}', " \
-          "please create it with 'cpflow apply-template #{workload} -a #{config.app}'."
+          "please create it with 'cpflow apply-template #{workload} -a #{a_gvc}'."
   end
 
   def query_workloads(workload, a_gvc = gvc, a_org = org, partial_workload_match: false, partial_gvc_match: nil)
@@ -273,11 +273,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
   end
 
-  def set_workload_suspend(workload, value)
-    data = fetch_workload!(workload)
+  def set_workload_suspend(workload, value, a_gvc = gvc)
+    data = fetch_workload!(workload, a_gvc)
     data["spec"]["defaultOptions"]["suspend"] = value
 
-    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
+    api.update_workload(org: org, gvc: a_gvc, workload: workload, data: data)
   end
 
   def workload_suspended?(workload)

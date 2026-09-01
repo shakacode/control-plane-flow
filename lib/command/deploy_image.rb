@@ -127,8 +127,7 @@ module Command
 
           container_name = container["name"]
           step("Deploying image '#{image}' for workload '#{workload}'") do
-            updated = update_workload_image_ref(workload, container_name, image)
-            next false unless updated
+            update_workload_image_ref(workload, container_name, image)
 
             deployed_endpoints[workload] = endpoint_for_workload(workload_data)
             # A missing public endpoint is valid; the image update still completed successfully.

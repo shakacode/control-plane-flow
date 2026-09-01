@@ -135,6 +135,36 @@ describe Controlplane do
     end
   end
 
+  describe "#set_workload_suspend" do
+    let(:api) { instance_double(ControlplaneApi) }
+    let(:described_instance) do
+      described_class.allocate.tap do |instance|
+        instance.instance_variable_set(:@gvc, "prefix")
+        instance.instance_variable_set(:@org, "my-org")
+        instance.instance_variable_set(:@api, api)
+      end
+    end
+    let(:workload_data) do
+      { "spec" => { "defaultOptions" => { "suspend" => false } } }
+    end
+
+    it "targets an explicitly selected GVC for stale-app cleanup" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(workload_data)
+      allow(api).to receive(:update_workload)
+
+      described_instance.set_workload_suspend("postgres", true, "matched-stale-app")
+
+      expect(api).to have_received(:update_workload).with(
+        org: "my-org",
+        gvc: "matched-stale-app",
+        workload: "postgres",
+        data: { "spec" => { "defaultOptions" => { "suspend" => true } } }
+      )
+    end
+  end
+
   describe "#image_build" do
     let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
     let!(:described_instance) { described_class.new(fake_config) }
