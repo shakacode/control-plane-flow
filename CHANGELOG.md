@@ -15,7 +15,6 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 ### Added
 
 - **Added `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` to the environment of one-off jobs started by `cpflow run`, exposing the app's immutable GVC identity so that a release script can tell which GVC incarnation it is running in.** [PR 433](https://github.com/shakacode/control-plane-flow/pull/433) by [Justin Gordon](https://github.com/justin808). Fixes [issue 432](https://github.com/shakacode/control-plane-flow/issues/432). Unlike the mutable `CPLN_GVC_ALIAS`, these values identify the GVC incarnation itself, so they change only when a GVC is deleted and recreated under the same name. `CPFLOW_GVC_CREATED` is an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix. Both variables are always set and are empty when the GVC cannot be read, so a consumer can fail closed; they are never omitted, because the runner inherits the original workload's environment and an omitted variable could otherwise expose a stale inherited value.
-- **Added review-app security documentation for repositories with external contributors, covering disposable secrets, PR-controlled identity and policy templates, and staging-token least privilege.** [PR 350](https://github.com/shakacode/control-plane-flow/pull/350) by [Justin Gordon](https://github.com/justin808).
 
 ### Changed
 
@@ -39,6 +38,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 - **Added ordered per-workload deploys with repeatable `cpflow deploy-image -w/--workload` filtering and optional `deploy_order` groups in `controlplane.yml`.** [PR 397](https://github.com/shakacode/control-plane-flow/pull/397) by [Justin Gordon](https://github.com/justin808). Fixes [issue 396](https://github.com/shakacode/control-plane-flow/issues/396). `cpflow deploy-image` can now deploy selected app workloads, and production promotion inherits `deploy_order` so workloads such as a Node renderer can roll out and become ready before Rails.
 - **Added generic telemetry documentation for deploying an OpenTelemetry Collector with Control Plane Flow, including collector workload templates, application instrumentation, telemetry pipelines, review-app isolation, and troubleshooting guidance.** [PR 369](https://github.com/shakacode/control-plane-flow/pull/369) by [Justin Gordon](https://github.com/justin808).
 - **Added a Rails-focused Grafana and OpenTelemetry guide for building Control Plane dashboards from generated span and log metrics, including collector workload guidance, spanmetrics setup, rollout order, alerting, and validation checklists.** [PR 352](https://github.com/shakacode/control-plane-flow/pull/352) by [Justin Gordon](https://github.com/justin808).
+- **Added review-app security documentation for repositories with external contributors, covering disposable secrets, PR-controlled identity and policy templates, and staging-token least privilege.** [PR 350](https://github.com/shakacode/control-plane-flow/pull/350) by [Justin Gordon](https://github.com/justin808).
 
 ### Changed
 
