@@ -101,7 +101,7 @@ describe Command::Base do
     end
 
     it "warns when the shared secret still has the generated Postgres password placeholder" do
-      allow(cp).to receive(:fetch_secret)
+      allow(cp).to receive(:reveal_secret)
         .with("shared-database-secrets")
         .and_return(
           "data" => {
@@ -122,13 +122,26 @@ describe Command::Base do
     end
 
     it "does not warn for a non-placeholder password" do
-      allow(cp).to receive(:fetch_secret)
+      allow(cp).to receive(:reveal_secret)
         .with("shared-database-secrets")
         .and_return("data" => { "password" => "a-real-password-sentinel" })
       allow(Shell).to receive(:warn)
 
       command.resolve_shared_secret_policy_grants
 
+      expect(Shell).not_to have_received(:warn)
+    end
+
+    it "does not block the command when the current token cannot reveal the secret" do
+      response = instance_double(Net::HTTPForbidden, to_s: "403 Forbidden")
+      error = ControlplaneApiDirect::ForbiddenError.new(
+        url: "/org/test-org/secret/shared-database-secrets/-reveal",
+        response: response
+      )
+      allow(cp).to receive(:reveal_secret).with("shared-database-secrets").and_raise(error)
+      allow(Shell).to receive(:warn)
+
+      expect { command.resolve_shared_secret_policy_grants }.not_to raise_error
       expect(Shell).not_to have_received(:warn)
     end
   end

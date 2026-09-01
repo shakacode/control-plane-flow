@@ -100,7 +100,8 @@ remove those shared policy bindings when a review app is deleted.
 The generated Postgres template ships with `the_password` as a password placeholder. When a `shared_secret_grants`
 target still has that exact value in its `password` field, `cpflow setup-app` and `cpflow deploy-image` warn before
 release or deployment work because review apps will fail authentication until the value is replaced. The diagnostic
-does not print secret values. Do not validate the replacement only by connecting to PostgreSQL through `127.0.0.1`:
+does not print secret values. It uses the current Control Plane token's `reveal` access and skips the check without
+blocking setup or deployment when that token cannot reveal the shared secret. Do not validate the replacement only by connecting to PostgreSQL through `127.0.0.1`:
 a loopback `trust` rule in `pg_hba.conf` can allow that connection without checking the password and produce a false
 pass. Verify the credential through a non-loopback path that uses the same authentication route as the review app.
 

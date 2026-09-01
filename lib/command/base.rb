@@ -647,13 +647,16 @@ module Command
     end
 
     def warn_if_shared_secret_uses_generated_password_placeholder(grant)
-      secret = cp.fetch_secret(grant.fetch(:secret_name))
+      secret_name = grant.fetch(:secret_name)
+      secret = cp.reveal_secret(secret_name)
       return unless secret&.dig("data", "password") == GENERATED_POSTGRES_PASSWORD_PLACEHOLDER
 
       Shell.warn(
-        "Shared secret grant '#{grant.fetch(:name)}' targets secret '#{grant.fetch(:secret_name)}', whose password " \
+        "Shared secret grant '#{grant.fetch(:name)}' targets secret '#{secret_name}', whose password " \
         "is still the generated placeholder. Review apps will fail authentication until it is replaced."
       )
+    rescue ControlplaneApiDirect::ForbiddenError
+      nil
     end
 
     def bind_shared_secret_policy_grant(grant, policy)

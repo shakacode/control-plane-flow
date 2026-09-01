@@ -279,6 +279,14 @@ describe ControlplaneApi do
     end
   end
 
+  describe "#reveal_secret" do
+    it "reveals a single secret" do
+      response = stub_api_call("/org/my-org/secret/my-secret/-reveal", method: :get)
+
+      expect(api.reveal_secret(org: "my-org", secret: "my-secret")).to eq(response)
+    end
+  end
+
   describe "#delete_secret" do
     it "deletes the secret" do
       response = stub_api_call("/org/my-org/secret/my-secret", method: :delete)
