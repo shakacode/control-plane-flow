@@ -361,6 +361,9 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         expect(script).to include(
           "repos/${GH_REPO}/actions/runs/${RUN_ID}",
           "cpflow-review-app-intent-v1",
+          "cpflow-review-app-redispatch-v1",
+          "Internal review-app sequencing token is not bound to this workflow run.",
+          "Dispatch latest accepted review app intent",
           "body=${intent_body}",
           "record=true"
         )
@@ -397,18 +400,128 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(delete_result.fetch(:stdout)).to include('"operation":"delete","event":"workflow_dispatch"')
     end
 
+    it "rejects public or mismatched internal sequencing values" do
+      [[deploy_workflow, "deploy"], [workflow, "delete"]].each do |target_workflow, operation|
+        invalid_comments = [
+          [],
+          [redispatch_handoff(operation: operation, intent_run_id: 999)],
+          [redispatch_handoff(operation: operation, dispatch_run_id: 999)],
+          [redispatch_handoff(operation: operation, user: "maintainer")],
+          [redispatch_handoff(operation: operation == "deploy" ? "delete" : "deploy")],
+          [redispatch_handoff(operation: operation, pr: 428)],
+          Array.new(2) { redispatch_handoff(operation: operation) }
+        ]
+
+        invalid_comments.each do |comments|
+          result = run_prepare_intent(
+            target_workflow,
+            operation: operation,
+            reconcile_intent_run_id: 101,
+            comments: comments
+          )
+          expect(result.fetch(:status)).not_to be_success
+          expect(result.fetch(:stderr)).to include(
+            "Internal review-app sequencing token is not bound to this workflow run."
+          )
+          expect(result.fetch(:stdout)).not_to include("reuse=true")
+        end
+      end
+    end
+
+    it "reuses an intent only through a bot-bound reconciliation handoff" do
+      [[deploy_workflow, "deploy"], [workflow, "delete"]].each do |target_workflow, operation|
+        result = run_prepare_intent(
+          target_workflow,
+          operation: operation,
+          reconcile_intent_run_id: 101,
+          comments: [redispatch_handoff(operation: operation)],
+          source_run: redispatch_source_run(target_operation: operation),
+          source_jobs: redispatch_source_jobs(target_operation: operation)
+        )
+
+        expect(result.fetch(:status)).to be_success, result.inspect
+        expect(result.fetch(:stdout)).to include("reuse=true")
+      end
+    end
+
+    it "rejects a handoff without the exact successful source redispatch" do
+      source_mutations = [
+        { "id" => 201 },
+        { "created_at" => "2026-09-01T05:03:00Z" },
+        { "path" => ".github/workflows/cpflow-deploy-review-app.yml" },
+        { "display_title" => "Deploy Review App - PR #427" }
+      ]
+      source_mismatches = source_mutations.map do |mutation|
+        run_prepare_intent(
+          deploy_workflow,
+          operation: "deploy",
+          reconcile_intent_run_id: 101,
+          comments: [redispatch_handoff(operation: "deploy")],
+          source_run: redispatch_source_run(target_operation: "deploy").merge(mutation),
+          source_jobs: redispatch_source_jobs(target_operation: "deploy")
+        )
+      end
+      step_mismatch = run_prepare_intent(
+        deploy_workflow,
+        operation: "deploy",
+        reconcile_intent_run_id: 101,
+        comments: [redispatch_handoff(operation: "deploy")],
+        source_run: redispatch_source_run(target_operation: "deploy"),
+        source_jobs: redispatch_source_jobs(target_operation: "deploy", conclusion: "failure")
+      )
+      unrelated_failure = run_prepare_intent(
+        deploy_workflow,
+        operation: "deploy",
+        reconcile_intent_run_id: 101,
+        comments: [redispatch_handoff(operation: "deploy")],
+        source_run: redispatch_source_run(target_operation: "deploy"),
+        source_jobs: redispatch_source_jobs(
+          target_operation: "deploy",
+          step_name: "Reconcile latest accepted review app intent",
+          conclusion: "failure"
+        )
+      )
+      wrong_job = run_prepare_intent(
+        deploy_workflow,
+        operation: "deploy",
+        reconcile_intent_run_id: 101,
+        comments: [redispatch_handoff(operation: "deploy")],
+        source_run: redispatch_source_run(target_operation: "deploy"),
+        source_jobs: redispatch_source_jobs(target_operation: "deploy", job_name: "deploy / deploy")
+      )
+
+      source_results = source_mismatches.map do |result|
+        [result.fetch(:status).success?, result.fetch(:stderr).include?("does not match its source workflow run")]
+      end
+      expect(source_results).to all(eq([false, true]))
+      step_results = [step_mismatch, unrelated_failure, wrong_job].map do |result|
+        [result.fetch(:status).success?, result.fetch(:stderr).include?("expected successful redispatch step")]
+      end
+      expect(step_results).to all(eq([false, true]))
+    end
+
     it "authenticates and reconciles the latest intent before any mutable step" do
       deploy_reconciler = reconciler_step(deploy_steps)
       delete_reconciler = reconciler_step(steps)
+      deploy_redispatch = redispatch_step(deploy_steps)
+      delete_redispatch = redispatch_step(steps)
+      deploy_stop = stop_superseded_step(deploy_steps)
+      delete_stop = stop_superseded_step(steps)
       script = deploy_reconciler.fetch("run")
+      redispatch_script = deploy_redispatch.fetch("run")
       deploy_reaction = deploy_steps.find { |step| step["name"] == "React to deploy command" }
       delete_reaction = step_named("React to delete command")
 
       expect(delete_reconciler.fetch("run")).to eq(script)
+      expect(delete_redispatch.fetch("run")).to eq(redispatch_script)
       expect(deploy_steps.first).to eq(deploy_reconciler)
       expect(steps.first).to eq(delete_reconciler)
       expect(deploy_steps.index(deploy_reconciler)).to be < deploy_steps.index(deploy_reaction)
       expect(steps.index(delete_reconciler)).to be < steps.index(delete_reaction)
+      expect(deploy_steps.index(deploy_redispatch)).to be < deploy_steps.index(deploy_stop)
+      expect(steps.index(delete_redispatch)).to be < steps.index(delete_stop)
+      expect(deploy_steps.index(deploy_stop)).to be < deploy_steps.index(deploy_reaction)
+      expect(steps.index(delete_stop)).to be < steps.index(delete_reaction)
       expect(deploy_reconciler).to include(
         "id" => "intent",
         "shell" => "bash",
@@ -426,10 +539,32 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(script).to include(".display_title == $title")
       expect(script).to include(".head_repository.full_name == $repo")
       expect(script).to include("write|maintain|admin)")
-      expect(script).to include("inputs[reconcile_intent_run_id]=${latest_run_id}")
-      expect(script).to include('printf \'event=%s\\n\' "${latest_event}" >> "$GITHUB_OUTPUT"')
+      expect(script).to include("redispatch=true", "operation=${latest_operation}", "run_id=${latest_run_id}")
+      expect(script).to include('"event=${latest_event}" >> "$GITHUB_OUTPUT"')
       expect(script).not_to include("+review-app-deploy", "+review-app-delete")
       expect(script).not_to include("${{")
+      expect(deploy_redispatch).to include(
+        "id" => "redispatch",
+        "if" => "steps.intent.outputs.redispatch == 'true'",
+        "env" => include(
+          "GH_TOKEN" => "${{ github.token }}",
+          "GH_REPO" => "${{ github.repository }}",
+          "SOURCE_OPERATION" => "deploy"
+        )
+      )
+      expect(delete_redispatch.fetch("env")).to include("SOURCE_OPERATION" => "delete")
+      expect(redispatch_script).to include(
+        "X-GitHub-Api-Version: 2026-03-10",
+        "inputs[reconcile_intent_run_id]=${INTENT_RUN_ID}",
+        "cpflow-review-app-redispatch-v1"
+      )
+      expect(redispatch_script).not_to include("${{")
+      expect([deploy_stop, delete_stop]).to all(
+        include(
+          "if" => "steps.intent.outputs.redispatch == 'true'",
+          "run" => include("Stopped superseded operation", "exit 1")
+        )
+      )
     end
 
     it "redispatches the newest operation when GitHub replaces a pending run" do
@@ -440,20 +575,40 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         run_id: 101,
         created_at: "2026-09-01T05:01:00Z"
       )
-      result = run_intent_reconciler(
+      reconcile_result = run_intent_reconciler(
         reconciler_step(deploy_steps).fetch("run"),
         comments: [intent_comment(older), intent_comment(latest)],
         current_operation: "deploy",
         source_run: actions_run_for(latest)
       )
+      redispatch_result = run_intent_redispatch(
+        redispatch_step(deploy_steps).fetch("run"),
+        source_operation: "deploy",
+        target_operation: "delete",
+        intent_run_id: 101
+      )
 
-      expect(result.fetch(:status)).not_to be_success
-      expect(result.fetch(:stdout)).to include(
+      expect(reconcile_result.fetch(:status)).to be_success, reconcile_result.inspect
+      expect(reconcile_result.fetch(:stdout)).to include(
+        "redispatch=true",
+        "operation=delete",
+        "run_id=101"
+      )
+      expect(redispatch_result.fetch(:status)).to be_success, redispatch_result.inspect
+      expect(redispatch_result.fetch(:stderr)).to include(
         "actions/workflows/cpflow-delete-review-app.yml/dispatches",
+        "X-GitHub-Api-Version: 2026-03-10",
         "inputs[pr_number]=427",
         "inputs[reconcile_intent_run_id]=101"
       )
-      expect(result.fetch(:stderr)).to include(
+      expect(redispatch_result.fetch(:stdout)).to include(
+        "cpflow-review-app-redispatch-v1",
+        '"operation":"delete"',
+        '"intent_run_id":101',
+        '"dispatch_run_id":202',
+        '"source_run_id":200'
+      )
+      expect(redispatch_result.fetch(:stdout)).to include(
         "Redispatched delete for latest accepted review-app intent run 101."
       )
     end
@@ -613,6 +768,14 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       target_steps.find { |step| step["name"] == "Reconcile latest accepted review app intent" }
     end
 
+    def redispatch_step(target_steps)
+      target_steps.find { |step| step["name"] == "Dispatch latest accepted review app intent" }
+    end
+
+    def stop_superseded_step(target_steps)
+      target_steps.find { |step| step["name"] == "Stop superseded review app operation" }
+    end
+
     def intent_payload(operation:, event:, run_id:, actor: "maintainer", created_at: "2026-09-01T05:00:00Z")
       {
         "pr" => 427,
@@ -629,6 +792,53 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         "user" => { "login" => user },
         "body" => "<!-- cpflow-review-app-intent-v1 #{JSON.generate(payload)} -->"
       }
+    end
+
+    def redispatch_handoff(operation:, user: "github-actions[bot]", **overrides)
+      payload = redispatch_handoff_payload(operation: operation).merge(overrides.transform_keys(&:to_s))
+      {
+        "user" => { "login" => user },
+        "body" => "<!-- cpflow-review-app-redispatch-v1 #{JSON.generate(payload)} -->"
+      }
+    end
+
+    def redispatch_handoff_payload(operation:)
+      {
+        "pr" => 427,
+        "operation" => operation,
+        "intent_run_id" => 101,
+        "dispatch_run_id" => 202,
+        "source_run_id" => 200,
+        "created_at" => "2026-09-01T05:02:00Z"
+      }
+    end
+
+    def redispatch_source_run(target_operation:, source_run_id: 200)
+      source_operation = target_operation == "deploy" ? "delete" : "deploy"
+      operation_label = source_operation == "deploy" ? "Deploy" : "Delete"
+      {
+        "id" => source_run_id,
+        "created_at" => "2026-09-01T05:02:00Z",
+        "path" => ".github/workflows/cpflow-#{source_operation}-review-app.yml",
+        "display_title" => "#{operation_label} Review App - PR #427"
+      }
+    end
+
+    def redispatch_source_jobs(target_operation:, conclusion: "success", step_name: nil, job_name: nil)
+      {
+        "jobs" => [
+          {
+            "name" => job_name || source_job_name_for(target_operation),
+            "steps" => [
+              { "name" => step_name || "Dispatch latest accepted review app intent", "conclusion" => conclusion }
+            ]
+          }
+        ]
+      }
+    end
+
+    def source_job_name_for(target_operation)
+      target_operation == "delete" ? "deploy / deploy" : "delete-review-app / delete-review-app"
     end
 
     def actions_run_for(payload) # rubocop:disable Metrics/MethodLength
@@ -717,6 +927,94 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       }
     end # rubocop:enable Metrics/MethodLength
 
+    def run_prepare_intent( # rubocop:disable Metrics/MethodLength, Metrics/ParameterLists
+      target_workflow,
+      operation:,
+      reconcile_intent_run_id:,
+      comments:,
+      source_run: {},
+      source_jobs: {}
+    )
+      script = prepare_intent_step(target_workflow).fetch("run")
+      fake_gh = <<~'BASH'
+        sleep() { :; }
+        gh() {
+          case "$*" in
+            *'/comments?per_page=100'*)
+              printf '%s\n' "${CPFLOW_TEST_COMMENTS}"
+              ;;
+            *'/actions/runs/'*'/jobs?filter=all&per_page=100'*)
+              printf '%s\n' "${CPFLOW_TEST_SOURCE_JOBS}"
+              ;;
+            *'/actions/runs/'*)
+              printf '%s\n' "${CPFLOW_TEST_SOURCE_RUN}"
+              ;;
+            *'/pulls/'*)
+              printf '%s\n' "${GH_REPO}"
+              ;;
+            *)
+              echo "Unexpected gh invocation: $*" >&2
+              return 1
+              ;;
+          esac
+        }
+      BASH
+      env = {
+        "CPFLOW_TEST_COMMENTS" => JSON.generate([comments]),
+        "CPFLOW_TEST_SOURCE_RUN" => JSON.generate(source_run),
+        "CPFLOW_TEST_SOURCE_JOBS" => JSON.generate([source_jobs]),
+        "GH_REPO" => "shakacode/control-plane-flow",
+        "PR_NUMBER" => "427",
+        "OPERATION" => operation,
+        "EVENT_NAME" => "workflow_dispatch",
+        "SOURCE_ACTOR" => "maintainer",
+        "RUN_ID" => "202",
+        "RECONCILE_INTENT_RUN_ID" => reconcile_intent_run_id.to_s,
+        "GITHUB_OUTPUT" => "/dev/stdout"
+      }
+      stdout, stderr, status = Open3.capture3(env, "/bin/bash", stdin_data: "#{fake_gh}\n#{script}")
+      { stdout: stdout, stderr: stderr, status: status }
+    end # rubocop:enable Metrics/MethodLength, Metrics/ParameterLists
+
+    def run_intent_redispatch(script, source_operation:, target_operation:, intent_run_id:) # rubocop:disable Metrics/MethodLength
+      fake_gh = <<~'BASH'
+        gh() {
+          case "$*" in
+            *' --jq .default_branch')
+              printf '%s\n' main
+              ;;
+            *'/actions/workflows/'*'/dispatches'*)
+              printf 'DISPATCH:%s\n' "$*" >&2
+              if [[ "$*" == *'X-GitHub-Api-Version: 2026-03-10'* ]]; then
+                printf '%s\n' '{"workflow_run_id":202,"run_url":"https://api.github.test/runs/202"}'
+              fi
+              ;;
+            *"/actions/runs/${GITHUB_RUN_ID}"*'.created_at'*)
+              printf '%s\n' "${CPFLOW_TEST_CURRENT_CREATED_AT}"
+              ;;
+            *'/issues/'*'/comments'*)
+              printf 'HANDOFF:%s\n' "$*"
+              ;;
+            *)
+              echo "Unexpected gh invocation: $*" >&2
+              return 1
+              ;;
+          esac
+        }
+      BASH
+      env = {
+        "CPFLOW_TEST_CURRENT_CREATED_AT" => "2026-09-01T05:02:00Z",
+        "GH_REPO" => "shakacode/control-plane-flow",
+        "PR_NUMBER" => "427",
+        "SOURCE_OPERATION" => source_operation,
+        "TARGET_OPERATION" => target_operation,
+        "INTENT_RUN_ID" => intent_run_id.to_s,
+        "GITHUB_RUN_ID" => "200"
+      }
+      stdout, stderr, status = Open3.capture3(env, "/bin/bash", stdin_data: "#{fake_gh}\n#{script}")
+      { stdout: stdout, stderr: stderr, status: status }
+    end # rubocop:enable Metrics/MethodLength
+
     def run_intent_reconciler( # rubocop:disable Metrics/MethodLength, Metrics/ParameterLists
       script,
       comments:,
@@ -734,6 +1032,9 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
             *'/actions/runs/'*'/jobs?filter=all&per_page=100'*)
               printf '[%s]\n' "${CPFLOW_TEST_SOURCE_JOBS}"
               ;;
+            *"/actions/runs/${GITHUB_RUN_ID}"*'.created_at'*)
+              printf '%s\n' "${CPFLOW_TEST_CURRENT_CREATED_AT}"
+              ;;
             *'/actions/runs/'*)
               printf '%s\n' "${CPFLOW_TEST_SOURCE_RUN}"
               ;;
@@ -745,7 +1046,11 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
               printf '%s\n' main
               ;;
             *'/actions/workflows/'*'/dispatches'*)
-              printf 'DISPATCH:%s\n' "$*"
+              printf 'DISPATCH:%s\n' "$*" >&2
+              printf '%s\n' '{"workflow_run_id":202,"run_url":"https://api.github.test/runs/202"}'
+              ;;
+            *'/issues/'*'/comments'*)
+              printf 'HANDOFF:%s\n' "$*"
               ;;
             *)
               echo "Unexpected gh invocation: $*" >&2
@@ -759,10 +1064,12 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         "CPFLOW_TEST_SOURCE_RUN" => JSON.generate(source_run),
         "CPFLOW_TEST_SOURCE_JOBS" => JSON.generate(source_jobs || source_jobs_for),
         "CPFLOW_TEST_PERMISSION" => permission,
+        "CPFLOW_TEST_CURRENT_CREATED_AT" => "2026-09-01T05:02:00Z",
         "GH_REPO" => "shakacode/control-plane-flow",
         "PR_NUMBER" => "427",
         "CURRENT_OPERATION" => current_operation,
-        "GITHUB_OUTPUT" => "/dev/null"
+        "GITHUB_RUN_ID" => "200",
+        "GITHUB_OUTPUT" => "/dev/stdout"
       }
       stdout, stderr, status = Open3.capture3(env, "/bin/bash", stdin_data: "#{fake_gh}\n#{script}")
       { stdout: stdout, stderr: stderr, status: status }

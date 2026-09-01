@@ -14,7 +14,7 @@ on:
         required: true
         type: number
       reconcile_intent_run_id:
-        description: Internal sequencing token; leave blank for manual dispatch
+        description: Authenticated internal handoff; manual values are rejected
         required: false
         type: string
 

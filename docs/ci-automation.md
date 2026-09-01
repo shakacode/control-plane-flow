@@ -582,8 +582,10 @@ member of a group and may replace the pending member without FIFO ordering. Each
 hidden `github-actions[bot]` intent marker containing its operation and originating workflow-run identity before it joins
 the queue. Whichever job survives reads the complete marker ledger, authenticates the newest marker against the Actions
 run API and the source run's successful POST-only recording step, revalidates a manual actor's current permission, and either performs that operation or redispatches the matching
-generated workflow on the default branch. Internal redispatches reuse the existing marker instead of creating a new
-intent. This convergence covers automatic PR events, manual dispatches, mixed-case comment admission, authorization
+generated workflow on the default branch. Internal redispatches reuse the existing marker only through a bot-owned
+handoff bound to the returned workflow-run ID and the exact successful source dispatch step; the superseded source job
+then stops before mutable work, and values entered manually in the internal handoff field are rejected. This convergence
+covers automatic PR events, manual dispatches, mixed-case comment admission, authorization
 completion in a different order from event creation, and edits or deletion of the original command comment. Invalid,
 forged, missing, or permission-revoked newest intents fail closed and never fall back to older work.
 
@@ -621,7 +623,8 @@ forged, missing, or permission-revoked newest intents fail closed and never fall
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `+review-app-delete`.
-- Also supports manual workflow dispatch by a repository collaborator without using the comment permission check.
+- Also supports manual workflow dispatch by a repository collaborator. The comment-time permission gate does not apply,
+  but the dispatching actor's repository permission is rechecked after queue admission.
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
   are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
   review-app credentials must remain disposable.

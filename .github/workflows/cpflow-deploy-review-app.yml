@@ -131,6 +131,114 @@ jobs:
               echo "Invalid internal review-app sequencing token." >&2
               exit 1
             fi
+
+            handoff=""
+            for _attempt in {1..10}; do
+              comments_json="$(
+                gh api --paginate --slurp --method GET \
+                  "repos/${GH_REPO}/issues/${PR_NUMBER}/comments?per_page=100"
+              )"
+              handoff="$(
+                jq -c \
+                  --argjson pr "${PR_NUMBER}" \
+                  --arg operation "${OPERATION}" \
+                  --argjson intent_run_id "${RECONCILE_INTENT_RUN_ID}" \
+                  --argjson dispatch_run_id "${RUN_ID}" '
+                    [
+                      .[][]?
+                      | select(.user.login == "github-actions[bot]")
+                      | .body
+                      | select(type == "string")
+                      | select(startswith("<!-- cpflow-review-app-redispatch-v1 ") and endswith(" -->"))
+                      | ltrimstr("<!-- cpflow-review-app-redispatch-v1 ")
+                      | rtrimstr(" -->")
+                      | fromjson?
+                      | select(
+                          .pr == $pr and
+                          .operation == $operation and
+                          .intent_run_id == $intent_run_id and
+                          .dispatch_run_id == $dispatch_run_id
+                        )
+                      | select(
+                          (.source_run_id | type) == "number" and
+                          .source_run_id > 0 and
+                          (.source_run_id | floor) == .source_run_id
+                        )
+                      | select(
+                          (.created_at | type) == "string" and
+                          (.created_at | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
+                        )
+                    ]
+                    | if length == 1 then .[0] else empty end
+                  ' <<< "${comments_json}"
+              )"
+              [[ -n "${handoff}" ]] && break
+              sleep 1
+            done
+            if [[ -z "${handoff}" ]]; then
+              echo "Internal review-app sequencing token is not bound to this workflow run." >&2
+              exit 1
+            fi
+
+            source_run_id="$(jq -r '.source_run_id' <<< "${handoff}")"
+            source_created_at="$(jq -r '.created_at' <<< "${handoff}")"
+            case "${OPERATION}" in
+              deploy)
+                source_operation="delete"
+                expected_run_name="Delete Review App - PR #${PR_NUMBER}"
+                expected_job_name="delete-review-app / delete-review-app"
+                ;;
+              delete)
+                source_operation="deploy"
+                expected_run_name="Deploy Review App - PR #${PR_NUMBER}"
+                expected_job_name="deploy / deploy"
+                ;;
+            esac
+            expected_workflow_path=".github/workflows/cpflow-${source_operation}-review-app.yml"
+            source_run_json="$(
+              gh api --method GET "repos/${GH_REPO}/actions/runs/${source_run_id}"
+            )"
+            if ! jq -e \
+              --argjson run_id "${source_run_id}" \
+              --arg created_at "${source_created_at}" \
+              --arg path "${expected_workflow_path}" \
+              --arg title "${expected_run_name}" \
+              '(.id == $run_id) and
+               (.created_at == $created_at) and
+               (.path == $path) and
+               (.display_title == $title)' \
+              <<< "${source_run_json}" >/dev/null
+            then
+              echo "Internal review-app handoff does not match its source workflow run." >&2
+              exit 1
+            fi
+
+            handoff_verified=false
+            for _attempt in {1..10}; do
+              source_jobs_json="$(
+                gh api --paginate --slurp --method GET \
+                  "repos/${GH_REPO}/actions/runs/${source_run_id}/jobs?filter=all&per_page=100"
+              )"
+              if jq -e --arg job_name "${expected_job_name}" '
+                [
+                  .[]?.jobs[]?
+                  | select(.name == $job_name)
+                  | .steps[]?
+                  | select(.name == "Dispatch latest accepted review app intent" and .conclusion == "success")
+                ]
+                | length > 0
+              ' <<< "${source_jobs_json}" >/dev/null
+              then
+                handoff_verified=true
+                break
+              fi
+              sleep 1
+            done
+            if [[ "${handoff_verified}" != "true" ]]; then
+              echo "Internal review-app handoff was not issued by the expected successful redispatch step." >&2
+              exit 1
+            fi
+
             printf '%s\n' 'reuse=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -346,23 +454,96 @@ jobs:
           fi
 
           if [[ "${latest_operation}" != "${CURRENT_OPERATION}" ]]; then
-            default_branch="$(gh api --method GET "repos/${GH_REPO}" --jq '.default_branch')"
-            if [[ -z "${default_branch}" ]]; then
-              echo "GitHub returned an empty default branch while reconciling review-app intent." >&2
-              exit 1
-            fi
-            workflow_file="cpflow-${latest_operation}-review-app.yml"
-            gh api --silent --method POST \
+            printf '%s\n' \
+              'redispatch=true' \
+              "operation=${latest_operation}" \
+              "run_id=${latest_run_id}" >> "$GITHUB_OUTPUT"
+            echo "Latest accepted ${latest_operation} intent requires a canonical redispatch."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            'redispatch=false' \
+            "operation=${latest_operation}" \
+            "run_id=${latest_run_id}" \
+            "event=${latest_event}" >> "$GITHUB_OUTPUT"
+          echo "Applying latest accepted ${latest_operation} intent from workflow run ${latest_run_id}."
+
+      - name: Dispatch latest accepted review app intent
+        id: redispatch
+        if: steps.intent.outputs.redispatch == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_OPERATION: deploy
+          TARGET_OPERATION: ${{ steps.intent.outputs.operation }}
+          INTENT_RUN_ID: ${{ steps.intent.outputs.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ || ! "${INTENT_RUN_ID}" =~ ^[0-9]+$ ||
+                ! "${GITHUB_RUN_ID}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid run identity while redispatching review-app intent." >&2
+            exit 1
+          fi
+          case "${SOURCE_OPERATION}:${TARGET_OPERATION}" in
+            deploy:delete|delete:deploy) ;;
+            *) echo "Invalid review-app redispatch operation pair." >&2; exit 1 ;;
+          esac
+
+          default_branch="$(gh api --method GET "repos/${GH_REPO}" --jq '.default_branch')"
+          if [[ -z "${default_branch}" ]]; then
+            echo "GitHub returned an empty default branch while redispatching review-app intent." >&2
+            exit 1
+          fi
+          workflow_file="cpflow-${TARGET_OPERATION}-review-app.yml"
+          dispatch_json="$(
+            gh api --method POST \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
               "repos/${GH_REPO}/actions/workflows/${workflow_file}/dispatches" \
               -f "ref=${default_branch}" \
               -f "inputs[pr_number]=${PR_NUMBER}" \
-              -f "inputs[reconcile_intent_run_id]=${latest_run_id}"
-            echo "Redispatched ${latest_operation} for latest accepted review-app intent run ${latest_run_id}." >&2
+              -f "inputs[reconcile_intent_run_id]=${INTENT_RUN_ID}"
+          )"
+          dispatched_run_id="$(jq -r '.workflow_run_id // empty' <<< "${dispatch_json}")"
+          if [[ ! "${dispatched_run_id}" =~ ^[0-9]+$ ]]; then
+            echo "GitHub did not return a valid workflow run id for the review-app redispatch." >&2
             exit 1
           fi
+          source_created_at="$(
+            gh api --method GET "repos/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}" --jq '.created_at'
+          )"
+          if [[ ! "${source_created_at}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+            echo "GitHub returned an invalid source run creation time for the review-app redispatch." >&2
+            exit 1
+          fi
+          handoff_json="$(
+            jq -cn \
+              --argjson pr "${PR_NUMBER}" \
+              --arg operation "${TARGET_OPERATION}" \
+              --argjson intent_run_id "${INTENT_RUN_ID}" \
+              --argjson dispatch_run_id "${dispatched_run_id}" \
+              --argjson source_run_id "${GITHUB_RUN_ID}" \
+              --arg created_at "${source_created_at}" \
+              '{pr: $pr, operation: $operation, intent_run_id: $intent_run_id,
+                dispatch_run_id: $dispatch_run_id, source_run_id: $source_run_id,
+                created_at: $created_at}'
+          )"
+          handoff_body="<!-- cpflow-review-app-redispatch-v1 ${handoff_json} -->"
+          gh api --silent --method POST "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
+            -f "body=${handoff_body}"
+          echo "Redispatched ${TARGET_OPERATION} for latest accepted review-app intent run ${INTENT_RUN_ID}."
 
-          printf 'event=%s\n' "${latest_event}" >> "$GITHUB_OUTPUT"
-          echo "Applying latest accepted ${latest_operation} intent from workflow run ${latest_run_id}."
+      - name: Stop superseded review app operation
+        if: steps.intent.outputs.redispatch == 'true'
+        shell: bash
+        env:
+          TARGET_OPERATION: ${{ steps.intent.outputs.operation }}
+          INTENT_RUN_ID: ${{ steps.intent.outputs.run_id }}
+        run: |
+          echo "Stopped superseded operation after redispatching ${TARGET_OPERATION} intent ${INTENT_RUN_ID}." >&2
+          exit 1
 
       # Re-read live PR state after intent reconciliation so a close-triggered
       # delete that ran first cannot be followed by a stale deploy recreation.
