@@ -443,7 +443,7 @@ describe Command::DeployImage do
       expect(progress.string).to include("- frontend: https://frontend-test.cpln.app")
     end
 
-    it "does not repeat a successful image update when endpoint resolution fails" do
+    it "does not repeat a successful image update when no public endpoint is available" do
       progress = StringIO.new
       allow(command).to receive(:progress).and_return(progress)
       allow(Resolv).to receive(:getaddress).and_raise(Resolv::ResolvError)
@@ -452,15 +452,13 @@ describe Command::DeployImage do
         .and_return({ "items" => [{ "status" => { "endpoint" => nil } }] })
       allow(Kernel).to receive(:sleep)
 
-      expect { command.call }
-        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+      expect { command.call }.not_to raise_error
 
       expect(cp).to have_received(:workload_set_image_ref)
         .with("frontend", container: "rails", image: "test-app:1").once
       expect(cp).to have_received(:fetch_workload_deployments).with("frontend").once
       expect(Kernel).not_to have_received(:sleep)
-      expect(progress.string).to include("failed!")
-      expect(progress.string).not_to include("- frontend:")
+      expect(progress.string).to include("- frontend: (no public endpoint)")
     end
 
     it "fails after the bounded workload image update retry window without recording an endpoint" do
