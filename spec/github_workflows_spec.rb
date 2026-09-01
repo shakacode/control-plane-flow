@@ -406,6 +406,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         record_intent_step(deploy_workflow).fetch("run"),
         operation: "deploy",
         event: "workflow_dispatch",
+        head_repository: "",
         pr_state: "closed"
       )
 
@@ -882,7 +883,14 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       }
     end
 
-    def run_record_intent(prepare_script, record_script, operation:, event:, pr_state: "open") # rubocop:disable Metrics/MethodLength
+    def run_record_intent( # rubocop:disable Metrics/MethodLength, Metrics/ParameterLists
+      prepare_script,
+      record_script,
+      operation:,
+      event:,
+      pr_state: "open",
+      head_repository: "shakacode/control-plane-flow"
+    )
       fake_prepare_gh = <<~'BASH'
         gh() {
           case "$*" in
@@ -891,7 +899,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
               ;;
             *'/pulls/'*)
               jq -cn \
-                --arg repo "${GH_REPO}" \
+                --arg repo "${CPFLOW_TEST_HEAD_REPOSITORY}" \
                 --arg state "${CPFLOW_TEST_PR_STATE}" \
                 '{head: {repo: {full_name: $repo}}, state: $state}'
               ;;
@@ -908,6 +916,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       BASH
       env = {
         "CPFLOW_TEST_CREATED_AT" => "2026-09-01T05:00:00Z",
+        "CPFLOW_TEST_HEAD_REPOSITORY" => head_repository,
         "CPFLOW_TEST_PR_STATE" => pr_state,
         "GH_REPO" => "shakacode/control-plane-flow",
         "PR_NUMBER" => "427",
@@ -946,7 +955,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         stderr: "#{prepare_stderr}#{stderr}",
         status: status
       }
-    end # rubocop:enable Metrics/MethodLength
+    end # rubocop:enable Metrics/MethodLength, Metrics/ParameterLists
 
     def run_prepare_intent( # rubocop:disable Metrics/MethodLength, Metrics/ParameterLists
       target_workflow,
