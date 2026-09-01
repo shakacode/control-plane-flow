@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
 require "yaml"
 
 RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/DescribeClass
@@ -212,6 +213,77 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
       expect(source_index).to be < checkout_index
       expect(source_index).to be < build_index
+    end
+
+    it "rechecks live PR state after acquiring concurrency and before any deploy step" do
+      deploy_steps = deploy_workflow.fetch("jobs").fetch("deploy").fetch("steps")
+      guard = deploy_steps.first
+      script = guard.fetch("run")
+
+      expect(guard).to include(
+        "name" => "Verify pull request is still open",
+        "shell" => "bash",
+        "env" => {
+          "GH_TOKEN" => "${{ github.token }}",
+          "GH_REPO" => "${{ github.repository }}"
+        }
+      )
+      expect(script).to include("set -euo pipefail")
+      expect(script).to include(
+        %(gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.state')
+      )
+      expect(script).to include('if [[ "${pr_state}" != "open" ]]')
+      expect(script).not_to include("${{")
+
+      open_result = run_live_pr_guard(script, state: "open")
+      closed_result = run_live_pr_guard(script, state: "closed")
+
+      expect(open_result.fetch(:status)).to be_success, open_result.inspect
+      expect(closed_result.fetch(:status)).not_to be_success
+      expect(closed_result.fetch(:stderr)).to include(
+        "Refusing stale review-app deploy because PR #427 is closed."
+      )
+    end
+
+    it "rechecks live PR state before an automatic close-triggered deletion" do
+      guard = steps.first
+      script = guard.fetch("run")
+
+      expect(guard).to include(
+        "name" => "Verify automatic deletion still targets a closed pull request",
+        "if" => "github.event_name == 'pull_request_target'",
+        "shell" => "bash",
+        "env" => {
+          "GH_TOKEN" => "${{ github.token }}",
+          "GH_REPO" => "${{ github.repository }}"
+        }
+      )
+      expect(script).to include("set -euo pipefail")
+      expect(script).to include(
+        %(gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.state')
+      )
+      expect(script).to include('if [[ "${pr_state}" != "closed" ]]')
+      expect(script).not_to include("${{")
+
+      closed_result = run_live_pr_guard(script, state: "closed")
+      reopened_result = run_live_pr_guard(script, state: "open")
+
+      expect(closed_result.fetch(:status)).to be_success
+      expect(reopened_result.fetch(:status)).not_to be_success
+      expect(reopened_result.fetch(:stderr)).to include(
+        "Refusing stale automatic review-app deletion because PR #427 is open."
+      )
+    end
+
+    def run_live_pr_guard(script, state:)
+      fake_gh = <<~BASH
+        gh() {
+          printf '%s\n' "${CPFLOW_TEST_PR_STATE}"
+        }
+      BASH
+      env = { "CPFLOW_TEST_PR_STATE" => state, "GH_REPO" => "shakacode/control-plane-flow", "PR_NUMBER" => "427" }
+      stdout, stderr, status = Open3.capture3(env, "/bin/bash", stdin_data: "#{fake_gh}\n#{script}")
+      { stdout: stdout, stderr: stderr, status: status }
     end
   end
 

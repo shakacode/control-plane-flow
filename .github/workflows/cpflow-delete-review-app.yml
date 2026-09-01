@@ -82,6 +82,24 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # Authorization runs outside the shared queue. For automatic close cleanup,
+      # re-read live PR state after this job acquires concurrency so a stale close
+      # event cannot delete an app that a later reopen deployment already restored.
+      - name: Verify automatic deletion still targets a closed pull request
+        if: github.event_name == 'pull_request_target'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          pr_state="$(gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.state')"
+          if [[ "${pr_state}" != "closed" ]]; then
+            echo "Refusing stale automatic review-app deletion because PR #${PR_NUMBER} is ${pr_state:-unknown}." >&2
+            exit 1
+          fi
+
       - name: React to delete command
         if: github.event_name == 'issue_comment'
         continue-on-error: true

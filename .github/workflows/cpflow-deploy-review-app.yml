@@ -93,6 +93,23 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # Authorization runs outside the shared queue. Re-read live PR state only after this
+      # job acquires the deploy/delete concurrency group so a close-triggered delete that
+      # entered first cannot be followed by a stale deploy that recreates the review app.
+      - name: Verify pull request is still open
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          pr_state="$(gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.state')"
+          if [[ "${pr_state}" != "open" ]]; then
+            echo "Refusing stale review-app deploy because PR #${PR_NUMBER} is ${pr_state:-unknown}." >&2
+            exit 1
+          fi
+
       - name: React to deploy command
         if: github.event_name == 'issue_comment'
         continue-on-error: true
