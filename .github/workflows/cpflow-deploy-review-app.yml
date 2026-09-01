@@ -30,19 +30,52 @@ env:
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
 
 jobs:
+  authorize-comment-command:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      allowed: ${{ steps.permission.outputs.allowed || steps.non-comment.outputs.allowed }}
+    steps:
+      - name: Resolve comment author repository permission
+        if: github.event_name == 'issue_comment'
+        id: permission
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.payload.comment.user.login
+              });
+              const allowed = ["write", "maintain", "admin"].includes(data.permission);
+              core.setOutput("allowed", allowed ? "true" : "false");
+              core.info(`Comment author repository permission: ${data.permission}`);
+            } catch (error) {
+              core.setOutput("allowed", "false");
+              core.setFailed(`Unable to resolve comment author repository permission: ${error.message}`);
+            }
+
+      - name: Allow authenticated non-comment trigger
+        if: github.event_name != 'issue_comment'
+        id: non-comment
+        shell: bash
+        run: echo "allowed=true" >> "$GITHUB_OUTPUT"
+
   deploy:
+    needs: authorize-comment-command
     # Skip synchronize/opened events from fork PRs at the job level — they cannot access
     # repository secrets anyway, so running any steps just burns billable minutes. Users
-    # can still manually deploy a fork PR via `+review-app-deploy` (gated below by
-    # author_association) or workflow_dispatch.
+    # can still request a fork PR deploy via `+review-app-deploy` (gated above by
+    # repository permission) or workflow_dispatch, but the source guard below prevents it.
     if: |
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository) ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request &&
-       contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body) &&
-       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+      needs.authorize-comment-command.outputs.allowed == 'true' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+       github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body)))
     runs-on: ubuntu-latest
     timeout-minutes: 45
 

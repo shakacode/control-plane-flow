@@ -4,6 +4,44 @@ require "spec_helper"
 require "yaml"
 
 RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/DescribeClass
+  describe "Review app comment authorization" do
+    def workflow_file(name)
+      YAML.safe_load_file(File.expand_path("../.github/workflows/#{name}", __dir__), aliases: true)
+    end
+
+    {
+      "cpflow-deploy-review-app.yml" => "deploy",
+      "cpflow-delete-review-app.yml" => "delete-review-app"
+    }.each do |workflow_name, command_job_name|
+      it "requires write permission before running #{command_job_name} comment commands" do
+        workflow = workflow_file(workflow_name)
+        authorization_job = workflow.fetch("jobs").fetch("authorize-comment-command")
+        permission_step = authorization_job.fetch("steps").find do |step|
+          step["name"] == "Resolve comment author repository permission"
+        end
+        non_comment_step = authorization_job.fetch("steps").find do |step|
+          step["name"] == "Allow authenticated non-comment trigger"
+        end
+        script = permission_step.fetch("with").fetch("script")
+        command_job = workflow.fetch("jobs").fetch(command_job_name)
+
+        expect(script).to include("github.rest.repos.getCollaboratorPermissionLevel")
+        expect(script).to include('["write", "maintain", "admin"]')
+        expect(script).to include('core.setOutput("allowed", "false")')
+        expect(script).to include("core.setFailed")
+        expect(non_comment_step).to include(
+          "if" => "github.event_name != 'issue_comment'",
+          "run" => include("allowed=true")
+        )
+        expect(command_job.fetch("needs")).to eq("authorize-comment-command")
+        expect(command_job.fetch("if")).to include(
+          "needs.authorize-comment-command.outputs.allowed == 'true'"
+        )
+        expect(command_job.fetch("if")).not_to include("github.event.comment.author_association")
+      end
+    end
+  end
+
   describe "RSpec shared workflow" do
     let(:workflow) do
       YAML.safe_load_file(
@@ -136,6 +174,16 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
       expect(script).to include("transient_environment: true")
       expect(script).to include("production_environment: false")
+    end
+
+    it "rejects fork sources before checking out or building pull request code" do
+      deploy_steps = deploy_workflow.fetch("jobs").fetch("deploy").fetch("steps")
+      source_index = deploy_steps.index { |step| step["name"] == "Validate review app deployment source" }
+      checkout_index = deploy_steps.index { |step| step["name"] == "Checkout PR commit" }
+      build_index = deploy_steps.index { |step| step["name"] == "Build Docker image" }
+
+      expect(source_index).to be < checkout_index
+      expect(source_index).to be < build_index
     end
   end
 

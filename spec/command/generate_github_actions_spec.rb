@@ -584,9 +584,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(steps.index(refresh_step)).to be < steps.index { |step| step["name"] == "Deploy to Control Plane" }
     end
 
-    it "gates review-app deploys by author_association and skips fork PRs" do
+    it "gates review-app comment commands by repository permission and skips fork PRs" do
       contents = reusable_review_app_workflow_path.read
-      expect(contents).to include("github.event.comment.author_association")
+      generated_wrappers = [review_app_workflow_path, delete_review_workflow_path].map(&:read)
+
+      expect(contents).to include("github.rest.repos.getCollaboratorPermissionLevel")
+      expect(contents).to include('["write", "maintain", "admin"]')
+      expect(contents).to include('core.setOutput("allowed", "false")')
+      generated_wrappers.each do |wrapper|
+        expect(wrapper).not_to include("github.event.comment.author_association")
+      end
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
       expect(contents).to include("Review app deploys from fork pull requests require a branch")
       expect(contents).to include('echo "allowed=false" >> "$GITHUB_OUTPUT"')

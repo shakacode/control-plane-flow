@@ -462,18 +462,19 @@ service-account token must remain disposable and scoped to minimum permissions.
 The generated flow uses these defaults:
 
 - same-repository pull requests can update existing review apps automatically on each push; creating the first review app
-  requires either a `+review-app-deploy` comment from a trusted commenter (`OWNER`, `MEMBER`, or `COLLABORATOR`
-  association, regardless of permission level) or a manual workflow dispatch by a repository collaborator with write
-  access. The trusted-commenter gate applies to every `+review-app-deploy` comment, whether or not a review app already
-  exists. Later pushes to a base-repository branch PR redeploy automatically without another approval because the
-  auto-push path (`pull_request` event) has no trusted-commenter check; only the `issue_comment` path does;
+  requires either a `+review-app-deploy` comment from someone whose current repository permission is `write`, `maintain`,
+  or `admin`, or a manual workflow dispatch by a repository collaborator with write access. GitHub's
+  collaborator-permission API resolves comment permissions when the command runs; `read` and `triage` access are not
+  sufficient, and an API lookup failure denies the command. This permission gate applies to every
+  `+review-app-deploy` comment, whether or not a review app already exists. Later pushes to a base-repository branch PR
+  redeploy automatically without another approval because the auto-push path (`pull_request` event) does not use the
+  comment permission gate;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
-  condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts commands to
-  trusted author associations (`OWNER`, `MEMBER`, `COLLABORATOR`) but does not check fork status; the fork check for
-  comment events is enforced inside the reusable workflow's source-validation step. These complementary guards cover
-  different axes, so preserve both. A trusted commenter can comment on a fork PR and pass the caller's
-  `author_association` check; the reusable workflow's source-validation step is what blocks that fork head from being
-  deployed. Removing the source-validation guard opens a path to deploy untrusted code with repository-secret access,
+  condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts invocation to
+  the exact command shape; the reusable workflow resolves repository permission before its deploy job runs, then its
+  source-validation step checks fork status before checking out or building PR code. These complementary guards cover
+  different axes, so preserve both. Even a write-authorized comment on a fork PR cannot deploy that fork head.
+  Removing the source-validation guard opens a path to deploy untrusted code with repository-secret access,
   because `issue_comment` events execute with base-repository secret access. Removing the `pull_request` guard still
   lets untrusted fork code into the staging environment even though GitHub withholds repository secrets from fork
   `pull_request` runs. Keep both workflow guards in place because the workflow builds Docker images with repository
@@ -481,12 +482,12 @@ The generated flow uses these defaults:
 - review apps are also deleted automatically when the pull request closes; that PR-close path uses `pull_request_target`
   so it runs in the base-repository context and has repository-secret access for teardown. That is also why you must
   never check out PR or fork code in this job; see the customization guidance below. The PR-close path does not require a
-  trusted commenter. The generated `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs
+  comment permission check. The generated `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs
   (`contents: read`, `deployments: write`, `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that
   `permissions:` block because omitting it can fall back to broader repository defaults;
 - manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
-  comment, and does not require a trusted commenter;
-- trusted comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
+  comment, and does not use the comment permission check;
+- write-authorized comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
   commenter receives a rocket reaction and the skip appears only in the Actions step summary. Review the fork code
   carefully, then move the change to a branch in the base repository if it needs a generated review app. That build will
   run with repository-secret access;
@@ -590,8 +591,9 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - Supports cost-conscious review apps when paired with one warm replica, Capacity AI, and a disabled autoscaling
   metric for public demos, starter staging apps, and long-lived review apps; see
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
-- Accepts `+review-app-deploy` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`).
-- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. A trusted comment on a
+- Accepts `+review-app-deploy` only when GitHub reports the commenter has `write`, `maintain`, or `admin` repository
+  permission. `read` and `triage` are denied, and permission lookup failures fail closed.
+- Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. An authorized comment on a
   fork PR still does not deploy the fork head, and manual dispatch must use a base-repository PR number; dispatching with
   a fork PR number causes a hard workflow failure. To give a fork PR a review app, review the code carefully first, then
   move the change to a branch in the base repository. The build will then run with repository-secret access.
@@ -599,7 +601,7 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 `cpflow-delete-review-app.yml`
 
 - Deletes the review app on `+review-app-delete`.
-- Also supports manual workflow dispatch by a repository collaborator without requiring a trusted-commenter command.
+- Also supports manual workflow dispatch by a repository collaborator without using the comment permission check.
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
   are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
   review-app credentials must remain disposable.
@@ -609,8 +611,9 @@ deploy key scoped to the minimum private dependency access, and never use a pers
   per-PR concurrency queue, ensuring an in-flight deploy finishes before deletion and cannot publish a later success
   status after the app is removed. If GitHub deployment cleanup fails after Control Plane deletion, the workflow reports
   that partial outcome accurately and still fails so the cleanup can be retried.
-- Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
-  automatic PR-close teardown do not require a trusted commenter.
+- Accepts `+review-app-delete` only when GitHub reports the commenter has `write`, `maintain`, or `admin` repository
+  permission. `read` and `triage` are denied, and permission lookup failures fail closed; manual dispatch and automatic
+  PR-close teardown do not use the comment permission check.
 
 `cpflow-deploy-staging.yml`
 
