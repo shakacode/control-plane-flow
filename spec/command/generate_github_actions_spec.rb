@@ -624,9 +624,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           "run" => include("allowed=true")
         )
       end
-      generated_wrappers.each do |wrapper|
-        expect(wrapper).not_to include("github.event.comment.author_association")
-      end
+      expect(generated_wrappers).to all(
+        include("github.event.comment.author_association")
+          .and(include("author_association is a cheap caller-side cost filter"))
+      )
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
       expect(contents).to include("Review app deploys from fork pull requests require a branch")

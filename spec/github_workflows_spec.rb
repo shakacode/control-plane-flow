@@ -58,6 +58,11 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
           "needs.authorize-comment-command.outputs.allowed == 'true'"
         )
         expect(command_job.fetch("if")).not_to include("github.event.comment.author_association")
+        expect(workflow).not_to have_key("concurrency")
+        expect(command_job.fetch("concurrency")).to include(
+          "group" => start_with("cpflow-review-app-"),
+          "cancel-in-progress" => false
+        )
       end
     end
   end
@@ -182,9 +187,12 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
     end
 
     it "serializes deploy and delete workflows in the same per-PR concurrency group" do
-      expect(workflow.fetch("concurrency")).to eq(deploy_workflow.fetch("concurrency"))
-      expect(workflow.dig("concurrency", "group")).to start_with("cpflow-review-app-")
-      expect(workflow.dig("concurrency", "cancel-in-progress")).to be(false)
+      delete_concurrency = workflow.dig("jobs", "delete-review-app", "concurrency")
+      deploy_concurrency = deploy_workflow.dig("jobs", "deploy", "concurrency")
+
+      expect(delete_concurrency).to eq(deploy_concurrency)
+      expect(delete_concurrency.fetch("group")).to start_with("cpflow-review-app-")
+      expect(delete_concurrency.fetch("cancel-in-progress")).to be(false)
     end
 
     it "creates future review deployments as transient environments" do
