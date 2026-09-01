@@ -56,6 +56,7 @@ class ControlplaneApiDirect
 
   # Only GET is retried after the request may have reached the server. The
   # remaining verbs mutate state, so they only retry connect-phase failures.
+  # DELETE is intentionally excluded because the client cannot know whether deletion applied before an error response.
   IDEMPOTENT_METHODS = %i[get].freeze
 
   # Bounded so a retried connect failure fits within the retry deadline.
@@ -157,10 +158,12 @@ class ControlplaneApiDirect
       Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
-    # Whether to retry a 429/5xx response received for an idempotent request.
+    # Retries 429 responses for every method, but limits 5xx retries to
+    # idempotent requests.
     def retry_response?(response, idempotent)
-      retriable = response.is_a?(Net::HTTPServerError) || response.is_a?(Net::HTTPTooManyRequests)
-      return false unless idempotent && retriable
+      retriable = response.is_a?(Net::HTTPTooManyRequests) ||
+                  (idempotent && response.is_a?(Net::HTTPServerError))
+      return false unless retriable
 
       retry?(retry_after: response["Retry-After"])
     end
@@ -276,6 +279,9 @@ class ControlplaneApiDirect
   def transport_request(uri, request)
     http = build_http(uri)
     http.start
+    # Set request_sent before `http.request` deliberately: a reset before bytes
+    # are written is indistinguishable from one after a partial write, so treat
+    # both as sent conservatively.
     yield
     begin
       http.request(request)
