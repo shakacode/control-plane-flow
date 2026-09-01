@@ -586,7 +586,7 @@ jobs:
           esac
 
       - name: Skip auto deploy until a review app is created
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && github.event_name == 'pull_request'
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && steps.intent.outputs.event == 'pull_request'
         shell: bash
         run: |
           {
@@ -596,7 +596,7 @@ jobs:
 
       - name: Setup review app if it does not exist yet
         id: setup-review-app
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && github.event_name != 'pull_request'
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && steps.intent.outputs.event != 'pull_request'
         working-directory: app
         shell: bash
         run: |

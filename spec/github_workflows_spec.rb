@@ -285,6 +285,23 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       )
     end
 
+    it "keeps a redispatched automatic deploy from creating a missing review app" do
+      skip_step = deploy_steps.find { |step| step["name"] == "Skip auto deploy until a review app is created" }
+      setup_step = deploy_steps.find { |step| step["name"] == "Setup review app if it does not exist yet" }
+      missing_app_guard =
+        "steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && " \
+        "steps.check-app.outputs.exists != 'true'"
+
+      expect(skip_step.fetch("if")).to eq(
+        "#{missing_app_guard} && steps.intent.outputs.event == 'pull_request'"
+      )
+      expect(setup_step.fetch("if")).to eq(
+        "#{missing_app_guard} && steps.intent.outputs.event != 'pull_request'"
+      )
+      expect(skip_step.fetch("if")).not_to include("github.event_name")
+      expect(setup_step.fetch("if")).not_to include("github.event_name")
+    end
+
     it "rechecks live PR state before an automatic close-triggered deletion" do
       guard = step_named("Verify automatic deletion still targets a closed pull request")
       script = guard.fetch("run")
