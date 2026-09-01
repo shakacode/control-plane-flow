@@ -31,9 +31,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 - **Fixed reusable review-app deployments so existing apps receive changes from configured `setup_app_templates` before the new image is deployed, without deleting the GVC, rerunning post-creation hooks, replacing deployed images before rollout gates pass, or modifying existing secret resources.** [PR 424](https://github.com/shakacode/control-plane-flow/pull/424) by [Justin Gordon](https://github.com/justin808).
 - **Fixed `cpflow deploy-image` crashing when an internal-only workload has no public endpoint.** Deployments now consult the existing deployment fallback and report when no public endpoint is available. [PR 423](https://github.com/shakacode/control-plane-flow/pull/423) by [Justin Gordon](https://github.com/justin808).
 
-### Fixed
-
-- **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, and transient workload image deployment.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile, and workload image updates retry for a bounded window before failing. Fixes [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
+- **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, and transient workload image deployment.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile, and workload image updates retry for a bounded window before failing. [PR 413](https://github.com/shakacode/control-plane-flow/pull/413) by [Justin Gordon](https://github.com/justin808). Fixes [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
 
 ## [5.2.0] - 2026-07-10
 

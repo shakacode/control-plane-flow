@@ -255,7 +255,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
     Shell.debug("CMD", cmd)
-    Shell.cmd(cmd, capture_stderr: true)
+    perform_with_output(cmd)
   end
 
   def set_workload_env_var(workload, container:, name:, value:)
@@ -566,14 +566,22 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing.
   # Returns true on zero exit, false on non-zero exit, nil when the process was signal-killed.
   # SystemCallError (e.g. cpln binary missing) propagates — startup checks ensure this is unreachable in practice.
-  def kernel_system_with_pid_handling(cmd)
-    pid = Process.spawn(cmd)
+  def kernel_system_with_pid_handling(cmd, **spawn_options)
+    pid = Process.spawn(cmd, **spawn_options)
     $child_pids << pid # rubocop:disable Style/GlobalVars
 
     _, status = Process.wait2(pid)
     $child_pids.delete(pid) # rubocop:disable Style/GlobalVars
 
     status.exited? ? status.success? : nil
+  end
+
+  def perform_with_output(cmd)
+    Tempfile.create("cpflow-command-output") do |output|
+      success = kernel_system_with_pid_handling(cmd, out: output, err: %i[child out])
+      output.rewind
+      { output: output.read, success: success == true }
+    end
   end
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)

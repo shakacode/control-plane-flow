@@ -172,11 +172,11 @@ describe Controlplane do
 
     before do
       allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_return({ "items" => [{ "name" => "my-org" }] }) # rubocop:disable RSpec/AnyInstance
-      allow(Shell).to receive(:cmd)
+      allow(described_instance).to receive(:perform_with_output).and_call_original
+      allow(described_instance).to receive(:perform_with_output)
         .with(
           "cpln workload update rails --gvc my-app --org my-org " \
-          "--set spec.containers.web.image=/org/my-org/image/my-app:2",
-          capture_stderr: true
+          "--set spec.containers.web.image=/org/my-org/image/my-app:2"
         )
         .and_return({ success: false, output: "409 Conflict" })
     end
@@ -189,6 +189,25 @@ describe Controlplane do
       )
 
       expect(result).to eq(success: false, output: "409 Conflict")
+    end
+
+    it "tracks the captured subprocess until it exits" do
+      process_status = instance_double(Process::Status, exited?: true, success?: false)
+      allow(Process).to receive(:spawn).and_return(12_345)
+      allow(Process).to receive(:wait2).with(12_345) do
+        expect($child_pids).to include(12_345) # rubocop:disable Style/GlobalVars
+        [12_345, process_status]
+      end
+
+      result = described_instance.send(:perform_with_output, "cpln workload update")
+
+      expect(result).to eq(success: false, output: "")
+      expect(Process).to have_received(:spawn).with(
+        "cpln workload update",
+        out: an_instance_of(File),
+        err: %i[child out]
+      )
+      expect($child_pids).not_to include(12_345) # rubocop:disable Style/GlobalVars
     end
   end
 end
