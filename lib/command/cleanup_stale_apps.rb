@@ -116,7 +116,9 @@ module Command
       live_workloads = cp.fetch_workloads(app).fetch("items", []).map { |workload| workload.fetch("name") }
 
       (configured_workloads & live_workloads).each do |workload|
-        run_cpflow_command("ps:stop", "-a", app, "--workload", workload)
+        step("Stopping workload '#{workload}'") do
+          cp.set_workload_suspend(workload, true)
+        end
       end
     end
 

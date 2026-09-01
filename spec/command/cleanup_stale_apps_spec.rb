@@ -96,7 +96,8 @@ describe Command::CleanupStaleApps do
             { "name" => "postgres" },
             { "name" => "unconfigured-worker" }
           ]
-        }
+        },
+        set_workload_suspend: true
       )
     end
     let(:command) { described_class.new(config) }
@@ -110,12 +111,9 @@ describe Command::CleanupStaleApps do
       command.send(:process_app, "stale-app")
 
       expect(cp).to have_received(:fetch_workloads).with("stale-app")
-      expect(command).to have_received(:run_cpflow_command)
-        .with("ps:stop", "-a", "stale-app", "--workload", "postgres").once
-      expect(command).not_to have_received(:run_cpflow_command)
-        .with("ps:stop", "-a", "stale-app", "--workload", "rails")
-      expect(command).not_to have_received(:run_cpflow_command)
-        .with("ps:stop", "-a", "stale-app", "--workload", "unconfigured-worker")
+      expect(cp).to have_received(:set_workload_suspend).with("postgres", true).once
+      expect(cp).not_to have_received(:set_workload_suspend).with("rails", true)
+      expect(cp).not_to have_received(:set_workload_suspend).with("unconfigured-worker", true)
     end
 
     it "raises when the stale app config does not define app_workloads" do
@@ -126,7 +124,7 @@ describe Command::CleanupStaleApps do
       expect { command.send(:process_app, "stale-app") }
         .to raise_error("Can't find option 'app_workloads' for app 'stale-app' in 'controlplane.yml'.")
       expect(cp).not_to have_received(:fetch_workloads)
-      expect(command).not_to have_received(:run_cpflow_command)
+      expect(cp).not_to have_received(:set_workload_suspend)
     end
 
     it "raises when the stale app config does not define additional_workloads" do
@@ -137,7 +135,7 @@ describe Command::CleanupStaleApps do
       expect { command.send(:process_app, "stale-app") }
         .to raise_error("Can't find option 'additional_workloads' for app 'stale-app' in 'controlplane.yml'.")
       expect(cp).not_to have_received(:fetch_workloads)
-      expect(command).not_to have_received(:run_cpflow_command)
+      expect(cp).not_to have_received(:set_workload_suspend)
     end
   end
 
