@@ -44,6 +44,40 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
     end
   end
 
+  describe "Deploy Review App workflow" do
+    let(:workflow) do
+      YAML.safe_load_file(
+        File.expand_path("../.github/workflows/cpflow-deploy-review-app.yml", __dir__),
+        aliases: true
+      )
+    end
+
+    let(:deploy_job) { workflow.fetch("jobs").fetch("deploy") }
+    let(:steps) { deploy_job.fetch("steps") }
+
+    def step_named(name)
+      steps.find { |step| step["name"] == name }
+    end
+
+    it "distinguishes a skipped image build visibly and through a reusable output", :aggregate_failures do
+      expect(workflow.dig(true, "workflow_call", "outputs", "image_built")).to include(
+        "description" => "Whether this run successfully built the application image.",
+        "value" => "${{ jobs.deploy.outputs.image_built }}"
+      )
+      expect(deploy_job.fetch("outputs")).to include(
+        "image_built" => "${{ steps.build-image.outcome == 'success' }}"
+      )
+      expect(step_named("Build Docker image")).to include("id" => "build-image")
+
+      skipped_build_script = step_named("Skip auto deploy until a review app is created").fetch("run")
+      expect(skipped_build_script).to include(
+        "## Docker image not built",
+        "image_built=false",
+        "This successful review-app check did not build or deploy an image."
+      )
+    end
+  end
+
   describe "Delete Review App workflow" do
     let(:workflow) do
       YAML.safe_load_file(

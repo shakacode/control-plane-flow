@@ -21,6 +21,8 @@ permissions:
   pull-requests: write
 
 jobs:
+  # The reusable job exposes `image_built`; downstream jobs can read
+  # `needs.deploy.outputs.image_built`. A value of `false` means this check did not validate the Docker image.
   deploy:
     if: |
       (github.event_name == 'pull_request' &&

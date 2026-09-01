@@ -348,6 +348,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("Create initial PR comment")
       expect(contents).not_to include("Build Docker image")
       expect(contents).not_to include("Deploy to Control Plane")
+      expect(contents).to include("needs.deploy.outputs.image_built")
+      expect(contents).to include("did not validate the Docker image")
     end
 
     it "updates existing generated wrappers to the installed cpflow release tag" do

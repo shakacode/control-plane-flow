@@ -587,6 +587,12 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - Redeploys an existing review app automatically on later PR pushes.
 - Creates a transient, non-production GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
+- When that no-app PR path succeeds without building or deploying, writes a prominent `Docker image not built` job
+  summary and returns the reusable-workflow output `image_built=false`. A downstream job can inspect
+  `needs.deploy.outputs.image_built`; a green deploy job with `false` is not Docker-image validation.
+- Repositories that require production-image validation before merge should add a separate required build job when
+  Dockerfile, runtime-version, or dependency files change. The cost-saving review-app path intentionally does not create
+  an app or build an image until `+review-app-deploy` is requested.
 - Supports cost-conscious review apps when paired with one warm replica, Capacity AI, and a disabled autoscaling
   metric for public demos, starter staging apps, and long-lived review apps; see
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
