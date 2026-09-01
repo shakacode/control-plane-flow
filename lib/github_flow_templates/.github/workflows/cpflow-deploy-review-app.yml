@@ -13,8 +13,13 @@ on:
         description: Pull request number to deploy
         required: true
         type: number
+      reconcile_intent_run_id:
+        description: Internal sequencing token; leave blank for manual dispatch
+        required: false
+        type: string
 
 permissions:
+  actions: write
   contents: read
   deployments: write
   issues: write

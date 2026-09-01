@@ -465,7 +465,12 @@ The generated flow uses these defaults:
   requires either a `+review-app-deploy` comment from someone whose current repository permission is `write`, `maintain`,
   or `admin`, or a manual workflow dispatch by a repository collaborator with write access. GitHub's
   collaborator-permission API resolves comment permissions when the command runs; `read` and `triage` access are not
-  sufficient, and an API lookup failure denies the command. This permission gate applies to every
+  sufficient, and an API lookup failure denies the command. Accepted triggers are recorded in a hidden, bot-authored
+  intent comment before queue admission. The mutating job authenticates the newest marker against its originating
+  Actions run and successful POST-only recording step, then rechecks the manual actor's current permission after it
+  acquires the per-PR queue. Editing or deleting
+  the original command comment therefore cannot reorder accepted work, and a permission revoked while the job waits
+  makes the newest intent fail closed instead of falling back to an older operation. This permission gate applies to every
   `+review-app-deploy` comment, whether or not a review app already exists. Later pushes to a base-repository branch PR
   redeploy automatically without another approval because the auto-push path (`pull_request` event) does not use the
   comment permission gate;
@@ -483,12 +488,16 @@ The generated flow uses these defaults:
   so it runs in the base-repository context and has repository-secret access for teardown. That is also why you must
   never check out PR or fork code in this job; see the customization guidance below. The PR-close path does not require a
   comment permission check. The generated `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs
-  (`contents: read`, `deployments: write`, `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that
-  `permissions:` block because omitting it can fall back to broader repository defaults;
+  (`actions: write`, `contents: read`, `deployments: write`, `issues: write`, `pull-requests: write`). `actions: write` is used
+  only to redispatch the newest accepted deploy/delete operation when GitHub replaces the corresponding pending run;
+  if you customize this workflow, preserve that `permissions:` block because omitting it can fall back to broader
+  repository defaults;
 - manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
-  comment, and does not use the comment permission check;
-- write-authorized comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment in this case. The
-  commenter receives a rocket reaction and the skip appears only in the Actions step summary. Review the fork code
+  comment. It is recorded in the same intent order as comment and automatic triggers, and the actor's current repository
+  permission is rechecked after queue admission;
+- write-authorized comments on fork PRs still do not deploy the fork head; the workflow posts no PR comment or command
+  reaction in this case. The authorization job records no accepted intent, and the skip appears in its
+  `Prepare accepted review app intent` log. Review the fork code
   carefully, then move the change to a branch in the base repository if it needs a generated review app. That build will
   run with repository-secret access;
 - production promotion is manual and uses production environment secrets separately from review and staging.
@@ -568,6 +577,16 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 
 ## Generated Workflow Behavior
 
+The deploy and delete workflows share a per-PR concurrency group, but GitHub keeps at most one running and one pending
+member of a group and may replace the pending member without FIFO ordering. Each authorized trigger therefore records a
+hidden `github-actions[bot]` intent marker containing its operation and originating workflow-run identity before it joins
+the queue. Whichever job survives reads the complete marker ledger, authenticates the newest marker against the Actions
+run API and the source run's successful POST-only recording step, revalidates a manual actor's current permission, and either performs that operation or redispatches the matching
+generated workflow on the default branch. Internal redispatches reuse the existing marker instead of creating a new
+intent. This convergence covers automatic PR events, manual dispatches, mixed-case comment admission, authorization
+completion in a different order from event creation, and edits or deletion of the original command comment. Invalid,
+forged, missing, or permission-revoked newest intents fail closed and never fall back to older work.
+
 `cpflow-review-app-help.yml`
 
 - Posts a quick reference when a pull request opens, including on fork-based PRs.
@@ -592,10 +611,11 @@ deploy key scoped to the minimum private dependency access, and never use a pers
   metric for public demos, starter staging apps, and long-lived review apps; see
   [Enable Capacity AI for Demo and Starter Staging Apps](tips.md#enable-capacity-ai-for-demo-and-starter-staging-apps).
 - Accepts `+review-app-deploy` only when GitHub reports the commenter has `write`, `maintain`, or `admin` repository
-  permission. `read` and `triage` are denied, and permission lookup failures fail closed.
+  permission. `read` and `triage` are denied, permission is checked again after queue admission, and lookup failures fail
+  closed. Manual dispatch follows the same post-queue permission rule.
 - Skips fork-based PR deploys because the workflow builds Docker images with repository secrets. An authorized comment on a
-  fork PR still does not deploy the fork head, and manual dispatch must use a base-repository PR number; dispatching with
-  a fork PR number causes a hard workflow failure. To give a fork PR a review app, review the code carefully first, then
+  fork PR still does not deploy the fork head, and manual dispatch must use a base-repository PR number. A fork-targeted
+  request records no accepted intent and skips the mutating job. To give a fork PR a review app, review the code carefully first, then
   move the change to a branch in the base repository. The build will then run with repository-secret access.
 
 `cpflow-delete-review-app.yml`
@@ -607,13 +627,15 @@ deploy key scoped to the minimum private dependency access, and never use a pers
   review-app credentials must remain disposable.
 - After Control Plane deletion succeeds, marks every GitHub deployment for the exact `review/<app-name>` environment
   inactive so the repository does not retain a stale active review deployment, while skipping deployments whose latest
-  status is already inactive so repeated teardown is idempotent. Deploy and delete workflows share one
-  per-PR concurrency queue, ensuring an in-flight deploy finishes before deletion and cannot publish a later success
-  status after the app is removed. If GitHub deployment cleanup fails after Control Plane deletion, the workflow reports
+  status is already inactive so repeated teardown is idempotent. Deploy and delete workflows share one per-PR
+  concurrency queue; the accepted-intent reconciliation described above compensates for GitHub replacing pending runs,
+  ensuring the newest accepted operation eventually wins and an older deploy cannot publish the final state after a
+  newer deletion. If GitHub deployment cleanup fails after Control Plane deletion, the workflow reports
   that partial outcome accurately and still fails so the cleanup can be retried.
 - Accepts `+review-app-delete` only when GitHub reports the commenter has `write`, `maintain`, or `admin` repository
-  permission. `read` and `triage` are denied, and permission lookup failures fail closed; manual dispatch and automatic
-  PR-close teardown do not use the comment permission check.
+  permission. `read` and `triage` are denied, permission is checked again after queue admission, and lookup failures fail
+  closed. Manual dispatch uses the same post-queue actor check; automatic PR-close teardown does not use a manual actor
+  permission check.
 
 `cpflow-deploy-staging.yml`
 

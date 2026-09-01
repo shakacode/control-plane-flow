@@ -593,11 +593,23 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         authorization_job = workflow.fetch("jobs").fetch("authorize-comment-command")
         permission_step = authorization_job.fetch("steps").find { |step| step["id"] == "permission" }
         non_comment_step = authorization_job.fetch("steps").find { |step| step["id"] == "non-comment" }
+        prepare_intent_step = authorization_job.fetch("steps").find do |step|
+          step["name"] == "Prepare accepted review app intent"
+        end
+        record_intent_step = authorization_job.fetch("steps").find do |step|
+          step["name"] == "Record accepted review app intent"
+        end
         script = permission_step.fetch("run")
 
-        expect(authorization_job.fetch("permissions")).to eq("contents" => "read")
+        expect(workflow.fetch("permissions")).to include("actions" => "write", "issues" => "write")
+        expect(authorization_job.fetch("permissions")).to eq(
+          "actions" => "read",
+          "contents" => "read",
+          "issues" => "write",
+          "pull-requests" => "read"
+        )
         expect(authorization_job.fetch("outputs")).to eq(
-          "allowed" => "${{ steps.permission.outputs.allowed || steps.non-comment.outputs.allowed }}"
+          "allowed" => "${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}"
         )
         expect(permission_step).not_to have_key("uses")
         expect(permission_step).to include(
@@ -623,11 +635,38 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           "if" => "github.event_name != 'issue_comment'",
           "run" => include("allowed=true")
         )
+        expect(prepare_intent_step).to include(
+          "id" => "intent",
+          "if" => include("github.event.issue.pull_request", "workflow_dispatch"),
+          "env" => include(
+            "GH_TOKEN" => "${{ github.token }}",
+            "RUN_ID" => "${{ github.run_id }}",
+            "RECONCILE_INTENT_RUN_ID" => "${{ github.event.inputs.reconcile_intent_run_id }}"
+          ),
+          "run" => include(
+            "repos/${GH_REPO}/actions/runs/${RUN_ID}",
+            "cpflow-review-app-intent-v1"
+          )
+        )
+        expect(record_intent_step).to include(
+          "id" => "record",
+          "if" => "steps.intent.outputs.record == 'true'",
+          "run" => include("repos/${GH_REPO}/issues/${PR_NUMBER}/comments", "accepted=true")
+        )
       end
       expect(generated_wrappers).to all(
         include("github.event.comment.author_association")
           .and(include("author_association is a cheap caller-side cost filter"))
       )
+      generated_wrappers.each do |contents|
+        wrapper = YAML.safe_load(contents, aliases: true)
+        triggers = wrapper["on"] || wrapper.fetch(true)
+        expect(wrapper.fetch("permissions")).to include("actions" => "write")
+        expect(triggers.dig("workflow_dispatch", "inputs", "reconcile_intent_run_id")).to include(
+          "required" => false,
+          "type" => "string"
+        )
+      end
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
       expect(contents).to include("Review app deploys from fork pull requests require a branch")

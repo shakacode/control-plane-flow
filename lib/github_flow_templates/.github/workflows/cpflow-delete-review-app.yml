@@ -1,5 +1,7 @@
 name: Delete Review App
 
+run-name: "Delete Review App - PR #${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}"
+
 on:
   pull_request_target:
     types: [closed]
@@ -11,8 +13,13 @@ on:
         description: Pull request number targeted for deletion
         required: true
         type: number
+      reconcile_intent_run_id:
+        description: Internal sequencing token; leave blank for manual dispatch
+        required: false
+        type: string
 
 permissions:
+  actions: write
   contents: read
   deployments: write
   issues: write
