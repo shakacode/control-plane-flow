@@ -552,6 +552,8 @@ module Command
     end
 
     def args_join(args)
+      # A single CLI argument is an intentional shell program (for example, an env assignment or pipeline).
+      # Multiple CLI arguments are argv elements and must be escaped before entering the remote shell script.
       return args.first if args.one?
 
       Shellwords.join(args)

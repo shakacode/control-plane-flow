@@ -240,6 +240,18 @@ describe Command::Run do
       expect(runner_script["value"]).to include("bin/rails db:migrate")
     end
 
+    context "when the command is interactive" do
+      before do
+        command.instance_variable_set(:@interactive, true)
+      end
+
+      it "stores the remote runner invocation as exact command arguments" do
+        command.send(:build_job_start_yaml)
+
+        expect(command.command).to eq(["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"'])
+      end
+    end
+
     context "when the app has no GVC" do
       let(:gvc_data) { nil }
 
@@ -322,7 +334,7 @@ describe Command::Run do
       command.instance_variable_set(:@replica, "rails-runner-12345")
       command.instance_variable_set(:@location, "aws-us-east-2")
       command.instance_variable_set(:@container, "rails")
-      command.instance_variable_set(:@command, %(bash -c 'true'))
+      command.instance_variable_set(:@command, ["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"'])
       allow(cp).to receive(:workload_exec).and_return(exec_success)
     end
 
@@ -332,7 +344,11 @@ describe Command::Run do
       it "does not print a cleanup hint" do
         command.send(:run_interactive)
 
-        expect(cp).to have_received(:workload_exec).once
+        expect(cp).to have_received(:workload_exec).with(
+          "rails-runner", "rails-runner-12345",
+          location: "aws-us-east-2", container: "rails",
+          command: ["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"']
+        ).once
         expect(progress).not_to have_received(:puts).with(/runner workload is still running/)
       end
     end

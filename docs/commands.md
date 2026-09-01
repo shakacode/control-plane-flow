@@ -517,7 +517,8 @@ cpflow run -a $APP_NAME -- rails db:migrate
 # - stop the job
 cpflow run -a $APP_NAME --detached -- rails db:migrate
 
-# The command needs to be quoted if setting an env variable or passing args.
+# Quote the whole command to intentionally opt into shell syntax such as an env assignment.
+# Separately supplied command arguments are passed literally.
 cpflow run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
 
 # Uses a different image (which may not be promoted yet).

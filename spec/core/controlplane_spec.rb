@@ -30,6 +30,38 @@ describe Controlplane do
     end
   end
 
+  describe "#workload_exec" do
+    let(:described_instance) do
+      described_class.allocate.tap do |instance|
+        instance.instance_variable_set(:@gvc, "my app")
+        instance.instance_variable_set(:@org, "my org")
+      end
+    end
+    let(:process_status) { instance_double(Process::Status, exited?: true, success?: true) }
+
+    before do
+      allow(Process).to receive(:spawn).and_return(1234)
+      allow(Process).to receive(:wait2).with(1234).and_return([1234, process_status])
+    end
+
+    it "spawns local cpln command arguments without shell interpolation" do
+      command = ["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"']
+
+      result = described_instance.workload_exec(
+        "rails runner", "replica;id", location: "location $HOME", container: "rails`id`", command: command
+      )
+
+      expect(result).to be(true)
+      expect(Process).to have_received(:spawn).with(
+        "cpln", "workload", "exec", "rails runner",
+        "--gvc", "my app", "--org", "my org",
+        "--replica", "replica;id", "--location", "location $HOME", "-it",
+        "--container", "rails`id`", "--",
+        "bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"'
+      )
+    end
+  end
+
   describe "#build_command" do
     let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
     let!(:described_instance) { described_class.new(fake_config) }
