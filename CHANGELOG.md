@@ -18,6 +18,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Changed
 
+- **Added review-app security documentation for repositories with external contributors, covering disposable secrets, PR-controlled identity and policy templates, and staging-token least privilege.** [PR 350](https://github.com/shakacode/control-plane-flow/pull/350) by [Justin Gordon](https://github.com/justin808).
 - **Simplified generated review-app help comments to a three-command quick reference, moved setup behind expandable details, and clarified GitHub Actions secret and variable terminology.** [PR 410](https://github.com/shakacode/control-plane-flow/pull/410) by [Justin Gordon](https://github.com/justin808).
 - **Updated reusable GitHub Actions setup to install Control Plane CLI 3.11.0 by default.** [PR 423](https://github.com/shakacode/control-plane-flow/pull/423) by [Justin Gordon](https://github.com/justin808).
 
