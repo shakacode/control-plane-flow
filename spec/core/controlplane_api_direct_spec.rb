@@ -254,6 +254,20 @@ describe ControlplaneApiDirect do
       expect(slept_delays).to be_empty
     end
 
+    it "does not attach HTTP debug output to a sensitive response" do
+      original_trace = described_class.trace
+      described_class.trace = true
+      allow(http_connection).to receive(:request)
+        .and_return(ok_response(body: '{"data":{"password":"trace-leak-sentinel"}}'))
+
+      result = described_instance.call("/org/my-org/secret/my-secret/-reveal", method: :get, sensitive: true)
+
+      expect(result).to eq("data" => { "password" => "trace-leak-sentinel" })
+      expect(http_connection).not_to have_received(:set_debug_output)
+    ensure
+      described_class.trace = original_trace
+    end
+
     it "disables Net::HTTP's built-in retries and bounds the open timeout" do
       allow(http_connection).to receive(:request).and_return(ok_response)
 

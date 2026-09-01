@@ -281,7 +281,7 @@ describe ControlplaneApi do
 
   describe "#reveal_secret" do
     it "reveals a single secret" do
-      response = stub_api_call("/org/my-org/secret/my-secret/-reveal", method: :get)
+      response = stub_api_call("/org/my-org/secret/my-secret/-reveal", method: :get, sensitive: true)
 
       expect(api.reveal_secret(org: "my-org", secret: "my-secret")).to eq(response)
     end

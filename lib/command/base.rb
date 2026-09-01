@@ -655,7 +655,9 @@ module Command
         "Shared secret grant '#{grant.fetch(:name)}' targets secret '#{secret_name}', whose password " \
         "is still the generated placeholder. Review apps will fail authentication until it is replaced."
       )
-    rescue ControlplaneApiDirect::ForbiddenError
+    # This is a best-effort warning. API, transport, and response-shape failures
+    # must not turn an optional diagnostic into a deployment blocker.
+    rescue StandardError
       nil
     end
 

@@ -123,7 +123,7 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
   end
 
   def reveal_secret(org:, secret:)
-    api_json("/org/#{org}/secret/#{secret}/-reveal", method: :get)
+    api_json("/org/#{org}/secret/#{secret}/-reveal", method: :get, sensitive: true)
   end
 
   def delete_secret(org:, secret:)

@@ -144,5 +144,15 @@ describe Command::Base do
       expect { command.resolve_shared_secret_policy_grants }.not_to raise_error
       expect(Shell).not_to have_received(:warn)
     end
+
+    it "does not block the command when the optional reveal diagnostic fails" do
+      allow(cp).to receive(:reveal_secret)
+        .with("shared-database-secrets")
+        .and_raise("temporary reveal failure")
+      allow(Shell).to receive(:warn)
+
+      expect { command.resolve_shared_secret_policy_grants }.not_to raise_error
+      expect(Shell).not_to have_received(:warn)
+    end
   end
 end
