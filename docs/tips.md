@@ -18,6 +18,7 @@
 13. [Minimizing Non-Production App Costs](#minimizing-non-production-app-costs)
     - [Share One Control Plane Postgres for Staging and Review Apps](#share-one-control-plane-postgres-for-staging-and-review-apps)
     - [Enable Capacity AI for Demo and Starter Staging Apps](#enable-capacity-ai-for-demo-and-starter-staging-apps)
+    - [Use an Always-Available Landing Page for a Serverless App](#use-an-always-available-landing-page-for-a-serverless-app)
     - [Delete or Pause Abandoned Apps with `cleanup-stale-apps`](#delete-or-pause-abandoned-apps-with-cleanup-stale-apps)
     - [Pause and Resume with `ps:stop` / `ps:start`](#pause-and-resume-with-psstop--psstart)
 14. [Right-Sizing Non-Production Workloads](#right-sizing-non-production-workloads)
@@ -615,6 +616,23 @@ migration and can interrupt traffic.
 
 > **Warning:** Treat a `standard` to `serverless` conversion as an operational migration because deleting a running
 > workload can interrupt traffic.
+
+### Use an Always-Available Landing Page for a Serverless App
+
+For a public demo, review app, or staging app where the first request's cold start would be a poor first impression,
+serve a lightweight landing page independently of the app that scales to zero. Route visitors to that landing page
+first, then have a button on that page request the separate serverless app. The page can immediately explain that the
+app is starting while the serverless workload wakes; it does not remove the cold start, but it keeps that wait out of
+the initial page render.
+
+```text
+always-available landing page -> Open app request -> serverless app (minScale: 0) -> cold start -> app response
+```
+
+The landing page, its hosting, and any DNS, proxy, rewrite, or redirect rules are application infrastructure you
+choose and operate. `cpflow` does not create that routing infrastructure. Keep the app as a separate serverless
+workload from its first deployment (or perform the planned delete/recreate migration above); it cannot convert an
+existing standard workload in place. The wake-up path also requires the HTTP autoscaling configuration shown above.
 
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See
