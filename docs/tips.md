@@ -621,7 +621,7 @@ migration and can interrupt traffic.
 
 For a public demo, review app, or staging app where the first request's cold start would be a poor first impression,
 serve a lightweight landing page independently of the app that scales to zero. Route visitors to that landing page
-first, then have its **Open app** action request the separate serverless app. The page can immediately explain that the
+first, then have a button on that page request the separate serverless app. The page can immediately explain that the
 app is starting while the serverless workload wakes; it does not remove the cold start, but it keeps that wait out of
 the initial page render.
 
@@ -632,8 +632,7 @@ always-available landing page -> Open app request -> serverless app (minScale: 0
 The landing page, its hosting, and any DNS, proxy, rewrite, or redirect rules are application infrastructure you
 choose and operate. `cpflow` does not create that routing infrastructure. Keep the app as a separate serverless
 workload from its first deployment (or perform the planned delete/recreate migration above); it cannot convert an
-existing standard workload in place. The wake-up path also requires the HTTP autoscaling configuration shown above and
-will not work while `cpflow ps:stop` has suspended the app.
+existing standard workload in place. The wake-up path also requires the HTTP autoscaling configuration shown above.
 
 > **Note:** if you later suspend the app with `cpflow ps:stop`, Control Plane will not auto-wake it on the next
 > request. Run `cpflow ps:start` explicitly first. See
