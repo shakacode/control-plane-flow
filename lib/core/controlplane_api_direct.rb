@@ -55,8 +55,9 @@ class ControlplaneApiDirect
   API_TOKEN_EXPIRY_SECONDS = 300
 
   # GET alone retries 5xx responses or transport failures after the request may
-  # have reached the server. Every method may retry an explicit 429 response;
-  # other verbs otherwise retry only connect-phase failures.
+  # have reached the server. Every method may retry an explicit 429 response.
+  # DELETE stays out of this set because after other errors the client cannot
+  # know whether deletion applied server-side.
   IDEMPOTENT_METHODS = %i[get].freeze
 
   # Bounded so a retried connect failure fits within the retry deadline.
