@@ -100,6 +100,76 @@ jobs:
             exit 1
           fi
 
+      # Authorization finishes before this job enters the shared queue, so two nearby
+      # comment commands can reach the queue in the opposite order. Once admitted,
+      # suppress an older command whenever a newer still-authorized command exists.
+      - name: Reject superseded review app command
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ || ! "${COMMENT_ID}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request or comment id while checking command freshness." >&2
+            exit 1
+          fi
+
+          comments_json="$(
+            gh api --paginate --slurp --method GET \
+              "repos/${GH_REPO}/issues/${PR_NUMBER}/comments?per_page=100"
+          )"
+          newer_commands="$(
+            jq -r --argjson current_id "${COMMENT_ID}" '
+              .[][]?
+              | select(.id > $current_id)
+              | .body as $body
+              | select([
+                  "+review-app-deploy",
+                  "+review-app-deploy\n",
+                  "+review-app-deploy\r\n",
+                  "+review-app-delete",
+                  "+review-app-delete\n",
+                  "+review-app-delete\r\n"
+                ] | index($body))
+              | [.id, .user.login]
+              | @tsv
+            ' <<< "${comments_json}"
+          )"
+
+          while IFS=$'\t' read -r newer_comment_id newer_author; do
+            [[ -z "${newer_comment_id}" ]] && continue
+            if [[ -z "${newer_author}" ]]; then
+              echo "A newer review-app command has no author; refusing the stale command." >&2
+              exit 1
+            fi
+
+            permission="$(
+              gh api --method GET \
+                "repos/${GH_REPO}/collaborators/${newer_author}/permission" \
+                --jq '.permission'
+            )"
+            case "${permission}" in
+              write|maintain|admin)
+                echo "Refusing review-app command comment #${COMMENT_ID} because newer authorized command comment #${newer_comment_id} exists." >&2
+                exit 1
+                ;;
+              read|triage|none)
+                ;;
+              "")
+                echo "GitHub returned an empty repository permission for newer command comment #${newer_comment_id}." >&2
+                exit 1
+                ;;
+              *)
+                echo "Unexpected repository permission for newer command comment #${newer_comment_id}: ${permission}" >&2
+                exit 1
+                ;;
+            esac
+          done <<< "${newer_commands}"
+
       - name: React to delete command
         if: github.event_name == 'issue_comment'
         continue-on-error: true

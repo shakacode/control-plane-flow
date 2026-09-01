@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "json"
 require "open3"
 require "yaml"
 
@@ -275,6 +276,81 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       )
     end
 
+    it "suppresses an older comment command when a newer authorized command exists" do
+      deploy_steps = deploy_workflow.fetch("jobs").fetch("deploy").fetch("steps")
+      deploy_guard = deploy_steps.find { |step| step["name"] == "Reject superseded review app command" }
+      delete_guard = step_named("Reject superseded review app command")
+      script = deploy_guard.fetch("run")
+      deploy_guard_index = deploy_steps.index(deploy_guard)
+      deploy_reaction_index = deploy_steps.index { |step| step["name"] == "React to deploy command" }
+      delete_guard_index = steps.index(delete_guard)
+      delete_reaction_index = steps.index { |step| step["name"] == "React to delete command" }
+
+      expect(delete_guard.fetch("run")).to eq(script)
+      expect(deploy_guard_index).to be < deploy_reaction_index
+      expect(delete_guard_index).to be < delete_reaction_index
+      expect(deploy_guard).to include(
+        "if" => "github.event_name == 'issue_comment'",
+        "shell" => "bash",
+        "env" => {
+          "GH_TOKEN" => "${{ github.token }}",
+          "GH_REPO" => "${{ github.repository }}",
+          "COMMENT_ID" => "${{ github.event.comment.id }}"
+        }
+      )
+      expect(script).to include("gh api --paginate --slurp --method GET")
+      expect(script).to include("select(.id > $current_id)")
+      expect(script).to include("+review-app-deploy")
+      expect(script).to include("+review-app-delete")
+      expect(script).to include("write|maintain|admin)")
+      expect(script).not_to include("${{")
+
+      no_newer_command = run_command_freshness_guard(
+        script,
+        comments: [
+          { "id" => 100, "body" => "+review-app-deploy", "user" => { "login" => "maintainer" } }
+        ]
+      )
+      newer_authorized_command = run_command_freshness_guard(
+        script,
+        comments: [
+          { "id" => 100, "body" => "+review-app-deploy", "user" => { "login" => "maintainer" } },
+          { "id" => 101, "body" => "+review-app-delete", "user" => { "login" => "maintainer" } }
+        ],
+        permission: "write"
+      )
+      newer_unauthorized_command = run_command_freshness_guard(
+        script,
+        comments: [
+          { "id" => 101, "body" => "+review-app-delete\n", "user" => { "login" => "reader" } }
+        ],
+        permission: "read"
+      )
+      newer_near_match = run_command_freshness_guard(
+        script,
+        comments: [
+          { "id" => 101, "body" => "+review-app-delete please", "user" => { "login" => "maintainer" } }
+        ],
+        permission: "write"
+      )
+      newer_permission_lookup_failure = run_command_freshness_guard(
+        script,
+        comments: [
+          { "id" => 101, "body" => "+review-app-delete", "user" => { "login" => "maintainer" } }
+        ],
+        permission: "__FAIL__"
+      )
+
+      expect(no_newer_command.fetch(:status)).to be_success
+      expect(newer_authorized_command.fetch(:status)).not_to be_success
+      expect(newer_authorized_command.fetch(:stderr)).to include(
+        "newer authorized command comment #101 exists"
+      )
+      expect(newer_unauthorized_command.fetch(:status)).to be_success
+      expect(newer_near_match.fetch(:status)).to be_success
+      expect(newer_permission_lookup_failure.fetch(:status)).not_to be_success
+    end
+
     def run_live_pr_guard(script, state:)
       fake_gh = <<~BASH
         gh() {
@@ -285,6 +361,35 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       stdout, stderr, status = Open3.capture3(env, "/bin/bash", stdin_data: "#{fake_gh}\n#{script}")
       { stdout: stdout, stderr: stderr, status: status }
     end
+
+    def run_command_freshness_guard(script, comments:, permission: "none") # rubocop:disable Metrics/MethodLength
+      fake_gh = <<~'BASH'
+        gh() {
+          case "$*" in
+            *'/comments?per_page=100'*)
+              printf '[%s]\n' "${CPFLOW_TEST_COMMENTS}"
+              ;;
+            *'/collaborators/'*)
+              [[ "${CPFLOW_TEST_PERMISSION}" != "__FAIL__" ]] || return 1
+              printf '%s\n' "${CPFLOW_TEST_PERMISSION}"
+              ;;
+            *)
+              echo "Unexpected gh invocation: $*" >&2
+              return 1
+              ;;
+          esac
+        }
+      BASH
+      env = {
+        "CPFLOW_TEST_COMMENTS" => JSON.generate(comments),
+        "CPFLOW_TEST_PERMISSION" => permission,
+        "GH_REPO" => "shakacode/control-plane-flow",
+        "PR_NUMBER" => "427",
+        "COMMENT_ID" => "100"
+      }
+      stdout, stderr, status = Open3.capture3(env, "/bin/bash", stdin_data: "#{fake_gh}\n#{script}")
+      { stdout: stdout, stderr: stderr, status: status }
+    end # rubocop:enable Metrics/MethodLength
   end
 
   describe "Delete Control Plane App action" do
