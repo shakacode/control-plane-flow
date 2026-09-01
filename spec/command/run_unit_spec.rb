@@ -3,6 +3,66 @@
 require "spec_helper"
 
 describe Command::Run do
+  describe "CLI command argument handling" do
+    it "preserves special-character arguments as exact remote command arguments" do
+      payloads = [
+        "two words",
+        "single'quote",
+        'double"quote',
+        "$HOME",
+        "`printf injected`",
+        "semi;colon"
+      ]
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command(
+        "run", "--app", app, "--org", "test-org", "--",
+        "printf", "<%s>\\n", *payloads
+      )
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      expect(runner_script).not_to be_nil
+
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+
+      expect(status).to be_success, error_output
+      expect(output.lines(chomp: true)).to eq(payloads.map { |payload| "<#{payload}>" } + [described_class::MAGIC_END])
+    end
+
+    it "preserves intentional shell syntax in a single command string" do
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command(
+        "run", "--app", app, "--org", "test-org", "--",
+        "printf 'left\\n'; printf 'right\\n'"
+      )
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      expect(runner_script).not_to be_nil
+
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+
+      expect(status).to be_success, error_output
+      expect(output.lines(chomp: true)).to eq(["left", "right", described_class::MAGIC_END])
+    end
+  end
+
   describe "#call" do
     let(:config) do
       instance_double(

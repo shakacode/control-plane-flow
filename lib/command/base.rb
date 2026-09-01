@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "shellwords"
 require_relative "../core/helpers"
 
 module Command
@@ -550,10 +551,10 @@ module Command
       end
     end
 
-    # NOTE: use simplified variant atm, as shelljoin do different escaping
-    # TODO: most probably need better logic for escaping various quotes
     def args_join(args)
-      args.join(" ")
+      return args.first if args.one?
+
+      Shellwords.join(args)
     end
 
     def progress
