@@ -536,6 +536,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # or the return value of `Shell.should_hide_output?`.
   def build_command(cmd, output_mode: nil) # rubocop:disable Metrics/MethodLength
     output_mode ||= determine_command_output_mode
+    raise "Array commands require output mode 'all'." if cmd.is_a?(Array) && %i[errors_only none].include?(output_mode)
 
     case output_mode
     when :all

@@ -125,6 +125,12 @@ describe Controlplane do
         described_instance.send(:build_command, original_cmd, output_mode: :invalid)
       end.to raise_error("Invalid command output mode 'invalid'.")
     end
+
+    it "rejects output suppression for array commands" do
+      expect do
+        described_instance.send(:build_command, ["cmd", "two words"], output_mode: :errors_only)
+      end.to raise_error("Array commands require output mode 'all'.")
+    end
   end
 
   describe "#fetch_workload_with_status" do
