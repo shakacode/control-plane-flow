@@ -70,4 +70,66 @@ describe Command::Base do
       end
     end
   end
+
+  describe "#resolve_shared_secret_policy_grants" do
+    let(:config) do
+      instance_double(
+        Config,
+        org: "test-org",
+        identity_link: "/org/test-org/gvc/test-app/identity/test-app-identity",
+        shared_secret_grants: [
+          {
+            name: "database",
+            secret_name: "shared-database-secrets",
+            policy_name: "shared-database-secrets-policy"
+          }
+        ]
+      )
+    end
+    let(:cp) { instance_double(Controlplane) }
+    let(:policy) do
+      {
+        "targetKind" => "secret",
+        "targetLinks" => ["//secret/shared-database-secrets"],
+        "bindings" => []
+      }
+    end
+
+    before do
+      allow(command).to receive(:cp).and_return(cp)
+      allow(cp).to receive(:fetch_policy).with("shared-database-secrets-policy").and_return(policy)
+    end
+
+    it "warns when the shared secret still has the generated Postgres password placeholder" do
+      allow(cp).to receive(:fetch_secret)
+        .with("shared-database-secrets")
+        .and_return(
+          "data" => {
+            "password" => "the_password",
+            "api_token" => "private-token-sentinel"
+          }
+        )
+      allow(Shell).to receive(:warn)
+
+      command.resolve_shared_secret_policy_grants
+
+      expect(Shell).to have_received(:warn).with(
+        "Shared secret grant 'database' targets secret 'shared-database-secrets', whose password is still the " \
+        "generated placeholder. Review apps will fail authentication until it is replaced."
+      )
+      expect(Shell).not_to have_received(:warn).with(/the_password/)
+      expect(Shell).not_to have_received(:warn).with(/private-token-sentinel/)
+    end
+
+    it "does not warn for a non-placeholder password" do
+      allow(cp).to receive(:fetch_secret)
+        .with("shared-database-secrets")
+        .and_return("data" => { "password" => "a-real-password-sentinel" })
+      allow(Shell).to receive(:warn)
+
+      command.resolve_shared_secret_policy_grants
+
+      expect(Shell).not_to have_received(:warn)
+    end
+  end
 end

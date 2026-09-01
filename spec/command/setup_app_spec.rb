@@ -42,6 +42,9 @@ describe Command::SetupApp do
             "bindings" => []
           }
         )
+      allow(cp).to receive(:fetch_secret)
+        .with("shared-database-secrets")
+        .and_return("data" => { "password" => "configured-password" })
       allow(command).to receive_messages(cp: cp)
       allow(command).to receive(:create_secret_and_policy_if_not_exist)
       allow(command).to receive(:run_cpflow_command)
@@ -54,6 +57,7 @@ describe Command::SetupApp do
         .with(config.identity_link, "test-review-secrets-policy")
       expect(cp).to have_received(:bind_identity_to_policy)
         .with(config.identity_link, "shared-database-secrets-policy")
+      expect(cp).to have_received(:fetch_secret).with("shared-database-secrets")
     end
 
     it "keeps new app setup interactive and runs the post-creation hook path" do
@@ -166,6 +170,7 @@ describe Command::SetupApp do
         command.call
 
         expect(cp).not_to have_received(:fetch_policy).with("shared-database-secrets-policy")
+        expect(cp).not_to have_received(:fetch_secret).with("shared-database-secrets")
         expect(cp).not_to have_received(:bind_identity_to_policy)
           .with(config.identity_link, "shared-database-secrets-policy")
       end
@@ -180,6 +185,7 @@ describe Command::SetupApp do
         command.call
 
         expect(cp).not_to have_received(:fetch_policy).with("shared-database-secrets-policy")
+        expect(cp).not_to have_received(:fetch_secret).with("shared-database-secrets")
         expect(cp).not_to have_received(:bind_identity_to_policy)
           .with(config.identity_link, "shared-database-secrets-policy")
       end

@@ -11,6 +11,7 @@ module Command
     VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS = %w[config].freeze
     VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
     ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
+    GENERATED_POSTGRES_PASSWORD_PLACEHOLDER = "the_password"
 
     # Used to call the command (`cpflow SUBCOMMAND_NAME NAME`)
     SUBCOMMAND_NAME = nil
@@ -641,7 +642,18 @@ module Command
       raise shared_secret_policy_missing_message(grant) if policy.nil?
 
       ensure_shared_secret_policy_targets_secret!(grant, policy)
+      warn_if_shared_secret_uses_generated_password_placeholder(grant)
       policy
+    end
+
+    def warn_if_shared_secret_uses_generated_password_placeholder(grant)
+      secret = cp.fetch_secret(grant.fetch(:secret_name))
+      return unless secret&.dig("data", "password") == GENERATED_POSTGRES_PASSWORD_PLACEHOLDER
+
+      Shell.warn(
+        "Shared secret grant '#{grant.fetch(:name)}' targets secret '#{grant.fetch(:secret_name)}', whose password " \
+        "is still the generated placeholder. Review apps will fail authentication until it is replaced."
+      )
     end
 
     def bind_shared_secret_policy_grant(grant, policy)
