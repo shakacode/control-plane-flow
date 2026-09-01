@@ -224,7 +224,8 @@ describe ControlplaneApiDirect do
   describe "#call" do
     let(:http_connection) do
       instance_double(Net::HTTP, "use_ssl=": nil, "max_retries=": nil, "open_timeout=": nil,
-                                 set_debug_output: nil, start: nil, finish: nil, started?: true)
+                                 "read_timeout=": nil, set_debug_output: nil,
+                                 start: nil, finish: nil, started?: true)
     end
 
     before do
@@ -245,6 +246,10 @@ describe ControlplaneApiDirect do
       http_response(Net::HTTPOK, 200, body: body)
     end
 
+    def request_policy(**overrides)
+      described_class::RequestPolicy.new(sensitive: false, retry_transient: true, timeout: nil, **overrides)
+    end
+
     it "parses the body of a 200 response" do
       allow(http_connection).to receive(:request).and_return(ok_response)
 
@@ -260,7 +265,11 @@ describe ControlplaneApiDirect do
       allow(http_connection).to receive(:request)
         .and_return(ok_response(body: '{"data":{"password":"trace-leak-sentinel"}}'))
 
-      result = described_instance.call("/org/my-org/secret/my-secret/-reveal", method: :get, sensitive: true)
+      result = described_instance.call(
+        "/org/my-org/secret/my-secret/-reveal",
+        method: :get,
+        request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+      )
 
       expect(result).to eq("data" => { "password" => "trace-leak-sentinel" })
       expect(http_connection).not_to have_received(:set_debug_output)
@@ -275,6 +284,19 @@ describe ControlplaneApiDirect do
 
       expect(http_connection).to have_received(:max_retries=).with(0)
       expect(http_connection).to have_received(:open_timeout=).with(described_class::OPEN_TIMEOUT_SECONDS)
+    end
+
+    it "applies explicit open and read timeouts for a best-effort request" do
+      allow(http_connection).to receive(:request).and_return(ok_response)
+
+      described_instance.call(
+        "/org/my-org/gvc",
+        method: :get,
+        request_policy: request_policy(timeout: 5)
+      )
+
+      expect(http_connection).to have_received(:open_timeout=).with(5)
+      expect(http_connection).to have_received(:read_timeout=).with(5)
     end
 
     it "returns true for a 202 response" do
@@ -331,6 +353,21 @@ describe ControlplaneApiDirect do
       expect(http_connection).to have_received(:request).twice
       expect(slept_delays.size).to eq(1)
       expect(slept_delays.first).to be_between(0.25, 0.5)
+    end
+
+    it "does not retry a transient response for a best-effort request" do
+      allow(http_connection).to receive(:request)
+        .and_return(http_response(Net::HTTPInternalServerError, 500, body: "boom"), ok_response)
+
+      expect do
+        described_instance.call(
+          "/org/my-org/gvc",
+          method: :get,
+          request_policy: request_policy(retry_transient: false)
+        )
+      end.to raise_error(RuntimeError, /Net::HTTPInternalServerError.*boom/m)
+      expect(http_connection).to have_received(:request).once
+      expect(slept_delays).to be_empty
     end
 
     it "retries a GET after a read timeout" do

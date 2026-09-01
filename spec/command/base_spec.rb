@@ -100,6 +100,15 @@ describe Command::Base do
       allow(cp).to receive(:fetch_policy).with("shared-database-secrets-policy").and_return(policy)
     end
 
+    it "keeps the diagnostic placeholder aligned with the generated Postgres template" do
+      template_path = File.expand_path("../../lib/generator_templates/templates/postgres.yml", __dir__)
+      generated_secret = YAML.load_stream(File.read(template_path)).find { |item| item&.fetch("kind", nil) == "secret" }
+
+      expect(generated_secret.dig("data", "password")).to eq(
+        described_class::GENERATED_POSTGRES_PASSWORD_PLACEHOLDER
+      )
+    end
+
     it "warns when the shared secret still has the generated Postgres password placeholder" do
       allow(cp).to receive(:reveal_secret)
         .with("shared-database-secrets")

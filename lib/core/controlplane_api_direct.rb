@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class ControlplaneApiDirect
+class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
   class RedactedDebugOutput
     SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
     HEADER_REGEX = /^([A-Za-z-]+): (.+)$/
@@ -60,6 +60,14 @@ class ControlplaneApiDirect
 
   # Bounded so a retried connect failure fits within the retry deadline.
   OPEN_TIMEOUT_SECONDS = 10
+  BEST_EFFORT_TIMEOUT_SECONDS = 5
+  RequestPolicy = Data.define(:sensitive, :retry_transient, :timeout)
+  DEFAULT_REQUEST_POLICY = RequestPolicy.new(sensitive: false, retry_transient: true, timeout: nil)
+  BEST_EFFORT_SENSITIVE_REQUEST_POLICY = RequestPolicy.new(
+    sensitive: true,
+    retry_transient: false,
+    timeout: BEST_EFFORT_TIMEOUT_SECONDS
+  )
 
   # Thread-safe API token cache. A single instance is shared process-wide by
   # default (see `default_token_provider`) so each `ControlplaneApiDirect.new`
@@ -217,7 +225,7 @@ class ControlplaneApiDirect
     @sleeper = sleeper || ->(seconds) { Kernel.sleep(seconds) }
   end
 
-  def call(url, method:, host: :api, body: nil, sensitive: false)
+  def call(url, method:, host: :api, body: nil, request_policy: DEFAULT_REQUEST_POLICY)
     uri = URI("#{api_host(host)}#{url}")
     # Token fetch and request construction happen outside the transient rescue
     # in attempt_request so their failures (e.g. TokenRefreshError from the
@@ -225,11 +233,11 @@ class ControlplaneApiDirect
     request = build_request(uri, method, body)
     retrier = Retrier.new(sleeper: @sleeper)
 
-    debug_body = sensitive && body ? "[REDACTED]" : body&.to_json
+    debug_body = request_policy.sensitive && body ? "[REDACTED]" : body&.to_json
     Shell.debug(method.upcase, "#{uri} #{debug_body}")
 
     loop do
-      response = attempt_request(uri, request, method, retrier, sensitive: sensitive)
+      response = attempt_request(uri, request, method, retrier, request_policy)
       return handle_response(response, url) if response
     end
   end
@@ -261,21 +269,21 @@ class ControlplaneApiDirect
   # Returns the response, or `nil` when the attempt failed transiently and the
   # retrier approved (and already slept before) another attempt. Only the
   # transport phase (connect + request) is covered by the transient rescue.
-  def attempt_request(uri, request, method, retrier, sensitive:)
+  def attempt_request(uri, request, method, retrier, request_policy)
     request_sent = false
     idempotent = IDEMPOTENT_METHODS.include?(method)
-    response = transport_request(uri, request, sensitive: sensitive) { request_sent = true }
-    return response unless retrier.retry_response?(response, idempotent)
+    response = transport_request(uri, request, request_policy) { request_sent = true }
+    return response unless request_policy.retry_transient && retrier.retry_response?(response, idempotent)
 
     nil
   rescue *Retrier::TRANSIENT_NETWORK_ERRORS
-    raise unless retrier.retry_exception?(idempotent, request_sent)
+    raise unless request_policy.retry_transient && retrier.retry_exception?(idempotent, request_sent)
 
     nil
   end
 
-  def transport_request(uri, request, sensitive:)
-    http = build_http(uri, sensitive: sensitive)
+  def transport_request(uri, request, request_policy)
+    http = build_http(uri, request_policy)
     http.start
     yield
     begin
@@ -293,14 +301,15 @@ class ControlplaneApiDirect
     request
   end
 
-  def build_http(uri, sensitive:)
+  def build_http(uri, request_policy)
     http = Net::HTTP.new(uri.hostname, uri.port)
     http.use_ssl = uri.scheme == "https"
     # Net::HTTP transparently re-sends requests it deems idempotent once on
     # mid-flight failures; disable so the Retrier owns the entire retry policy.
     http.max_retries = 0
-    http.open_timeout = OPEN_TIMEOUT_SECONDS
-    http.set_debug_output(RedactedDebugOutput.new) if ControlplaneApiDirect.trace && !sensitive
+    http.open_timeout = request_policy.timeout || OPEN_TIMEOUT_SECONDS
+    http.read_timeout = request_policy.timeout if request_policy.timeout
+    http.set_debug_output(RedactedDebugOutput.new) if ControlplaneApiDirect.trace && !request_policy.sensitive
     http
   end
 
