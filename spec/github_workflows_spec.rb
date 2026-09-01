@@ -22,13 +22,33 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         non_comment_step = authorization_job.fetch("steps").find do |step|
           step["name"] == "Allow authenticated non-comment trigger"
         end
-        script = permission_step.fetch("with").fetch("script")
+        script = permission_step.fetch("run")
         command_job = workflow.fetch("jobs").fetch(command_job_name)
 
-        expect(script).to include("github.rest.repos.getCollaboratorPermissionLevel")
-        expect(script).to include('["write", "maintain", "admin"]')
-        expect(script).to include('core.setOutput("allowed", "false")')
-        expect(script).to include("core.setFailed")
+        expect(authorization_job.fetch("permissions")).to eq("contents" => "read")
+        expect(authorization_job.fetch("outputs")).to eq(
+          "allowed" => "${{ steps.permission.outputs.allowed || steps.non-comment.outputs.allowed }}"
+        )
+        expect(permission_step).not_to have_key("uses")
+        expect(permission_step).to include(
+          "shell" => "bash",
+          "env" => {
+            "GH_TOKEN" => "${{ github.token }}",
+            "GH_REPO" => "${{ github.repository }}",
+            "COMMENT_AUTHOR" => "${{ github.event.comment.user.login }}"
+          }
+        )
+        expect(script).to include("set -euo pipefail")
+        expect(script).to include(%(printf '%s\\n' 'allowed=false' >> "$GITHUB_OUTPUT"))
+        expect(script).to include(
+          %(gh api --method GET "repos/${GH_REPO}/collaborators/${COMMENT_AUTHOR}/permission" --jq '.permission')
+        )
+        expect(script).to include("write|maintain|admin)")
+        expect(script).to include("read|triage|none)")
+        expect(script).to include(%(printf '%s\\n' 'allowed=true' >> "$GITHUB_OUTPUT"))
+        expect(script).to include('if [[ -z "${permission}" ]]')
+        expect(script).to include("Unexpected repository permission")
+        expect(script).not_to include("${{")
         expect(non_comment_step).to include(
           "if" => "github.event_name != 'issue_comment'",
           "run" => include("allowed=true")

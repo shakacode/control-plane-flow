@@ -33,28 +33,42 @@ jobs:
   authorize-comment-command:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       allowed: ${{ steps.permission.outputs.allowed || steps.non-comment.outputs.allowed }}
     steps:
       - name: Resolve comment author repository permission
         if: github.event_name == 'issue_comment'
         id: permission
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
-        with:
-          script: |
-            try {
-              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                username: context.payload.comment.user.login
-              });
-              const allowed = ["write", "maintain", "admin"].includes(data.permission);
-              core.setOutput("allowed", allowed ? "true" : "false");
-              core.info(`Comment author repository permission: ${data.permission}`);
-            } catch (error) {
-              core.setOutput("allowed", "false");
-              core.setFailed(`Unable to resolve comment author repository permission: ${error.message}`);
-            }
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          set -euo pipefail
+
+          printf '%s\n' 'allowed=false' >> "$GITHUB_OUTPUT"
+          permission="$(gh api --method GET "repos/${GH_REPO}/collaborators/${COMMENT_AUTHOR}/permission" --jq '.permission')"
+
+          if [[ -z "${permission}" ]]; then
+            echo "GitHub returned an empty repository permission." >&2
+            exit 1
+          fi
+
+          case "${permission}" in
+            write|maintain|admin)
+              printf '%s\n' 'allowed=true' >> "$GITHUB_OUTPUT"
+              ;;
+            read|triage|none)
+              echo "Comment author repository permission does not allow review-app commands: ${permission}"
+              ;;
+            *)
+              echo "Unexpected repository permission: ${permission}" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Allow authenticated non-comment trigger
         if: github.event_name != 'issue_comment'

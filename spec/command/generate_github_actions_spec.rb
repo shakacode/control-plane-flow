@@ -585,15 +585,49 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "gates review-app comment commands by repository permission and skips fork PRs" do
-      contents = reusable_review_app_workflow_path.read
+      reusable_workflow_paths = [reusable_review_app_workflow_path, reusable_delete_review_workflow_path]
       generated_wrappers = [review_app_workflow_path, delete_review_workflow_path].map(&:read)
 
-      expect(contents).to include("github.rest.repos.getCollaboratorPermissionLevel")
-      expect(contents).to include('["write", "maintain", "admin"]')
-      expect(contents).to include('core.setOutput("allowed", "false")')
+      reusable_workflow_paths.each do |path|
+        workflow = YAML.safe_load_file(path, aliases: true)
+        authorization_job = workflow.fetch("jobs").fetch("authorize-comment-command")
+        permission_step = authorization_job.fetch("steps").find { |step| step["id"] == "permission" }
+        non_comment_step = authorization_job.fetch("steps").find { |step| step["id"] == "non-comment" }
+        script = permission_step.fetch("run")
+
+        expect(authorization_job.fetch("permissions")).to eq("contents" => "read")
+        expect(authorization_job.fetch("outputs")).to eq(
+          "allowed" => "${{ steps.permission.outputs.allowed || steps.non-comment.outputs.allowed }}"
+        )
+        expect(permission_step).not_to have_key("uses")
+        expect(permission_step).to include(
+          "shell" => "bash",
+          "env" => {
+            "GH_TOKEN" => "${{ github.token }}",
+            "GH_REPO" => "${{ github.repository }}",
+            "COMMENT_AUTHOR" => "${{ github.event.comment.user.login }}"
+          }
+        )
+        expect(script).to include("set -euo pipefail")
+        expect(script).to include('printf \'%s\\n\' \'allowed=false\' >> "$GITHUB_OUTPUT"')
+        expect(script).to include(
+          'gh api --method GET "repos/${GH_REPO}/collaborators/${COMMENT_AUTHOR}/permission" --jq \'.permission\''
+        )
+        expect(script).to include("write|maintain|admin)")
+        expect(script).to include("read|triage|none)")
+        expect(script).to include('printf \'%s\\n\' \'allowed=true\' >> "$GITHUB_OUTPUT"')
+        expect(script).to include('if [[ -z "${permission}" ]]')
+        expect(script).to include("Unexpected repository permission")
+        expect(script).not_to include("${{")
+        expect(non_comment_step).to include(
+          "if" => "github.event_name != 'issue_comment'",
+          "run" => include("allowed=true")
+        )
+      end
       generated_wrappers.each do |wrapper|
         expect(wrapper).not_to include("github.event.comment.author_association")
       end
+      contents = reusable_review_app_workflow_path.read
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
       expect(contents).to include("Review app deploys from fork pull requests require a branch")
       expect(contents).to include('echo "allowed=false" >> "$GITHUB_OUTPUT"')
