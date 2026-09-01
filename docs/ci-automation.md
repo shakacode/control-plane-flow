@@ -619,6 +619,9 @@ forged, missing, or permission-revoked newest intents fail closed and never fall
   fork PR still does not deploy the fork head, and manual dispatch must use a base-repository PR number. A fork-targeted
   request records no accepted intent and skips the mutating job. To give a fork PR a review app, review the code carefully first, then
   move the change to a branch in the base repository. The build will then run with repository-secret access.
+- Rejects comment, manual, and internal deploy requests for a closed pull request before recording a durable intent, then
+  rechecks that the pull request is still open after queue admission. A doomed deploy therefore cannot supersede the
+  automatic close-triggered deletion that cleans up an existing review app.
 
 `cpflow-delete-review-app.yml`
 

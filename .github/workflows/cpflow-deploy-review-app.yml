@@ -118,13 +118,34 @@ jobs:
             exit 1
           fi
 
-          head_repository="$(
-            gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name'
+          pull_request_json="$(
+            gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}"
           )"
+          head_repository="$(jq -r '.head.repo.full_name // empty' <<< "${pull_request_json}")"
+          pull_request_state="$(jq -r '.state // empty' <<< "${pull_request_json}")"
+          if [[ -z "${head_repository}" ]]; then
+            echo "GitHub returned an empty head repository while preparing review-app deploy intent." >&2
+            exit 1
+          fi
           if [[ "${head_repository}" != "${GH_REPO}" ]]; then
             echo "Review app deploys are skipped for fork pull requests."
             exit 0
           fi
+          case "${pull_request_state}" in
+            open) ;;
+            closed)
+              echo "Refusing review-app deploy intent because PR #${PR_NUMBER} is closed."
+              exit 0
+              ;;
+            "")
+              echo "GitHub returned an empty pull request state while preparing review-app deploy intent." >&2
+              exit 1
+              ;;
+            *)
+              echo "Unexpected pull request state while preparing review-app deploy intent: ${pull_request_state}" >&2
+              exit 1
+              ;;
+          esac
 
           if [[ -n "${RECONCILE_INTENT_RUN_ID}" ]]; then
             if [[ ! "${RECONCILE_INTENT_RUN_ID}" =~ ^[0-9]+$ ]]; then

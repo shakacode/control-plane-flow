@@ -400,6 +400,20 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(delete_result.fetch(:stdout)).to include('"operation":"delete","event":"workflow_dispatch"')
     end
 
+    it "rejects deploy intents for an already closed pull request before recording" do
+      result = run_record_intent(
+        prepare_intent_step(deploy_workflow).fetch("run"),
+        record_intent_step(deploy_workflow).fetch("run"),
+        operation: "deploy",
+        event: "workflow_dispatch",
+        pr_state: "closed"
+      )
+
+      expect(result.fetch(:status)).to be_success, result.inspect
+      expect(result.fetch(:stdout)).to include("Refusing review-app deploy intent because PR #427 is closed.")
+      expect(result.fetch(:stdout)).not_to include("record=true", "cpflow-review-app-intent-v1")
+    end
+
     it "rejects public or mismatched internal sequencing values" do
       [[deploy_workflow, "deploy"], [workflow, "delete"]].each do |target_workflow, operation|
         invalid_comments = [
@@ -868,7 +882,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       }
     end
 
-    def run_record_intent(prepare_script, record_script, operation:, event:) # rubocop:disable Metrics/MethodLength
+    def run_record_intent(prepare_script, record_script, operation:, event:, pr_state: "open") # rubocop:disable Metrics/MethodLength
       fake_prepare_gh = <<~'BASH'
         gh() {
           case "$*" in
@@ -876,7 +890,10 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
               printf '%s\n' "${CPFLOW_TEST_CREATED_AT}"
               ;;
             *'/pulls/'*)
-              printf '%s\n' "${GH_REPO}"
+              jq -cn \
+                --arg repo "${GH_REPO}" \
+                --arg state "${CPFLOW_TEST_PR_STATE}" \
+                '{head: {repo: {full_name: $repo}}, state: $state}'
               ;;
             *'/comments'*)
               echo "Unexpected early intent post: $*" >&2
@@ -891,6 +908,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       BASH
       env = {
         "CPFLOW_TEST_CREATED_AT" => "2026-09-01T05:00:00Z",
+        "CPFLOW_TEST_PR_STATE" => pr_state,
         "GH_REPO" => "shakacode/control-plane-flow",
         "PR_NUMBER" => "427",
         "OPERATION" => operation,
@@ -906,6 +924,9 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         stdin_data: "#{fake_prepare_gh}\n#{prepare_script}"
       )
       return { stdout: prepare_stdout, stderr: prepare_stderr, status: prepare_status } unless prepare_status.success?
+      unless prepare_stdout.lines.include?("record=true\n")
+        return { stdout: prepare_stdout, stderr: prepare_stderr, status: prepare_status }
+      end
 
       body_line = prepare_stdout.lines.reverse.find { |line| line.start_with?("body=") }
       intent_body = body_line&.delete_prefix("body=")&.chomp
@@ -950,7 +971,9 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
               printf '%s\n' "${CPFLOW_TEST_SOURCE_RUN}"
               ;;
             *'/pulls/'*)
-              printf '%s\n' "${GH_REPO}"
+              jq -cn \
+                --arg repo "${GH_REPO}" \
+                '{head: {repo: {full_name: $repo}}, state: "open"}'
               ;;
             *)
               echo "Unexpected gh invocation: $*" >&2
