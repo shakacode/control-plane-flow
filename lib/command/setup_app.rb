@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 module Command
-  class SetupApp < Base
+  class SetupApp < Base # rubocop:disable Metrics/ClassLength
     NAME = "setup-app"
     OPTIONS = [
       app_option(required: true),
       skip_secret_access_binding_option,
       skip_secrets_setup_option,
-      skip_post_creation_hook_option
+      skip_post_creation_hook_option,
+      refresh_templates_option
     ].freeze
     DESCRIPTION = "Creates an app and all its workloads"
     LONG_DESCRIPTION = <<~DESC
@@ -23,18 +24,21 @@ module Command
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
+      - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret resources entirely, repairing secrets access bindings, and skipping the post-creation hook
     DESC
     VALIDATIONS = %w[config templates].freeze
 
-    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+    def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       templates = config[:setup_app_templates]
+      refresh_templates = config.options[:refresh_templates]
 
       app = cp.fetch_gvc
-      if app
+      if app && !refresh_templates
         raise "App '#{config.app}' already exists. If you want to update this app, " \
               "either run 'cpflow delete -a #{config.app}' and then re-run this command, " \
               "or run 'cpflow apply-template #{templates.join(' ')} -a #{config.app}'."
       end
+      raise "App '#{config.app}' does not exist, so its templates cannot be refreshed." if !app && refresh_templates
 
       skip_secrets_setup = skip_secrets_setup?
 
@@ -45,11 +49,12 @@ module Command
 
       args = []
       args.push("--add-app-identity") unless skip_secrets_setup
+      args.push("--yes", "--preserve-existing-runtime") if refresh_templates
       run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
 
       bind_identity_to_policy unless skip_secrets_setup
       bind_shared_secret_policy_grants(shared_secret_policy_grant_pairs) unless skip_secrets_setup
-      run_post_creation_hook unless config.options[:skip_post_creation_hook]
+      run_post_creation_hook unless refresh_templates || config.options[:skip_post_creation_hook]
     end
 
     private

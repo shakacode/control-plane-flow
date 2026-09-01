@@ -29,6 +29,8 @@ cpflow ai-github-flow-prompt
 - Publishes (creates or updates) those at Control Plane infrastructure
 - Picks templates from the `.controlplane/templates` directory
 - Templates are ordinary Control Plane templates but with variable preprocessing
+- Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
+- Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
 **Preprocessed template variables:**
 
@@ -481,6 +483,17 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
 - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
   Control Plane exposes a runner replica to attach logs to
+- Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
+  identity, so that a command such as a release script can tell which GVC incarnation it is running in.
+  These change when a GVC is deleted and recreated under the same name, and only then, unlike
+  `CPLN_GVC_ALIAS`, which is also embedded in mutable derived values such as the app domain and so
+  cannot be attributed to recreation alone
+- `CPFLOW_GVC_CREATED` is the GVC's creation timestamp as returned by the Control Plane API and passed
+  through unmodified, currently an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix
+  (e.g. `2026-08-28T00:54:48.648Z`)
+- Both variables are always set, and are empty when the GVC cannot be read, so that a consumer can
+  fail closed. They are never omitted, because the runner inherits the original workload's
+  environment and an omitted variable could otherwise expose a stale inherited value
 
 ```sh
 # Opens shell (bash by default).
@@ -539,6 +552,7 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
+- Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret resources entirely, repairing secrets access bindings, and skipping the post-creation hook
 
 ```sh
 cpflow setup-app -a $APP_NAME

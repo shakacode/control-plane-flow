@@ -76,6 +76,49 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     stdout.strip
   end
 
+  def run_review_app_url_step(workload_json:, gvc_json:, verified_endpoint:) # rubocop:disable Metrics/MethodLength
+    workflow = YAML.load_file(reusable_review_app_workflow_path, aliases: true)
+    script = workflow.dig("jobs", "deploy", "steps").find { |step| step["id"] == "workload" }.fetch("run")
+
+    Dir.mktmpdir("cpflow-review-app-url") do |tmpdir|
+      tmp_path = Pathname.new(tmpdir)
+      bin_path = tmp_path.join("bin")
+      bin_path.mkdir
+      workload_path = tmp_path.join("workload.json")
+      gvc_path = tmp_path.join("gvc.json")
+      output_path = tmp_path.join("github-output")
+
+      workload_path.write(JSON.generate(workload_json))
+      gvc_path.write(JSON.generate(gvc_json))
+      bin_path.join("cpln").write(<<~BASH)
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "$1 $2" in
+          "workload get") cat "${CPFLOW_TEST_WORKLOAD_JSON}" ;;
+          "gvc get") cat "${CPFLOW_TEST_GVC_JSON}" ;;
+          *) exit 2 ;;
+        esac
+      BASH
+      FileUtils.chmod(0o755, bin_path.join("cpln"))
+
+      env = {
+        "PATH" => "#{bin_path}:#{ENV.fetch('PATH')}",
+        "BASH_ENV" => "/dev/null",
+        "ENV" => "/dev/null",
+        "GITHUB_OUTPUT" => output_path.to_s,
+        "CPFLOW_TEST_WORKLOAD_JSON" => workload_path.to_s,
+        "CPFLOW_TEST_GVC_JSON" => gvc_path.to_s,
+        "PRIMARY_WORKLOAD" => "rails",
+        "APP_NAME" => "hichee-review-9652",
+        "CPLN_ORG" => "hichee-staging",
+        "VERIFIED_WORKLOAD_ENDPOINT" => verified_endpoint
+      }
+      stdout, stderr, status = Open3.capture3(env, "bash", stdin_data: script)
+
+      [stdout, stderr, status, output_path.exist? ? output_path.read : ""]
+    end
+  end
+
   def command_body_match_expression(command)
     %(contains(fromJson('["#{command}","#{command}\\n","#{command}\\r\\n"]'), github.event.comment.body))
   end
@@ -106,6 +149,81 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
   def wait_for_health_action_path
     shared_action_path("cpflow-wait-for-health")
+  end
+
+  def run_wait_for_health_action( # rubocop:disable Metrics/MethodLength
+    workload_json:,
+    deployments_json:,
+    deployments_error: "",
+    curl_statuses: {}
+  )
+    action = YAML.load_file(wait_for_health_action_path, aliases: true)
+    script = action.fetch("runs").fetch("steps").find { |step| step["id"] == "poll" }.fetch("run")
+
+    Dir.mktmpdir("cpflow-wait-for-health") do |tmpdir|
+      tmp_path = Pathname.new(tmpdir)
+      bin_path = tmp_path.join("bin")
+      bin_path.mkdir
+      workload_path = tmp_path.join("workload.json")
+      deployments_path = tmp_path.join("deployments.json")
+      curl_statuses_path = tmp_path.join("curl-statuses.json")
+      output_path = tmp_path.join("github-output")
+
+      workload_path.write(JSON.generate(workload_json))
+      deployments_path.write(JSON.generate(deployments_json))
+      curl_statuses_path.write(JSON.generate(curl_statuses))
+      bin_path.join("cpln").write(<<~BASH)
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "$2" in
+          get) cat "${CPFLOW_TEST_WORKLOAD_JSON}" ;;
+          get-deployments)
+            if [[ -n "${CPFLOW_TEST_DEPLOYMENTS_ERROR:-}" ]]; then
+              printf '%s\n' "${CPFLOW_TEST_DEPLOYMENTS_ERROR}" >&2
+              exit 1
+            fi
+            cat "${CPFLOW_TEST_DEPLOYMENTS_JSON}"
+            ;;
+          *) exit 2 ;;
+        esac
+      BASH
+      bin_path.join("curl").write(<<~BASH)
+        #!/usr/bin/env bash
+        set -euo pipefail
+        endpoint="${*: -1}"
+        status="$(jq -r --arg endpoint "${endpoint}" '.[$endpoint] // empty' "${CPFLOW_TEST_CURL_STATUSES_JSON}")"
+        if [[ -z "${status}" ]]; then
+          case "${endpoint}" in
+            *.cpln.app|*.cpln.app/) status="000" ;;
+            *) status="200" ;;
+          esac
+        fi
+        printf '%s' "${status}"
+        [[ "${status}" != "000" ]]
+      BASH
+      FileUtils.chmod(0o755, [bin_path.join("cpln"), bin_path.join("curl")])
+
+      env = {
+        "PATH" => "#{bin_path}:#{ENV.fetch('PATH')}",
+        "BASH_ENV" => "/dev/null",
+        "ENV" => "/dev/null",
+        "GITHUB_OUTPUT" => output_path.to_s,
+        "CPFLOW_TEST_WORKLOAD_JSON" => workload_path.to_s,
+        "CPFLOW_TEST_DEPLOYMENTS_JSON" => deployments_path.to_s,
+        "CPFLOW_TEST_DEPLOYMENTS_ERROR" => deployments_error,
+        "CPFLOW_TEST_CURL_STATUSES_JSON" => curl_statuses_path.to_s,
+        "CPFLOW_WORKLOAD_NAME" => "rails",
+        "CPFLOW_APP_NAME" => "hichee-review-9652",
+        "CPFLOW_ORG" => "hichee-staging",
+        "CPFLOW_MAX_RETRIES" => "1",
+        "CPFLOW_INTERVAL_SECONDS" => "0",
+        "CPFLOW_ACCEPTED_STATUSES" => "200 301 302",
+        "CPFLOW_CURL_MAX_TIME" => "1"
+      }
+      stdout, stderr, status = Open3.capture3(env, "bash", stdin_data: script)
+
+      [stdout, stderr, status, output_path.exist? ? output_path.read : ""]
+    end
   end
 
   def delete_app_script_path
@@ -170,7 +288,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "exposes overridable cpflow and cpln-cli version inputs" do
       contents = setup_action_path.read
       expect(contents).to include("cpln_cli_version:")
-      expect(contents).to include('default_cpln_cli_version="3.10.2"')
+      expect(contents).to include('default_cpln_cli_version="3.11.0"')
       expect(contents).to include("control_plane_flow_ref:")
       expect(reusable_staging_workflow_path.read).to include("cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}")
       expect(reusable_staging_workflow_path.read).to include("cpflow_version: ${{ vars.CPFLOW_VERSION }}")
@@ -449,6 +567,23 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "refreshes existing review app templates before building and deploying the image" do
+      workflow = YAML.load_file(reusable_review_app_workflow_path, aliases: true)
+      steps = workflow.dig("jobs", "deploy", "steps")
+      refresh_step = steps.find { |step| step["name"] == "Refresh existing review app templates" }
+      refresh_command = 'cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}" --refresh-templates'
+
+      expect(refresh_step).to include(
+        "if" => "steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && " \
+                "steps.check-app.outputs.exists == 'true'",
+        "working-directory" => "app",
+        "run" => include("set -euo pipefail", refresh_command)
+      )
+      expect(refresh_step).not_to have_key("continue-on-error")
+      expect(steps.index(refresh_step)).to be < steps.index { |step| step["name"] == "Build Docker image" }
+      expect(steps.index(refresh_step)).to be < steps.index { |step| step["name"] == "Deploy to Control Plane" }
+    end
+
     it "gates review-app deploys by author_association and skips fork PRs" do
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("github.event.comment.author_association")
@@ -520,7 +655,17 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "configures delete-review-app concurrency and handles missing comment ids" do
       contents = reusable_delete_review_workflow_path.read
+      wrapper = YAML.safe_load_file(delete_review_workflow_path, aliases: true)
       expect(contents).to include("concurrency:")
+      expect(contents).to include("group: cpflow-review-app-")
+      expect(contents).to include("id: delete-app")
+      expect(contents).to include("id: deactivate-deployments")
+      expect(contents).to include("steps.delete-app.outcome == 'success'")
+      expect(contents).to include("continue-on-error: true")
+      expect(contents).to include("listDeploymentStatuses")
+      expect(contents).to include('latestStatus?.state === "inactive"')
+      expect(contents).to include("Review App Deleted, GitHub Deployment Cleanup Failed")
+      expect(contents).to include("Fail when GitHub deployment cleanup failed")
       expect(contents).to include('pull_request_friendly: "true"')
       expect(contents).to include("Checkout repository")
       expect(contents).to include("path: app")
@@ -530,6 +675,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_review_workflow_path.read).to include("mirrors the upstream job guard")
       expect(delete_review_workflow_path.read).to include("CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}")
       expect(delete_review_workflow_path.read).not_to include("secrets: inherit")
+      expect(wrapper.fetch("permissions")).to include("deployments" => "write")
       expect(contents).to include(
         "Skipping delete status comment update because no comment id was created."
       )
@@ -540,7 +686,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("id: config")
       expect(contents).to match(/steps\.config\.outputs\.ready == 'true'/)
-      expect(contents).to include("Finalizer still runs after delete failures")
+      expect(contents).to include("Finalizer still runs after delete or deployment-cleanup failures")
       expect(contents).to include("if: always() && steps.config.outputs.ready == 'true'")
     end
 
@@ -561,7 +707,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(delete_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
       expect(delete_contents).not_to include('"${{ job.status }}"')
       expect(delete_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
-      expect(delete_contents).to include("JOB_STATUS: ${{ job.status }}")
+      expect(delete_contents).to include("DELETE_OUTCOME: ${{ steps.delete-app.outcome }}")
+      expect(delete_contents).to include(
+        "DEACTIVATION_OUTCOME: ${{ steps.deactivate-deployments.outcome }}"
+      )
     end
 
     it "uses shell env vars for stale review cleanup inputs" do
@@ -677,9 +826,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "prefers the deployed app_domain for review-app links when available" do
       contents = reusable_review_app_workflow_path.read
 
+      expect(contents).to include("VERIFIED_WORKLOAD_ENDPOINT: ${{ steps.health-check.outputs.endpoint }}")
       expect(contents).to include('workload_url="$(cpln workload get "${workload_name}"')
+      expect(contents).to include('app_url="${VERIFIED_WORKLOAD_ENDPOINT:-${workload_url}}"')
+      expect(contents).not_to include('workload_url="${{ steps.health-check.outputs.endpoint }}"')
       expect(contents).to include('gvc_json="$(cpln gvc get "${APP_NAME}" --org "${CPLN_ORG}" -o json')
-      expect(contents).to include("Could not read GVC app_domain; falling back to workload endpoint.")
+      expect(contents).to include("Could not read GVC app_domain; falling back to verified workload endpoint.")
       expect(contents).to include('select(.name == "app_domain")')
       expect(contents).to include('host_suffix = ".cpln.app"')
       expect(contents).to include('cpln_gvc_alias_token = "$" + "(CPLN_GVC_ALIAS)"')
@@ -716,7 +868,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
           app_name: "hichee-review-1"
         )
-      ).to eq("not a uri")
+      ).to eq("")
 
       expect(
         run_review_app_url_script(
@@ -725,7 +877,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
           app_name: "hichee-review-1"
         )
-      ).to eq("https://rails-.cpln.app")
+      ).to eq("")
 
       expect(
         run_review_app_url_script(
@@ -734,7 +886,44 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           app_domain_template: "https://rails-$(CPLN_GVC_ALIAS).example.test",
           app_name: "hichee-review-1"
         )
-      ).to eq("https://custom.example.test")
+      ).to eq("")
+
+      expect(
+        run_review_app_url_script(
+          workload_name: "rails",
+          workload_url: "https://rails-abc123.cpln.app",
+          app_domain_template: "not a uri",
+          app_name: "hichee-review-1"
+        )
+      ).to eq("")
+    end
+
+    it "uses the standard endpoint alias for a BYOK review app vanity URL" do
+      workload_json = {
+        "status" => { "endpoint" => "https://rails-abc123.cpln.app" }
+      }
+      gvc_json = {
+        "spec" => {
+          "env" => [
+            {
+              "name" => "app_domain",
+              "value" => "https://review-$(CPLN_GVC_ALIAS).vanity.example"
+            }
+          ]
+        }
+      }
+      byok_endpoint = "https://rails-abc123.hetzner-byok.controlplane.us/"
+
+      stdout, stderr, status, outputs = run_review_app_url_step(
+        workload_json: workload_json,
+        gvc_json: gvc_json,
+        verified_endpoint: byok_endpoint
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(outputs).to include("workload_url=https://rails-abc123.cpln.app")
+      expect(outputs).to include("app_url=https://review-abc123.vanity.example/")
+      expect(outputs).not_to include("app_url=#{byok_endpoint}")
     end
 
     it "supports an animated deploy status icon with a repository override" do
@@ -1090,6 +1279,206 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("has no endpoint yet; waiting for one to be assigned")
       expect(contents).to include(".status.readyLatest // false")
       expect(contents).to include("readyLatest=${latest_ready}")
+      expect(contents).to include(".items[]?")
+      expect(contents).to include(".status.deploying // false")
+    end
+
+    it "uses a healthy location endpoint when the standard endpoint is disabled on BYOK" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-72vs5vhw7ybfe.cpln.app"
+        },
+        "health" => { "readiness" => "Ready" }
+      }
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "hetzner-byok",
+            "status" => {
+              "ready" => true,
+              "endpoint" => "https://rails-72vs5vhw7ybfe.hetzner-byok.controlplane.us/"
+            }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(outputs).to include("healthy=true")
+      expect(outputs).to include(
+        "endpoint=https://rails-72vs5vhw7ybfe.hetzner-byok.controlplane.us/"
+      )
+    end
+
+    it "prefers a healthy standard workload endpoint" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-standard.example.test/"
+        },
+        "health" => { "readiness" => "Ready" }
+      }
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "hetzner-byok",
+            "status" => {
+              "ready" => true,
+              "endpoint" => "https://rails-location.example.test/"
+            }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(outputs).to include("endpoint=https://rails-standard.example.test/"), "#{stdout}\n#{stderr}\n#{outputs}"
+      expect(outputs).not_to include("endpoint=https://rails-location.example.test/")
+    end
+
+    it "waits when any deployment location is unsettled" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-abc123.cpln.app"
+        }
+      }
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "ready-location",
+            "status" => {
+              "ready" => true,
+              "deploying" => false,
+              "endpoint" => "https://rails-abc123.ready.controlplane.us/"
+            }
+          },
+          {
+            "name" => "deploying-location",
+            "status" => {
+              "ready" => true,
+              "deploying" => true,
+              "endpoint" => "https://rails-abc123.deploying.controlplane.us/"
+            }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json
+      )
+
+      expect(status).not_to be_success
+      expect(stderr).to eq("")
+      expect(stdout).to include("Deployment locations are not all ready (1 unsettled)")
+      expect(stdout).not_to include("Location endpoint:")
+      expect(outputs).to include("healthy=false")
+    end
+
+    it "uses a ready location endpoint when the standard endpoint is empty" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => ""
+        }
+      }
+      location_endpoint = "https://rails-abc123.hetzner-byok.controlplane.us/"
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "hetzner-byok",
+            "status" => {
+              "ready" => true,
+              "deploying" => false,
+              "endpoint" => location_endpoint
+            }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(outputs).to include("endpoint=#{location_endpoint}")
+    end
+
+    it "uses the second location endpoint when the first is unhealthy" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-abc123.cpln.app"
+        }
+      }
+      first_endpoint = "https://rails-abc123.first.controlplane.us/"
+      second_endpoint = "https://rails-abc123.second.controlplane.us/"
+      deployments_json = {
+        "items" => [
+          {
+            "name" => "first",
+            "status" => { "ready" => true, "deploying" => false, "endpoint" => first_endpoint }
+          },
+          {
+            "name" => "second",
+            "status" => { "ready" => true, "deploying" => false, "endpoint" => second_endpoint }
+          }
+        ]
+      }
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: deployments_json,
+        curl_statuses: {
+          first_endpoint => "503",
+          second_endpoint => "200"
+        }
+      )
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(stdout).to include("Location endpoint: #{first_endpoint}, HTTP status: 503")
+      expect(stdout).to include("Location endpoint: #{second_endpoint}, HTTP status: 200")
+      expect(outputs).to include("endpoint=#{second_endpoint}")
+    end
+
+    it "reports a bounded non-secret diagnostic when deployment lookup fails" do
+      workload_json = {
+        "status" => {
+          "ready" => true,
+          "readyLatest" => true,
+          "endpoint" => "https://rails-abc123.cpln.app"
+        }
+      }
+      deployments_error = "401 Unauthorized token=super-secret-value"
+
+      stdout, stderr, status, outputs = run_wait_for_health_action(
+        workload_json: workload_json,
+        deployments_json: {},
+        deployments_error: deployments_error
+      )
+
+      expect(status).not_to be_success
+      expect(stderr).to eq("")
+      expect(stdout).to include("Could not list location endpoints")
+      expect(stdout).to include("authorization failure")
+      expect(stdout).not_to include("super-secret-value")
+      expect(outputs).to include("healthy=false")
     end
 
     it "writes the delete-app script with the not-found guard message" do

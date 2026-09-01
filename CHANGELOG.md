@@ -12,9 +12,24 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- **Added `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` to the environment of one-off jobs started by `cpflow run`, exposing the app's immutable GVC identity so that a release script can tell which GVC incarnation it is running in.** [PR 433](https://github.com/shakacode/control-plane-flow/pull/433) by [Justin Gordon](https://github.com/justin808). Fixes [issue 432](https://github.com/shakacode/control-plane-flow/issues/432). Unlike the mutable `CPLN_GVC_ALIAS`, these values identify the GVC incarnation itself, so they change only when a GVC is deleted and recreated under the same name. `CPFLOW_GVC_CREATED` is an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix. Both variables are always set and are empty when the GVC cannot be read, so a consumer can fail closed; they are never omitted, because the runner inherits the original workload's environment and an omitted variable could otherwise expose a stale inherited value.
+
 ### Changed
 
 - **Simplified generated review-app help comments to a three-command quick reference, moved setup behind expandable details, and clarified GitHub Actions secret and variable terminology.** [PR 410](https://github.com/shakacode/control-plane-flow/pull/410) by [Justin Gordon](https://github.com/justin808).
+- **Updated reusable GitHub Actions setup to install Control Plane CLI 3.11.0 by default.** [PR 423](https://github.com/shakacode/control-plane-flow/pull/423) by [Justin Gordon](https://github.com/justin808).
+
+### Fixed
+
+- **Fixed the spec suite leaking `dummy-test-*` GVCs that exhausted the CI org's GVC quota and blocked later runs.** [PR 434](https://github.com/shakacode/control-plane-flow/pull/434) by [Justin Gordon](https://github.com/justin808). Fixes [issue 399](https://github.com/shakacode/control-plane-flow/issues/399). Apps are now registered for `after(:suite)` cleanup by the command runner before an app-creating command runs, so a command that fails after creating the GVC, or an example that fails before its own teardown, no longer leaves the app behind. A `before(:suite)` sweep additionally reclaims apps leaked by runs that were killed before cleanup could run. The sweep is confined to the suite's own org and to the anchored `dummy-test-*` fixture naming boundary, never touches an app younger than 12 hours or one belonging to the current run, keeps anything it cannot positively identify as stale, and reports rather than raises on failure. This change is limited to the spec suite; no gem behavior changes.
+- **Fixed review-app deletion leaving successful GitHub deployments active after the Control Plane app was removed.** [PR 430](https://github.com/shakacode/control-plane-flow/pull/430) by [Justin Gordon](https://github.com/justin808).
+- **Fixed template refreshes for existing apps whose workload-list response omits readiness status by consulting each workload's detailed state before selecting a safe fallback image.** [PR 429](https://github.com/shakacode/control-plane-flow/pull/429) by [Justin Gordon](https://github.com/justin808).
+- **Fixed reusable deployment health checks on BYOK locations by falling back from a disabled standard workload endpoint only after every location is settled, while preserving configured `app_domain` review-app links and using the verified location endpoint as the final URL fallback.** [PR 426](https://github.com/shakacode/control-plane-flow/pull/426) by [Justin Gordon](https://github.com/justin808).
+- **Fixed template refresh recovery for unhealthy or partially deployed review apps by preserving each workload's configured app image independently, while limiting missing-image fallbacks to one unambiguous image from ready workloads.** [PR 425](https://github.com/shakacode/control-plane-flow/pull/425) by [Justin Gordon](https://github.com/justin808).
+- **Fixed reusable review-app deployments so existing apps receive changes from configured `setup_app_templates` before the new image is deployed, without deleting the GVC, rerunning post-creation hooks, replacing deployed images before rollout gates pass, or modifying existing secret resources.** [PR 424](https://github.com/shakacode/control-plane-flow/pull/424) by [Justin Gordon](https://github.com/justin808).
+- **Fixed `cpflow deploy-image` crashing when an internal-only workload has no public endpoint.** Deployments now consult the existing deployment fallback and report when no public endpoint is available. [PR 423](https://github.com/shakacode/control-plane-flow/pull/423) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 

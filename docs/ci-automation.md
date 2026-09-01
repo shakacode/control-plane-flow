@@ -327,6 +327,20 @@ the run early instead of deploying an image that cannot boot.
 
 Review apps are different: the generated `+review-app-deploy` workflow creates
 temporary PR apps as needed, including the identity and secret policy binding.
+For an existing review app, each deployment runs
+`cpflow setup-app --refresh-templates` before building and deploying the new
+image. Refresh mode reapplies the configured `setup_app_templates` without
+deleting the GVC or running `hooks.post_creation`, answers template replacement
+prompts noninteractively, preserves each matching workload container's exact
+configured app-image reference even when the app is unhealthy or workloads use
+different image versions, and repairs the configured app and shared-secret
+policy bindings. A missing or invalid workload image uses only an unambiguous
+app image from ready workloads; refresh fails closed rather than selecting the
+registry's newest image. Preserving image references keeps release-phase and
+ordered-deploy gates in control of image rollout; a template failure stops the
+workflow before the image build or deployment. Existing secret templates are skipped
+as whole resources, so refresh neither changes existing values nor adds newly templated
+keys; provision required new keys separately before deployment.
 You still need the shared review-app runtime secret values described by your
 templates, and the staging token must have access to create and update
 review-app GVCs, workloads, images, identities, policies, and secrets in the
@@ -334,12 +348,13 @@ staging org.
 
 If review apps share an existing staging database or another existing secret,
 declare it with `shared_secret_grants` on the review app config entry. The
-deploy workflow runs `setup-app` for new review apps and `deploy-image` for
-image updates; those commands bind or repair the review app identity's `reveal`
-permission on each configured shared policy. The delete and cleanup workflows
-call `cpflow delete`, which removes those bindings as review apps go away. This
-lets one shared database or license secret serve many short-lived review apps
-without granting every review identity access to unrelated app secrets.
+deploy workflow runs `setup-app` for new review apps, refreshes templates for
+existing review apps, and then runs `deploy-image`; those commands bind or
+repair the review app identity's `reveal` permission on each configured shared
+policy. The delete and cleanup workflows call `cpflow delete`, which removes
+those bindings as review apps go away. This lets one shared database or license
+secret serve many short-lived review apps without granting every review
+identity access to unrelated app secrets.
 
 ```yaml
 apps:
@@ -379,7 +394,11 @@ The standard path is:
    references are copied by digest, commit-suffixed tags keep the commit suffix,
    and plain numeric tags remain valid.
 11. Expect production health and rollback readiness polling to require Control
-   Plane `status.ready` and `status.readyLatest` before checking the endpoint.
+   Plane `status.ready` and `status.readyLatest` before checking the standard
+   workload endpoint. If that endpoint is unavailable, as it can be on BYOK
+   locations, the health check waits until every reported deployment location
+   is ready and not deploying, then tries their endpoints sequentially. Each
+   additional location can add up to `curl_max_time` to an attempt.
 
 GitHub only exposes environment secrets to jobs that reference the environment
 after configured protection rules pass. GitHub does not allow a caller job that
@@ -463,7 +482,7 @@ The generated flow uses these defaults:
   so it runs in the base-repository context and has repository-secret access for teardown. That is also why you must
   never check out PR or fork code in this job; see the customization guidance below. The PR-close path does not require a
   trusted commenter. The generated `cpflow-delete-review-app.yml` pins `GITHUB_TOKEN` permissions to the minimum it needs
-  (`contents: read`, `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that
+  (`contents: read`, `deployments: write`, `issues: write`, `pull-requests: write`); if you customize this workflow, preserve that
   `permissions:` block because omitting it can fall back to broader repository defaults;
 - manual workflow dispatch by a repository collaborator can also delete a review app without a `+review-app-delete`
   comment, and does not require a trusted commenter;
@@ -566,7 +585,7 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - For manual dispatch, provide the PR number; the workflow rejects fork PRs at runtime because it builds Docker images
   with repository secrets.
 - Redeploys an existing review app automatically on later PR pushes.
-- Creates a GitHub deployment and comments with the review URL and logs.
+- Creates a transient, non-production GitHub deployment and comments with the review URL and logs.
 - Leaves PR pushes alone until the first review app is explicitly requested, which keeps demo-app costs down.
 - Supports cost-conscious review apps when paired with one warm replica, Capacity AI, and a disabled autoscaling
   metric for public demos, starter staging apps, and long-lived review apps; see
@@ -584,6 +603,12 @@ deploy key scoped to the minimum private dependency access, and never use a pers
 - Also deletes it automatically when the pull request closes through a `pull_request_target` event, so repository secrets
   are available for teardown; `hooks.pre_deletion` still executes through the latest PR-built image on this path, so
   review-app credentials must remain disposable.
+- After Control Plane deletion succeeds, marks every GitHub deployment for the exact `review/<app-name>` environment
+  inactive so the repository does not retain a stale active review deployment, while skipping deployments whose latest
+  status is already inactive so repeated teardown is idempotent. Deploy and delete workflows share one
+  per-PR concurrency queue, ensuring an in-flight deploy finishes before deletion and cannot publish a later success
+  status after the app is removed. If GitHub deployment cleanup fails after Control Plane deletion, the workflow reports
+  that partial outcome accurately and still fails so the cleanup can be retried.
 - Accepts `+review-app-delete` only from trusted commenters (`OWNER`, `MEMBER`, or `COLLABORATOR`); manual dispatch and
   automatic PR-close teardown do not require a trusted commenter.
 

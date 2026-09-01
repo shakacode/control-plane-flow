@@ -99,7 +99,7 @@ runs:
 
         # Bump this default when a new Control Plane CLI release should roll out by default.
         # Override per-repo by setting the `CPLN_CLI_VERSION` repo variable.
-        default_cpln_cli_version="3.10.2"
+        default_cpln_cli_version="3.11.0"
 
         CPLN_CLI_VERSION="${CPLN_CLI_VERSION:-${default_cpln_cli_version}}"
 

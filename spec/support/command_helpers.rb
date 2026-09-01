@@ -11,6 +11,29 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   DUMMY_TEST_ORG = ENV.fetch("CPLN_ORG", nil)
   DUMMY_TEST_APP_PREFIX = "dummy-test"
 
+  # Anchored match for the names `dummy_test_app` and `dummy_test_app_prefix`
+  # can produce: the `dummy-test` prefix, optional extra-prefix segments, the
+  # run's four-hex-character global identifier, and an optional suffix.
+  #
+  # Anchoring at both ends is what keeps permanent org fixtures whose names
+  # merely begin with `dummy-test` (such as the `dummy-test-upstream` app named
+  # by `upstream:` in the dummy `controlplane.yml`) outside the boundary. Never
+  # relax this into a `start_with?`/`include?` check.
+  #
+  # The trailing group repeats, so a multi-segment suffix stays inside the boundary.
+  # `dummy_test_app` accepts any suffix, and a name it can generate but this rejects
+  # would silently stop being registered for cleanup -- the leak this exists to close.
+  # The run identifier is what keeps the boundary tight: `dummy-test-upstream` has no
+  # four-hex segment in that position, so it cannot match however the suffix repeats.
+  DUMMY_TEST_APP_NAME_PATTERN =
+    /\A#{DUMMY_TEST_APP_PREFIX}-(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?[0-9a-f]{4}(?:-[a-z0-9]+)*\z/
+
+  # Commands that can create an app's GVC. Every dummy app name passed to one of
+  # these is registered for `after(:suite)` cleanup *before* the command runs, so
+  # the app is torn down even when the command that created it fails afterwards,
+  # or when the example that would have deleted it fails.
+  APP_CREATING_COMMANDS = %w[setup-app apply-template].freeze
+
   CREATE_APP_PARAMS = {
     "default" => {
       deploy: false,
@@ -144,6 +167,31 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     @@apps_to_delete ||= [] # rubocop:disable Style/ClassVars
   end
 
+  # Registers the dummy app named by `args` for `after(:suite)` cleanup when
+  # those args invoke a command that can create it.
+  #
+  # `dummy_test_app` itself cannot do this: with `create_if_not_exists: false`
+  # it only builds a name, and it builds a fresh random one per example, so
+  # registering there would queue a delete for every name a spec ever mentioned.
+  # Hooking the command runner instead registers exactly the apps a spec really
+  # provisions, whichever helper produced the name, and does so before the
+  # command runs so a half-created app is still cleaned up.
+  def register_app_to_delete(args)
+    args = args.map(&:to_s)
+    return unless APP_CREATING_COMMANDS.include?(args.first)
+
+    app = app_option_value(args)
+    return unless app && DUMMY_TEST_APP_NAME_PATTERN.match?(app)
+
+    apps_to_delete.push(app) unless apps_to_delete.include?(app)
+  end
+
+  def app_option_value(args)
+    index = args.index("-a") || args.index("--app")
+
+    index && args[index + 1]
+  end
+
   def create_app_if_not_exists(app, deploy: false, image_before_deploy_count: 0, image_after_deploy_count: 0) # rubocop:disable Metrics/MethodLength
     apps_to_delete.push(app) unless apps_to_delete.include?(app)
 
@@ -167,6 +215,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
 
   def run_cpflow_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
     LogHelpers.write_command_to_log(args.join(" "))
+    register_app_to_delete(args)
 
     result = {
       status: 0,
@@ -207,6 +256,7 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     cmd += "stty cols #{stty_cols} && " if stty_cols
     cmd += "#{cpflow_executable_with_simplecov} #{args.join(' ')}"
 
+    register_app_to_delete(args)
     LogHelpers.write_command_to_log(cmd)
     LogHelpers.write_section_separator_to_log
 

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "stale_dummy_app_sweeper"
+
 module DummyAppSetup
   module_function
 
@@ -7,6 +9,11 @@ module DummyAppSetup
     CommandHelpers.configure_config_file
 
     puts "\nUsing org '#{CommandHelpers.dummy_test_org}' for tests with dummy app\n\n"
+
+    # Reclaim quota leaked by earlier runs that were killed before `cleanup`
+    # could run. `SKIP_CLEANUP` is this suite's "delete nothing" switch, so it
+    # covers the sweep too.
+    StaleDummyAppSweeper.sweep unless skip_cleanup?
   end
 
   def cleanup
@@ -19,5 +26,9 @@ module DummyAppSetup
     end
 
     CommandHelpers.delete_config_file
+  end
+
+  def skip_cleanup?
+    ENV.fetch("SKIP_CLEANUP", nil) == "true"
   end
 end

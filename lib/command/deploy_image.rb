@@ -112,12 +112,18 @@ module Command
       @requested_workload_names ||= Array(config.options[:workload]).map(&:to_s).uniq
     end
 
+    def app_image?(image)
+      image.to_s.match?(
+        %r{\A(?:/org/#{Regexp.escape(config.org)}/image/)?#{Regexp.escape(config.app)}[:@]}
+      )
+    end
+
     def deploy_image_to_workloads(image, workload_data_by_name) # rubocop:disable Metrics/MethodLength
       deployed_endpoints = {}
 
       workload_data_by_name.each do |workload, workload_data|
         workload_data.dig("spec", "containers").each do |container|
-          next unless container["image"].match?(%r{^/org/#{config.org}/image/#{config.app}[:@]})
+          next unless app_image?(container["image"])
 
           container_name = container["name"]
           step("Deploying image '#{image}' for workload '#{workload}'") do
@@ -125,6 +131,8 @@ module Command
             next false unless updated
 
             deployed_endpoints[workload] = endpoint_for_workload(workload_data)
+            # A missing public endpoint is valid; the image update still completed successfully.
+            true
           end
           # Deploy the first matching app-image container per workload; CPLN workloads
           # are expected to have a single container that runs the app image.
@@ -168,7 +176,7 @@ module Command
     def print_deployed_endpoints(deployed_endpoints)
       progress.puts("\nDeployed endpoints:")
       deployed_endpoints.each do |workload, endpoint|
-        progress.puts("  - #{workload}: #{endpoint}")
+        progress.puts("  - #{workload}: #{endpoint || '(no public endpoint)'}")
       end
     end
 
@@ -209,9 +217,15 @@ module Command
 
     def endpoint_for_workload(workload_data)
       endpoint = workload_data.dig("status", "endpoint")
+      return fallback_endpoint_for_workload(workload_data) unless endpoint
+
       Resolv.getaddress(endpoint.split("/").last)
       endpoint
     rescue Resolv::ResolvError
+      fallback_endpoint_for_workload(workload_data)
+    end
+
+    def fallback_endpoint_for_workload(workload_data)
       deployments = cp.fetch_workload_deployments(workload_data["name"])
       deployments.dig("items", 0, "status", "endpoint")
     end

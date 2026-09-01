@@ -56,6 +56,70 @@ describe Command::SetupApp do
         .with(config.identity_link, "shared-database-secrets-policy")
     end
 
+    it "keeps new app setup interactive and runs the post-creation hook path" do
+      allow(command).to receive(:run_post_creation_hook)
+
+      command.call
+
+      expect(command).to have_received(:run_cpflow_command)
+        .with("apply-template", "app", "rails", "-a", config.app, "--add-app-identity")
+      expect(command).to have_received(:run_post_creation_hook)
+    end
+
+    context "when refreshing templates for an existing app" do
+      before do
+        allow(config).to receive(:options).and_return({ refresh_templates: true })
+        allow(cp).to receive(:fetch_gvc).and_return({ "name" => config.app })
+        allow(command).to receive(:run_post_creation_hook)
+      end
+
+      it "applies configured templates noninteractively and repairs secret bindings without running creation hooks" do
+        command.call
+
+        expect(command).to have_received(:run_cpflow_command)
+          .with(
+            "apply-template", "app", "rails", "-a", config.app,
+            "--add-app-identity", "--yes", "--preserve-existing-runtime"
+          )
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with(config.identity_link, "test-review-secrets-policy")
+        expect(cp).to have_received(:bind_identity_to_policy)
+          .with(config.identity_link, "shared-database-secrets-policy")
+        expect(command).not_to have_received(:run_post_creation_hook)
+      end
+
+      it "stops when template application fails" do
+        allow(command).to receive(:run_cpflow_command).and_raise(SystemExit.new(64))
+
+        expect { command.call }.to raise_error(SystemExit) { |error| expect(error.status).to eq(64) }
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+    end
+
+    context "when refreshing templates for a missing app" do
+      before do
+        allow(config).to receive(:options).and_return({ refresh_templates: true })
+      end
+
+      it "raises without creating the app" do
+        expect { command.call }
+          .to raise_error("App 'test-review-123' does not exist, so its templates cannot be refreshed.")
+        expect(command).not_to have_received(:create_secret_and_policy_if_not_exist)
+        expect(command).not_to have_received(:run_cpflow_command)
+      end
+    end
+
+    context "when the app already exists without template refresh" do
+      before do
+        allow(cp).to receive(:fetch_gvc).and_return({ "name" => config.app })
+      end
+
+      it "preserves the existing setup error" do
+        expect { command.call }.to raise_error(/App 'test-review-123' already exists/)
+        expect(command).not_to have_received(:run_cpflow_command)
+      end
+    end
+
     context "when a configured shared policy is missing" do
       before do
         allow(cp).to receive(:fetch_policy).with("shared-database-secrets-policy").and_return(nil)

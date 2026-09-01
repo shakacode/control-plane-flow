@@ -238,7 +238,7 @@ RSpec.configure do |config|
 
   config.after(:suite) do
     if CommandHelpers.cpln_org_configured?
-      DummyAppSetup.cleanup unless ENV.fetch("SKIP_CLEANUP", nil) == "true"
+      DummyAppSetup.cleanup unless DummyAppSetup.skip_cleanup?
     else
       CommandHelpers.delete_config_file
     end

@@ -219,6 +219,12 @@ describe Shell do
       expect(result[:success]).to be(true)
     end
 
+    it "captures stderr separately without corrupting stdout" do
+      result = described_class.cmd("sh", "-c", "echo captured-err >&2; echo captured-out", separate_stderr: true)
+
+      expect(result).to eq(output: "captured-out\n", error_output: "captured-err\n", success: true)
+    end
+
     it "does not capture stderr by default" do
       status = instance_double(Process::Status, success?: true)
       allow(Open3).to receive(:capture2).with("some", "command").and_return(["stdout only\n", status])
