@@ -13,6 +13,14 @@ describe ControlplaneApiDirect do
     expect(described_class.class_variables).to be_empty
   end
 
+  it "uses an immutable request policy compatible with the supported Ruby floor" do
+    policy = described_class::RequestPolicy.new(sensitive: true, retry_transient: false, timeout: 5)
+
+    expect(policy).to be_a(Struct)
+    expect(policy).to be_frozen
+    expect { policy.timeout = 10 }.to raise_error(FrozenError)
+  end
+
   it "uses the process-shared default token provider when none is injected" do
     allow(described_class.default_token_provider).to receive(:fetch)
       .and_return({ token: "shared-token", comes_from_profile: false })
