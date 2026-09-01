@@ -658,7 +658,14 @@ module Command
     # This is a best-effort warning. API, transport, and response-shape failures
     # must not turn an optional diagnostic into a deployment blocker.
     rescue StandardError
-      nil
+      debug_shared_secret_placeholder_check_failure(secret_name)
+    end
+
+    def debug_shared_secret_placeholder_check_failure(secret_name)
+      Shell.debug(
+        "WARN",
+        "Could not inspect shared secret '#{secret_name}'; continuing without the optional placeholder diagnostic."
+      )
     end
 
     def bind_shared_secret_policy_grant(grant, policy)

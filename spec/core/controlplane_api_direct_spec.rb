@@ -277,6 +277,39 @@ describe ControlplaneApiDirect do
       described_class.trace = original_trace
     end
 
+    it "omits a sensitive non-success response body from the raised error" do
+      allow(http_connection).to receive(:request)
+        .and_return(http_response(Net::HTTPBadRequest, 400, body: "response-secret-sentinel"))
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(RuntimeError) { |error|
+        expect(error.message).to include("Net::HTTPBadRequest")
+        expect(error.message).not_to include("response-secret-sentinel")
+      }
+    end
+
+    it "omits a malformed sensitive success body from the parse error" do
+      allow(http_connection).to receive(:request)
+        .and_return(ok_response(body: '{"password":"parse-secret-sentinel"'))
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(JSON::ParserError) { |error|
+        expect(error.message).to eq("Control Plane API returned invalid JSON for a sensitive request.")
+        expect(error.message).not_to include("parse-secret-sentinel")
+        expect(error.cause).to be_nil
+      }
+    end
+
     it "disables Net::HTTP's built-in retries and bounds the open timeout" do
       allow(http_connection).to receive(:request).and_return(ok_response)
 

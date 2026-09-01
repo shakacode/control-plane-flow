@@ -238,7 +238,7 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
 
     loop do
       response = attempt_request(uri, request, method, retrier, request_policy)
-      return handle_response(response, url) if response
+      return handle_response(response, url, request_policy) if response
     end
   end
 
@@ -313,13 +313,27 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
     http
   end
 
-  def handle_response(response, url)
+  def handle_response(response, url, request_policy)
     case response
-    when Net::HTTPOK then JSON.parse(response.body)
+    when Net::HTTPOK then parse_response_body(response, request_policy)
     when Net::HTTPAccepted then true
     when Net::HTTPNotFound then nil
     when Net::HTTPForbidden then raise(ForbiddenError.new(url: url, response: response))
-    else raise("#{response} #{response.body}")
+    else raise(response_error_message(response, request_policy))
     end
+  end
+
+  def parse_response_body(response, request_policy)
+    JSON.parse(response.body)
+  rescue JSON::ParserError
+    raise unless request_policy.sensitive
+
+    raise JSON::ParserError, "Control Plane API returned invalid JSON for a sensitive request.", cause: nil
+  end
+
+  def response_error_message(response, request_policy)
+    return response.to_s if request_policy.sensitive
+
+    "#{response} #{response.body}"
   end
 end

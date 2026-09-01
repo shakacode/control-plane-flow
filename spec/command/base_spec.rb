@@ -159,9 +159,16 @@ describe Command::Base do
         .with("shared-database-secrets")
         .and_raise("temporary reveal failure")
       allow(Shell).to receive(:warn)
+      allow(Shell).to receive(:debug)
 
       expect { command.resolve_shared_secret_policy_grants }.not_to raise_error
       expect(Shell).not_to have_received(:warn)
+      expect(Shell).to have_received(:debug).with(
+        "WARN",
+        "Could not inspect shared secret 'shared-database-secrets'; " \
+        "continuing without the optional placeholder diagnostic."
+      )
+      expect(Shell).not_to have_received(:debug).with(anything, /temporary reveal failure/)
     end
   end
 end
