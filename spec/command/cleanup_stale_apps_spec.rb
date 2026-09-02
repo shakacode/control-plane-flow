@@ -116,6 +116,13 @@ describe Command::CleanupStaleApps do
       expect(cp).not_to have_received(:set_workload_suspend).with("unconfigured-worker", true, "stale-app")
     end
 
+    it "skips workload suspension when the stale app disappears before it is stopped" do
+      allow(cp).to receive(:fetch_workloads).with("stale-app").and_return(nil)
+
+      expect { command.send(:process_app, "stale-app") }.not_to raise_error
+      expect(cp).not_to have_received(:set_workload_suspend)
+    end
+
     it "raises when the stale app config does not define app_workloads" do
       allow(config).to receive(:find_app_config)
         .with("stale-app")

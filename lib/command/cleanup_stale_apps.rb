@@ -113,7 +113,7 @@ module Command
 
       configured_workloads = required_app_option(app_config, app, :app_workloads) +
                              required_app_option(app_config, app, :additional_workloads)
-      live_workloads = cp.fetch_workloads(app).fetch("items", []).map { |workload| workload.fetch("name") }
+      live_workloads = (cp.fetch_workloads(app)&.fetch("items", []) || []).map { |workload| workload.fetch("name") }
 
       (configured_workloads & live_workloads).each do |workload|
         step("Stopping workload '#{workload}'") do
