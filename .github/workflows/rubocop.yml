@@ -16,6 +16,9 @@ on:
       - 'LICENSE'
       - 'COMM-LICENSE.txt'
 
+permissions:
+  contents: read
+
 jobs:
   rubocop:
     runs-on: ubuntu-latest
@@ -23,6 +26,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - name: Analyze shell scripts
+        run: script/check_shell_scripts
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:

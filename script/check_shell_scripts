@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+if ! command -v shellcheck >/dev/null 2>&1; then
+  echo "ShellCheck is required; install it and ensure shellcheck is on PATH." >&2
+  exit 127
+fi
+
+shell_files=()
+while IFS= read -r -d '' entry; do
+  metadata=${entry%%$'\t'*}
+  file=${entry#*$'\t'}
+  mode=${metadata%% *}
+
+  case "$file" in
+    *.sh|*.bash)
+      shell_files+=("$file")
+      continue
+      ;;
+  esac
+
+  [ "$mode" = "100755" ] || continue
+  IFS= read -r first_line < "$file" || true
+  case "$first_line" in
+    '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *|'#!/usr/bin/env sh'|'#!/usr/bin/env sh '*|'#!/usr/bin/env bash'|'#!/usr/bin/env bash '*)
+      shell_files+=("$file")
+      ;;
+  esac
+done < <(git ls-files --stage -z)
+
+if [ "${#shell_files[@]}" -eq 0 ]; then
+  echo "No tracked shell scripts found." >&2
+  exit 1
+fi
+
+exec shellcheck -- "${shell_files[@]}"

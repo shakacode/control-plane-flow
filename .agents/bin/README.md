@@ -8,11 +8,14 @@ means that capability is n/a here.
 | Script | Purpose | This repo runs |
 | --- | --- | --- |
 | `setup` | Install dependencies | `bundle install` |
-| `validate` | Pre-push gate (run before pushing) | `bundle exec rake` (rspec + rubocop) |
+| `validate` | Pre-push gate (run before pushing) | ShellCheck, then `bundle exec rake` (rspec + rubocop) |
 | `test` | Run tests | `bundle exec rspec` |
 | `lint` | Lint / format (pass `-A` to fix) | `bundle exec rubocop` |
 | `docs` | Check generated command docs | `bundle exec rake check_command_docs` |
 | `build` | Build / type-check | n/a (gem) |
+
+`validate` requires ShellCheck to be installed and available as `shellcheck` on
+`PATH`.
 
 Canonical non-command policy, including the release-QA runbook reference, lives
 in [`../agent-workflow.yml`](../agent-workflow.yml). [`../../AGENTS.md`](../../AGENTS.md)
