@@ -14,6 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
+- **Added an early diagnostic warning when a `shared_secret_grants` target still uses the generated Postgres password placeholder.** `setup-app` and `deploy-image` now identify the affected grant and secret before release or deployment work without printing secret values. [PR 441](https://github.com/shakacode/control-plane-flow/pull/441) by [Justin Gordon](https://github.com/justin808). Fixes [issue 421](https://github.com/shakacode/control-plane-flow/issues/421).
 - **Added `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` to the environment of one-off jobs started by `cpflow run`, exposing the app's immutable GVC identity so that a release script can tell which GVC incarnation it is running in.** [PR 433](https://github.com/shakacode/control-plane-flow/pull/433) by [Justin Gordon](https://github.com/justin808). Fixes [issue 432](https://github.com/shakacode/control-plane-flow/issues/432). Unlike the mutable `CPLN_GVC_ALIAS`, these values identify the GVC incarnation itself, so they change only when a GVC is deleted and recreated under the same name. `CPFLOW_GVC_CREATED` is an ISO 8601 UTC timestamp with millisecond precision and a `Z` suffix. Both variables are always set and are empty when the GVC cannot be read, so a consumer can fail closed; they are never omitted, because the runner inherits the original workload's environment and an omitted variable could otherwise expose a stale inherited value.
 
 ### Changed

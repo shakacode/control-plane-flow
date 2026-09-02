@@ -166,6 +166,12 @@ describe Command::DeployImage do
       allow(cp).to receive(:fetch_policy)
         .with("shared-uploads-secrets-policy")
         .and_return(uploads_policy_data)
+      allow(cp).to receive(:reveal_secret)
+        .with("shared-database-secrets")
+        .and_return("data" => { "password" => "configured-database-password" })
+      allow(cp).to receive(:reveal_secret)
+        .with("shared-uploads-secrets")
+        .and_return("data" => { "api_token" => "configured-uploads-token" })
       allow(command).to receive(:cp).and_return(cp)
       allow(Resolv).to receive(:getaddress).and_return("1.2.3.4")
     end
@@ -185,6 +191,8 @@ describe Command::DeployImage do
         .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-database-secrets-policy")
       expect(cp).to have_received(:bind_identity_to_policy)
         .with("/org/test-org/gvc/test-app/identity/test-app-identity", "shared-uploads-secrets-policy")
+      expect(cp).to have_received(:reveal_secret).with("shared-database-secrets")
+      expect(cp).to have_received(:reveal_secret).with("shared-uploads-secrets")
     end
 
     context "when the identity is bound to the shared policy without reveal permission" do
