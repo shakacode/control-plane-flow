@@ -10,163 +10,6 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 shell_files=()
-env_words=()
-split_words=()
-
-is_env_assignment() {
-  [[ $1 == *=* ]] || return 1
-}
-
-parse_env_short_options() {
-  local options=${1#-}
-  local option
-
-  env_option_value_kind='none'
-  env_option_value=''
-  while [ -n "$options" ]; do
-    option=${options:0:1}
-    options=${options:1}
-    case "$option" in
-      i|v)
-        ;;
-      a|u|C|P)
-        env_option_value_kind='skip'
-        env_option_value=$options
-        return 0
-        ;;
-      S)
-        env_option_value_kind='split'
-        env_option_value=$options
-        return 0
-        ;;
-      *)
-        return 1
-        ;;
-    esac
-  done
-}
-
-split_env_string() {
-  local env_string=$1
-  local sentinel=__CPFLOW_ENV_SPLIT_START__
-  local word
-
-  split_words=()
-  while IFS= read -r -d '' word; do
-    split_words+=("$word")
-  done < <(/usr/bin/env -S "/usr/bin/printf '%s\\0' $sentinel $env_string" 2>/dev/null)
-
-  [ "${#split_words[@]}" -gt 0 ] || return 1
-  [ "${split_words[0]}" = "$sentinel" ] || return 1
-  if [ "${#split_words[@]}" -gt 1 ]; then
-    split_words=("${split_words[@]:1}")
-  else
-    split_words=()
-  fi
-}
-
-is_env_shell_command() {
-  local env_string=$1
-  local options=true
-  local split_count=0
-  local word
-  local env_option_value_kind='none'
-  local env_option_value=''
-
-  split_env_string "$env_string" || return 1
-  env_words=("${split_words[@]}")
-
-  # Expand nested env split-string options without executing the discovered command.
-  while [ "${#env_words[@]}" -gt 0 ]; do
-    word=${env_words[0]}
-    env_words=("${env_words[@]:1}")
-    env_option_value_kind='none'
-    env_option_value=''
-
-    if [ "$options" = true ]; then
-      case "$word" in
-        --)
-          options=false
-          continue
-          ;;
-        --argv0|--unset|--chdir)
-          [ "${#env_words[@]}" -gt 0 ] || return 1
-          env_words=("${env_words[@]:1}")
-          continue
-          ;;
-        --split-string)
-          [ "${#env_words[@]}" -gt 0 ] || return 1
-          env_option_value_kind='split'
-          env_option_value=${env_words[0]}
-          env_words=("${env_words[@]:1}")
-          ;;
-        --split-string=*)
-          env_option_value_kind='split'
-          env_option_value=${word#*=}
-          ;;
-        -|--argv0=*|--unset=*|--chdir=*|--ignore-environment|--debug|--block-signal|--block-signal=*|--default-signal|--default-signal=*|--ignore-signal|--ignore-signal=*|--list-signal-handling)
-          continue
-          ;;
-        -*)
-          if parse_env_short_options "$word"; then
-            case "$env_option_value_kind" in
-              none)
-                continue
-                ;;
-              skip)
-                if [ -z "$env_option_value" ]; then
-                  [ "${#env_words[@]}" -gt 0 ] || return 1
-                  env_words=("${env_words[@]:1}")
-                fi
-                continue
-                ;;
-              split)
-                if [ -z "$env_option_value" ]; then
-                  [ "${#env_words[@]}" -gt 0 ] || return 1
-                  env_option_value=${env_words[0]}
-                  env_words=("${env_words[@]:1}")
-                fi
-                ;;
-            esac
-          else
-            return 1
-          fi
-          ;;
-      esac
-
-      if [ "$env_option_value_kind" = 'split' ]; then
-        split_count=$((split_count + 1))
-        [ "$split_count" -le 32 ] || return 1
-        split_env_string "$env_option_value" || return 1
-        if [ "${#split_words[@]}" -gt 0 ]; then
-          if [ "${#env_words[@]}" -gt 0 ]; then
-            env_words=("${split_words[@]}" "${env_words[@]}")
-          else
-            env_words=("${split_words[@]}")
-          fi
-        fi
-        env_option_value=''
-        continue
-      fi
-    fi
-
-    if is_env_assignment "$word"; then
-      options=false
-      continue
-    fi
-
-    case "$word" in
-      sh|bash|*/sh|*/bash)
-        return 0
-        ;;
-      *)
-        return 1
-        ;;
-    esac
-  done
-
-  return 1
-}
 
 while IFS= read -r -d '' entry; do
   metadata=${entry%%$'\t'*}
@@ -175,7 +18,11 @@ while IFS= read -r -d '' entry; do
 
   case "$file" in
     *.sh|*.bash)
-      [ -r "$file" ] && shell_files+=("$file")
+      if [ ! -r "$file" ]; then
+        echo "Tracked shell script is not readable: $file" >&2
+        exit 1
+      fi
+      shell_files+=("$file")
       continue
       ;;
   esac
@@ -184,34 +31,17 @@ while IFS= read -r -d '' entry; do
   first_line=''
   IFS= read -r first_line < <(LC_ALL=C head -c 4096 -- "$file") || true
   first_line=${first_line%$'\r'}
-  case "$first_line" in
-    '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *)
-      shell_files+=("$file")
-      ;;
-    '#!/usr/bin/env '*|'#!/usr/bin/env'$'\t'*)
-      env_string=${first_line#'#!/usr/bin/env'}
-      while [[ $env_string == ' '* || $env_string == $'\t'* ]]; do
-        env_string=${env_string:1}
-      done
-      while [[ $env_string == *' ' || $env_string == *$'\t' ]]; do
-        env_string=${env_string%?}
-      done
-      case "$env_string" in
-        sh|sh\ *|sh$'\t'*|bash|bash\ *|bash$'\t'*)
-          shell_files+=("$file")
-          ;;
-        -S?*)
-          is_env_shell_command "${env_string#-S}" && shell_files+=("$file")
-          ;;
-        --split-string=*)
-          is_env_shell_command "${env_string#*=}" && shell_files+=("$file")
-          ;;
-        *)
-          is_env_shell_command "$env_string" && shell_files+=("$file")
-          ;;
-      esac
-      ;;
-  esac
+
+  if [[ $first_line =~ ^'#!'.*/(sh|bash)([[:space:]].*)?$ ]] ||
+     [[ $first_line =~ ^'#!'.*/env[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
+    shell_files+=("$file")
+  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]] ||
+       [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
+    shell_files+=("$file")
+  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-|[^[:space:]]*=) ]]; then
+    echo "Unsupported env-prefixed shebang in tracked executable: $file" >&2
+    exit 1
+  fi
 done < <(git ls-files --stage -z)
 
 if [ "${#shell_files[@]}" -eq 0 ]; then
