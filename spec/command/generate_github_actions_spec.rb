@@ -608,7 +608,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           "actions" => "read",
           "contents" => "read",
           "issues" => "write",
-          "pull-requests" => "read"
+          "pull-requests" => "write"
         )
         expect(authorization_job.fetch("outputs")).to eq(
           "allowed" => "${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}"

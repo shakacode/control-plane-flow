@@ -38,7 +38,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
           "actions" => "read",
           "contents" => "read",
           "issues" => "write",
-          "pull-requests" => "read"
+          "pull-requests" => "write"
         )
         expect(authorization_job.fetch("outputs")).to eq(
           "allowed" => "${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}"

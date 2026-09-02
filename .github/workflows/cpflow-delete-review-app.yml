@@ -25,7 +25,8 @@ jobs:
       actions: read
       contents: read
       issues: write
-      pull-requests: read
+      # PR issue comments use the Issues API path but require PR write access.
+      pull-requests: write
     outputs:
       allowed: ${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}
     steps:
