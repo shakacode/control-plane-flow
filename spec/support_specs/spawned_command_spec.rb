@@ -28,9 +28,49 @@ describe SpawnedCommand do
   end
 
   describe "#wait" do
-    it "returns without signaling when the process exits during the initial grace period" do
-      allow(Timeout).to receive(:timeout).and_yield
-      allow(Process).to receive(:wait).with(12_345).and_return(12_345)
+    it "polls nonblockingly without asynchronous timeout exceptions" do
+      allow(Process).to receive(:clock_gettime)
+        .with(Process::CLOCK_MONOTONIC)
+        .and_return(10.0, 10.1)
+      allow(Process).to receive(:wait)
+        .with(12_345, Process::WNOHANG)
+        .and_return(nil, 12_345)
+      allow(Process).to receive(:kill)
+      allow(Timeout).to receive(:timeout)
+
+      command.wait
+
+      expect(Process).to have_received(:wait)
+        .with(12_345, Process::WNOHANG).twice
+      expect(described_class::PROCESS_WAIT_POLL_INTERVAL_SECONDS).to be <= 0.1
+      expect(Timeout).not_to have_received(:timeout)
+      expect(Process).not_to have_received(:kill)
+    end
+
+    it "escalates from TERM to KILL when the process does not exit" do
+      allow(Process).to receive(:clock_gettime)
+        .with(Process::CLOCK_MONOTONIC)
+        .and_return(10.0, 15.0, 20.0, 22.0, 30.0, 31.0)
+      events = []
+      allow(Process).to receive(:wait).with(12_345, Process::WNOHANG) do
+        events << :wait
+        nil
+      end
+      allow(Process).to receive(:kill) { |name, _pid| events << name }
+      allow(Process).to receive(:detach).with(12_345) { events << :detach }
+
+      command.wait
+
+      expect(events).to eq([:wait, "TERM", :wait, "KILL", :wait, :detach])
+    end
+
+    it "treats an already-reaped child as exited" do
+      allow(Process).to receive(:clock_gettime)
+        .with(Process::CLOCK_MONOTONIC)
+        .and_return(10.0)
+      allow(Process).to receive(:wait)
+        .with(12_345, Process::WNOHANG)
+        .and_raise(Errno::ECHILD)
       allow(Process).to receive(:kill)
 
       command.wait
@@ -38,21 +78,20 @@ describe SpawnedCommand do
       expect(Process).not_to have_received(:kill)
     end
 
-    it "escalates from TERM to KILL when the process does not exit" do
-      allow(Timeout).to receive(:timeout).and_raise(Timeout::Error)
-      allow(Process).to receive(:kill)
+    it "continues cleanup when a process disappears before signaling" do
+      allow(Process).to receive(:clock_gettime)
+        .with(Process::CLOCK_MONOTONIC)
+        .and_return(10.0, 15.0, 20.0, 22.0, 30.0, 31.0)
+      allow(Process).to receive(:wait)
+        .with(12_345, Process::WNOHANG)
+        .and_return(nil)
+      allow(Process).to receive(:kill).and_raise(Errno::ESRCH)
       allow(Process).to receive(:detach).with(12_345)
 
-      command.wait
+      expect { command.wait }.not_to raise_error
 
-      expect(Timeout).to have_received(:timeout)
-        .with(described_class::PROCESS_EXIT_GRACE_SECONDS).ordered
       expect(Process).to have_received(:kill).with("TERM", 12_345).ordered
-      expect(Timeout).to have_received(:timeout)
-        .with(described_class::PROCESS_TERM_GRACE_SECONDS).ordered
       expect(Process).to have_received(:kill).with("KILL", 12_345).ordered
-      expect(Timeout).to have_received(:timeout)
-        .with(described_class::PROCESS_KILL_GRACE_SECONDS).ordered
       expect(Process).to have_received(:detach).with(12_345).ordered
     end
   end

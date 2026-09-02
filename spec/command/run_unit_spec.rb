@@ -491,6 +491,45 @@ describe Command::Run do
       end
     end
 
+    it "bounds consecutive unavailable cron statuses while logs keep changing" do
+      now = 0.0
+
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1, :changed), :finished)
+      allow(command).to receive_messages(
+        current_job_status: nil,
+        resolve_job_status: ExitCode::SUCCESS
+      )
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:current_job_status)
+        .exactly(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1).times
+      expect(command).not_to have_received(:resolve_job_status)
+    end
+
+    it "resets changed-log unavailable status retries after an available status" do
+      now = 0.0
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
+      statuses = [*unavailable_streak, "active", *unavailable_streak, "successful"]
+
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(statuses.length, :changed), :finished)
+      allow(command).to receive(:current_job_status).and_return(*statuses)
+      allow(command).to receive(:resolve_job_status).and_return(ExitCode::ERROR_DEFAULT)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(command).not_to have_received(:resolve_job_status)
+    end
+
     it "does not cache a transient unavailable cron status while logs are quiet" do
       now = 0.0
 

@@ -660,8 +660,13 @@ module Command
       end
     end
 
-    def current_job_exit_status(unavailable_is_pending: false)
-      job_exit_status(current_job_status, unavailable_is_pending: unavailable_is_pending)
+    def changed_log_exit_status(unavailable_status_retries)
+      status = current_job_status
+      unavailable_is_pending = status.nil? && unavailable_status_retries < JOB_STATUS_UNAVAILABLE_RETRY_LIMIT
+      exit_status = job_exit_status(status, unavailable_is_pending: unavailable_is_pending)
+      next_unavailable_status_retries = status.nil? ? unavailable_status_retries + 1 : 0
+
+      [exit_status, next_unavailable_status_retries]
     end
 
     def job_exit_status(status, unavailable_is_pending:)
@@ -689,6 +694,7 @@ module Command
       retries = 0
       exit_status = nil
       post_terminal_deadline = nil
+      unavailable_status_retries = 0
 
       begin
         loop do
@@ -698,7 +704,9 @@ module Command
           break if log_state == :finished
 
           exit_status ||= if log_state == :changed
-                            current_job_exit_status(unavailable_is_pending: true)
+                            current_exit_status, unavailable_status_retries =
+                              changed_log_exit_status(unavailable_status_retries)
+                            current_exit_status
                           else
                             resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
                           end

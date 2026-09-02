@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "expect"
-require "timeout"
 
 require_relative "log_helpers"
 
@@ -12,6 +11,7 @@ class SpawnedCommand
   PROCESS_EXIT_GRACE_SECONDS = 5
   PROCESS_TERM_GRACE_SECONDS = 2
   PROCESS_KILL_GRACE_SECONDS = 1
+  PROCESS_WAIT_POLL_INTERVAL_SECONDS = 0.1
 
   def initialize(output, input, pid, sensitive_data_pattern: nil)
     @output = output
@@ -63,10 +63,16 @@ class SpawnedCommand
   private
 
   def wait_with_timeout(seconds)
-    Timeout.timeout(seconds) { Process.wait(pid) }
-    true
-  rescue Timeout::Error
-    false
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + seconds
+
+    loop do
+      return true if Process.wait(pid, Process::WNOHANG)
+
+      remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      return false unless remaining.positive?
+
+      sleep([PROCESS_WAIT_POLL_INTERVAL_SECONDS, remaining].min)
+    end
   rescue Errno::ECHILD
     true
   end
