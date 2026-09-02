@@ -246,8 +246,8 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     result
   end
 
-  def run_cpflow_command!(*args)
-    run_cpflow_command(*args, raise_errors: true)
+  def run_cpflow_command!(*)
+    run_cpflow_command(*, raise_errors: true)
   end
 
   def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true) # rubocop:disable Metrics/MethodLength

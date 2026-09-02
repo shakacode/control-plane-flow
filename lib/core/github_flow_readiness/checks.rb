@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module GithubFlowReadiness
-  Result = Struct.new(:status, :message, keyword_init: true)
+  Result = Struct.new(:status, :message)
 
   # Each check class accepts the host service in its initializer (so it can reach the
   # shared lockfile parser, HTTP version cache, etc.), exposes a single `call` method,

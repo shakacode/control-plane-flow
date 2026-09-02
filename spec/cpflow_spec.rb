@@ -138,4 +138,20 @@ describe Cpflow do
     expect(spec.post_install_message).to include("cpflow update-github-actions")
     expect(spec.post_install_message).to include("bin/test-cpflow-github-flow")
   end
+
+  it "requires the lowest Ruby version covered by CI" do
+    spec = Gem::Specification.load(File.expand_path("../cpflow.gemspec", __dir__))
+
+    expect(spec.required_ruby_version).to eq(Gem::Requirement.new(">= 3.2"))
+  end
+
+  it "keeps the dummy app on a supported Ruby", :aggregate_failures do
+    spec = Gem::Specification.load(File.expand_path("../cpflow.gemspec", __dir__))
+    dummy_gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
+    dummy_lockfile = File.read(File.expand_path("dummy/Gemfile.lock", __dir__))
+    dummy_ruby_version = dummy_gemfile.match(/^ruby "([^"]+)"$/)[1]
+
+    expect(spec.required_ruby_version).to be_satisfied_by(Gem::Version.new(dummy_ruby_version))
+    expect(dummy_lockfile).to include("ruby #{dummy_ruby_version}p")
+  end
 end

@@ -63,7 +63,7 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
   # Bounded so a retried connect failure fits within the retry deadline.
   OPEN_TIMEOUT_SECONDS = 10
   BEST_EFFORT_TIMEOUT_SECONDS = 5
-  RequestPolicy = Struct.new(:sensitive, :retry_transient, :timeout, keyword_init: true) do
+  RequestPolicy = Struct.new(:sensitive, :retry_transient, :timeout) do
     def initialize(sensitive:, retry_transient:, timeout:)
       super
       freeze

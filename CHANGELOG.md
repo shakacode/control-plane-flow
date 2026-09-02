@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- BREAKING CHANGE: Raised the minimum supported Ruby version from 3.0 to 3.2. Users on Ruby 3.0 or 3.1 must upgrade Ruby before installing the next major cpflow release. CI now tests each supported Ruby minor from 3.2 through 3.4.
+
 ### Added
 
 - **Added an early diagnostic warning when a `shared_secret_grants` target still uses the generated Postgres password placeholder.** `setup-app` and `deploy-image` now identify the affected grant and secret before release or deployment work without printing secret values. [PR 441](https://github.com/shakacode/control-plane-flow/pull/441) by [Justin Gordon](https://github.com/justin808). Fixes [issue 421](https://github.com/shakacode/control-plane-flow/issues/421).

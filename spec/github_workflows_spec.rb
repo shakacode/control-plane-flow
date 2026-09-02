@@ -141,6 +141,38 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       expect(specific_jobs.fetch("rspec-specific").fetch("with")).to include("uses_shared_org" => true)
       expect(rspec_jobs.fetch("rspec-fast").fetch("with")).not_to have_key("uses_shared_org")
     end
+
+    it "tests every supported Ruby minor without credentials on added versions", :aggregate_failures do
+      rspec_jobs = workflow_file("rspec.yml").fetch("jobs")
+      fast_job = rspec_jobs.fetch("rspec-fast")
+      compatibility_job = rspec_jobs.fetch("ruby-compatibility")
+      compatibility_versions = compatibility_job.dig("strategy", "matrix", "ruby-version")
+      compatibility_steps = compatibility_job.fetch("steps")
+      compatibility_commands = compatibility_steps.filter_map { |step| step["run"] }
+      offline_step = compatibility_steps.find { |step| step["name"] == "Run credential-free offline suite" }
+
+      tested_versions = [fast_job.dig("with", "ruby_version"), *compatibility_versions]
+      expect(tested_versions).to contain_exactly("3.2", "3.3", "3.4")
+      expect(compatibility_versions).to contain_exactly("3.3", "3.4")
+      expect(compatibility_job).to include(
+        "if" => "github.event_name != 'schedule'",
+        "permissions" => { "contents" => "read" }
+      )
+      expect(compatibility_job).not_to have_key("secrets")
+      expect(compatibility_job.to_json).not_to match(/CPLN_TOKEN|cpln profile|cpln image docker-login/)
+      expect(offline_step).to include("env" => { "CPLN_ORG" => "" })
+      expect(offline_step.fetch("run")).to include(
+        "bundle exec rspec",
+        "spec/cpflow_spec.rb",
+        "spec/github_workflows_spec.rb",
+        "spec/patches",
+        "spec/core/controlplane_api_direct_spec.rb",
+        "spec/rakelib/create_release_spec.rb",
+        "spec/command/version_spec.rb"
+      )
+      expect(offline_step.fetch("run")).not_to include("--tag ~slow")
+      expect(compatibility_commands).to include("bundle exec rubocop")
+    end
   end
 
   describe "Deploy Review App workflow" do
