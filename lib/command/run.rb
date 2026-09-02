@@ -329,7 +329,7 @@ module Command
       Kernel.sleep([REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS, remaining].min)
     end
 
-    def completed_job_before_replica?(status = current_job_status)
+    def completed_job_before_replica?(status)
       case status
       when "successful"
         @job_completed_before_replica_exit_status = ExitCode::SUCCESS
