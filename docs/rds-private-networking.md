@@ -10,9 +10,10 @@ This guide covers the recommended setup: **CPLN Cloud Wormhole via an Agent**.
 > confirmed the `networkResources` nesting and the common `name`, `agentLink`, `FQDN`, and `ports` field casing.
 > The current Control Plane [Identity reference](https://shakadocs.controlplane.com/reference/identity) and
 > [Identity API](https://shakadocs.controlplane.com/api-reference/identity/get-an-identity-by-gvc-and-name)
-> confirm the optional `IPs` and `resolverIP` spellings; none of the inspected live resources used those
-> optional fields. Before applying in production, still diff your edited file against a fresh identity
-> export and consult
+> confirm the alternative `IPs` form and optional `resolverIP` spelling; neither appeared in the inspected
+> live resources. Field names are case-sensitive: `cpln apply` can accept an unrecognized field while omitting
+> the intended route, without pointing back to the identity YAML. Before applying in production, check the new
+> block against these casing sources, diff your edited file against a fresh identity export, and consult
 > `cpln <command> --help` for the latest CLI flags.
 
 ## Why private networking
@@ -235,8 +236,9 @@ Edit `identity-db.yaml` and **add** the `networkResources` block — keep every 
 exactly as exported:
 
 > **Apply-safe editing:** start from a fresh `yaml-slim` export and diff your edited file against the
-> original before applying. This prevents a typo or future schema change from silently removing the
-> intended route. The verified casing sources are summarized at the top of this guide.
+> original before applying. This helps detect unintended changes to exported fields, but it does not validate
+> the newly added `networkResources` block. Check every key in that block, including `agentLink`, `FQDN`/`IPs`,
+> `resolverIP`, and `ports`, against the verified casing sources above.
 
 ```yaml
 # identity-db.yaml (after edit — abbreviated, your file will have more fields)
@@ -319,10 +321,6 @@ policy name if you've overridden `secrets_policy_name` in `controlplane.yml`.
 > **shorter than the full app name** used for the GVC and identity — e.g. an app `my-app-production` matched
 > by a `my-app` entry has identity `my-app-production-identity` but secret `my-app-secrets` and policy
 > `my-app-secrets-policy`. Confirm yours with `cpln secret get --gvc <app> --org <org>` if unsure.
-
-> **Verification scope.** Live inspection covered field names and nesting only; endpoint, resolver, and
-> agent values were not recorded. The optional IP form below follows the current Control Plane reference
-> and API schema rather than an observed live identity.
 
 Schema notes (per CPLN's documented `networkResources` schema):
 
