@@ -23,7 +23,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
-- **Fixed review-app deploy and delete authorization failing while recording accepted intent comments.** The authorization job now has the PR write permission GitHub requires to post bot-owned comments on pull requests. Follow-up to [issue 442](https://github.com/shakacode/control-plane-flow/issues/442).
+- **Fixed review-app deploy and delete authorization failing while recording accepted intent comments.** [PR 449](https://github.com/shakacode/control-plane-flow/pull/449) by [Justin Gordon](https://github.com/justin808). The authorization job now has the PR write permission GitHub requires to post bot-owned comments on pull requests. Follow-up to [issue 442](https://github.com/shakacode/control-plane-flow/issues/442).
 - **Made successful review-app checks report when they skipped the Docker image build.** The reusable workflow now writes
   a prominent no-build summary and exposes `image_built=false`, while generated guidance explains that repositories
   needing Dockerfile validation should use a separate required build gate. Fixes [issue 412](https://github.com/shakacode/control-plane-flow/issues/412).
