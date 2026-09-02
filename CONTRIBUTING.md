@@ -35,6 +35,16 @@ gem install overcommit
 overcommit --install
 ```
 
+## GitHub Actions Dependencies
+
+Every external `uses:` entry under `.github/workflows/` or `.github/actions/` must use an immutable, lowercase
+40-character commit SHA followed by the exact release tag in a same-line comment. Do not use moving major-version tags
+or branch names. New action repositories also require explicit review before they are added to `trusted_actions` in
+`.agents/agent-workflow.yml`.
+
+Dependabot checks GitHub Actions dependencies weekly. For each proposed update, verify that the release tag resolves to
+the proposed commit, review the upstream release and diff, and keep the version comment synchronized with the pin.
+
 ## Docs Site Dispatch
 
 The `trigger-docs-site.yml` workflow notifies `shakacode/controlplaneflow-com` when docs-related files change on `main`.

@@ -24,3 +24,16 @@ untrusted_contributor_intake:
   trusted_github_scheme: https
   trusted_github_repo: shakacode/control-plane-flow
 repo_prefix: CPF
+
+# External actions already used by this repository and reviewed for the closed
+# allowlist enforced by the GitHub Actions security scanner. Every use still
+# requires an immutable commit SHA and a same-line release-version comment.
+trusted_actions:
+  - actions/checkout
+  - actions/create-github-app-token
+  - actions/github-script
+  - actions/upload-artifact
+  - anthropics/claude-code-action
+  - docker/setup-buildx-action
+  - peter-evans/repository-dispatch
+  - ruby/setup-ruby
