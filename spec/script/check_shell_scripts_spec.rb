@@ -27,6 +27,14 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       File.chmod(0o755, "#{repo}/zzzz-env-attached-runner")
       File.write("#{repo}/zzzz-env-dash-runner", "#!/usr/bin/env -S - 1=foo bash -e\n")
       File.chmod(0o755, "#{repo}/zzzz-env-dash-runner")
+      File.write("#{repo}/zzzz-env-nested-runner", "#!/usr/bin/env -S -S \"bash -e\"\n")
+      File.chmod(0o755, "#{repo}/zzzz-env-nested-runner")
+      File.write("#{repo}/zzzz-env-nested-long-runner", "#!/usr/bin/env -S --split-string=\"bash -e\"\n")
+      File.chmod(0o755, "#{repo}/zzzz-env-nested-long-runner")
+      File.write("#{repo}/zzzz-env-nested-empty-runner", "#!/usr/bin/env -S --split-string=\"\" bash -e\n")
+      File.chmod(0o755, "#{repo}/zzzz-env-nested-empty-runner")
+      File.write("#{repo}/zzzz-env-nested-space-runner", "#!/usr/bin/env -S --split-string=\" \" bash -e\n")
+      File.chmod(0o755, "#{repo}/zzzz-env-nested-space-runner")
       File.write("#{repo}/zzzz-invalid-env-runner", "#!/usr/bin/env -S FOO=bar -i bash -e\n")
       File.chmod(0o755, "#{repo}/zzzz-invalid-env-runner")
       File.write("#{repo}/zzzz-python-runner", "#!/usr/bin/env -S FOO='x bash y' python3\n")
@@ -42,7 +50,8 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       tracked_files = [
         "README.md", "aaa-missing", "aab-empty", "missing.sh", "script/check_shell_scripts", "zzz-runner",
         "zzzy-crlf-runner", "zzzz-env-attached-runner", "zzzz-env-dash-runner", "zzzz-env-runner",
-        "zzzz-invalid-env-runner", "zzzz-python-runner"
+        "zzzz-env-nested-empty-runner", "zzzz-env-nested-long-runner", "zzzz-env-nested-runner",
+        "zzzz-env-nested-space-runner", "zzzz-invalid-env-runner", "zzzz-python-runner"
       ]
       system("git", "-C", repo, "add", "--", *tracked_files) ||
         raise("git add failed")
@@ -58,7 +67,8 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       expect(stdout.lines.map(&:chomp)).to eq(
         [
           "--", "script/check_shell_scripts", "zzz-runner", "zzzy-crlf-runner", "zzzz-env-attached-runner",
-          "zzzz-env-dash-runner", "zzzz-env-runner"
+          "zzzz-env-dash-runner", "zzzz-env-nested-empty-runner", "zzzz-env-nested-long-runner",
+          "zzzz-env-nested-runner", "zzzz-env-nested-space-runner", "zzzz-env-runner"
         ]
       )
     end

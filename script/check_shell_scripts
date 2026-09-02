@@ -11,6 +11,7 @@ fi
 
 shell_files=()
 env_words=()
+split_words=()
 
 is_env_assignment() {
   [[ $1 == *=* ]] || return 1
@@ -20,7 +21,8 @@ parse_env_short_options() {
   local options=${1#-}
   local option
 
-  env_option_needs_value=false
+  env_option_value_kind='none'
+  env_option_value=''
   while [ -n "$options" ]; do
     option=${options:0:1}
     options=${options:1}
@@ -28,7 +30,13 @@ parse_env_short_options() {
       i|v)
         ;;
       a|u|C|P)
-        [ -z "$options" ] && env_option_needs_value=true
+        env_option_value_kind='skip'
+        env_option_value=$options
+        return 0
+        ;;
+      S)
+        env_option_value_kind='split'
+        env_option_value=$options
         return 0
         ;;
       *)
@@ -38,23 +46,42 @@ parse_env_short_options() {
   done
 }
 
+split_env_string() {
+  local env_string=$1
+  local sentinel=__CPFLOW_ENV_SPLIT_START__
+  local word
+
+  split_words=()
+  while IFS= read -r -d '' word; do
+    split_words+=("$word")
+  done < <(/usr/bin/env -S "/usr/bin/printf '%s\\0' $sentinel $env_string" 2>/dev/null)
+
+  [ "${#split_words[@]}" -gt 0 ] || return 1
+  [ "${split_words[0]}" = "$sentinel" ] || return 1
+  if [ "${#split_words[@]}" -gt 1 ]; then
+    split_words=("${split_words[@]:1}")
+  else
+    split_words=()
+  fi
+}
+
 is_env_shell_command() {
   local env_string=$1
-  local expect_option_value=false
   local options=true
+  local split_count=0
   local word
-  local env_option_needs_value=false
+  local env_option_value_kind='none'
+  local env_option_value=''
 
-  env_words=()
-  while IFS= read -r -d '' word; do
-    env_words+=("$word")
-  done < <(/usr/bin/env -S "/usr/bin/printf '%s\\0' $env_string" 2>/dev/null)
+  split_env_string "$env_string" || return 1
+  env_words=("${split_words[@]}")
 
-  for word in "${env_words[@]}"; do
-    if [ "$expect_option_value" = true ]; then
-      expect_option_value=false
-      continue
-    fi
+  # Expand nested env split-string options without executing the discovered command.
+  while [ "${#env_words[@]}" -gt 0 ]; do
+    word=${env_words[0]}
+    env_words=("${env_words[@]:1}")
+    env_option_value_kind='none'
+    env_option_value=''
 
     if [ "$options" = true ]; then
       case "$word" in
@@ -63,20 +90,64 @@ is_env_shell_command() {
           continue
           ;;
         --argv0|--unset|--chdir)
-          expect_option_value=true
+          [ "${#env_words[@]}" -gt 0 ] || return 1
+          env_words=("${env_words[@]:1}")
           continue
+          ;;
+        --split-string)
+          [ "${#env_words[@]}" -gt 0 ] || return 1
+          env_option_value_kind='split'
+          env_option_value=${env_words[0]}
+          env_words=("${env_words[@]:1}")
+          ;;
+        --split-string=*)
+          env_option_value_kind='split'
+          env_option_value=${word#*=}
           ;;
         -|--argv0=*|--unset=*|--chdir=*|--ignore-environment|--debug|--block-signal|--block-signal=*|--default-signal|--default-signal=*|--ignore-signal|--ignore-signal=*|--list-signal-handling)
           continue
           ;;
         -*)
           if parse_env_short_options "$word"; then
-            [ "$env_option_needs_value" = true ] && expect_option_value=true
-            continue
+            case "$env_option_value_kind" in
+              none)
+                continue
+                ;;
+              skip)
+                if [ -z "$env_option_value" ]; then
+                  [ "${#env_words[@]}" -gt 0 ] || return 1
+                  env_words=("${env_words[@]:1}")
+                fi
+                continue
+                ;;
+              split)
+                if [ -z "$env_option_value" ]; then
+                  [ "${#env_words[@]}" -gt 0 ] || return 1
+                  env_option_value=${env_words[0]}
+                  env_words=("${env_words[@]:1}")
+                fi
+                ;;
+            esac
+          else
+            return 1
           fi
-          return 1
           ;;
       esac
+
+      if [ "$env_option_value_kind" = 'split' ]; then
+        split_count=$((split_count + 1))
+        [ "$split_count" -le 32 ] || return 1
+        split_env_string "$env_option_value" || return 1
+        if [ "${#split_words[@]}" -gt 0 ]; then
+          if [ "${#env_words[@]}" -gt 0 ]; then
+            env_words=("${split_words[@]}" "${env_words[@]}")
+          else
+            env_words=("${split_words[@]}")
+          fi
+        fi
+        env_option_value=''
+        continue
+      fi
     fi
 
     if is_env_assignment "$word"; then
