@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "shellwords"
 require_relative "../core/helpers"
 
 module Command
@@ -550,10 +551,12 @@ module Command
       end
     end
 
-    # NOTE: use simplified variant atm, as shelljoin do different escaping
-    # TODO: most probably need better logic for escaping various quotes
     def args_join(args)
-      args.join(" ")
+      # A single CLI argument is an intentional shell program (for example, an env assignment or pipeline).
+      # Multiple CLI arguments are argv elements and must be escaped before entering the remote shell script.
+      return args.first if args.size == 1
+
+      Shellwords.join(args)
     end
 
     def progress
