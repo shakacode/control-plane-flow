@@ -481,6 +481,8 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   and also overridden per job through `--cpu` and `--memory`)
 - By default, the job is stopped if it takes longer than 6 hours to finish
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
+- Waiting for a runner replica is limited to the smaller of `runner_job_timeout` and 1000 seconds.
+  A terminal cron status fails immediately, and reaching the observation deadline reports the last safe status
 - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
   Control Plane exposes a runner replica to attach logs to
 - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC

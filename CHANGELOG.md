@@ -23,6 +23,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- **Fixed `cpflow run` runner observation so a missing replica no longer relies on the generic 1,001-poll retry loop or exits without the cron status.** Replica observation now uses a monotonic deadline capped by the smaller of `runner_job_timeout` and 1,000 seconds, stops polling when that deadline is reached, fails immediately on terminal non-success, and preserves replica-found and success-before-replica behavior.
 - **Fixed review-app deploy and delete authorization failing while recording accepted intent comments.** [PR 449](https://github.com/shakacode/control-plane-flow/pull/449) by [Justin Gordon](https://github.com/justin808). The authorization job now has the PR write permission GitHub requires to post bot-owned comments on pull requests. Follow-up to [issue 442](https://github.com/shakacode/control-plane-flow/issues/442).
 - **Made successful review-app checks report when they skipped the Docker image build.** The reusable workflow now writes
   a prominent no-build summary and exposes `image_built=false`, while generated guidance explains that repositories

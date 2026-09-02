@@ -47,6 +47,8 @@ module Command
         and also overridden per job through `--cpu` and `--memory`)
       - By default, the job is stopped if it takes longer than 6 hours to finish
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
+      - Waiting for a runner replica is limited to the smaller of `runner_job_timeout` and 1000 seconds.
+        A terminal cron status fails immediately, and reaching the observation deadline reports the last safe status
       - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
         Control Plane exposes a runner replica to attach logs to
       - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
@@ -107,6 +109,9 @@ module Command
     DEFAULT_JOB_MEMORY = "2Gi"
     DEFAULT_JOB_TIMEOUT = 21_600 # 6 hours
     DEFAULT_JOB_HISTORY_LIMIT = 10
+    MAX_REPLICA_OBSERVATION_SECONDS = 1_000
+    REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS = 1
+    NORMALIZED_JOB_STATUS_PATTERN = /\A[a-z][a-z0-9_-]{0,31}\z/
     MAGIC_END = "---cpflow run command finished---"
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
@@ -280,25 +285,78 @@ module Command
     end
 
     def wait_for_replica_for_job
-      step("Waiting for replica to start, which runs job '#{job}'", retry_on_failure: true) do
-        result = cp.fetch_workload_replicas(runner_workload, location: location)
-        @replica = result&.dig("items")&.find { |item| item.include?(job) }
+      observation_limit = [job_timeout, MAX_REPLICA_OBSERVATION_SECONDS].min
+      observation_deadline = monotonic_time + observation_limit
 
-        replica || completed_job_before_replica? || false
+      step("Waiting for runner replica to start") do
+        observe_replica_until(observation_deadline, observation_limit)
       end
     end
 
-    def completed_job_before_replica?
-      case current_job_status
+    def observe_replica_until(observation_deadline, observation_limit)
+      last_status = nil
+
+      loop do
+        ensure_before_replica_observation_deadline!(observation_deadline, observation_limit, last_status)
+
+        @replica = replica_for_job
+        return replica if replica
+
+        ensure_before_replica_observation_deadline!(observation_deadline, observation_limit, last_status)
+
+        last_status = current_job_status
+        return true if completed_job_before_replica?(last_status)
+
+        sleep_before_replica_observation_retry(observation_deadline, observation_limit, last_status)
+      end
+    end
+
+    def ensure_before_replica_observation_deadline!(observation_deadline, observation_limit, status)
+      return if monotonic_time < observation_deadline
+
+      raise replica_observation_timeout_message(observation_limit, status)
+    end
+
+    def replica_for_job
+      result = cp.fetch_workload_replicas(runner_workload, location: location)
+      result&.dig("items")&.find { |item| item.include?(job) }
+    end
+
+    def sleep_before_replica_observation_retry(observation_deadline, observation_limit, status)
+      progress.print(".")
+      remaining = observation_deadline - monotonic_time
+      raise replica_observation_timeout_message(observation_limit, status) unless remaining.positive?
+
+      Kernel.sleep([REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS, remaining].min)
+    end
+
+    # Returns true for success, false while pending, and raises for a terminal non-success status.
+    def completed_job_before_replica?(status)
+      case status
       when "successful"
         @job_completed_before_replica_exit_status = ExitCode::SUCCESS
         true
       when nil, "active", "pending"
         false
       else
-        @job_completed_before_replica_exit_status = ExitCode::ERROR_DEFAULT
-        true
+        raise "Runner job ended before a replica was observed (status: #{normalized_job_status(status)})."
       end
+    end
+
+    def normalized_job_status(status)
+      return "unavailable" if status.nil?
+
+      token = status.to_s.downcase
+      token.match?(NORMALIZED_JOB_STATUS_PATTERN) ? token : "unknown"
+    end
+
+    def replica_observation_timeout_message(observation_limit, status)
+      "Runner replica was not observed before the observation limit: #{format('%g', observation_limit)} seconds " \
+        "(status: #{normalized_job_status(status)})."
+    end
+
+    def monotonic_time
+      Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
     def run_interactive
