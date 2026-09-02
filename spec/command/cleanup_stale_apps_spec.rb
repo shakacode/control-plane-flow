@@ -113,8 +113,9 @@ describe Command::CleanupStaleApps do
       expect(cp).to have_received(:fetch_workloads).with("stale-app")
       expect(cp).to have_received(:set_workload_suspend)
         .with("postgres", true, "stale-app", missing_ok: true).once
-      expect(cp).not_to have_received(:set_workload_suspend).with("rails", true, "stale-app")
-      expect(cp).not_to have_received(:set_workload_suspend).with("unconfigured-worker", true, "stale-app")
+      expect(cp).not_to have_received(:set_workload_suspend).with("rails", true, "stale-app", missing_ok: true)
+      expect(cp).not_to have_received(:set_workload_suspend)
+        .with("unconfigured-worker", true, "stale-app", missing_ok: true)
     end
 
     it "skips workload suspension when the stale app disappears before it is stopped" do
@@ -125,15 +126,34 @@ describe Command::CleanupStaleApps do
     end
 
     it "continues to later workloads when a listed workload disappears before suspension" do
-      allow(cp).to receive(:fetch_workloads).with("stale-app").and_return(
-        "items" => [{ "name" => "postgres" }, { "name" => "rails" }]
-      )
+      api = instance_double(ControlplaneApi)
+      live_cp = Controlplane.allocate.tap do |instance|
+        instance.instance_variable_set(:@api, api)
+        instance.instance_variable_set(:@gvc, "unused")
+        instance.instance_variable_set(:@org, "my-org")
+      end
+      allow(api).to receive(:workload_list)
+        .with(org: "my-org", gvc: "stale-app")
+        .and_return("items" => [{ "name" => "rails" }, { "name" => "postgres" }])
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "stale-app", workload: "rails")
+        .and_return(nil)
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "stale-app", workload: "postgres")
+        .and_return("spec" => { "defaultOptions" => { "suspend" => false } })
+      allow(api).to receive(:update_workload).and_return(true)
+      allow(command).to receive(:cp).and_return(live_cp)
 
       expect { command.send(:process_app, "stale-app") }.not_to raise_error
-      expect(cp).to have_received(:set_workload_suspend)
-        .with("rails", true, "stale-app", missing_ok: true).ordered
-      expect(cp).to have_received(:set_workload_suspend)
-        .with("postgres", true, "stale-app", missing_ok: true).ordered
+      expect(api).to have_received(:workload_get).with(org: "my-org", gvc: "stale-app", workload: "rails").ordered
+      expect(api).to have_received(:workload_get)
+        .with(org: "my-org", gvc: "stale-app", workload: "postgres").ordered
+      expect(api).to have_received(:update_workload).with(
+        org: "my-org",
+        gvc: "stale-app",
+        workload: "postgres",
+        data: { "spec" => { "defaultOptions" => { "suspend" => true } } }
+      )
     end
 
     it "raises when the stale app config does not define app_workloads" do

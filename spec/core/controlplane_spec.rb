@@ -220,7 +220,7 @@ describe Controlplane do
         .and_return(workload_data)
       allow(api).to receive(:update_workload)
 
-      described_instance.set_workload_suspend("postgres", true, "matched-stale-app")
+      expect(described_instance.set_workload_suspend("postgres", true, "matched-stale-app")).to be_nil
 
       expect(api).to have_received(:update_workload).with(
         org: "my-org",
