@@ -448,22 +448,26 @@ describe Command::Run do
       expect(Kernel).to have_received(:sleep).with(1).exactly(5).times
     end
 
-    it "keeps an unavailable cron status nonterminal while logs are still arriving" do
-      now = 0.0
+    [nil, "active", "pending"].each do |nonterminal_status|
+      status_label = nonterminal_status || "unavailable"
 
-      allow(command).to receive(:print_uniq_logs).and_return(:changed, :changed, :finished)
-      allow(command).to receive(:current_job_status).and_return(nil, "successful")
-      allow(command).to receive(:resolve_job_status).and_return(ExitCode::ERROR_DEFAULT)
-      allow(command).to receive(:monotonic_time) { now }
-      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      it "throttles changed-log polling while the cron status is #{status_label}" do
+        now = 0.0
 
-      result = command.send(:show_logs_waiting)
+        allow(command).to receive(:print_uniq_logs).and_return(:changed, :changed, :finished)
+        allow(command).to receive(:current_job_status).and_return(nonterminal_status, "successful")
+        allow(command).to receive(:resolve_job_status).and_return(ExitCode::ERROR_DEFAULT)
+        allow(command).to receive(:monotonic_time) { now }
+        allow(Kernel).to receive(:sleep) { |duration| now += duration }
 
-      expect(result).to eq(ExitCode::SUCCESS)
-      expect(command).to have_received(:print_uniq_logs).exactly(3).times
-      expect(command).to have_received(:current_job_status).twice
-      expect(command).not_to have_received(:resolve_job_status)
-      expect(Kernel).to have_received(:sleep).with(1).once
+        result = command.send(:show_logs_waiting)
+
+        expect(result).to eq(ExitCode::SUCCESS)
+        expect(command).to have_received(:print_uniq_logs).exactly(3).times
+        expect(command).to have_received(:current_job_status).twice
+        expect(command).not_to have_received(:resolve_job_status)
+        expect(Kernel).to have_received(:sleep).with(1).twice
+      end
     end
 
     it "does not cache a transient unavailable cron status while logs are quiet" do

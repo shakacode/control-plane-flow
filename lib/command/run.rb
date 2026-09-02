@@ -702,7 +702,10 @@ module Command
                             resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
                           end
           post_terminal_deadline ||= monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS if exit_status
-          next unless exit_status
+          unless exit_status
+            Kernel.sleep(POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS)
+            next
+          end
 
           remaining = post_terminal_deadline - monotonic_time
           break unless remaining.positive?
