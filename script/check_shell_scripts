@@ -28,6 +28,10 @@ while IFS= read -r -d '' entry; do
   esac
 
   [ "$mode" = "100755" ] || continue
+  if [ ! -r "$file" ]; then
+    echo "Tracked executable is not readable: $file" >&2
+    exit 1
+  fi
   first_line=''
   IFS= read -r first_line < <(LC_ALL=C head -c 4096 -- "$file") || true
   first_line=${first_line%$'\r'}

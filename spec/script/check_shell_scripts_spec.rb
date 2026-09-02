@@ -14,7 +14,6 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
 
       fixtures = {
         "README.md" => "```sh\necho documentation\n```\n",
-        "aaa-missing" => "not a shell script\n",
         "aab-binary" => "\0" * 65_536,
         "shell-file.sh" => "#!/bin/sh\n",
         "zzz-direct-runner" => "#!/bin/bash\t-e\n",
@@ -38,8 +37,6 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       system("git", "init", "--quiet", repo) || raise("git init failed")
       tracked_files = ["script/check_shell_scripts", *fixtures.keys]
       system("git", "-C", repo, "add", "--", *tracked_files) || raise("git add failed")
-      File.delete("#{repo}/aaa-missing")
-
       stdout, stderr, status = Open3.capture3(
         { "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
         "#{repo}/script/check_shell_scripts"
@@ -82,12 +79,13 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
     end
   end
 
-  it "fails when a tracked shell file is unreadable" do
+  it "fails when a tracked executable is unreadable" do
     Dir.mktmpdir("cpflow-check-shell-scripts") do |repo|
       FileUtils.mkdir_p("#{repo}/script")
       FileUtils.cp(File.expand_path("../../script/check_shell_scripts", __dir__), "#{repo}/script/check_shell_scripts")
       File.chmod(0o755, "#{repo}/script/check_shell_scripts")
-      File.write("#{repo}/missing.sh", "#!/bin/sh\n")
+      File.write("#{repo}/missing-runner", "#!/bin/sh\n")
+      File.chmod(0o755, "#{repo}/missing-runner")
 
       fake_bin = "#{repo}/fake-bin"
       FileUtils.mkdir_p(fake_bin)
@@ -95,8 +93,8 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       File.chmod(0o755, "#{fake_bin}/shellcheck")
 
       system("git", "init", "--quiet", repo) || raise("git init failed")
-      system("git", "-C", repo, "add", "--", "script/check_shell_scripts", "missing.sh") || raise("git add failed")
-      File.delete("#{repo}/missing.sh")
+      system("git", "-C", repo, "add", "--", "script/check_shell_scripts", "missing-runner") || raise("git add failed")
+      File.delete("#{repo}/missing-runner")
 
       _stdout, stderr, status = Open3.capture3(
         { "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
@@ -104,7 +102,7 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       )
 
       expect(status).not_to be_success
-      expect(stderr).to include("Tracked shell script is not readable: missing.sh")
+      expect(stderr).to include("Tracked executable is not readable: missing-runner")
     end
   end
 end
