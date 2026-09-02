@@ -23,6 +23,7 @@ while IFS= read -r -d '' entry; do
   esac
 
   [ "$mode" = "100755" ] || continue
+  first_line=''
   IFS= read -r first_line < "$file" || true
   case "$first_line" in
     '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *|'#!/usr/bin/env sh'|'#!/usr/bin/env sh '*|'#!/usr/bin/env bash'|'#!/usr/bin/env bash '*)
