@@ -6,13 +6,11 @@ on:
       - main
     paths-ignore:
       - '**.md'
-      - 'docs/**'
       - 'LICENSE'
       - 'COMM-LICENSE.txt'
   pull_request:
     paths-ignore:
       - '**.md'
-      - 'docs/**'
       - 'LICENSE'
       - 'COMM-LICENSE.txt'
 

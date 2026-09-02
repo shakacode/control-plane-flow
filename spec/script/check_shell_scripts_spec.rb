@@ -38,7 +38,7 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       tracked_files = ["script/check_shell_scripts", *fixtures.keys]
       system("git", "-C", repo, "add", "--", *tracked_files) || raise("git add failed")
       stdout, stderr, status = Open3.capture3(
-        { "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
+        { "BASH_ENV" => "/dev/null", "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
         "#{repo}/script/check_shell_scripts"
       )
 
@@ -70,7 +70,7 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
         raise("git add failed")
 
       _stdout, stderr, status = Open3.capture3(
-        { "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
+        { "BASH_ENV" => "/dev/null", "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
         "#{repo}/script/check_shell_scripts"
       )
 
@@ -97,7 +97,7 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       File.delete("#{repo}/missing-runner")
 
       _stdout, stderr, status = Open3.capture3(
-        { "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
+        { "BASH_ENV" => "/dev/null", "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
         "#{repo}/script/check_shell_scripts"
       )
 
