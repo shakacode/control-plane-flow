@@ -330,6 +330,7 @@ module Command
       Kernel.sleep([REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS, remaining].min)
     end
 
+    # Returns true for success, false while pending, and raises for a terminal non-success status.
     def completed_job_before_replica?(status)
       case status
       when "successful"
