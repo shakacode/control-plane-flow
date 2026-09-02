@@ -33,8 +33,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: read
-      contents: read
-      issues: write
       # PR issue comments use the Issues API path but require PR write access.
       pull-requests: write
     outputs:
