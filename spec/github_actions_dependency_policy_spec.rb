@@ -24,6 +24,17 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     end
   end
 
+  def exact_release_tag?(value)
+    value.to_s.match?(/\Av\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\z/)
+  end
+
+  it "distinguishes exact release tags from moving version aliases" do
+    expect(exact_release_tag?("v1.2.3")).to be(true)
+    expect(exact_release_tag?("v1.2.3-rc.1")).to be(true)
+    expect(exact_release_tag?("v1")).to be(false)
+    expect(exact_release_tag?("v1.2")).to be(false)
+  end
+
   it "pins every external action to a reviewed commit with an auditable version comment" do
     violations = action_files.flat_map do |path|
       File.readlines(path).filter_map.with_index(1) do |line, line_number|
@@ -33,8 +44,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         repository, ref, version_comment = match.captures
         next if repository.start_with?("./") || repository.start_with?("docker://")
 
-        version_tag = /\Av\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?\z/
-        next if ref.match?(/\A[0-9a-f]{40}\z/) && version_comment&.match?(version_tag)
+        next if ref.match?(/\A[0-9a-f]{40}\z/) && exact_release_tag?(version_comment)
 
         "#{Pathname(path).relative_path_from(Pathname(__dir__).parent)}:#{line_number}: #{line.strip}"
       end
