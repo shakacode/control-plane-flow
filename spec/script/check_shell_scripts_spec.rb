@@ -16,10 +16,21 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       File.chmod(0o755, "#{repo}/aaa-missing")
       File.write("#{repo}/aab-empty", "")
       File.chmod(0o755, "#{repo}/aab-empty")
+      File.write("#{repo}/missing.sh", "#!/bin/sh\n")
       File.write("#{repo}/zzz-runner", "#!/usr/bin/env bash\n")
       File.chmod(0o755, "#{repo}/zzz-runner")
-      File.write("#{repo}/zzzz-env-runner", "#!/usr/bin/env -S bash -e\n")
+      File.write("#{repo}/zzzy-crlf-runner", "#!/usr/bin/env bash\r\n")
+      File.chmod(0o755, "#{repo}/zzzy-crlf-runner")
+      File.write("#{repo}/zzzz-env-runner", "#!/usr/bin/env -S -iva shell -uOLD -C/tmp -P/bin FOO='x y' bash -e\n")
       File.chmod(0o755, "#{repo}/zzzz-env-runner")
+      File.write("#{repo}/zzzz-env-attached-runner", "#!/usr/bin/env -S-iv bash -e\n")
+      File.chmod(0o755, "#{repo}/zzzz-env-attached-runner")
+      File.write("#{repo}/zzzz-env-dash-runner", "#!/usr/bin/env -S - 1=foo bash -e\n")
+      File.chmod(0o755, "#{repo}/zzzz-env-dash-runner")
+      File.write("#{repo}/zzzz-invalid-env-runner", "#!/usr/bin/env -S FOO=bar -i bash -e\n")
+      File.chmod(0o755, "#{repo}/zzzz-invalid-env-runner")
+      File.write("#{repo}/zzzz-python-runner", "#!/usr/bin/env -S FOO='x bash y' python3\n")
+      File.chmod(0o755, "#{repo}/zzzz-python-runner")
       File.write("#{repo}/README.md", "```sh\necho documentation\n```\n")
 
       fake_bin = "#{repo}/fake-bin"
@@ -29,11 +40,14 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
 
       system("git", "init", "--quiet", repo) || raise("git init failed")
       tracked_files = [
-        "README.md", "aaa-missing", "aab-empty", "script/check_shell_scripts", "zzz-runner", "zzzz-env-runner"
+        "README.md", "aaa-missing", "aab-empty", "missing.sh", "script/check_shell_scripts", "zzz-runner",
+        "zzzy-crlf-runner", "zzzz-env-attached-runner", "zzzz-env-dash-runner", "zzzz-env-runner",
+        "zzzz-invalid-env-runner", "zzzz-python-runner"
       ]
       system("git", "-C", repo, "add", "--", *tracked_files) ||
         raise("git add failed")
       File.delete("#{repo}/aaa-missing")
+      File.delete("#{repo}/missing.sh")
 
       stdout, stderr, status = Open3.capture3(
         { "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
@@ -42,7 +56,10 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
 
       expect(status).to be_success, stderr
       expect(stdout.lines.map(&:chomp)).to eq(
-        ["--", "script/check_shell_scripts", "zzz-runner", "zzzz-env-runner"]
+        [
+          "--", "script/check_shell_scripts", "zzz-runner", "zzzy-crlf-runner", "zzzz-env-attached-runner",
+          "zzzz-env-dash-runner", "zzzz-env-runner"
+        ]
       )
     end
   end

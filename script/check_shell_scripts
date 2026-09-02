@@ -10,6 +10,93 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 shell_files=()
+env_words=()
+
+is_env_assignment() {
+  [[ $1 == *=* ]] || return 1
+}
+
+parse_env_short_options() {
+  local options=${1#-}
+  local option
+
+  env_option_needs_value=false
+  while [ -n "$options" ]; do
+    option=${options:0:1}
+    options=${options:1}
+    case "$option" in
+      i|v)
+        ;;
+      a|u|C|P)
+        [ -z "$options" ] && env_option_needs_value=true
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  done
+}
+
+is_env_shell_command() {
+  local env_string=$1
+  local expect_option_value=false
+  local options=true
+  local word
+  local env_option_needs_value=false
+
+  env_words=()
+  while IFS= read -r -d '' word; do
+    env_words+=("$word")
+  done < <(/usr/bin/env -S "/usr/bin/printf '%s\\0' $env_string" 2>/dev/null)
+
+  for word in "${env_words[@]}"; do
+    if [ "$expect_option_value" = true ]; then
+      expect_option_value=false
+      continue
+    fi
+
+    if [ "$options" = true ]; then
+      case "$word" in
+        --)
+          options=false
+          continue
+          ;;
+        --argv0|--unset|--chdir)
+          expect_option_value=true
+          continue
+          ;;
+        -|--argv0=*|--unset=*|--chdir=*|--ignore-environment|--debug|--block-signal|--block-signal=*|--default-signal|--default-signal=*|--ignore-signal|--ignore-signal=*|--list-signal-handling)
+          continue
+          ;;
+        -*)
+          if parse_env_short_options "$word"; then
+            [ "$env_option_needs_value" = true ] && expect_option_value=true
+            continue
+          fi
+          return 1
+          ;;
+      esac
+    fi
+
+    if is_env_assignment "$word"; then
+      options=false
+      continue
+    fi
+
+    case "$word" in
+      sh|bash|*/sh|*/bash)
+        return 0
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  done
+
+  return 1
+}
+
 while IFS= read -r -d '' entry; do
   metadata=${entry%%$'\t'*}
   file=${entry#*$'\t'}
@@ -17,7 +104,7 @@ while IFS= read -r -d '' entry; do
 
   case "$file" in
     *.sh|*.bash)
-      shell_files+=("$file")
+      [ -r "$file" ] && shell_files+=("$file")
       continue
       ;;
   esac
@@ -25,9 +112,14 @@ while IFS= read -r -d '' entry; do
   [ "$mode" = "100755" ] || continue
   first_line=''
   IFS= read -r first_line < "$file" || true
+  first_line=${first_line%$'\r'}
   case "$first_line" in
-    '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *|'#!/usr/bin/env sh'|'#!/usr/bin/env sh '*|'#!/usr/bin/env bash'|'#!/usr/bin/env bash '*|'#!/usr/bin/env -S sh'|'#!/usr/bin/env -S sh '*|'#!/usr/bin/env -S bash'|'#!/usr/bin/env -S bash '*)
+    '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *|'#!/usr/bin/env sh'|'#!/usr/bin/env sh '*|'#!/usr/bin/env bash'|'#!/usr/bin/env bash '*)
       shell_files+=("$file")
+      ;;
+    '#!/usr/bin/env -S'?*)
+      env_string=${first_line#'#!/usr/bin/env -S'}
+      is_env_shell_command "${env_string# }" && shell_files+=("$file")
       ;;
   esac
 done < <(git ls-files --stage -z)
