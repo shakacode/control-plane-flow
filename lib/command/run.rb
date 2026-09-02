@@ -323,6 +323,7 @@ module Command
     end
 
     def sleep_before_replica_observation_retry(observation_deadline, observation_limit, status)
+      progress.print(".")
       remaining = observation_deadline - monotonic_time
       raise replica_observation_timeout_message(observation_limit, status) unless remaining.positive?
 

@@ -413,6 +413,34 @@ describe Command::Run do
       expect(cp).not_to have_received(:fetch_cron_workload)
     end
 
+    it "prints one progress dot for each unsuccessful observation" do
+      now = 0.0
+      replica_responses = [
+        { "items" => [] },
+        { "items" => [] },
+        { "items" => ["rails-runner-job-123-replica"] }
+      ]
+
+      command.instance_variable_set(:@job_timeout, 5)
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(progress).to receive(:print).and_call_original
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return(*replica_responses)
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "active" }] })
+
+      command.send(:wait_for_replica_for_job)
+
+      expect(command.instance_variable_get(:@replica)).to eq("rails-runner-job-123-replica")
+      expect(progress).to have_received(:print).with(".").twice
+      expect(Kernel).to have_received(:sleep).with(1).twice
+    end
+
     it "fails immediately with the terminal cron status when no replica was observed" do
       allow(command).to receive(:step).and_call_original
       allow(command).to receive(:progress).and_return(progress)
