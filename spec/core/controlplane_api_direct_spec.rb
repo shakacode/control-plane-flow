@@ -411,6 +411,48 @@ describe ControlplaneApiDirect do
       expect(slept_delays).to be_empty
     end
 
+    it "does not retry or expose a 429 response for a best-effort sensitive request" do
+      allow(http_connection).to receive(:request).and_return(
+        http_response(
+          Net::HTTPTooManyRequests,
+          429,
+          body: "rate-limit-secret-sentinel",
+          headers: { "Retry-After" => "7" }
+        ),
+        ok_response
+      )
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(RuntimeError) { |error|
+        expect(error.message).to include("Net::HTTPTooManyRequests")
+        expect(error.message).not_to include("rate-limit-secret-sentinel")
+      }
+      expect(http_connection).to have_received(:request).once
+      expect(slept_delays).to be_empty
+    end
+
+    it "does not retry a read timeout for a best-effort sensitive request" do
+      allow(http_connection).to receive(:request).and_invoke(
+        ->(_request) { raise Net::ReadTimeout },
+        ->(_request) { ok_response }
+      )
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(Net::ReadTimeout)
+      expect(http_connection).to have_received(:request).once
+      expect(slept_delays).to be_empty
+    end
+
     it "retries a GET after a read timeout" do
       allow(http_connection).to receive(:request).and_invoke(
         ->(_request) { raise Net::ReadTimeout },
