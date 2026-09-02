@@ -182,15 +182,34 @@ while IFS= read -r -d '' entry; do
 
   [ "$mode" = "100755" ] || continue
   first_line=''
-  IFS= read -r first_line < "$file" || true
+  IFS= read -r first_line < <(LC_ALL=C head -c 4096 -- "$file") || true
   first_line=${first_line%$'\r'}
   case "$first_line" in
-    '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *|'#!/usr/bin/env sh'|'#!/usr/bin/env sh '*|'#!/usr/bin/env bash'|'#!/usr/bin/env bash '*)
+    '#!'*/sh|'#!'*/sh\ *|'#!'*/bash|'#!'*/bash\ *)
       shell_files+=("$file")
       ;;
-    '#!/usr/bin/env -S'?*)
-      env_string=${first_line#'#!/usr/bin/env -S'}
-      is_env_shell_command "${env_string# }" && shell_files+=("$file")
+    '#!/usr/bin/env '*|'#!/usr/bin/env'$'\t'*)
+      env_string=${first_line#'#!/usr/bin/env'}
+      while [[ $env_string == ' '* || $env_string == $'\t'* ]]; do
+        env_string=${env_string:1}
+      done
+      while [[ $env_string == *' ' || $env_string == *$'\t' ]]; do
+        env_string=${env_string%?}
+      done
+      case "$env_string" in
+        sh|sh\ *|sh$'\t'*|bash|bash\ *|bash$'\t'*)
+          shell_files+=("$file")
+          ;;
+        -S?*)
+          is_env_shell_command "${env_string#-S}" && shell_files+=("$file")
+          ;;
+        --split-string=*)
+          is_env_shell_command "${env_string#*=}" && shell_files+=("$file")
+          ;;
+        *)
+          is_env_shell_command "$env_string" && shell_files+=("$file")
+          ;;
+      esac
       ;;
   esac
 done < <(git ls-files --stage -z)
