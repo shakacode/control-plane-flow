@@ -229,6 +229,40 @@ describe Controlplane do
         data: { "spec" => { "defaultOptions" => { "suspend" => true } } }
       )
     end
+
+    it "treats a missing workload as already suspended when requested" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(nil)
+      allow(api).to receive(:update_workload)
+
+      expect(
+        described_instance.set_workload_suspend("postgres", true, "matched-stale-app", missing_ok: true)
+      ).to be(true)
+      expect(api).not_to have_received(:update_workload)
+    end
+
+    it "still raises for a missing workload by default" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(nil)
+
+      expect do
+        described_instance.set_workload_suspend("postgres", true, "matched-stale-app")
+      end.to raise_error("Can't find workload 'postgres', " \
+                         "please create it with 'cpflow apply-template postgres -a matched-stale-app'.")
+    end
+
+    it "treats a workload deleted during the suspend update as already suspended when requested" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(workload_data)
+      allow(api).to receive(:update_workload).and_return(nil)
+
+      expect(
+        described_instance.set_workload_suspend("postgres", true, "matched-stale-app", missing_ok: true)
+      ).to be(true)
+    end
   end
 
   describe "#image_build" do

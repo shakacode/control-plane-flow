@@ -111,7 +111,8 @@ describe Command::CleanupStaleApps do
       command.send(:process_app, "stale-app")
 
       expect(cp).to have_received(:fetch_workloads).with("stale-app")
-      expect(cp).to have_received(:set_workload_suspend).with("postgres", true, "stale-app").once
+      expect(cp).to have_received(:set_workload_suspend)
+        .with("postgres", true, "stale-app", missing_ok: true).once
       expect(cp).not_to have_received(:set_workload_suspend).with("rails", true, "stale-app")
       expect(cp).not_to have_received(:set_workload_suspend).with("unconfigured-worker", true, "stale-app")
     end
@@ -121,6 +122,18 @@ describe Command::CleanupStaleApps do
 
       expect { command.send(:process_app, "stale-app") }.not_to raise_error
       expect(cp).not_to have_received(:set_workload_suspend)
+    end
+
+    it "continues to later workloads when a listed workload disappears before suspension" do
+      allow(cp).to receive(:fetch_workloads).with("stale-app").and_return(
+        "items" => [{ "name" => "postgres" }, { "name" => "rails" }]
+      )
+
+      expect { command.send(:process_app, "stale-app") }.not_to raise_error
+      expect(cp).to have_received(:set_workload_suspend)
+        .with("rails", true, "stale-app", missing_ok: true).ordered
+      expect(cp).to have_received(:set_workload_suspend)
+        .with("postgres", true, "stale-app", missing_ok: true).ordered
     end
 
     it "raises when the stale app config does not define app_workloads" do
