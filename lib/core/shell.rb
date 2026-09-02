@@ -6,12 +6,14 @@ class Shell
   end
 
   def self.use_tmp_stderr
-    @tmp_stderr = Tempfile.create
+    previous_tmp_stderr = @tmp_stderr
 
-    yield
-
-    @tmp_stderr.close
-    @tmp_stderr = nil
+    Tempfile.create do |tmp_stderr|
+      @tmp_stderr = tmp_stderr
+      yield
+    ensure
+      @tmp_stderr = previous_tmp_stderr
+    end
   end
 
   def self.write_to_tmp_stderr(message)
