@@ -606,9 +606,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(workflow.fetch("permissions")).to include("actions" => "write", "issues" => "write")
         expect(authorization_job.fetch("permissions")).to eq(
           "actions" => "read",
-          "contents" => "read",
-          "issues" => "write",
-          "pull-requests" => "read"
+          "pull-requests" => "write"
         )
         expect(authorization_job.fetch("outputs")).to eq(
           "allowed" => "${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}"
@@ -663,7 +661,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       generated_wrappers.each do |contents|
         wrapper = YAML.safe_load(contents, aliases: true)
         triggers = wrapper["on"] || wrapper.fetch(true)
-        expect(wrapper.fetch("permissions")).to include("actions" => "write")
+        expect(wrapper.fetch("permissions")).to include(
+          "actions" => "write",
+          "pull-requests" => "write"
+        )
         expect(triggers.dig("workflow_dispatch", "inputs", "reconcile_intent_run_id")).to include(
           "required" => false,
           "type" => "string"
