@@ -388,6 +388,27 @@ describe Command::Run do
     let(:command) { described_class.allocate }
     let(:progress) { instance_double(IO, puts: nil) }
 
+    it "continues beyond the former 30-second horizon for delayed logs" do
+      now = 0.0
+      wall_time = 1_788_000_000
+
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(31, :unchanged), :finished)
+      allow(command).to receive(:resolve_job_status).and_return(ExitCode::SUCCESS)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Time).to receive(:now).and_return(Time.at(wall_time))
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).exactly(32).times
+      expect(command).to have_received(:resolve_job_status).once
+      expect(Kernel).to have_received(:sleep).with(1).exactly(31).times
+      expect(command.instance_variable_get(:@post_terminal_log_from))
+        .to eq(wall_time - described_class::LOG_QUERY_LOOKBACK_SECONDS)
+    end
+
     it "drains delayed logs for a bounded window after the job finishes and preserves its exit status" do
       now = 0.0
 
@@ -407,6 +428,7 @@ describe Command::Run do
 
     it "stops draining when the post-terminal log window expires" do
       now = 0.0
+      expected_polls = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
 
       allow(command).to receive_messages(
         print_uniq_logs: :unchanged,
@@ -418,19 +440,18 @@ describe Command::Run do
       result = command.send(:show_logs_waiting)
 
       expect(result).to eq(ExitCode::SUCCESS)
-      expect(command).to have_received(:print_uniq_logs).exactly(30).times
+      expect(command).to have_received(:print_uniq_logs).exactly(expected_polls).times
       expect(command).to have_received(:resolve_job_status).once
-      expect(Kernel).to have_received(:sleep).with(1).exactly(30).times
+      expect(Kernel).to have_received(:sleep).with(1).exactly(expected_polls).times
     end
 
     it "does not let changing log entries extend the post-terminal deadline" do
       now = 0.0
-      log_requests = 0
+      request_duration = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS / 3.0
 
       allow(command).to receive(:print_uniq_logs) do
-        log_requests += 1
-        now += 5
-        log_requests <= 7 ? :changed : :finished
+        now += request_duration
+        :changed
       end
       allow(command).to receive_messages(
         current_job_status: "failed",
@@ -442,10 +463,10 @@ describe Command::Run do
       result = command.send(:show_logs_waiting)
 
       expect(result).to eq(ExitCode::ERROR_DEFAULT)
-      expect(command).to have_received(:print_uniq_logs).exactly(6).times
+      expect(command).to have_received(:print_uniq_logs).exactly(4).times
       expect(command).to have_received(:current_job_status).once
       expect(command).not_to have_received(:resolve_job_status)
-      expect(Kernel).to have_received(:sleep).with(1).exactly(5).times
+      expect(Kernel).to have_received(:sleep).with(1).exactly(3).times
     end
 
     [nil, "active", "pending"].each do |nonterminal_status|
@@ -536,13 +557,13 @@ describe Command::Run do
         if log_requests == 1
           :unchanged
         else
-          now = 31.0
+          now = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS + 1.0
           :finished
         end
       end
       allow(command).to receive(:resolve_job_status).and_return(ExitCode::SUCCESS)
       allow(command).to receive(:monotonic_time) { now }
-      allow(Kernel).to receive(:sleep) { now = 29.0 }
+      allow(Kernel).to receive(:sleep) { now = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS - 1.0 }
 
       result = command.send(:show_logs_waiting)
 
@@ -561,7 +582,7 @@ describe Command::Run do
         when 1
           :changed
         when 2
-          now = 31.0
+          now = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS + 1.0
           raise "temporary log API failure"
         else
           :finished
@@ -582,6 +603,47 @@ describe Command::Run do
       expect(command).to have_received(:current_job_status).once
       expect(command).not_to have_received(:resolve_job_status)
       expect(Kernel).to have_received(:sleep).with(1).once
+    end
+  end
+
+  describe "#print_uniq_logs" do
+    let(:command) { described_class.allocate }
+    let(:cp) { instance_double(Controlplane) }
+    let(:progress) { instance_double(IO, puts: nil) }
+
+    it "keeps the post-terminal query boundary pinned while delayed entries become visible" do
+      query_from = 1_788_000_000
+      output_timestamp = "#{query_from + 10}000000000"
+      marker_timestamp = "#{query_from + 10}000000001"
+      empty_log = { "data" => { "result" => [] } }
+      delayed_log = {
+        "data" => {
+          "result" => [{
+            "values" => [
+              [output_timestamp, "Gemfile"],
+              [marker_timestamp, described_class::MAGIC_END]
+            ]
+          }]
+        }
+      }
+
+      allow(command).to receive_messages(cp: cp, progress: progress)
+      allow(cp).to receive(:log_get).and_return(empty_log, delayed_log)
+      allow(Time).to receive(:now).and_return(Time.at(query_from + 60), Time.at(query_from + 121))
+      command.instance_variable_set(:@runner_workload, "rails-runner")
+      command.instance_variable_set(:@replica, "rails-runner-replica")
+      command.instance_variable_set(:@post_terminal_log_from, query_from)
+
+      expect(command.send(:print_uniq_logs)).to eq(:unchanged)
+      expect(command.send(:print_uniq_logs)).to eq(:finished)
+      expect(cp).to have_received(:log_get).with(
+        workload: "rails-runner", from: query_from, to: query_from + 60, replica: "rails-runner-replica"
+      ).ordered
+      expect(cp).to have_received(:log_get).with(
+        workload: "rails-runner", from: query_from, to: query_from + 121, replica: "rails-runner-replica"
+      ).ordered
+      expect(progress).to have_received(:puts).with("Gemfile")
+      expect(progress).not_to have_received(:puts).with(described_class::MAGIC_END)
     end
   end
 

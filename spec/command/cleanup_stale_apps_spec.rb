@@ -177,6 +177,19 @@ describe Command::CleanupStaleApps do
       expect(cp).not_to have_received(:fetch_workloads)
       expect(cp).not_to have_received(:set_workload_suspend)
     end
+
+    [nil, "rails"].each do |invalid_workloads|
+      it "raises when app_workloads is #{invalid_workloads.nil? ? 'blank' : 'not an array'}" do
+        allow(config).to receive(:find_app_config)
+          .with("stale-app")
+          .and_return({ app_workloads: invalid_workloads, additional_workloads: ["postgres"] })
+
+        expect { command.send(:process_app, "stale-app") }
+          .to raise_error("Option 'app_workloads' for app 'stale-app' in 'controlplane.yml' must be an array.")
+        expect(cp).not_to have_received(:fetch_workloads)
+        expect(cp).not_to have_received(:set_workload_suspend)
+      end
+    end
   end
 
   context "when 'stale_app_image_deployed_days' is not defined" do

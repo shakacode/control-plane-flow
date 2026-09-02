@@ -125,7 +125,10 @@ module Command
     def required_app_option(app_config, app, option)
       raise "Can't find option '#{option}' for app '#{app}' in 'controlplane.yml'." unless app_config.key?(option)
 
-      app_config.fetch(option)
+      value = app_config.fetch(option)
+      raise "Option '#{option}' for app '#{app}' in 'controlplane.yml' must be an array." unless value.is_a?(Array)
+
+      value
     end
 
     def action_description

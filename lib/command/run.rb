@@ -111,7 +111,8 @@ module Command
     DEFAULT_JOB_HISTORY_LIMIT = 10
     MAX_REPLICA_OBSERVATION_SECONDS = 1_000
     REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS = 1
-    POST_TERMINAL_LOG_DRAIN_SECONDS = 30
+    LOG_QUERY_LOOKBACK_SECONDS = 60
+    POST_TERMINAL_LOG_DRAIN_SECONDS = 120
     POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS = 1
     JOB_STATUS_UNAVAILABLE_RETRY_LIMIT = 5
     NORMALIZED_JOB_STATUS_PATTERN = /\A[a-z][a-z0-9_-]{0,31}\z/
@@ -701,7 +702,11 @@ module Command
                           else
                             resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
                           end
-          post_terminal_deadline ||= monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS if exit_status
+          if exit_status && post_terminal_deadline.nil?
+            post_terminal_deadline = monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS
+            # Freeze the pre-terminal overlap so late-ingested entries do not age out of the query window.
+            @post_terminal_log_from = Time.now.to_i - LOG_QUERY_LOOKBACK_SECONDS
+          end
           unless exit_status
             Kernel.sleep(POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS)
             next
@@ -728,7 +733,7 @@ module Command
 
       @printed_log_entries ||= []
       ts = Time.now.to_i
-      entries = normalized_log_entries(from: ts - 60, to: ts)
+      entries = normalized_log_entries(from: @post_terminal_log_from || (ts - LOG_QUERY_LOOKBACK_SECONDS), to: ts)
 
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         status ||= :changed
