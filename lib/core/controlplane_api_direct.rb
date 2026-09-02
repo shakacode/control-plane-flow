@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class ControlplaneApiDirect
+class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
   class RedactedDebugOutput
     SAFE_HEADERS = %w[Content-Type Content-Length Accept Host Date Cache-Control Connection].freeze
     HEADER_REGEX = /^([A-Za-z-]+): (.+)$/
@@ -54,12 +54,27 @@ class ControlplaneApiDirect
 
   API_TOKEN_EXPIRY_SECONDS = 300
 
-  # Only GET is retried after the request may have reached the server. The
-  # remaining verbs mutate state, so they only retry connect-phase failures.
+  # GET alone retries 5xx responses or transport failures after the request may
+  # have reached the server. Every method may retry an explicit 429 response.
+  # DELETE stays out of this set because after other errors the client cannot
+  # know whether deletion applied server-side.
   IDEMPOTENT_METHODS = %i[get].freeze
 
   # Bounded so a retried connect failure fits within the retry deadline.
   OPEN_TIMEOUT_SECONDS = 10
+  BEST_EFFORT_TIMEOUT_SECONDS = 5
+  RequestPolicy = Struct.new(:sensitive, :retry_transient, :timeout, keyword_init: true) do
+    def initialize(sensitive:, retry_transient:, timeout:)
+      super
+      freeze
+    end
+  end
+  DEFAULT_REQUEST_POLICY = RequestPolicy.new(sensitive: false, retry_transient: true, timeout: nil)
+  BEST_EFFORT_SENSITIVE_REQUEST_POLICY = RequestPolicy.new(
+    sensitive: true,
+    retry_transient: false,
+    timeout: BEST_EFFORT_TIMEOUT_SECONDS
+  )
 
   # Thread-safe API token cache. A single instance is shared process-wide by
   # default (see `default_token_provider`) so each `ControlplaneApiDirect.new`
@@ -157,10 +172,12 @@ class ControlplaneApiDirect
       Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
-    # Whether to retry a 429/5xx response received for an idempotent request.
+    # Retries 429 responses for every method, but limits 5xx retries to
+    # idempotent requests.
     def retry_response?(response, idempotent)
-      retriable = response.is_a?(Net::HTTPServerError) || response.is_a?(Net::HTTPTooManyRequests)
-      return false unless idempotent && retriable
+      retriable = response.is_a?(Net::HTTPTooManyRequests) ||
+                  (idempotent && response.is_a?(Net::HTTPServerError))
+      return false unless retriable
 
       retry?(retry_after: response["Retry-After"])
     end
@@ -217,7 +234,7 @@ class ControlplaneApiDirect
     @sleeper = sleeper || ->(seconds) { Kernel.sleep(seconds) }
   end
 
-  def call(url, method:, host: :api, body: nil)
+  def call(url, method:, host: :api, body: nil, request_policy: DEFAULT_REQUEST_POLICY)
     uri = URI("#{api_host(host)}#{url}")
     # Token fetch and request construction happen outside the transient rescue
     # in attempt_request so their failures (e.g. TokenRefreshError from the
@@ -225,11 +242,12 @@ class ControlplaneApiDirect
     request = build_request(uri, method, body)
     retrier = Retrier.new(sleeper: @sleeper)
 
-    Shell.debug(method.upcase, "#{uri} #{body&.to_json}")
+    debug_body = request_policy.sensitive && body ? "[REDACTED]" : body&.to_json
+    Shell.debug(method.upcase, "#{uri} #{debug_body}")
 
     loop do
-      response = attempt_request(uri, request, method, retrier)
-      return handle_response(response, url) if response
+      response = attempt_request(uri, request, method, retrier, request_policy)
+      return handle_response(response, url, request_policy) if response
     end
   end
 
@@ -260,22 +278,25 @@ class ControlplaneApiDirect
   # Returns the response, or `nil` when the attempt failed transiently and the
   # retrier approved (and already slept before) another attempt. Only the
   # transport phase (connect + request) is covered by the transient rescue.
-  def attempt_request(uri, request, method, retrier)
+  def attempt_request(uri, request, method, retrier, request_policy)
     request_sent = false
     idempotent = IDEMPOTENT_METHODS.include?(method)
-    response = transport_request(uri, request) { request_sent = true }
-    return response unless retrier.retry_response?(response, idempotent)
+    response = transport_request(uri, request, request_policy) { request_sent = true }
+    return response unless request_policy.retry_transient && retrier.retry_response?(response, idempotent)
 
     nil
   rescue *Retrier::TRANSIENT_NETWORK_ERRORS
-    raise unless retrier.retry_exception?(idempotent, request_sent)
+    raise unless request_policy.retry_transient && retrier.retry_exception?(idempotent, request_sent)
 
     nil
   end
 
-  def transport_request(uri, request)
-    http = build_http(uri)
+  def transport_request(uri, request, request_policy)
+    http = build_http(uri, request_policy)
     http.start
+    # Set request_sent before `http.request` deliberately: a reset before bytes
+    # are written is indistinguishable from one after a partial write, so treat
+    # both as sent conservatively.
     yield
     begin
       http.request(request)
@@ -292,24 +313,39 @@ class ControlplaneApiDirect
     request
   end
 
-  def build_http(uri)
+  def build_http(uri, request_policy)
     http = Net::HTTP.new(uri.hostname, uri.port)
     http.use_ssl = uri.scheme == "https"
     # Net::HTTP transparently re-sends requests it deems idempotent once on
     # mid-flight failures; disable so the Retrier owns the entire retry policy.
     http.max_retries = 0
-    http.open_timeout = OPEN_TIMEOUT_SECONDS
-    http.set_debug_output(RedactedDebugOutput.new) if ControlplaneApiDirect.trace
+    http.open_timeout = request_policy.timeout || OPEN_TIMEOUT_SECONDS
+    http.read_timeout = request_policy.timeout if request_policy.timeout
+    http.set_debug_output(RedactedDebugOutput.new) if ControlplaneApiDirect.trace && !request_policy.sensitive
     http
   end
 
-  def handle_response(response, url)
+  def handle_response(response, url, request_policy)
     case response
-    when Net::HTTPOK then JSON.parse(response.body)
+    when Net::HTTPOK then parse_response_body(response, request_policy)
     when Net::HTTPAccepted then true
     when Net::HTTPNotFound then nil
     when Net::HTTPForbidden then raise(ForbiddenError.new(url: url, response: response))
-    else raise("#{response} #{response.body}")
+    else raise(response_error_message(response, request_policy))
     end
+  end
+
+  def parse_response_body(response, request_policy)
+    JSON.parse(response.body)
+  rescue JSON::ParserError
+    raise unless request_policy.sensitive
+
+    raise JSON::ParserError, "Control Plane API returned invalid JSON for a sensitive request.", cause: nil
+  end
+
+  def response_error_message(response, request_policy)
+    return response.to_s if request_policy.sensitive
+
+    "#{response} #{response.body}"
   end
 end

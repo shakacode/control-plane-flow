@@ -13,6 +13,14 @@ describe ControlplaneApiDirect do
     expect(described_class.class_variables).to be_empty
   end
 
+  it "uses an immutable request policy compatible with the supported Ruby floor" do
+    policy = described_class::RequestPolicy.new(sensitive: true, retry_transient: false, timeout: 5)
+
+    expect(policy).to be_a(Struct)
+    expect(policy).to be_frozen
+    expect { policy.timeout = 10 }.to raise_error(FrozenError)
+  end
+
   it "uses the process-shared default token provider when none is injected" do
     allow(described_class.default_token_provider).to receive(:fetch)
       .and_return({ token: "shared-token", comes_from_profile: false })
@@ -224,7 +232,8 @@ describe ControlplaneApiDirect do
   describe "#call" do
     let(:http_connection) do
       instance_double(Net::HTTP, "use_ssl=": nil, "max_retries=": nil, "open_timeout=": nil,
-                                 set_debug_output: nil, start: nil, finish: nil, started?: true)
+                                 "read_timeout=": nil, set_debug_output: nil,
+                                 start: nil, finish: nil, started?: true)
     end
 
     before do
@@ -245,6 +254,10 @@ describe ControlplaneApiDirect do
       http_response(Net::HTTPOK, 200, body: body)
     end
 
+    def request_policy(**overrides)
+      described_class::RequestPolicy.new(sensitive: false, retry_transient: true, timeout: nil, **overrides)
+    end
+
     it "parses the body of a 200 response" do
       allow(http_connection).to receive(:request).and_return(ok_response)
 
@@ -254,6 +267,57 @@ describe ControlplaneApiDirect do
       expect(slept_delays).to be_empty
     end
 
+    it "does not attach HTTP debug output to a sensitive response" do
+      original_trace = described_class.trace
+      described_class.trace = true
+      allow(http_connection).to receive(:request)
+        .and_return(ok_response(body: '{"data":{"password":"trace-leak-sentinel"}}'))
+
+      result = described_instance.call(
+        "/org/my-org/secret/my-secret/-reveal",
+        method: :get,
+        request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+      )
+
+      expect(result).to eq("data" => { "password" => "trace-leak-sentinel" })
+      expect(http_connection).not_to have_received(:set_debug_output)
+    ensure
+      described_class.trace = original_trace
+    end
+
+    it "omits a sensitive non-success response body from the raised error" do
+      allow(http_connection).to receive(:request)
+        .and_return(http_response(Net::HTTPBadRequest, 400, body: "response-secret-sentinel"))
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(RuntimeError) { |error|
+        expect(error.message).to include("Net::HTTPBadRequest")
+        expect(error.message).not_to include("response-secret-sentinel")
+      }
+    end
+
+    it "omits a malformed sensitive success body from the parse error" do
+      allow(http_connection).to receive(:request)
+        .and_return(ok_response(body: '{"password":"parse-secret-sentinel"'))
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(JSON::ParserError) { |error|
+        expect(error.message).to eq("Control Plane API returned invalid JSON for a sensitive request.")
+        expect(error.message).not_to include("parse-secret-sentinel")
+        expect(error.cause).to be_nil
+      }
+    end
+
     it "disables Net::HTTP's built-in retries and bounds the open timeout" do
       allow(http_connection).to receive(:request).and_return(ok_response)
 
@@ -261,6 +325,19 @@ describe ControlplaneApiDirect do
 
       expect(http_connection).to have_received(:max_retries=).with(0)
       expect(http_connection).to have_received(:open_timeout=).with(described_class::OPEN_TIMEOUT_SECONDS)
+    end
+
+    it "applies explicit open and read timeouts for a best-effort request" do
+      allow(http_connection).to receive(:request).and_return(ok_response)
+
+      described_instance.call(
+        "/org/my-org/gvc",
+        method: :get,
+        request_policy: request_policy(timeout: 5)
+      )
+
+      expect(http_connection).to have_received(:open_timeout=).with(5)
+      expect(http_connection).to have_received(:read_timeout=).with(5)
     end
 
     it "returns true for a 202 response" do
@@ -319,6 +396,63 @@ describe ControlplaneApiDirect do
       expect(slept_delays.first).to be_between(0.25, 0.5)
     end
 
+    it "does not retry a transient response for a best-effort request" do
+      allow(http_connection).to receive(:request)
+        .and_return(http_response(Net::HTTPInternalServerError, 500, body: "boom"), ok_response)
+
+      expect do
+        described_instance.call(
+          "/org/my-org/gvc",
+          method: :get,
+          request_policy: request_policy(retry_transient: false)
+        )
+      end.to raise_error(RuntimeError, /Net::HTTPInternalServerError.*boom/m)
+      expect(http_connection).to have_received(:request).once
+      expect(slept_delays).to be_empty
+    end
+
+    it "does not retry or expose a 429 response for a best-effort sensitive request" do
+      allow(http_connection).to receive(:request).and_return(
+        http_response(
+          Net::HTTPTooManyRequests,
+          429,
+          body: "rate-limit-secret-sentinel",
+          headers: { "Retry-After" => "7" }
+        ),
+        ok_response
+      )
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(RuntimeError) { |error|
+        expect(error.message).to include("Net::HTTPTooManyRequests")
+        expect(error.message).not_to include("rate-limit-secret-sentinel")
+      }
+      expect(http_connection).to have_received(:request).once
+      expect(slept_delays).to be_empty
+    end
+
+    it "does not retry a read timeout for a best-effort sensitive request" do
+      allow(http_connection).to receive(:request).and_invoke(
+        ->(_request) { raise Net::ReadTimeout },
+        ->(_request) { ok_response }
+      )
+
+      expect do
+        described_instance.call(
+          "/org/my-org/secret/my-secret/-reveal",
+          method: :get,
+          request_policy: described_class::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+        )
+      end.to raise_error(Net::ReadTimeout)
+      expect(http_connection).to have_received(:request).once
+      expect(slept_delays).to be_empty
+    end
+
     it "retries a GET after a read timeout" do
       allow(http_connection).to receive(:request).and_invoke(
         ->(_request) { raise Net::ReadTimeout },
@@ -346,6 +480,16 @@ describe ControlplaneApiDirect do
         .and_return(http_response(Net::HTTPTooManyRequests, 429, headers: { "Retry-After" => "7" }), ok_response)
 
       expect(described_instance.call("/org/my-org/gvc", method: :get)).to eq({ "result" => "ok" })
+      expect(slept_delays).to eq([7])
+    end
+
+    it "retries a POST after a 429 response and honors Retry-After" do
+      allow(http_connection).to receive(:request)
+        .and_return(http_response(Net::HTTPTooManyRequests, 429, headers: { "Retry-After" => "7" }), ok_response)
+
+      expect(described_instance.call("/org/my-org/gvc", method: :post, body: { name: "gvc" }))
+        .to eq({ "result" => "ok" })
+      expect(http_connection).to have_received(:request).twice
       expect(slept_delays).to eq([7])
     end
 

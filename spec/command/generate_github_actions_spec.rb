@@ -348,6 +348,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("Create initial PR comment")
       expect(contents).not_to include("Build Docker image")
       expect(contents).not_to include("Deploy to Control Plane")
+      expect(contents).to include("needs.deploy.outputs.image_built")
+      expect(contents).to include("did not validate the Docker image")
     end
 
     it "updates existing generated wrappers to the installed cpflow release tag" do
@@ -584,9 +586,91 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(steps.index(refresh_step)).to be < steps.index { |step| step["name"] == "Deploy to Control Plane" }
     end
 
-    it "gates review-app deploys by author_association and skips fork PRs" do
+    it "gates review-app comment commands by repository permission and skips fork PRs" do
+      reusable_workflow_paths = [reusable_review_app_workflow_path, reusable_delete_review_workflow_path]
+      generated_wrappers = [review_app_workflow_path, delete_review_workflow_path].map(&:read)
+
+      reusable_workflow_paths.each do |path|
+        workflow = YAML.safe_load_file(path, aliases: true)
+        authorization_job = workflow.fetch("jobs").fetch("authorize-comment-command")
+        permission_step = authorization_job.fetch("steps").find { |step| step["id"] == "permission" }
+        non_comment_step = authorization_job.fetch("steps").find { |step| step["id"] == "non-comment" }
+        prepare_intent_step = authorization_job.fetch("steps").find do |step|
+          step["name"] == "Prepare accepted review app intent"
+        end
+        record_intent_step = authorization_job.fetch("steps").find do |step|
+          step["name"] == "Record accepted review app intent"
+        end
+        script = permission_step.fetch("run")
+
+        expect(workflow.fetch("permissions")).to include("actions" => "write", "issues" => "write")
+        expect(authorization_job.fetch("permissions")).to eq(
+          "actions" => "read",
+          "pull-requests" => "write"
+        )
+        expect(authorization_job.fetch("outputs")).to eq(
+          "allowed" => "${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}"
+        )
+        expect(permission_step).not_to have_key("uses")
+        expect(permission_step).to include(
+          "shell" => "bash",
+          "env" => {
+            "GH_TOKEN" => "${{ github.token }}",
+            "GH_REPO" => "${{ github.repository }}",
+            "COMMENT_AUTHOR" => "${{ github.event.comment.user.login }}"
+          }
+        )
+        expect(script).to include("set -euo pipefail")
+        expect(script).to include('printf \'%s\\n\' \'allowed=false\' >> "$GITHUB_OUTPUT"')
+        expect(script).to include(
+          'gh api --method GET "repos/${GH_REPO}/collaborators/${COMMENT_AUTHOR}/permission" --jq \'.permission\''
+        )
+        expect(script).to include("write|maintain|admin)")
+        expect(script).to include("read|triage|none)")
+        expect(script).to include('printf \'%s\\n\' \'allowed=true\' >> "$GITHUB_OUTPUT"')
+        expect(script).to include('if [[ -z "${permission}" ]]')
+        expect(script).to include("Unexpected repository permission")
+        expect(script).not_to include("${{")
+        expect(non_comment_step).to include(
+          "if" => "github.event_name != 'issue_comment'",
+          "run" => include("allowed=true")
+        )
+        expect(prepare_intent_step).to include(
+          "id" => "intent",
+          "if" => include("github.event.issue.pull_request", "workflow_dispatch"),
+          "env" => include(
+            "GH_TOKEN" => "${{ github.token }}",
+            "RUN_ID" => "${{ github.run_id }}",
+            "RECONCILE_INTENT_RUN_ID" => "${{ github.event.inputs.reconcile_intent_run_id }}"
+          ),
+          "run" => include(
+            "repos/${GH_REPO}/actions/runs/${RUN_ID}",
+            "cpflow-review-app-intent-v1"
+          )
+        )
+        expect(record_intent_step).to include(
+          "id" => "record",
+          "if" => "steps.intent.outputs.record == 'true'",
+          "run" => include("repos/${GH_REPO}/issues/${PR_NUMBER}/comments", "accepted=true")
+        )
+      end
+      expect(generated_wrappers).to all(
+        include("github.event.comment.author_association")
+          .and(include("author_association is a cheap caller-side cost filter"))
+      )
+      generated_wrappers.each do |contents|
+        wrapper = YAML.safe_load(contents, aliases: true)
+        triggers = wrapper["on"] || wrapper.fetch(true)
+        expect(wrapper.fetch("permissions")).to include(
+          "actions" => "write",
+          "pull-requests" => "write"
+        )
+        expect(triggers.dig("workflow_dispatch", "inputs", "reconcile_intent_run_id")).to include(
+          "required" => false,
+          "type" => "string"
+        )
+      end
       contents = reusable_review_app_workflow_path.read
-      expect(contents).to include("github.event.comment.author_association")
       expect(contents).to include("Review app deploys are skipped for fork pull requests.")
       expect(contents).to include("Review app deploys from fork pull requests require a branch")
       expect(contents).to include('echo "allowed=false" >> "$GITHUB_OUTPUT"')

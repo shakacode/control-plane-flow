@@ -302,9 +302,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_exec(workload, replica, location:, container: nil, command: nil)
-    cmd = "cpln workload exec #{workload} #{gvc_org} --replica #{replica} --location #{location} -it"
-    cmd += " --container #{container}" if container
-    cmd += " -- #{command}"
+    cmd = [
+      "cpln", "workload", "exec", workload,
+      "--gvc", gvc, "--org", org,
+      "--replica", replica, "--location", location, "-it"
+    ]
+    cmd.push("--container", container) if container
+    cmd << "--"
+    cmd.concat(Array(command))
     perform(cmd, output_mode: :all)
   end
 
@@ -404,6 +409,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def fetch_secret(secret)
     api.fetch_secret(org: org, secret: secret)
+  end
+
+  def reveal_secret(secret)
+    api.reveal_secret(org: org, secret: secret)
   end
 
   # identities
@@ -532,6 +541,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # or the return value of `Shell.should_hide_output?`.
   def build_command(cmd, output_mode: nil) # rubocop:disable Metrics/MethodLength
     output_mode ||= determine_command_output_mode
+    raise "Array commands require output mode 'all'." if cmd.is_a?(Array) && %i[errors_only none].include?(output_mode)
 
     case output_mode
     when :all
@@ -558,7 +568,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def perform(cmd, output_mode: nil, sensitive_data_pattern: nil)
     cmd = build_command(cmd, output_mode: output_mode)
 
-    Shell.debug("CMD", cmd, sensitive_data_pattern: sensitive_data_pattern)
+    debug_cmd = cmd.is_a?(Array) ? Shellwords.join(cmd) : cmd
+    Shell.debug("CMD", debug_cmd, sensitive_data_pattern: sensitive_data_pattern)
 
     kernel_system_with_pid_handling(cmd)
   end
@@ -567,7 +578,11 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # Returns true on zero exit, false on non-zero exit, nil when the process was signal-killed.
   # SystemCallError (e.g. cpln binary missing) propagates — startup checks ensure this is unreachable in practice.
   def kernel_system_with_pid_handling(cmd, **spawn_options)
-    pid = Process.spawn(cmd, **spawn_options)
+    pid = if cmd.is_a?(Array)
+            Process.spawn(*cmd, **spawn_options)
+          else
+            Process.spawn(cmd, **spawn_options)
+          end
     $child_pids << pid # rubocop:disable Style/GlobalVars
 
     _, status = Process.wait2(pid)

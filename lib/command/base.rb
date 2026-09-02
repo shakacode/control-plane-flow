@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "shellwords"
 require_relative "../core/helpers"
 
 module Command
@@ -11,6 +12,7 @@ module Command
     VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS = %w[config].freeze
     VALIDATIONS_WITH_ADDITIONAL_OPTIONS = %w[templates].freeze
     ALL_VALIDATIONS = VALIDATIONS_WITHOUT_ADDITIONAL_OPTIONS + VALIDATIONS_WITH_ADDITIONAL_OPTIONS
+    GENERATED_POSTGRES_PASSWORD_PLACEHOLDER = "the_password"
 
     # Used to call the command (`cpflow SUBCOMMAND_NAME NAME`)
     SUBCOMMAND_NAME = nil
@@ -550,10 +552,12 @@ module Command
       end
     end
 
-    # NOTE: use simplified variant atm, as shelljoin do different escaping
-    # TODO: most probably need better logic for escaping various quotes
     def args_join(args)
-      args.join(" ")
+      # A single CLI argument is an intentional shell program (for example, an env assignment or pipeline).
+      # Multiple CLI arguments are argv elements and must be escaped before entering the remote shell script.
+      return args.first if args.size == 1
+
+      Shellwords.join(args)
     end
 
     def progress
@@ -641,7 +645,30 @@ module Command
       raise shared_secret_policy_missing_message(grant) if policy.nil?
 
       ensure_shared_secret_policy_targets_secret!(grant, policy)
+      warn_if_shared_secret_uses_generated_password_placeholder(grant)
       policy
+    end
+
+    def warn_if_shared_secret_uses_generated_password_placeholder(grant)
+      secret_name = grant.fetch(:secret_name)
+      secret = cp.reveal_secret(secret_name)
+      return unless secret&.dig("data", "password") == GENERATED_POSTGRES_PASSWORD_PLACEHOLDER
+
+      Shell.warn(
+        "Shared secret grant '#{grant.fetch(:name)}' targets secret '#{secret_name}', whose password " \
+        "is still the generated placeholder. Review apps will fail authentication until it is replaced."
+      )
+    # This is a best-effort warning. API, transport, and response-shape failures
+    # must not turn an optional diagnostic into a deployment blocker.
+    rescue StandardError
+      debug_shared_secret_placeholder_check_failure(secret_name)
+    end
+
+    def debug_shared_secret_placeholder_check_failure(secret_name)
+      Shell.debug(
+        "WARN",
+        "Could not inspect shared secret '#{secret_name}'; continuing without the optional placeholder diagnostic."
+      )
     end
 
     def bind_shared_secret_policy_grant(grant, policy)
