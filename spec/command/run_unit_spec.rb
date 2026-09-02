@@ -488,6 +488,18 @@ describe Command::Run do
       expect(Kernel).to have_received(:sleep).with(1).once
     end
 
+    it "retries a transient unavailable cron status after the finished log marker" do
+      allow(command).to receive(:print_uniq_logs).and_return(:finished)
+      allow(command).to receive(:current_job_status).and_return(nil, "successful")
+      allow(command).to receive(:sleep)
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:current_job_status).twice
+      expect(command).to have_received(:sleep).with(1).once
+    end
+
     it "bounds unavailable cron status retries while logs are quiet" do
       now = 0.0
 

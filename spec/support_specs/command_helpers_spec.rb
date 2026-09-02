@@ -4,6 +4,124 @@ require "spec_helper"
 
 describe CommandHelpers do
   describe "command logging" do
+    it "redacts values passed through sensitive command options by default" do
+      sensitive_value = "opaque-upstream-token"
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command(
+          "promote-app-from-upstream", "-a", "test-app", "--upstream-token", sensitive_value
+        )
+
+        contents = File.read(log_file.path)
+        expect(contents).not_to include(sensitive_value)
+        expect(contents).to include("--upstream-token XXXXXXX")
+      end
+    end
+
+    it "prefers complete sensitive option values over overlapping supplied patterns" do
+      sensitive_value = "opaque-upstream-token"
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command(
+          "promote-app-from-upstream", "-a", "test-app", "--upstream-token", sensitive_value,
+          sensitive_data_pattern: /opaque/
+        )
+
+        contents = File.read(log_file.path)
+        expect(contents).to include("--upstream-token XXXXXXX")
+        expect(contents).not_to include(sensitive_value, "XXXXXXX-upstream-token")
+      end
+    end
+
+    it "redacts Thor's underscored sensitive option spelling in separate and assigned forms" do
+      first_sensitive_value = "opaque-upstream-token-one"
+      second_sensitive_value = "opaque-upstream-token-two"
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command(
+          "copy-image-from-upstream", "-a", "test-app", "--upstream_token", first_sensitive_value
+        )
+        run_cpflow_command(
+          "copy-image-from-upstream", "-a", "test-app", "--upstream_token=#{second_sensitive_value}"
+        )
+
+        contents = File.read(log_file.path)
+        expect(contents).to include("--upstream_token XXXXXXX", "--upstream_token=XXXXXXX")
+        expect(contents).not_to include(first_sensitive_value, second_sensitive_value)
+      end
+    end
+
+    it "redacts Thor's attached numeric short-option spelling" do
+      sensitive_value = "123456"
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command("copy-image-from-upstream", "-a", "test-app", "-t#{sensitive_value}")
+
+        contents = File.read(log_file.path)
+        expect(contents).to include("-tXXXXXXX")
+        expect(contents).not_to include(sensitive_value)
+      end
+    end
+
+    it "redacts the signless token value Thor parses from a signed attached short option" do
+      sensitive_value = "123456"
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start) do
+          $stdout.puts("stdout #{sensitive_value}")
+          warn("stderr #{sensitive_value}")
+        end
+
+        run_cpflow_command("copy-image-from-upstream", "-a", "test-app", "-t+#{sensitive_value}")
+
+        contents = File.read(log_file.path)
+        expect(contents).to include("-t+XXXXXXX", "stdout XXXXXXX", "stderr XXXXXXX")
+        expect(contents).not_to include(sensitive_value)
+      end
+    end
+
+    it "does not treat unrelated attached t-prefixed arguments as tokens" do
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command("run", "-a", "test-app", "--", "echo", "-to", "output")
+
+        expect(File.read(log_file.path)).to include("run -a test-app -- echo -to output")
+      end
+    end
+
+    it "redacts sensitive option values from spawned command logs" do
+      sensitive_value = "opaque-upstream-token"
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(PTY).to receive(:spawn)
+
+        spawn_cpflow_command(
+          "copy-image-from-upstream", "-a", "test-app", "--upstream-token", sensitive_value,
+          wait_for_process: false
+        )
+
+        contents = File.read(log_file.path)
+        expect(contents).not_to include(sensitive_value)
+        expect(contents).to include("--upstream-token XXXXXXX")
+      end
+    end
+
     it "redacts a sensitive value embedded in a command argument" do
       sensitive_value = "opaque-sensitive-value"
       sensitive_pattern = /#{Regexp.escape(sensitive_value)}/

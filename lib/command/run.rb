@@ -713,7 +713,7 @@ module Command
           Kernel.sleep([POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS, remaining].min)
         end
 
-        exit_status || resolve_job_status
+        exit_status || resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
       rescue RuntimeError => e
         raise "#{e} Exiting..." unless retries < 10 # MAX_RETRIES
 

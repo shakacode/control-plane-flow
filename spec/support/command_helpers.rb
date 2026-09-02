@@ -33,6 +33,10 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   # the app is torn down even when the command that created it fails afterwards,
   # or when the example that would have deleted it fails.
   APP_CREATING_COMMANDS = %w[setup-app apply-template].freeze
+  SENSITIVE_VALUE_OPTIONS = %w[--token --upstream-token --upstream_token -t].freeze
+  SENSITIVE_VALUE_ASSIGNMENT_PATTERN =
+    /\A(?:#{SENSITIVE_VALUE_OPTIONS.map { |option| Regexp.escape(option) }.join('|')})=(?<value>.+)\z/
+  SENSITIVE_ATTACHED_SHORT_VALUE_PATTERN = /\A-t[-+]?(?<value>(?:\d*\.\d+|\d+))\z/
 
   CREATE_APP_PARAMS = {
     "default" => {
@@ -213,7 +217,33 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     app
   end
 
+  def command_sensitive_data_pattern(args, supplied_pattern)
+    value_patterns = sensitive_argument_values(args)
+                     .uniq
+                     .sort_by { |value| -value.length }
+                     .map { |value| Regexp.new(Regexp.escape(value)) }
+    patterns = [*value_patterns, supplied_pattern].compact
+
+    Regexp.union(patterns) unless patterns.empty?
+  end
+
+  def sensitive_argument_values(args)
+    string_args = args.map(&:to_s)
+    separate_values = string_args.each_cons(2).filter_map do |option, value|
+      value if SENSITIVE_VALUE_OPTIONS.include?(option) && !value.empty?
+    end
+    inline_values = string_args.filter_map { |arg| inline_sensitive_argument_value(arg) }
+
+    separate_values + inline_values
+  end
+
+  def inline_sensitive_argument_value(arg)
+    match = arg.match(SENSITIVE_VALUE_ASSIGNMENT_PATTERN) || arg.match(SENSITIVE_ATTACHED_SHORT_VALUE_PATTERN)
+    match&.[](:value)
+  end
+
   def run_cpflow_command(*args, raise_errors: false, sensitive_data_pattern: nil) # rubocop:disable Metrics/MethodLength
+    sensitive_data_pattern = command_sensitive_data_pattern(args, sensitive_data_pattern)
     LogHelpers.write_command_to_log(args.join(" "), sensitive_data_pattern: sensitive_data_pattern)
     register_app_to_delete(args)
 
@@ -260,13 +290,18 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     cmd += "#{cpflow_executable_with_simplecov} #{args.join(' ')}"
 
     register_app_to_delete(args)
-    LogHelpers.write_command_to_log(cmd)
+    sensitive_data_pattern = command_sensitive_data_pattern(args, nil)
+    LogHelpers.write_command_to_log(cmd, sensitive_data_pattern: sensitive_data_pattern)
     LogHelpers.write_section_separator_to_log
 
     PTY.spawn(cmd) do |output, input, pid|
-      yield(SpawnedCommand.new(output, input, pid))
+      spawned_command = SpawnedCommand.new(
+        output, input, pid,
+        sensitive_data_pattern: sensitive_data_pattern
+      )
+      yield(spawned_command)
     ensure
-      Process.wait(pid) if wait_for_process
+      spawned_command&.wait if wait_for_process
     end
   end
 
