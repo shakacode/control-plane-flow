@@ -4,6 +4,10 @@ run-name: "Deploy Review App - PR #${{ github.event.pull_request.number || githu
 
 on:
   workflow_call:
+    outputs:
+      image_built:
+        description: Whether this run successfully built the application image.
+        value: ${{ jobs.deploy.outputs.image_built }}
     secrets:
       CPLN_TOKEN_STAGING:
         description: Control Plane token for the staging org that owns review apps.
@@ -29,9 +33,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: read
-      contents: read
-      issues: write
-      pull-requests: read
+      # PR issue comments use the Issues API path but require PR write access.
+      pull-requests: write
     outputs:
       allowed: ${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}
     steps:
@@ -322,6 +325,8 @@ jobs:
         contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body)))
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      image_built: ${{ steps.build-image.outcome == 'success' }}
     concurrency:
       group: cpflow-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
       # Enter the shared deploy/delete queue only after comment authorization. A denied
@@ -792,6 +797,11 @@ jobs:
         shell: bash
         run: |
           {
+            echo "## Docker image not built"
+            echo
+            echo "This successful review-app check did not build or deploy an image."
+            echo "Outcome: \`image_built=false\`."
+            echo
             echo "Review app ${APP_NAME} does not exist yet."
             echo "Create it with +review-app-deploy as the PR comment body."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -901,6 +911,7 @@ jobs:
             });
 
       - name: Build Docker image
+        id: build-image
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
         uses: ./.cpflow/.github/actions/cpflow-build-docker-image
         with:
