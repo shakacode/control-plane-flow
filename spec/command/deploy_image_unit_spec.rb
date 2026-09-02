@@ -488,6 +488,22 @@ describe Command::DeployImage do
       expect(progress.string).not_to include("- frontend:")
     end
 
+    it "reports the generic failure message when the final command output is only whitespace" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: " \n\t" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS).times
+      expect(progress.string).to include("Command exited with non-zero status.")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
     it "fails after the extended conflict retry window without recording an endpoint" do
       progress = StringIO.new
       allow(cp).to receive(:workload_set_image_ref)

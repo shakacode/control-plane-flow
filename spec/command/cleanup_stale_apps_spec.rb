@@ -38,7 +38,7 @@ describe Command::CleanupStaleApps do
       it "confirms workload suspension" do
         command.send(:confirm_action)
 
-        expect(Shell).to have_received(:confirm).with(include("suspend all workloads in these 2 apps"))
+        expect(Shell).to have_received(:confirm).with(include("suspend configured workloads in these 2 apps"))
       end
     end
   end
@@ -201,7 +201,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "uses workload-suspension wording when --mode=stop and does nothing on declined confirmation", :slow do
-      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(false)
+      allow(Shell).to receive(:confirm).with(include("suspend configured workloads in these 2 apps")).and_return(false)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")
@@ -214,7 +214,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "asks for confirmation and stops stale apps when --mode=stop", :slow do
-      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(true)
+      allow(Shell).to receive(:confirm).with(include("suspend configured workloads in these 2 apps")).and_return(true)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")

@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Command::DeployImage do
   let(:rails_endpoint_pattern) do
-    %r{https://rails-.+?\.(?:cpln\.app|(?:[^./]+\.)?controlplane\.us)}
+    %r{https://rails-[^\s/]+?\.(?:cpln\.app|(?:[^./]+\.)?controlplane\.us)(?=[:/?#\s]|$)}
   end
 
   context "when image does not exist" do

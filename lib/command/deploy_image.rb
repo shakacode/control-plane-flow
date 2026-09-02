@@ -164,7 +164,7 @@ module Command
     end
 
     def workload_image_update_error(output)
-      output.empty? ? "Command exited with non-zero status." : output
+      output.strip.empty? ? "Command exited with non-zero status." : output
     end
 
     def wait_before_workload_image_update_retry
