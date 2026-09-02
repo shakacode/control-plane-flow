@@ -3,6 +3,66 @@
 require "spec_helper"
 
 describe Command::Run do
+  describe "CLI command argument handling" do
+    it "preserves special-character arguments as exact remote command arguments" do
+      payloads = [
+        "two words",
+        "single'quote",
+        'double"quote',
+        "$HOME",
+        "`printf injected`",
+        "semi;colon"
+      ]
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command(
+        "run", "--app", app, "--org", "test-org", "--",
+        "printf", "<%s>\\n", *payloads
+      )
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      expect(runner_script).not_to be_nil
+
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+
+      expect(status).to be_success, error_output
+      expect(output.lines(chomp: true)).to eq(payloads.map { |payload| "<#{payload}>" } + [described_class::MAGIC_END])
+    end
+
+    it "preserves intentional shell syntax in a single command string" do
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command(
+        "run", "--app", app, "--org", "test-org", "--",
+        "printf 'left\\n'; printf 'right\\n'"
+      )
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      expect(runner_script).not_to be_nil
+
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+
+      expect(status).to be_success, error_output
+      expect(output.lines(chomp: true)).to eq(["left", "right", described_class::MAGIC_END])
+    end
+  end
+
   describe "#call" do
     let(:config) do
       instance_double(
@@ -180,6 +240,18 @@ describe Command::Run do
       expect(runner_script["value"]).to include("bin/rails db:migrate")
     end
 
+    context "when the command is interactive" do
+      before do
+        command.instance_variable_set(:@interactive, true)
+      end
+
+      it "stores the remote runner invocation as exact command arguments" do
+        command.send(:build_job_start_yaml)
+
+        expect(command.command).to eq(["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"'])
+      end
+    end
+
     context "when the app has no GVC" do
       let(:gvc_data) { nil }
 
@@ -262,7 +334,7 @@ describe Command::Run do
       command.instance_variable_set(:@replica, "rails-runner-12345")
       command.instance_variable_set(:@location, "aws-us-east-2")
       command.instance_variable_set(:@container, "rails")
-      command.instance_variable_set(:@command, %(bash -c 'true'))
+      command.instance_variable_set(:@command, ["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"'])
       allow(cp).to receive(:workload_exec).and_return(exec_success)
     end
 
@@ -272,7 +344,11 @@ describe Command::Run do
       it "does not print a cleanup hint" do
         command.send(:run_interactive)
 
-        expect(cp).to have_received(:workload_exec).once
+        expect(cp).to have_received(:workload_exec).with(
+          "rails-runner", "rails-runner-12345",
+          location: "aws-us-east-2", container: "rails",
+          command: ["bash", "-c", 'eval "$CPFLOW_RUNNER_SCRIPT"']
+        ).once
         expect(progress).not_to have_received(:puts).with(/runner workload is still running/)
       end
     end
@@ -311,6 +387,7 @@ describe Command::Run do
   describe "#wait_for_replica_for_job" do
     let(:config) { instance_double(Config) }
     let(:cp) { instance_double(Controlplane) }
+    let(:progress) { StringIO.new }
     let(:command) { described_class.new(config) }
 
     before do
@@ -319,7 +396,169 @@ describe Command::Run do
 
       command.instance_variable_set(:@runner_workload, "rails-runner")
       command.instance_variable_set(:@job, "job-123")
+      command.instance_variable_set(:@job_timeout, described_class::DEFAULT_JOB_TIMEOUT)
       command.instance_variable_set(:@location, "aws-us-east-2")
+    end
+
+    it "returns as soon as a replica for the job is observed" do
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => ["rails-runner-job-123-replica"] })
+      allow(cp).to receive(:fetch_cron_workload)
+
+      result = command.send(:wait_for_replica_for_job)
+
+      expect(result).to eq("rails-runner-job-123-replica")
+      expect(command.instance_variable_get(:@replica)).to eq("rails-runner-job-123-replica")
+      expect(cp).not_to have_received(:fetch_cron_workload)
+    end
+
+    it "prints one progress dot for each unsuccessful observation" do
+      now = 0.0
+      replica_responses = [
+        { "items" => [] },
+        { "items" => [] },
+        { "items" => ["rails-runner-job-123-replica"] }
+      ]
+
+      command.instance_variable_set(:@job_timeout, 5)
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(progress).to receive(:print).and_call_original
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return(*replica_responses)
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "active" }] })
+
+      command.send(:wait_for_replica_for_job)
+
+      expect(command.instance_variable_get(:@replica)).to eq("rails-runner-job-123-replica")
+      expect(progress).to have_received(:print).with(".").twice
+      expect(Kernel).to have_received(:sleep).with(1).twice
+    end
+
+    it "fails immediately with the terminal cron status when no replica was observed" do
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [] })
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "failed" }] })
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("status: failed")
+      expect(cp).to have_received(:fetch_workload_replicas).once
+      expect(cp).to have_received(:fetch_cron_workload).once
+    end
+
+    it "replaces an unsafe terminal cron status instead of printing it" do
+      unsafe_status = "failed\nunsafe-status-details"
+
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [] })
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => unsafe_status }] })
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("status: unknown")
+      expect(progress.string).not_to include(unsafe_status)
+    end
+
+    it "does not start a cron-status request after the replica request reaches the deadline" do
+      now = 0.0
+
+      command.instance_variable_set(:@job_timeout, 0.25)
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+      allow(Kernel).to receive(:sleep)
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2") do
+          now = 0.3
+          { "items" => [] }
+        end
+      allow(cp).to receive(:fetch_cron_workload)
+        .with("rails-runner", location: "aws-us-east-2")
+        .and_return({ "items" => [{ "id" => "job-123", "status" => "active" }] })
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("observation limit: 0.25 seconds", "status: unavailable")
+      expect(cp).not_to have_received(:fetch_cron_workload)
+      expect(Kernel).not_to have_received(:sleep)
+    end
+
+    it "caps the observation limit at 1000 seconds when the runner job timeout is higher" do
+      now = 0.0
+
+      command.instance_variable_set(:@job_timeout, 2_000)
+      allow(command).to receive(:step).and_call_original
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+      allow(cp).to receive(:fetch_workload_replicas)
+        .with("rails-runner", location: "aws-us-east-2") do
+          now = 1_001.0
+          { "items" => [] }
+        end
+      allow(cp).to receive(:fetch_cron_workload)
+
+      expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+        expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+      end
+
+      expect(progress.string).to include("observation limit: 1000 seconds", "status: unavailable")
+      expect(cp).not_to have_received(:fetch_cron_workload)
+    end
+
+    [nil, "active", "pending"].each do |status|
+      it "stops polling at the monotonic deadline when the cron status is #{status || 'unavailable'}" do
+        now = 0.0
+        sleeps = []
+        expected_status = status || "unavailable"
+        job_items = status ? [{ "id" => "job-123", "status" => status }] : []
+
+        command.instance_variable_set(:@job_timeout, 0.25)
+        allow(command).to receive(:step).and_call_original
+        allow(command).to receive(:progress).and_return(progress)
+        allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { now }
+        allow(Kernel).to receive(:sleep) do |duration|
+          sleeps << duration
+          now += duration
+        end
+        allow(cp).to receive(:fetch_workload_replicas)
+          .with("rails-runner", location: "aws-us-east-2")
+          .and_return({ "items" => [] })
+        allow(cp).to receive(:fetch_cron_workload)
+          .with("rails-runner", location: "aws-us-east-2")
+          .and_return({ "items" => job_items })
+
+        expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
+        end
+
+        expect(progress.string).to include("observation limit: 0.25 seconds", "status: #{expected_status}")
+        expect(sleeps).to eq([0.25])
+        expect(cp).to have_received(:fetch_workload_replicas).once
+        expect(cp).to have_received(:fetch_cron_workload).once
+      end
     end
 
     it "stops waiting when the cron job finishes before a replica is observed" do

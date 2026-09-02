@@ -483,6 +483,16 @@ describe ControlplaneApiDirect do
       expect(slept_delays).to eq([7])
     end
 
+    it "retries a POST after a 429 response and honors Retry-After" do
+      allow(http_connection).to receive(:request)
+        .and_return(http_response(Net::HTTPTooManyRequests, 429, headers: { "Retry-After" => "7" }), ok_response)
+
+      expect(described_instance.call("/org/my-org/gvc", method: :post, body: { name: "gvc" }))
+        .to eq({ "result" => "ok" })
+      expect(http_connection).to have_received(:request).twice
+      expect(slept_delays).to eq([7])
+    end
+
     it "caps an excessive Retry-After value" do
       allow(http_connection).to receive(:request)
         .and_return(http_response(Net::HTTPTooManyRequests, 429, headers: { "Retry-After" => "9999" }), ok_response)

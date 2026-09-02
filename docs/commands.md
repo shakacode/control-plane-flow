@@ -481,6 +481,8 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   and also overridden per job through `--cpu` and `--memory`)
 - By default, the job is stopped if it takes longer than 6 hours to finish
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
+- Waiting for a runner replica is limited to the smaller of `runner_job_timeout` and 1000 seconds.
+  A terminal cron status fails immediately, and reaching the observation deadline reports the last safe status
 - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
   Control Plane exposes a runner replica to attach logs to
 - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
@@ -517,7 +519,8 @@ cpflow run -a $APP_NAME -- rails db:migrate
 # - stop the job
 cpflow run -a $APP_NAME --detached -- rails db:migrate
 
-# The command needs to be quoted if setting an env variable or passing args.
+# Quote the whole command to intentionally opt into shell syntax such as an env assignment.
+# Separately supplied command arguments are passed literally.
 cpflow run -a $APP_NAME -- 'SOME_ENV_VAR=some_value rails db:migrate'
 
 # Uses a different image (which may not be promoted yet).

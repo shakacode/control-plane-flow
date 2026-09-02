@@ -54,8 +54,10 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
 
   API_TOKEN_EXPIRY_SECONDS = 300
 
-  # Only GET is retried after the request may have reached the server. The
-  # remaining verbs mutate state, so they only retry connect-phase failures.
+  # GET alone retries 5xx responses or transport failures after the request may
+  # have reached the server. Every method may retry an explicit 429 response.
+  # DELETE stays out of this set because after other errors the client cannot
+  # know whether deletion applied server-side.
   IDEMPOTENT_METHODS = %i[get].freeze
 
   # Bounded so a retried connect failure fits within the retry deadline.
@@ -170,10 +172,12 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
       Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
-    # Whether to retry a 429/5xx response received for an idempotent request.
+    # Retries 429 responses for every method, but limits 5xx retries to
+    # idempotent requests.
     def retry_response?(response, idempotent)
-      retriable = response.is_a?(Net::HTTPServerError) || response.is_a?(Net::HTTPTooManyRequests)
-      return false unless idempotent && retriable
+      retriable = response.is_a?(Net::HTTPTooManyRequests) ||
+                  (idempotent && response.is_a?(Net::HTTPServerError))
+      return false unless retriable
 
       retry?(retry_after: response["Retry-After"])
     end
@@ -290,6 +294,9 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
   def transport_request(uri, request, request_policy)
     http = build_http(uri, request_policy)
     http.start
+    # Set request_sent before `http.request` deliberately: a reset before bytes
+    # are written is indistinguishable from one after a partial write, so treat
+    # both as sent conservatively.
     yield
     begin
       http.request(request)
