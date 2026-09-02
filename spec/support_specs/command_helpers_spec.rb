@@ -3,6 +3,77 @@
 require "spec_helper"
 
 describe CommandHelpers do
+  describe "command logging" do
+    it "redacts a sensitive value embedded in a command argument" do
+      sensitive_value = "opaque-sensitive-value"
+      sensitive_pattern = /#{Regexp.escape(sensitive_value)}/
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command(
+          "run", "-a", "test-app", "--", "echo #{sensitive_value}",
+          sensitive_data_pattern: sensitive_pattern
+        )
+
+        contents = File.read(log_file.path)
+        expect(contents).not_to include(sensitive_value)
+        expect(contents).to include("echo XXXXXXX")
+      end
+    end
+
+    it "forwards redaction through the raising command helper" do
+      sensitive_value = "opaque-sensitive-value"
+      sensitive_pattern = /#{Regexp.escape(sensitive_value)}/
+      command_args = ["run", "-a", "test-app", "--", "echo #{sensitive_value}"]
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start)
+
+        run_cpflow_command!(*command_args, sensitive_data_pattern: sensitive_pattern)
+
+        expect(Cpflow::Cli).to have_received(:start).with(command_args)
+        expect(File.read(log_file.path)).not_to include(sensitive_value)
+      end
+    end
+
+    it "redacts a failing bang command from its log and raised result" do
+      sensitive_value = "opaque-sensitive-value"
+      sensitive_pattern = /#{Regexp.escape(sensitive_value)}/
+
+      Tempfile.create("cpflow-command-log") do |log_file|
+        stub_const("LogHelpers::LOG_FILE", log_file.path)
+        allow(Cpflow::Cli).to receive(:start) do
+          $stdout.puts("stdout #{sensitive_value}")
+          warn("stderr #{sensitive_value}")
+          exit(ExitCode::ERROR_DEFAULT)
+        end
+
+        run_command = lambda do
+          run_cpflow_command!(
+            "run", "-a", "test-app", "--", "echo #{sensitive_value}",
+            sensitive_data_pattern: sensitive_pattern
+          )
+        end
+        redacted_error = raise_error(RuntimeError) do |error|
+          expect(error.message).not_to include(sensitive_value)
+          expect(JSON.parse(error.message)).to include(
+            "status" => ExitCode::ERROR_DEFAULT,
+            "stdout" => "stdout XXXXXXX\n",
+            "stderr" => "stderr XXXXXXX\n"
+          )
+        end
+        expect { run_command.call }.to redacted_error
+
+        contents = File.read(log_file.path)
+        expect(contents).not_to include(sensitive_value)
+        expect(contents).to include("echo XXXXXXX", "stdout XXXXXXX", "stderr XXXXXXX")
+      end
+    end
+  end
+
   describe "DUMMY_TEST_APP_NAME_PATTERN" do
     it "matches every app name the dummy app helpers can generate" do
       names = [

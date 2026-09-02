@@ -111,6 +111,9 @@ module Command
     DEFAULT_JOB_HISTORY_LIMIT = 10
     MAX_REPLICA_OBSERVATION_SECONDS = 1_000
     REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS = 1
+    POST_TERMINAL_LOG_DRAIN_SECONDS = 30
+    POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS = 1
+    JOB_STATUS_UNAVAILABLE_RETRY_LIMIT = 5
     NORMALIZED_JOB_STATUS_PATTERN = /\A[a-z][a-z0-9_-]{0,31}\z/
     MAGIC_END = "---cpflow run command finished---"
 
@@ -642,20 +645,32 @@ module Command
       )
     end
 
-    def resolve_job_status # rubocop:disable Metrics/MethodLength
+    def resolve_job_status(unavailable_status_retry_limit: 0)
+      unavailable_status_retries = 0
+
       loop do
         status = current_job_status
+        unavailable_is_pending = status.nil? && unavailable_status_retries < unavailable_status_retry_limit
+        exit_status = job_exit_status(status, unavailable_is_pending: unavailable_is_pending)
+        break exit_status if exit_status
 
-        Shell.debug("JOB STATUS", status)
+        unavailable_status_retries = status.nil? ? unavailable_status_retries + 1 : 0
+        sleep 1
+      end
+    end
 
-        case status
-        when "active", "pending"
-          sleep 1
-        when "successful"
-          break ExitCode::SUCCESS
-        else
-          break ExitCode::ERROR_DEFAULT
-        end
+    def current_job_exit_status(unavailable_is_pending: false)
+      job_exit_status(current_job_status, unavailable_is_pending: unavailable_is_pending)
+    end
+
+    def job_exit_status(status, unavailable_is_pending:)
+      Shell.debug("JOB STATUS", status)
+
+      case status
+      when nil then unavailable_is_pending ? nil : ExitCode::ERROR_DEFAULT
+      when "active", "pending" then nil
+      when "successful" then ExitCode::SUCCESS
+      else ExitCode::ERROR_DEFAULT
       end
     end
 
@@ -668,25 +683,34 @@ module Command
     ###########################################
     ### temporary extaction from run:detached
     ###########################################
-    def show_logs_waiting # rubocop:disable Metrics/MethodLength
+    # The branches model the three log states, the terminal job status, and the finite drain deadline.
+    def show_logs_waiting # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       retries = 0
-      begin
-        job_finished_count = 0
-        loop do
-          case print_uniq_logs
-          when :finished
-            break
-          when :changed
-            next
-          else
-            job_finished_count += 1 if resolve_job_status
-            break if job_finished_count > 5
+      exit_status = nil
+      post_terminal_deadline = nil
 
-            sleep(1)
-          end
+      begin
+        loop do
+          break if post_terminal_deadline && monotonic_time >= post_terminal_deadline
+
+          log_state = print_uniq_logs
+          break if log_state == :finished
+
+          exit_status ||= if log_state == :changed
+                            current_job_exit_status(unavailable_is_pending: true)
+                          else
+                            resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
+                          end
+          post_terminal_deadline ||= monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS if exit_status
+          next unless exit_status
+
+          remaining = post_terminal_deadline - monotonic_time
+          break unless remaining.positive?
+
+          Kernel.sleep([POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS, remaining].min)
         end
 
-        resolve_job_status
+        exit_status || resolve_job_status
       rescue RuntimeError => e
         raise "#{e} Exiting..." unless retries < 10 # MAX_RETRIES
 

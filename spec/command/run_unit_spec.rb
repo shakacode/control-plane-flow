@@ -384,6 +384,191 @@ describe Command::Run do
     end
   end
 
+  describe "#show_logs_waiting" do
+    let(:command) { described_class.allocate }
+    let(:progress) { instance_double(IO, puts: nil) }
+
+    it "drains delayed logs for a bounded window after the job finishes and preserves its exit status" do
+      now = 0.0
+
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(7, :unchanged), :finished)
+      allow(command).to receive(:resolve_job_status).and_return(ExitCode::ERROR_DEFAULT)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).exactly(8).times
+      expect(command).to have_received(:resolve_job_status).once
+      expect(Kernel).to have_received(:sleep).with(1).exactly(7).times
+    end
+
+    it "stops draining when the post-terminal log window expires" do
+      now = 0.0
+
+      allow(command).to receive_messages(
+        print_uniq_logs: :unchanged,
+        resolve_job_status: ExitCode::SUCCESS
+      )
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).exactly(30).times
+      expect(command).to have_received(:resolve_job_status).once
+      expect(Kernel).to have_received(:sleep).with(1).exactly(30).times
+    end
+
+    it "does not let changing log entries extend the post-terminal deadline" do
+      now = 0.0
+      log_requests = 0
+
+      allow(command).to receive(:print_uniq_logs) do
+        log_requests += 1
+        now += 5
+        log_requests <= 7 ? :changed : :finished
+      end
+      allow(command).to receive_messages(
+        current_job_status: "failed",
+        resolve_job_status: ExitCode::ERROR_DEFAULT
+      )
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).exactly(6).times
+      expect(command).to have_received(:current_job_status).once
+      expect(command).not_to have_received(:resolve_job_status)
+      expect(Kernel).to have_received(:sleep).with(1).exactly(5).times
+    end
+
+    it "keeps an unavailable cron status nonterminal while logs are still arriving" do
+      now = 0.0
+
+      allow(command).to receive(:print_uniq_logs).and_return(:changed, :changed, :finished)
+      allow(command).to receive(:current_job_status).and_return(nil, "successful")
+      allow(command).to receive(:resolve_job_status).and_return(ExitCode::ERROR_DEFAULT)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).exactly(3).times
+      expect(command).to have_received(:current_job_status).twice
+      expect(command).not_to have_received(:resolve_job_status)
+      expect(Kernel).to have_received(:sleep).with(1).once
+    end
+
+    it "does not cache a transient unavailable cron status while logs are quiet" do
+      now = 0.0
+
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:current_job_status).and_return(nil, "successful")
+      allow(command).to receive(:monotonic_time) { now }
+      allow(command).to receive(:sleep) { |duration| now += duration }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).twice
+      expect(command).to have_received(:current_job_status).twice
+      expect(command).to have_received(:sleep).with(1).once
+      expect(Kernel).to have_received(:sleep).with(1).once
+    end
+
+    it "bounds unavailable cron status retries while logs are quiet" do
+      now = 0.0
+
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:current_job_status).and_return(nil)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(command).to receive(:sleep) { |duration| now += duration }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).twice
+      expect(command).to have_received(:current_job_status).exactly(6).times
+      expect(command).to have_received(:sleep).with(1).exactly(5).times
+      expect(Kernel).to have_received(:sleep).with(1).once
+    end
+
+    it "keeps an unavailable cron status fail-closed in the blocking resolver" do
+      allow(command).to receive(:current_job_status).and_return(nil)
+
+      result = command.send(:resolve_job_status)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:current_job_status).once
+    end
+
+    it "honors a finished result from a log request that crosses the deadline" do
+      now = 0.0
+      log_requests = 0
+
+      allow(command).to receive(:print_uniq_logs) do
+        log_requests += 1
+        if log_requests == 1
+          :unchanged
+        else
+          now = 31.0
+          :finished
+        end
+      end
+      allow(command).to receive(:resolve_job_status).and_return(ExitCode::SUCCESS)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { now = 29.0 }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).twice
+      expect(command).to have_received(:resolve_job_status).once
+    end
+
+    it "preserves the terminal status and deadline across a transient log error" do
+      now = 0.0
+      log_requests = 0
+
+      allow(command).to receive(:print_uniq_logs) do
+        log_requests += 1
+        case log_requests
+        when 1
+          :changed
+        when 2
+          now = 31.0
+          raise "temporary log API failure"
+        else
+          :finished
+        end
+      end
+      allow(command).to receive_messages(
+        current_job_status: "failed",
+        resolve_job_status: ExitCode::ERROR_DEFAULT,
+        progress: progress
+      )
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).twice
+      expect(command).to have_received(:current_job_status).once
+      expect(command).not_to have_received(:resolve_job_status)
+      expect(Kernel).to have_received(:sleep).with(1).once
+    end
+  end
+
   describe "#wait_for_replica_for_job" do
     let(:config) { instance_double(Config) }
     let(:cp) { instance_double(Controlplane) }

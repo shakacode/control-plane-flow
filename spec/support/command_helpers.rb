@@ -213,8 +213,8 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     app
   end
 
-  def run_cpflow_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
-    LogHelpers.write_command_to_log(args.join(" "))
+  def run_cpflow_command(*args, raise_errors: false, sensitive_data_pattern: nil) # rubocop:disable Metrics/MethodLength
+    LogHelpers.write_command_to_log(args.join(" "), sensitive_data_pattern: sensitive_data_pattern)
     register_app_to_delete(args)
 
     result = {
@@ -239,15 +239,18 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     result[:stderr] = restore_stderr(original_stderr)
     result[:stdout] = restore_stdout(original_stdout)
 
-    LogHelpers.write_command_result_to_log(result)
+    LogHelpers.write_command_result_to_log(result, sensitive_data_pattern: sensitive_data_pattern)
 
-    raise result.to_json if result[:status].nonzero? && raise_errors
+    if result[:status].nonzero? && raise_errors
+      redacted_result = LogHelpers.redact_command_result(result, sensitive_data_pattern: sensitive_data_pattern)
+      raise redacted_result.to_json
+    end
 
     result
   end
 
-  def run_cpflow_command!(*args)
-    run_cpflow_command(*args, raise_errors: true)
+  def run_cpflow_command!(*args, sensitive_data_pattern: nil)
+    run_cpflow_command(*args, raise_errors: true, sensitive_data_pattern: sensitive_data_pattern)
   end
 
   def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true) # rubocop:disable Metrics/MethodLength
