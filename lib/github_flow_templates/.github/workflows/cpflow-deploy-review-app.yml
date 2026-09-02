@@ -13,8 +13,13 @@ on:
         description: Pull request number to deploy
         required: true
         type: number
+      reconcile_intent_run_id:
+        description: Authenticated internal handoff; manual values are rejected
+        required: false
+        type: string
 
 permissions:
+  actions: write
   contents: read
   deployments: write
   issues: write
@@ -24,6 +29,8 @@ jobs:
   # The reusable job exposes `image_built`; downstream jobs can read
   # `needs.deploy.outputs.image_built`. A value of `false` means this check did not validate the Docker image.
   deploy:
+    # author_association is a cheap caller-side cost filter. The reusable workflow
+    # still checks the commenter's current repository permission before privileged work.
     if: |
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository) ||

@@ -17,42 +17,577 @@ on:
         required: false
 
 permissions:
+  actions: write
   contents: read
   deployments: write
   issues: write
   pull-requests: write
-
-concurrency:
-  group: cpflow-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
-  # Match the delete workflow: a cancelled `cpflow deploy-image` mid-rollout can leave the
-  # review app in a partially-deployed state (workload update in progress, rollout not
-  # settled). Let an in-flight deploy finish before the next push starts a new run.
-  cancel-in-progress: false
 
 env:
   PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   PRIMARY_WORKLOAD: ${{ vars.PRIMARY_WORKLOAD }}
 
 jobs:
+  authorize-comment-command:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      allowed: ${{ steps.record.outputs.accepted || steps.intent.outputs.reuse }}
+    steps:
+      - name: Resolve comment author repository permission
+        if: github.event_name == 'issue_comment'
+        id: permission
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          set -euo pipefail
+
+          printf '%s\n' 'allowed=false' >> "$GITHUB_OUTPUT"
+          permission="$(gh api --method GET "repos/${GH_REPO}/collaborators/${COMMENT_AUTHOR}/permission" --jq '.permission')"
+
+          if [[ -z "${permission}" ]]; then
+            echo "GitHub returned an empty repository permission." >&2
+            exit 1
+          fi
+
+          case "${permission}" in
+            write|maintain|admin)
+              printf '%s\n' 'allowed=true' >> "$GITHUB_OUTPUT"
+              ;;
+            read|triage|none)
+              echo "Comment author repository permission does not allow review-app commands: ${permission}"
+              ;;
+            *)
+              echo "Unexpected repository permission: ${permission}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Allow authenticated non-comment trigger
+        if: github.event_name != 'issue_comment'
+        id: non-comment
+        shell: bash
+        run: echo "allowed=true" >> "$GITHUB_OUTPUT"
+
+      # Persist a durable accepted-event marker before queue admission. The
+      # original comment may later be edited/deleted, and authorization jobs can
+      # finish out of event order, so the marker carries the workflow run's own
+      # creation time and id rather than relying on marker creation order.
+      - name: Prepare accepted review app intent
+        id: intent
+        if: |
+          (steps.permission.outputs.allowed == 'true' || steps.non-comment.outputs.allowed == 'true') &&
+          ((github.event_name == 'issue_comment' &&
+            github.event.issue.pull_request &&
+            contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body)) ||
+           (github.event_name == 'pull_request' &&
+            contains(fromJson('["opened","synchronize","reopened"]'), github.event.action)) ||
+           github.event_name == 'workflow_dispatch')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+          OPERATION: deploy
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_ACTOR: ${{ github.event.comment.user.login || github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          RECONCILE_INTENT_RUN_ID: ${{ github.event.inputs.reconcile_intent_run_id }}
+        run: |
+          set -euo pipefail
+
+          printf '%s\n' 'record=false' 'reuse=false' >> "$GITHUB_OUTPUT"
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ || ! "${RUN_ID}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request or workflow run id while recording review-app intent." >&2
+            exit 1
+          fi
+          case "${OPERATION}" in
+            deploy|delete) ;;
+            *) echo "Invalid review-app operation: ${OPERATION}" >&2; exit 1 ;;
+          esac
+          case "${EVENT_NAME}" in
+            issue_comment|workflow_dispatch|pull_request|pull_request_target) ;;
+            *) echo "Invalid review-app event: ${EVENT_NAME}" >&2; exit 1 ;;
+          esac
+          if [[ -z "${SOURCE_ACTOR}" ]]; then
+            echo "Review-app intent is missing its source actor." >&2
+            exit 1
+          fi
+
+          pull_request_json="$(
+            gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}"
+          )"
+          head_repository="$(jq -r '.head.repo.full_name // empty' <<< "${pull_request_json}")"
+          pull_request_state="$(jq -r '.state // empty' <<< "${pull_request_json}")"
+          case "${pull_request_state}" in
+            open) ;;
+            closed)
+              echo "Refusing review-app deploy intent because PR #${PR_NUMBER} is closed."
+              exit 0
+              ;;
+            "")
+              echo "GitHub returned an empty pull request state while preparing review-app deploy intent." >&2
+              exit 1
+              ;;
+            *)
+              echo "Unexpected pull request state while preparing review-app deploy intent: ${pull_request_state}" >&2
+              exit 1
+              ;;
+          esac
+          if [[ -z "${head_repository}" ]]; then
+            echo "GitHub returned an empty head repository while preparing review-app deploy intent." >&2
+            exit 1
+          fi
+          if [[ "${head_repository}" != "${GH_REPO}" ]]; then
+            echo "Review app deploys are skipped for fork pull requests."
+            exit 0
+          fi
+
+          if [[ -n "${RECONCILE_INTENT_RUN_ID}" ]]; then
+            if [[ ! "${RECONCILE_INTENT_RUN_ID}" =~ ^[0-9]+$ ]]; then
+              echo "Invalid internal review-app sequencing token." >&2
+              exit 1
+            fi
+
+            handoff=""
+            for _attempt in {1..10}; do
+              comments_json="$(
+                gh api --paginate --slurp --method GET \
+                  "repos/${GH_REPO}/issues/${PR_NUMBER}/comments?per_page=100"
+              )"
+              handoff="$(
+                jq -c \
+                  --argjson pr "${PR_NUMBER}" \
+                  --arg operation "${OPERATION}" \
+                  --argjson intent_run_id "${RECONCILE_INTENT_RUN_ID}" \
+                  --argjson dispatch_run_id "${RUN_ID}" '
+                    [
+                      .[][]?
+                      | select(.user.login == "github-actions[bot]")
+                      | .body
+                      | select(type == "string")
+                      | select(startswith("<!-- cpflow-review-app-redispatch-v1 ") and endswith(" -->"))
+                      | ltrimstr("<!-- cpflow-review-app-redispatch-v1 ")
+                      | rtrimstr(" -->")
+                      | fromjson?
+                      | select(
+                          .pr == $pr and
+                          .operation == $operation and
+                          .intent_run_id == $intent_run_id and
+                          .dispatch_run_id == $dispatch_run_id
+                        )
+                      | select(
+                          (.source_run_id | type) == "number" and
+                          .source_run_id > 0 and
+                          (.source_run_id | floor) == .source_run_id
+                        )
+                      | select(
+                          (.created_at | type) == "string" and
+                          (.created_at | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
+                        )
+                    ]
+                    | if length == 1 then .[0] else empty end
+                  ' <<< "${comments_json}"
+              )"
+              [[ -n "${handoff}" ]] && break
+              sleep 1
+            done
+            if [[ -z "${handoff}" ]]; then
+              echo "Internal review-app sequencing token is not bound to this workflow run." >&2
+              exit 1
+            fi
+
+            source_run_id="$(jq -r '.source_run_id' <<< "${handoff}")"
+            source_created_at="$(jq -r '.created_at' <<< "${handoff}")"
+            case "${OPERATION}" in
+              deploy)
+                source_operation="delete"
+                expected_run_name="Delete Review App - PR #${PR_NUMBER}"
+                expected_job_name="delete-review-app / delete-review-app"
+                ;;
+              delete)
+                source_operation="deploy"
+                expected_run_name="Deploy Review App - PR #${PR_NUMBER}"
+                expected_job_name="deploy / deploy"
+                ;;
+            esac
+            expected_workflow_path=".github/workflows/cpflow-${source_operation}-review-app.yml"
+            source_run_json="$(
+              gh api --method GET "repos/${GH_REPO}/actions/runs/${source_run_id}"
+            )"
+            if ! jq -e \
+              --argjson run_id "${source_run_id}" \
+              --arg created_at "${source_created_at}" \
+              --arg path "${expected_workflow_path}" \
+              --arg title "${expected_run_name}" \
+              '(.id == $run_id) and
+               (.created_at == $created_at) and
+               (.path == $path) and
+               (.display_title == $title)' \
+              <<< "${source_run_json}" >/dev/null
+            then
+              echo "Internal review-app handoff does not match its source workflow run." >&2
+              exit 1
+            fi
+
+            handoff_verified=false
+            for _attempt in {1..10}; do
+              source_jobs_json="$(
+                gh api --paginate --slurp --method GET \
+                  "repos/${GH_REPO}/actions/runs/${source_run_id}/jobs?filter=all&per_page=100"
+              )"
+              if jq -e --arg job_name "${expected_job_name}" '
+                [
+                  .[]?.jobs[]?
+                  | select(.name == $job_name)
+                  | .steps[]?
+                  | select(.name == "Dispatch latest accepted review app intent" and .conclusion == "success")
+                ]
+                | length > 0
+              ' <<< "${source_jobs_json}" >/dev/null
+              then
+                handoff_verified=true
+                break
+              fi
+              sleep 1
+            done
+            if [[ "${handoff_verified}" != "true" ]]; then
+              echo "Internal review-app handoff was not issued by the expected successful redispatch step." >&2
+              exit 1
+            fi
+
+            printf '%s\n' 'reuse=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          run_created_at="$(
+            gh api --method GET "repos/${GH_REPO}/actions/runs/${RUN_ID}" --jq '.created_at'
+          )"
+          if [[ ! "${run_created_at}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+            echo "GitHub returned an invalid workflow run creation time." >&2
+            exit 1
+          fi
+
+          intent_json="$(
+            jq -cn \
+              --argjson pr "${PR_NUMBER}" \
+              --arg operation "${OPERATION}" \
+              --arg event "${EVENT_NAME}" \
+              --arg actor "${SOURCE_ACTOR}" \
+              --argjson run_id "${RUN_ID}" \
+              --arg created_at "${run_created_at}" \
+              '{pr: $pr, operation: $operation, event: $event, actor: $actor, run_id: $run_id, created_at: $created_at}'
+          )"
+          intent_body="<!-- cpflow-review-app-intent-v1 ${intent_json} -->"
+          printf '%s\n' "body=${intent_body}" 'record=true' >> "$GITHUB_OUTPUT"
+
+      - name: Record accepted review app intent
+        if: steps.intent.outputs.record == 'true'
+        id: record
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+          INTENT_BODY: ${{ steps.intent.outputs.body }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]] ||
+             [[ ! "${INTENT_BODY}" =~ ^\<\!--\ cpflow-review-app-intent-v1\ \{.*\}\ --\>$ ]]; then
+            echo "Invalid prepared review-app intent." >&2
+            exit 1
+          fi
+          gh api --silent --method POST "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
+            -f "body=${INTENT_BODY}"
+          printf '%s\n' 'accepted=true' >> "$GITHUB_OUTPUT"
+
   deploy:
+    needs: authorize-comment-command
     # Skip synchronize/opened events from fork PRs at the job level — they cannot access
     # repository secrets anyway, so running any steps just burns billable minutes. Users
-    # can still manually deploy a fork PR via `+review-app-deploy` (gated below by
-    # author_association) or workflow_dispatch.
+    # can still request a fork PR deploy via `+review-app-deploy` (gated above by
+    # repository permission) or workflow_dispatch, but the source guard below prevents it.
     if: |
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository) ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request &&
-       contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body) &&
-       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+      needs.authorize-comment-command.outputs.allowed == 'true' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+       github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(fromJson('["+review-app-deploy","+review-app-deploy\n","+review-app-deploy\r\n"]'), github.event.comment.body)))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
       image_built: ${{ steps.build-image.outcome == 'success' }}
+    concurrency:
+      group: cpflow-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+      # Enter the shared deploy/delete queue only after comment authorization. A denied
+      # public comment must not displace a legitimate pending review-app operation.
+      # Let an in-flight deploy finish because cancellation can leave a partial rollout.
+      cancel-in-progress: false
 
     steps:
+      # GitHub keeps only one pending member of a concurrency group and may replace
+      # it without FIFO ordering. Reconcile the newest authenticated accepted intent so
+      # whichever job survives applies (or redispatches) the requested final state.
+      - name: Reconcile latest accepted review app intent
+        id: intent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CURRENT_OPERATION: deploy
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid pull request id while reconciling review-app intent." >&2
+            exit 1
+          fi
+          case "${CURRENT_OPERATION}" in
+            deploy|delete) ;;
+            *) echo "Invalid current review-app operation: ${CURRENT_OPERATION}" >&2; exit 1 ;;
+          esac
+
+          comments_json="$(
+            gh api --paginate --slurp --method GET \
+              "repos/${GH_REPO}/issues/${PR_NUMBER}/comments?per_page=100"
+          )"
+          intents_json="$(
+            jq -c --argjson pr "${PR_NUMBER}" '
+              [
+                .[][]?
+                | select(.user.login == "github-actions[bot]")
+                | .body
+                | select(type == "string")
+                | select(startswith("<!-- cpflow-review-app-intent-v1 ") and endswith(" -->"))
+                | ltrimstr("<!-- cpflow-review-app-intent-v1 ")
+                | rtrimstr(" -->")
+                | fromjson?
+                | select(.pr == $pr)
+                | select(
+                    (.operation == "deploy" and
+                     (.event == "issue_comment" or
+                      .event == "workflow_dispatch" or
+                      .event == "pull_request")) or
+                    (.operation == "delete" and
+                     (.event == "issue_comment" or
+                      .event == "workflow_dispatch" or
+                      .event == "pull_request_target"))
+                  )
+                | select((.actor | type) == "string" and (.actor | length) > 0)
+                | select((.run_id | type) == "number" and .run_id > 0 and (.run_id | floor) == .run_id)
+                | select(
+                    (.created_at | type) == "string" and
+                    (.created_at | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
+                  )
+              ]
+              | sort_by([.created_at, .run_id])
+              | reverse
+            ' <<< "${comments_json}"
+          )"
+          latest_intent="$(jq -c '.[0] // empty' <<< "${intents_json}")"
+          if [[ -z "${latest_intent}" ]]; then
+            echo "No accepted review-app intent exists for PR #${PR_NUMBER}." >&2
+            exit 1
+          fi
+
+          latest_operation="$(jq -r '.operation' <<< "${latest_intent}")"
+          latest_event="$(jq -r '.event' <<< "${latest_intent}")"
+          latest_actor="$(jq -r '.actor' <<< "${latest_intent}")"
+          latest_run_id="$(jq -r '.run_id' <<< "${latest_intent}")"
+          latest_created_at="$(jq -r '.created_at' <<< "${latest_intent}")"
+          expected_workflow_path=".github/workflows/cpflow-${latest_operation}-review-app.yml"
+          case "${latest_operation}" in
+            deploy) expected_run_name="Deploy Review App - PR #${PR_NUMBER}" ;;
+            delete) expected_run_name="Delete Review App - PR #${PR_NUMBER}" ;;
+          esac
+          source_run_json="$(
+            gh api --method GET "repos/${GH_REPO}/actions/runs/${latest_run_id}"
+          )"
+          if ! jq -e \
+            --argjson run_id "${latest_run_id}" \
+            --arg event "${latest_event}" \
+            --arg actor "${latest_actor}" \
+            --arg created_at "${latest_created_at}" \
+            --arg path "${expected_workflow_path}" \
+            --arg title "${expected_run_name}" \
+            --arg repo "${GH_REPO}" \
+            --argjson pr "${PR_NUMBER}" \
+            '(.id == $run_id) and
+             (.event == $event) and
+             (.actor.login == $actor) and
+             (.created_at == $created_at) and
+             (.path == $path) and
+             (.display_title == $title) and
+             ($event != "pull_request" or
+              (([.pull_requests[]?.number] | index($pr)) != null and
+               .head_repository.full_name == $repo))' \
+            <<< "${source_run_json}" >/dev/null
+          then
+            echo "Latest review-app intent does not match its originating workflow run." >&2
+            exit 1
+          fi
+          source_jobs_json="$(
+            gh api --paginate --slurp --method GET \
+              "repos/${GH_REPO}/actions/runs/${latest_run_id}/jobs?filter=all&per_page=100"
+          )"
+          if ! jq -e '
+            [
+              .[]?.jobs[]?
+              | select(
+                  .name == "authorize-comment-command" or
+                  (.name | endswith(" / authorize-comment-command"))
+                )
+              | .steps[]?
+              | select(.name == "Record accepted review app intent" and .conclusion == "success")
+            ]
+            | length > 0
+          ' <<< "${source_jobs_json}" >/dev/null
+          then
+            echo "Latest review-app intent was not emitted by a successful recording step." >&2
+            exit 1
+          fi
+          if [[ "${latest_event}" == "issue_comment" || "${latest_event}" == "workflow_dispatch" ]]; then
+            permission="$(
+              gh api --method GET \
+                "repos/${GH_REPO}/collaborators/${latest_actor}/permission" \
+                --jq '.permission'
+            )"
+            case "${permission}" in
+              write|maintain|admin) ;;
+              read|triage|none)
+                echo "Latest review-app intent actor no longer has permission to run it: ${permission}." >&2
+                exit 1
+                ;;
+              "")
+                echo "GitHub returned an empty permission for the latest review-app intent actor." >&2
+                exit 1
+                ;;
+              *)
+                echo "Unexpected repository permission for the latest review-app intent actor: ${permission}" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          if [[ "${latest_operation}" != "${CURRENT_OPERATION}" ]]; then
+            printf '%s\n' \
+              'redispatch=true' \
+              "operation=${latest_operation}" \
+              "run_id=${latest_run_id}" >> "$GITHUB_OUTPUT"
+            echo "Latest accepted ${latest_operation} intent requires a canonical redispatch."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            'redispatch=false' \
+            "operation=${latest_operation}" \
+            "run_id=${latest_run_id}" \
+            "event=${latest_event}" >> "$GITHUB_OUTPUT"
+          echo "Applying latest accepted ${latest_operation} intent from workflow run ${latest_run_id}."
+
+      - name: Dispatch latest accepted review app intent
+        id: redispatch
+        if: steps.intent.outputs.redispatch == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_OPERATION: deploy
+          TARGET_OPERATION: ${{ steps.intent.outputs.operation }}
+          INTENT_RUN_ID: ${{ steps.intent.outputs.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ || ! "${INTENT_RUN_ID}" =~ ^[0-9]+$ ||
+                ! "${GITHUB_RUN_ID}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid run identity while redispatching review-app intent." >&2
+            exit 1
+          fi
+          case "${SOURCE_OPERATION}:${TARGET_OPERATION}" in
+            deploy:delete|delete:deploy) ;;
+            *) echo "Invalid review-app redispatch operation pair." >&2; exit 1 ;;
+          esac
+
+          default_branch="$(gh api --method GET "repos/${GH_REPO}" --jq '.default_branch')"
+          if [[ -z "${default_branch}" ]]; then
+            echo "GitHub returned an empty default branch while redispatching review-app intent." >&2
+            exit 1
+          fi
+          workflow_file="cpflow-${TARGET_OPERATION}-review-app.yml"
+          dispatch_json="$(
+            gh api --method POST \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/${GH_REPO}/actions/workflows/${workflow_file}/dispatches" \
+              -f "ref=${default_branch}" \
+              -f "inputs[pr_number]=${PR_NUMBER}" \
+              -f "inputs[reconcile_intent_run_id]=${INTENT_RUN_ID}"
+          )"
+          dispatched_run_id="$(jq -r '.workflow_run_id // empty' <<< "${dispatch_json}")"
+          if [[ ! "${dispatched_run_id}" =~ ^[0-9]+$ ]]; then
+            echo "GitHub did not return a valid workflow run id for the review-app redispatch." >&2
+            exit 1
+          fi
+          source_created_at="$(
+            gh api --method GET "repos/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}" --jq '.created_at'
+          )"
+          if [[ ! "${source_created_at}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+            echo "GitHub returned an invalid source run creation time for the review-app redispatch." >&2
+            exit 1
+          fi
+          handoff_json="$(
+            jq -cn \
+              --argjson pr "${PR_NUMBER}" \
+              --arg operation "${TARGET_OPERATION}" \
+              --argjson intent_run_id "${INTENT_RUN_ID}" \
+              --argjson dispatch_run_id "${dispatched_run_id}" \
+              --argjson source_run_id "${GITHUB_RUN_ID}" \
+              --arg created_at "${source_created_at}" \
+              '{pr: $pr, operation: $operation, intent_run_id: $intent_run_id,
+                dispatch_run_id: $dispatch_run_id, source_run_id: $source_run_id,
+                created_at: $created_at}'
+          )"
+          handoff_body="<!-- cpflow-review-app-redispatch-v1 ${handoff_json} -->"
+          gh api --silent --method POST "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
+            -f "body=${handoff_body}"
+          echo "Redispatched ${TARGET_OPERATION} for latest accepted review-app intent run ${INTENT_RUN_ID}."
+
+      - name: Stop superseded review app operation
+        if: steps.intent.outputs.redispatch == 'true'
+        shell: bash
+        env:
+          TARGET_OPERATION: ${{ steps.intent.outputs.operation }}
+          INTENT_RUN_ID: ${{ steps.intent.outputs.run_id }}
+        run: |
+          echo "Stopped superseded operation after redispatching ${TARGET_OPERATION} intent ${INTENT_RUN_ID}." >&2
+          exit 1
+
+      # Re-read live PR state after intent reconciliation so a close-triggered
+      # delete that ran first cannot be followed by a stale deploy recreation.
+      - name: Verify pull request is still open
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          pr_state="$(gh api --method GET "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.state')"
+          if [[ "${pr_state}" != "open" ]]; then
+            echo "Refusing stale review-app deploy because PR #${PR_NUMBER} is ${pr_state:-unknown}." >&2
+            exit 1
+          fi
+
       - name: React to deploy command
         if: github.event_name == 'issue_comment'
         continue-on-error: true
@@ -259,7 +794,7 @@ jobs:
           esac
 
       - name: Skip auto deploy until a review app is created
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && github.event_name == 'pull_request'
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && steps.intent.outputs.event == 'pull_request'
         shell: bash
         run: |
           {
@@ -274,7 +809,7 @@ jobs:
 
       - name: Setup review app if it does not exist yet
         id: setup-review-app
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && github.event_name != 'pull_request'
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && steps.intent.outputs.event != 'pull_request'
         working-directory: app
         shell: bash
         run: |
