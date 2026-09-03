@@ -394,7 +394,7 @@ describe Command::Run do
 
       allow(command).to receive(:print_uniq_logs)
         .and_return(*Array.new(31, :unchanged), :finished)
-      allow(command).to receive(:resolve_job_status).and_return(ExitCode::SUCCESS)
+      allow(command).to receive(:current_job_status).and_return("successful")
       allow(command).to receive(:monotonic_time) { now }
       allow(Time).to receive(:now).and_return(Time.at(wall_time))
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
@@ -403,7 +403,7 @@ describe Command::Run do
 
       expect(result).to eq(ExitCode::SUCCESS)
       expect(command).to have_received(:print_uniq_logs).exactly(32).times
-      expect(command).to have_received(:resolve_job_status).once
+      expect(command).to have_received(:current_job_status).once
       expect(Kernel).to have_received(:sleep).with(1).exactly(31).times
       expect(command.instance_variable_get(:@post_terminal_log_from))
         .to eq(wall_time - described_class::LOG_QUERY_LOOKBACK_SECONDS)
@@ -414,7 +414,7 @@ describe Command::Run do
 
       allow(command).to receive(:print_uniq_logs)
         .and_return(*Array.new(7, :unchanged), :finished)
-      allow(command).to receive(:resolve_job_status).and_return(ExitCode::ERROR_DEFAULT)
+      allow(command).to receive(:current_job_status).and_return("failed")
       allow(command).to receive(:monotonic_time) { now }
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
 
@@ -422,7 +422,7 @@ describe Command::Run do
 
       expect(result).to eq(ExitCode::ERROR_DEFAULT)
       expect(command).to have_received(:print_uniq_logs).exactly(8).times
-      expect(command).to have_received(:resolve_job_status).once
+      expect(command).to have_received(:current_job_status).once
       expect(Kernel).to have_received(:sleep).with(1).exactly(7).times
     end
 
@@ -432,7 +432,7 @@ describe Command::Run do
 
       allow(command).to receive_messages(
         print_uniq_logs: :unchanged,
-        resolve_job_status: ExitCode::SUCCESS
+        current_job_status: "successful"
       )
       allow(command).to receive(:monotonic_time) { now }
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
@@ -441,7 +441,7 @@ describe Command::Run do
 
       expect(result).to eq(ExitCode::SUCCESS)
       expect(command).to have_received(:print_uniq_logs).exactly(expected_polls).times
-      expect(command).to have_received(:resolve_job_status).once
+      expect(command).to have_received(:current_job_status).once
       expect(Kernel).to have_received(:sleep).with(1).exactly(expected_polls).times
     end
 
@@ -491,30 +491,10 @@ describe Command::Run do
       end
     end
 
-    it "bounds consecutive unavailable cron statuses while logs keep changing" do
+    it "keeps a bounded status outage provisional until an authoritative success arrives" do
       now = 0.0
-
-      allow(command).to receive(:print_uniq_logs)
-        .and_return(*Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1, :changed), :finished)
-      allow(command).to receive_messages(
-        current_job_status: nil,
-        resolve_job_status: ExitCode::SUCCESS
-      )
-      allow(command).to receive(:monotonic_time) { now }
-      allow(Kernel).to receive(:sleep) { |duration| now += duration }
-
-      result = command.send(:show_logs_waiting)
-
-      expect(result).to eq(ExitCode::ERROR_DEFAULT)
-      expect(command).to have_received(:current_job_status)
-        .exactly(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1).times
-      expect(command).not_to have_received(:resolve_job_status)
-    end
-
-    it "resets changed-log unavailable status retries after an available status" do
-      now = 0.0
-      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
-      statuses = [*unavailable_streak, "active", *unavailable_streak, "successful"]
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+      statuses = [*unavailable_streak, "successful"]
 
       allow(command).to receive(:print_uniq_logs)
         .and_return(*Array.new(statuses.length, :changed), :finished)
@@ -530,52 +510,279 @@ describe Command::Run do
       expect(command).not_to have_received(:resolve_job_status)
     end
 
-    it "does not cache a transient unavailable cron status while logs are quiet" do
+    it "latches an authoritative failure that arrives after a bounded status outage" do
       now = 0.0
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+      statuses = [*unavailable_streak, "failed"]
 
-      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
-      allow(command).to receive(:current_job_status).and_return(nil, "successful")
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(statuses.length, :changed), :finished)
+      allow(command).to receive(:current_job_status).and_return(*statuses)
       allow(command).to receive(:monotonic_time) { now }
-      allow(command).to receive(:sleep) { |duration| now += duration }
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
-
-      result = command.send(:show_logs_waiting)
-
-      expect(result).to eq(ExitCode::SUCCESS)
-      expect(command).to have_received(:print_uniq_logs).twice
-      expect(command).to have_received(:current_job_status).twice
-      expect(command).to have_received(:sleep).with(1).once
-      expect(Kernel).to have_received(:sleep).with(1).once
-    end
-
-    it "retries a transient unavailable cron status after the finished log marker" do
-      allow(command).to receive(:print_uniq_logs).and_return(:finished)
-      allow(command).to receive(:current_job_status).and_return(nil, "successful")
-      allow(command).to receive(:sleep)
-
-      result = command.send(:show_logs_waiting)
-
-      expect(result).to eq(ExitCode::SUCCESS)
-      expect(command).to have_received(:current_job_status).twice
-      expect(command).to have_received(:sleep).with(1).once
-    end
-
-    it "bounds unavailable cron status retries while logs are quiet" do
-      now = 0.0
-
-      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
-      allow(command).to receive(:current_job_status).and_return(nil)
-      allow(command).to receive(:monotonic_time) { now }
-      allow(command).to receive(:sleep) { |duration| now += duration }
-      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
 
       result = command.send(:show_logs_waiting)
 
       expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(Shell).not_to have_received(:warn)
+    end
+
+    it "starts one fixed reconciliation deadline when the sixth status is unavailable" do
+      now = 0.0
+      wall_time = 1_788_000_000
+
+      allow(command).to receive_messages(print_uniq_logs: :changed, current_job_status: nil)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Time).to receive(:now).and_return(Time.at(wall_time))
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
+
+      result = command.send(:show_logs_waiting)
+
+      expected_deadline = described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT +
+                          described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(now).to eq(expected_deadline)
+      expect(command.instance_variable_get(:@post_terminal_log_from))
+        .to eq(wall_time - described_class::LOG_QUERY_LOOKBACK_SECONDS)
+      expect(Shell).to have_received(:warn).once
+    end
+
+    %w[active pending].each do |available_status|
+      it "clears an outage-only deadline after status becomes #{available_status}" do
+        now = 0.0
+        log_polls = 0
+        status_index = 0
+        last_status = nil
+        success_observed_at = nil
+        boundary_after_recovery = :not_observed
+        unavailable_threshold = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+        below_threshold = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
+        statuses = [*unavailable_threshold, available_status, *below_threshold, "successful"]
+        former_deadline = described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT +
+                          described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
+
+        allow(command).to receive(:print_uniq_logs) do
+          log_polls += 1
+          if log_polls == unavailable_threshold.length + 2
+            boundary_after_recovery = command.instance_variable_get(:@post_terminal_log_from)
+          end
+          log_polls > statuses.length ? :finished : :changed
+        end
+        allow(command).to receive(:current_job_status) do
+          last_status = statuses[status_index]
+          status_index += 1
+          success_observed_at = now if last_status == "successful"
+          last_status
+        end
+        allow(command).to receive(:monotonic_time) { now }
+        allow(Time).to receive(:now).and_return(Time.at(1_788_000_000))
+        allow(Kernel).to receive(:sleep) do |duration|
+          now = last_status == available_status ? former_deadline + 1 : now + duration
+        end
+        allow(Shell).to receive(:warn)
+
+        result = command.send(:show_logs_waiting)
+
+        expect(result).to eq(ExitCode::SUCCESS)
+        expect(success_observed_at).to be > former_deadline
+        expect(boundary_after_recovery).to be_nil
+        expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+        expect(Time).to have_received(:now).twice
+        expect(Shell).not_to have_received(:warn)
+      end
+    end
+
+    it "keeps a bounded status outage provisional while logs are quiet" do
+      now = 0.0
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+      statuses = [*unavailable_streak, "successful"]
+
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:current_job_status).and_return(*statuses)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(command).to receive(:sleep) { |duration| now += duration }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
       expect(command).to have_received(:print_uniq_logs).twice
-      expect(command).to have_received(:current_job_status).exactly(6).times
-      expect(command).to have_received(:sleep).with(1).exactly(5).times
-      expect(Kernel).to have_received(:sleep).with(1).once
+      expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(command).not_to have_received(:sleep)
+      expect(Kernel).to have_received(:sleep).with(1).exactly(unavailable_streak.length).times
+    end
+
+    it "reconciles a finish marker that arrives after the unavailable threshold" do
+      now = 0.0
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+      statuses = [*unavailable_streak, nil, "successful"]
+
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(unavailable_streak.length, :changed), :finished)
+      allow(command).to receive(:current_job_status).and_return(*statuses)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(command).to have_received(:print_uniq_logs).exactly(unavailable_streak.length + 1).times
+      expect(Kernel).to have_received(:sleep).with(1).exactly(statuses.length - 1).times
+    end
+
+    it "lets an authoritative failure override a finished log marker" do
+      now = 0.0
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+      statuses = [*unavailable_streak, "failed"]
+
+      allow(command).to receive(:print_uniq_logs).and_return(:finished)
+      allow(command).to receive(:current_job_status).and_return(*statuses)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(Shell).not_to have_received(:warn)
+    end
+
+    it "returns an error at the fixed deadline when status stays unavailable after the finish marker" do
+      now = 0.0
+      warning = nil
+      unsafe_diagnostics = {
+        raw_response: "raw-response-detail",
+        command: "command-detail",
+        environment: "environment-detail",
+        token: "credential-detail"
+      }
+      unsafe_diagnostics.each { |name, value| command.instance_variable_set(:"@#{name}", value) }
+
+      allow(command).to receive_messages(print_uniq_logs: :finished, current_job_status: nil)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(command).to receive(:sleep) { |duration| now += duration }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn) { |message| warning = message }
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(now).to eq(described_class::POST_TERMINAL_LOG_DRAIN_SECONDS)
+      expect(command).to have_received(:print_uniq_logs).once
+      expect(warning).to eq(
+        "Runner job status reconciliation reached the 120-second deadline " \
+        "(last_status: unavailable); returning exit status 64."
+      )
+      expect(Shell).to have_received(:warn).once
+      unsafe_diagnostics.each_value { |value| expect(warning).not_to include(value) }
+    end
+
+    it "caps provisional polling at the fixed monotonic deadline" do
+      now = 0.0
+
+      allow(command).to receive(:print_uniq_logs).and_return(:finished)
+      allow(command).to receive(:current_job_status) do
+        now = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS - 0.25
+        nil
+      end
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(now).to eq(described_class::POST_TERMINAL_LOG_DRAIN_SECONDS)
+      expect(Kernel).to have_received(:sleep).with(0.25).once
+      expect(Shell).to have_received(:warn).once
+    end
+
+    it "does not start a status request after a log request crosses the reconciliation deadline" do
+      now = 0.0
+      log_requests = 0
+      deadline = described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT +
+                 described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
+
+      allow(command).to receive(:print_uniq_logs) do
+        log_requests += 1
+        if log_requests > described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1
+          now = deadline + 1
+          :finished
+        else
+          :changed
+        end
+      end
+      allow(command).to receive(:current_job_status).and_return(nil)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs)
+        .exactly(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 2).times
+      expect(command).to have_received(:current_job_status)
+        .exactly(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1).times
+      expect(Shell).to have_received(:warn).once
+    end
+
+    %w[active pending].each do |nonterminal_status|
+      it "does not clear an outage deadline after a finish marker and #{nonterminal_status} status" do
+        now = 0.0
+        status_index = 0
+        last_status = nil
+        unavailable_threshold = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+        statuses = [*unavailable_threshold, nonterminal_status, "successful"]
+        expected_deadline = described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT +
+                            described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
+
+        allow(command).to receive(:print_uniq_logs)
+          .and_return(*Array.new(unavailable_threshold.length, :changed), :finished)
+        allow(command).to receive(:current_job_status) do
+          last_status = statuses[status_index]
+          status_index += 1
+          last_status
+        end
+        allow(command).to receive(:monotonic_time) { now }
+        allow(Kernel).to receive(:sleep) do |duration|
+          now = last_status == nonterminal_status ? expected_deadline : now + duration
+        end
+        allow(Shell).to receive(:warn)
+
+        result = command.send(:show_logs_waiting)
+
+        expect(result).to eq(ExitCode::ERROR_DEFAULT)
+        expect(now).to eq(expected_deadline)
+        expect(command).to have_received(:print_uniq_logs).exactly(unavailable_threshold.length + 1).times
+        expect(command).to have_received(:current_job_status).exactly(unavailable_threshold.length + 1).times
+        expect(Shell).to have_received(:warn).with(
+          "Runner job status reconciliation reached the 120-second deadline " \
+          "(last_status: #{nonterminal_status}); returning exit status 64."
+        ).once
+      end
+    end
+
+    it "normalizes an unsafe status before writing the verbose diagnostic" do
+      now = 0.0
+      unsafe_status = "failed\nraw-response-detail"
+      allow(command).to receive(:print_uniq_logs).and_return(:changed, :finished)
+      allow(command).to receive(:current_job_status).and_return(unsafe_status)
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:debug)
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:current_job_status).once
+      expect(Shell).to have_received(:debug).with("JOB STATUS", "unknown").once
+      expect(Shell).not_to have_received(:debug).with("JOB STATUS", unsafe_status)
     end
 
     it "keeps an unavailable cron status fail-closed in the blocking resolver" do
@@ -600,7 +807,7 @@ describe Command::Run do
           :finished
         end
       end
-      allow(command).to receive(:resolve_job_status).and_return(ExitCode::SUCCESS)
+      allow(command).to receive(:current_job_status).and_return("successful")
       allow(command).to receive(:monotonic_time) { now }
       allow(Kernel).to receive(:sleep) { now = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS - 1.0 }
 
@@ -608,7 +815,7 @@ describe Command::Run do
 
       expect(result).to eq(ExitCode::SUCCESS)
       expect(command).to have_received(:print_uniq_logs).twice
-      expect(command).to have_received(:resolve_job_status).once
+      expect(command).to have_received(:current_job_status).once
     end
 
     it "preserves the terminal status and deadline across a transient log error" do

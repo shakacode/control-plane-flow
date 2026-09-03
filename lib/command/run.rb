@@ -660,17 +660,23 @@ module Command
       end
     end
 
-    def changed_log_exit_status(unavailable_status_retries)
+    def reconciled_job_status(unavailable_status_streak, reconciliation_deadline, reconciliation_deadline_origin)
       status = current_job_status
-      unavailable_is_pending = status.nil? && unavailable_status_retries < JOB_STATUS_UNAVAILABLE_RETRY_LIMIT
-      exit_status = job_exit_status(status, unavailable_is_pending: unavailable_is_pending)
-      next_unavailable_status_retries = status.nil? ? unavailable_status_retries + 1 : 0
+      next_unavailable_status_streak = status.nil? ? unavailable_status_streak + 1 : 0
+      exit_status = job_exit_status(status, unavailable_is_pending: status.nil?)
 
-      [exit_status, next_unavailable_status_retries]
+      if next_unavailable_status_streak > JOB_STATUS_UNAVAILABLE_RETRY_LIMIT && reconciliation_deadline.nil?
+        reconciliation_deadline = start_reconciliation_deadline(reconciliation_deadline)
+        reconciliation_deadline_origin = :status_outage
+      elsif reconciliation_deadline_origin == :status_outage && %w[active pending].include?(status)
+        reconciliation_deadline = reconciliation_deadline_origin = @post_terminal_log_from = nil
+      end
+
+      [exit_status, next_unavailable_status_streak, status, reconciliation_deadline, reconciliation_deadline_origin]
     end
 
     def job_exit_status(status, unavailable_is_pending:)
-      Shell.debug("JOB STATUS", status)
+      Shell.debug("JOB STATUS", normalized_job_status(status))
 
       case status
       when nil then unavailable_is_pending ? nil : ExitCode::ERROR_DEFAULT
@@ -689,44 +695,58 @@ module Command
     ###########################################
     ### temporary extaction from run:detached
     ###########################################
-    # The branches model the three log states, the terminal job status, and the finite drain deadline.
+    # Tracks log completion, authoritative job status, provisional status outages, and one fixed deadline.
     def show_logs_waiting # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       retries = 0
       exit_status = nil
-      post_terminal_deadline = nil
-      unavailable_status_retries = 0
+      reconciliation_deadline = nil
+      reconciliation_deadline_origin = nil
+      unavailable_status_streak = 0
+      finish_marker_seen = false
+      last_job_status = nil
 
       begin
         loop do
-          break if post_terminal_deadline && monotonic_time >= post_terminal_deadline
+          break if reconciliation_deadline && monotonic_time >= reconciliation_deadline
 
-          log_state = print_uniq_logs
-          break if log_state == :finished
-
-          exit_status ||= if log_state == :changed
-                            current_exit_status, unavailable_status_retries =
-                              changed_log_exit_status(unavailable_status_retries)
-                            current_exit_status
-                          else
-                            resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
-                          end
-          if exit_status && post_terminal_deadline.nil?
-            post_terminal_deadline = monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS
-            # Freeze the pre-terminal overlap so late-ingested entries do not age out of the query window.
-            @post_terminal_log_from = Time.now.to_i - LOG_QUERY_LOOKBACK_SECONDS
+          unless finish_marker_seen
+            finish_marker_seen = print_uniq_logs == :finished
+            reconciliation_deadline = start_reconciliation_deadline(reconciliation_deadline) if finish_marker_seen
+            reconciliation_deadline_origin = :finish_marker if finish_marker_seen
           end
-          unless exit_status
-            Kernel.sleep(POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS)
-            next
+          break if reconciliation_deadline && monotonic_time >= reconciliation_deadline
+
+          exit_status ||= begin
+            job_status_state = reconciled_job_status(
+              unavailable_status_streak, reconciliation_deadline, reconciliation_deadline_origin
+            )
+            current_exit_status, unavailable_status_streak, last_job_status,
+              reconciliation_deadline, reconciliation_deadline_origin = job_status_state
+            current_exit_status
           end
+          if exit_status
+            reconciliation_deadline = start_reconciliation_deadline(reconciliation_deadline)
+            reconciliation_deadline_origin = :terminal
+          end
+          break if finish_marker_seen && exit_status
 
-          remaining = post_terminal_deadline - monotonic_time
-          break unless remaining.positive?
+          remaining = reconciliation_deadline && (reconciliation_deadline - monotonic_time)
+          break if remaining && !remaining.positive?
 
-          Kernel.sleep([POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS, remaining].min)
+          poll_interval = POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS
+          poll_interval = [poll_interval, remaining].min if remaining
+          Kernel.sleep(poll_interval)
         end
 
-        exit_status || resolve_job_status(unavailable_status_retry_limit: JOB_STATUS_UNAVAILABLE_RETRY_LIMIT)
+        if exit_status
+          exit_status
+        else
+          Shell.warn(
+            "Runner job status reconciliation reached the #{POST_TERMINAL_LOG_DRAIN_SECONDS}-second deadline " \
+            "(last_status: #{normalized_job_status(last_job_status)}); returning exit status #{ExitCode::ERROR_DEFAULT}."
+          )
+          ExitCode::ERROR_DEFAULT
+        end
       rescue RuntimeError => e
         raise "#{e} Exiting..." unless retries < 10 # MAX_RETRIES
 
@@ -734,6 +754,14 @@ module Command
         retries += 1
         retry
       end
+    end
+
+    def start_reconciliation_deadline(current_deadline)
+      return current_deadline if current_deadline
+
+      # Freeze the pre-terminal overlap so late-ingested entries do not age out of the query window.
+      @post_terminal_log_from = Time.now.to_i - LOG_QUERY_LOOKBACK_SECONDS
+      monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS
     end
 
     def print_uniq_logs
