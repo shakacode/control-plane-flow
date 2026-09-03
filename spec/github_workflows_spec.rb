@@ -167,6 +167,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         "spec/github_workflows_spec.rb",
         "spec/patches",
         "spec/core/controlplane_api_direct_spec.rb",
+        "spec/core/github_flow_readiness_service_spec.rb",
         "spec/rakelib/create_release_spec.rb",
         "spec/command/version_spec.rb"
       )

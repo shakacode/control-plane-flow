@@ -12,6 +12,7 @@ CPLN_ORG='' bundle exec rspec \
   spec/core/controlplane_api_spec.rb \
   spec/core/doctor_service_spec.rb \
   spec/core/github_flow_readiness/checks_spec.rb \
+  spec/core/github_flow_readiness_service_spec.rb \
   spec/core/helpers_spec.rb \
   spec/core/repo_introspection_spec.rb \
   spec/core/shell_spec.rb \
