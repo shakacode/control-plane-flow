@@ -562,10 +562,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
             - *loop
       YAML
 
-      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+      Dir.mktmpdir("cpflow-actionlint") do |tmpdir|
+        actionlint = Pathname.new(tmpdir).join("actionlint")
+        actionlint.write("#!/bin/sh\nexit 0\n")
+        FileUtils.chmod(0o755, actionlint)
+        env = {
+          "PATH" => "#{tmpdir}:#{ENV.fetch('PATH')}",
+          "BASH_ENV" => "/dev/null",
+          "ENV" => "/dev/null"
+        }
 
-      expect(status).to be_success, "#{stdout}\n#{stderr}"
-      expect(stdout).to include("all referenced local actions have checked-in descriptors")
+        stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+        expect(status).to be_success, "#{stdout}\n#{stderr}"
+        expect(stdout).to include("all referenced local actions have checked-in descriptors")
+      end
     end
 
     it "passes setup action versions through env before using them in shell commands" do
