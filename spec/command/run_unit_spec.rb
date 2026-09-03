@@ -919,6 +919,27 @@ describe Command::Run do
       expect(progress).to have_received(:puts).with("Gemfile")
       expect(progress).not_to have_received(:puts).with(described_class::MAGIC_END)
     end
+
+    it "recognizes and strips a finish marker appended to unterminated output" do
+      timestamp = "1788000010000000000"
+      appended_marker_log = {
+        "data" => {
+          "result" => [{
+            "values" => [[timestamp, "done#{described_class::MAGIC_END}"]]
+          }]
+        }
+      }
+
+      allow(command).to receive_messages(cp: cp, progress: progress)
+      allow(cp).to receive(:log_get).and_return(appended_marker_log)
+      allow(Time).to receive(:now).and_return(Time.at(1_788_000_020))
+      command.instance_variable_set(:@runner_workload, "rails-runner")
+      command.instance_variable_set(:@replica, "rails-runner-replica")
+
+      expect(command.send(:print_uniq_logs)).to eq(:finished)
+      expect(progress).to have_received(:puts).with("done")
+      expect(progress).not_to have_received(:puts).with(include(described_class::MAGIC_END))
+    end
   end
 
   describe "#wait_for_replica_for_job" do
