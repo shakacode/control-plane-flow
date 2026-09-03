@@ -745,9 +745,12 @@ module Command
               status = current_job_status(timeout_seconds: JOB_STATUS_REQUEST_TIMEOUT_SECONDS)
               @last_job_status = status
               job_finished_count = %w[active pending].include?(status) ? 0 : job_finished_count + 1
-              break if job_finished_count > 5
+              if job_finished_count > 5
+                status_deadline = job_status_reconciliation_deadline
+                break
+              end
 
-              sleep(1)
+              Kernel.sleep(1)
             end
           end
         end

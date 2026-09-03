@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "rbconfig"
 
 describe Shell do
   describe ".use_tmp_stderr" do
@@ -270,6 +271,18 @@ describe Shell do
 
       expect do
         described_class.cmd("sh", "-c", "sleep 5 & exit 0", timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "returns promptly when a descendant escapes the command process group" do
+      command = "#{RbConfig.ruby} -e 'Process.setsid; sleep 3' & exit 0"
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        described_class.cmd("sh", "-c", command, timeout_seconds: 0.05)
       end.to raise_error(described_class::CommandTimeout)
 
       elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at

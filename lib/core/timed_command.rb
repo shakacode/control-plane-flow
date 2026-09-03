@@ -68,6 +68,8 @@ class TimedCommand
     return if observed_threads.all? { |thread| thread.join(remaining_timeout) }
 
     terminate_process_group(wait_thread)
+    output_readers.each(&:kill)
+    output_readers.each(&:join)
     raise Shell::CommandTimeout, "Command exceeded the #{@timeout_seconds}-second timeout"
   end
 

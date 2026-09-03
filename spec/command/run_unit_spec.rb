@@ -210,6 +210,20 @@ describe Command::Run do
       expect(command).to have_received(:print_uniq_logs).twice
     end
 
+    it "starts reconciliation when terminal status observations precede the completion marker" do
+      allow(command).to receive_messages(
+        print_uniq_logs: :unchanged,
+        current_job_status: "failed",
+        job_status_reconciliation_deadline: 1234,
+        resolve_job_status: ExitCode::ERROR_DEFAULT
+      )
+
+      command.send(:show_logs_waiting)
+
+      expect(command).to have_received(:resolve_job_status).with(status_deadline: 1234)
+      expect(Kernel).to have_received(:sleep).with(1).exactly(5).times
+    end
+
     it "preserves the reconciliation deadline across transient retries" do
       progress_messages = []
       allow(progress).to receive(:puts) { |message| progress_messages << message }
