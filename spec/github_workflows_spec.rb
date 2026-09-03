@@ -113,20 +113,8 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     let(:job) { workflow.fetch("jobs").fetch("rspec") }
 
-    it "serializes shared-org runs while keeping fast queues per PR (or ref)" do
-      # Scheduled, slow, and specific runs that can touch the live domain share
-      # one queue. Fast runs remain scoped by PR number (or ref) so unrelated
-      # PRs don't share one blocking queue. queue: max retains up to 100 waiters
-      # instead of replacing the existing pending run.
-      expected_group =
-        "cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-" \
-        "${{ inputs.uses_shared_org && 'shared-org' || github.event.pull_request.number || github.ref }}"
-
-      expect(job.fetch("concurrency")).to eq(
-        "group" => expected_group,
-        "cancel-in-progress" => false,
-        "queue" => "max"
-      )
+    it "leaves queue ownership to its callers" do
+      expect(job).not_to have_key("concurrency")
     end
   end
 
@@ -135,13 +123,30 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       YAML.safe_load_file(File.expand_path("../.github/workflows/#{name}", __dir__), aliases: true)
     end
 
-    it "marks slow and specific runs as shared-org consumers" do
+    it "keeps fast runs latest-only within their PR or ref queue" do
+      rspec_jobs = workflow_file("rspec.yml").fetch("jobs")
+      fast_concurrency = rspec_jobs.fetch("rspec-fast").fetch("concurrency")
+
+      expect(fast_concurrency).to eq(
+        "group" =>
+          "cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-" \
+          "${{ github.event.pull_request.number || github.ref }}",
+        "cancel-in-progress" => false
+      )
+      expect(fast_concurrency).not_to have_key("queue")
+    end
+
+    it "retains slow and specific runs in the same shared-org queue" do
       rspec_jobs = workflow_file("rspec.yml").fetch("jobs")
       specific_jobs = workflow_file("rspec-specific.yml").fetch("jobs")
+      expected_concurrency = {
+        "group" => "cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-shared-org",
+        "cancel-in-progress" => false,
+        "queue" => "max"
+      }
 
-      expect(rspec_jobs.fetch("rspec-slow").fetch("with")).to include("uses_shared_org" => true)
-      expect(specific_jobs.fetch("rspec-specific").fetch("with")).to include("uses_shared_org" => true)
-      expect(rspec_jobs.fetch("rspec-fast").fetch("with")).not_to have_key("uses_shared_org")
+      expect(rspec_jobs.fetch("rspec-slow").fetch("concurrency")).to eq(expected_concurrency)
+      expect(specific_jobs.fetch("rspec-specific").fetch("concurrency")).to eq(expected_concurrency)
     end
   end
 
