@@ -12,6 +12,11 @@ Metrics/AbcSize:
 Style/Documentation:
   Enabled: false
 
+# These value objects intentionally reject positional construction. Retaining
+# keyword-only initialization is part of their API contract, not redundant.
+Style/RedundantStructKeywordInit:
+  Enabled: false
+
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 

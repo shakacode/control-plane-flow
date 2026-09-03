@@ -23,7 +23,8 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     :unknown_prefix,
     :success_noun,
     :availability_proc,
-    :registry_name
+    :registry_name,
+    keyword_init: true
   )
 
   CHECKS = [
