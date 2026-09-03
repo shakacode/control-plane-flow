@@ -37,10 +37,11 @@ overcommit --install
 
 ## GitHub Actions Dependencies
 
-Every external `uses:` entry under `.github/workflows/` or `.github/actions/` must use an immutable, lowercase
-40-character commit SHA followed by the exact release tag in a same-line comment. Do not use moving major-version tags
-or branch names. New action repositories also require explicit review before they are added to `trusted_actions` in
-`.agents/agent-workflow.yml`.
+Every repository-based external `uses:` entry under `.github/workflows/` or `.github/actions/` must use an immutable,
+lowercase 40-character commit SHA followed by the exact release tag in a same-line comment. Do not use moving
+major-version tags or branch names. New action repositories also require explicit review before they are added to
+`trusted_actions` in `.agents/agent-workflow.yml`. Docker actions must use an exact `sha256:` image digest; manually
+review the registry, image, and digest because Docker references are outside the repository allowlist.
 
 Dependabot checks GitHub Actions dependencies weekly. For each proposed update, verify that the release tag resolves to
 the proposed commit, review the upstream release and diff, and keep the version comment synchronized with the pin.

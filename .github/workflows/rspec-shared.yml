@@ -45,9 +45,6 @@ jobs:
       cancel-in-progress: false
     env:
       RAILS_ENV: test
-      # We have to add "_CI" to the end, otherwise it messes with tests where we switch profiles,
-      # as Control Plane will try to use this token's profile instead.
-      CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
       CPLN_ORG: ${{ vars.CPLN_ORG }}
     steps:
       - name: Checkout code
@@ -63,14 +60,18 @@ jobs:
         run: bundle install
       - name: Install Control Plane tools
         run: |
-          sudo npm install -g @controlplane/cli
+          sudo npm install -g @controlplane/cli@3.11.0
           cpln --version
       - name: Setup Control Plane tools
+        env:
+          # Keep the _CI suffix so tests that switch profiles do not use this token's profile.
+          CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
         run: |
           cpln profile create default --token "$CPLN_TOKEN_CI" --org "$CPLN_ORG"
           cpln image docker-login
       - name: Run tests
         env:
+          CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
           RSPEC_SPEC_PATHS: ${{ inputs.spec_paths }}
           RSPEC_TEST_TAG: ${{ inputs.test_tag }}
         run: |

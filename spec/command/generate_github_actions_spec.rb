@@ -555,6 +555,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       FileUtils.remove_entry(external_action.to_s) if external_action&.exist?
     end
 
+    it "handles recursive YAML aliases while validating generated local action references" do
+      playground.join(".github/workflows/recursive-alias.yml").write(<<~YAML)
+        metadata:
+          loop: &loop
+            - *loop
+      YAML
+
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(stdout).to include("all referenced local actions have checked-in descriptors")
+    end
+
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 
