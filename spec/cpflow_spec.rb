@@ -135,7 +135,11 @@ describe Cpflow do
   it "reminds gem installers to update generated GitHub Actions wrappers" do
     spec = Gem::Specification.load(File.expand_path("../cpflow.gemspec", __dir__))
 
+    expect(spec.post_install_message.lines.length).to be <= 3
     expect(spec.post_install_message).to include("cpflow update-github-actions")
-    expect(spec.post_install_message).to include("bin/test-cpflow-github-flow")
+    expect(spec.post_install_message).to include(
+      "https://github.com/shakacode/control-plane-flow/blob/main/docs/ci-automation.md" \
+      "#updating-generated-github-actions-after-gem-updates"
+    )
   end
 end

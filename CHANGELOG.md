@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
+
 ## [5.3.0] - 2026-09-02
 
 ### Added

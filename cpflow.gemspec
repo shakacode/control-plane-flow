@@ -14,20 +14,8 @@ Gem::Specification.new do |spec|
   spec.license     = "MIT"
   spec.post_install_message = <<~MESSAGE
     cpflow #{Cpflow::VERSION} installed.
-
-    If this repository already uses generated cpflow GitHub Actions, update the
-    checked-in wrappers so GitHub loads the matching control-plane-flow release tag:
-
-      cpflow update-github-actions
-      bin/test-cpflow-github-flow
-
-    If you run cpflow through Bundler:
-
-      bundle exec cpflow update-github-actions
-      bin/test-cpflow-github-flow bundle exec cpflow
-
-    New repository? Run `cpflow generate-github-actions` first to create the
-    wrappers (and the `bin/test-cpflow-github-flow` script referenced above).
+    Generated GitHub Actions users: run `cpflow update-github-actions` after upgrading.
+    Docs: https://github.com/shakacode/control-plane-flow/blob/main/docs/ci-automation.md#updating-generated-github-actions-after-gem-updates
   MESSAGE
 
   spec.required_ruby_version = ">= 3.0.0"
