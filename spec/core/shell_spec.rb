@@ -18,6 +18,14 @@ describe Shell do
       expect(captured_message).to eq("some error")
       expect(described_class.tmp_stderr).to be_nil
     end
+
+    it "clears the tempfile when the block raises" do
+      expect do
+        described_class.use_tmp_stderr { raise "failed command" }
+      end.to raise_error("failed command")
+
+      expect(described_class.tmp_stderr).to be_nil
+    end
   end
 
   describe ".read_from_tmp_stderr" do
@@ -232,6 +240,38 @@ describe Shell do
       result = described_class.cmd("some", "command")
 
       expect(result).to eq(output: "stdout only\n", success: true)
+    end
+
+    it "terminates a command that exceeds its timeout" do
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        described_class.cmd("sh", "-c", "sleep 5", timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout, /0.05-second timeout/)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "preserves merged stderr capture when a timeout is configured" do
+      result = described_class.cmd(
+        "sh", "-c", "echo captured-err >&2; echo captured-out",
+        capture_stderr: true,
+        timeout_seconds: 1
+      )
+
+      expect(result[:output]).to include("captured-err", "captured-out")
+      expect(result[:success]).to be(true)
+    end
+
+    it "preserves separate stderr capture when a timeout is configured" do
+      result = described_class.cmd(
+        "sh", "-c", "echo captured-err >&2; echo captured-out",
+        separate_stderr: true,
+        timeout_seconds: 1
+      )
+
+      expect(result).to eq(output: "captured-out\n", error_output: "captured-err\n", success: true)
     end
   end
 

@@ -134,7 +134,7 @@ describe Command::Run do
           "did not reconcile within 1200 seconds",
           "job: job-123",
           "replica: rails-runner-job-123",
-          "status: active"
+          "status: unknown"
         )
       )
     end
@@ -152,6 +152,44 @@ describe Command::Run do
       allow(command).to receive(:current_job_status).and_return("pending")
 
       expect(command.send(:wait_for_job_status_and_log, logs_pipe)).to eq(ExitCode::ERROR_DEFAULT)
+    end
+
+    it "does not let one status request outlive the remaining reconciliation deadline" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_250.0)
+      allow(cp).to receive(:fetch_cron_workload).and_raise(Shell::CommandTimeout)
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(cp).to have_received(:fetch_cron_workload).with(
+        "rails-runner",
+        location: "aws-us-east-2",
+        timeout_seconds: 30
+      )
+    end
+
+    it "keeps reading logs while the pre-marker job status is active" do
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:current_job_status).and_return("active", "successful")
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0)
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).twice
+    end
+
+    it "preserves the reconciliation deadline across transient retries" do
+      progress_messages = []
+      allow(progress).to receive(:puts) { |message| progress_messages << message }
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0, 200.0, 1_300.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise "transient status failure" if status_reads > 1
+
+        "active"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).once
+      expect(progress_messages.join("\n")).to include("status: active")
     end
   end
 
