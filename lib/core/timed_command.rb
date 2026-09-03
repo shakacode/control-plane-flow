@@ -16,6 +16,7 @@ class TimedCommand
 
   def capture
     @deadline = monotonic_time + @timeout_seconds
+    @command_cleaned_up = false
     return capture_separate_streams if @separate_stderr
     return capture_merged_streams if @capture_stderr
 
@@ -24,40 +25,49 @@ class TimedCommand
 
   private
 
-  def capture_stdout
+  def capture_stdout # rubocop:disable Metrics/MethodLength
+    completed = false
     Open3.popen2(*@command, pgroup: true) do |stdin, stdout, wait_thread|
       stdin.close
       output_reader = Thread.new { stdout.read }
       wait_for_command(wait_thread, output_reader)
+      completed = true
       { output: output_reader.value, success: wait_thread.value.success? }
     ensure
+      cleanup_unfinished_command(wait_thread, output_reader) unless completed || @command_cleaned_up
       output_reader&.join
     end
   end
 
-  def capture_merged_streams
+  def capture_merged_streams # rubocop:disable Metrics/MethodLength
+    completed = false
     Open3.popen2e(*@command, pgroup: true) do |stdin, output, wait_thread|
       stdin.close
       output_reader = Thread.new { output.read }
       wait_for_command(wait_thread, output_reader)
+      completed = true
       { output: output_reader.value, success: wait_thread.value.success? }
     ensure
+      cleanup_unfinished_command(wait_thread, output_reader) unless completed || @command_cleaned_up
       output_reader&.join
     end
   end
 
   def capture_separate_streams # rubocop:disable Metrics/MethodLength
+    completed = false
     Open3.popen3(*@command, pgroup: true) do |stdin, stdout, stderr, wait_thread|
       stdin.close
       output_reader = Thread.new { stdout.read }
       error_reader = Thread.new { stderr.read }
       wait_for_command(wait_thread, output_reader, error_reader)
+      completed = true
       {
         output: output_reader.value,
         error_output: error_reader.value,
         success: wait_thread.value.success?
       }
     ensure
+      cleanup_unfinished_command(wait_thread, output_reader, error_reader) unless completed || @command_cleaned_up
       output_reader&.join
       error_reader&.join
     end
@@ -70,6 +80,7 @@ class TimedCommand
     terminate_process_group(wait_thread)
     output_readers.each(&:kill)
     output_readers.each(&:join)
+    @command_cleaned_up = true
     raise Shell::CommandTimeout, "Command exceeded the #{@timeout_seconds}-second timeout"
   end
 
@@ -89,5 +100,12 @@ class TimedCommand
     wait_thread.join
   rescue Errno::ESRCH, Errno::ECHILD
     nil
+  end
+
+  def cleanup_unfinished_command(wait_thread, *output_readers)
+    return unless wait_thread
+
+    terminate_process_group(wait_thread)
+    output_readers.compact.each(&:kill)
   end
 end

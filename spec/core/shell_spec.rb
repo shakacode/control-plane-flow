@@ -289,6 +289,19 @@ describe Shell do
       expect(elapsed).to be < 2
     end
 
+    it "terminates the command when capture unwinds exceptionally" do
+      timed_command = TimedCommand.new(["sh", "-c", "sleep 5"], false, false, 10)
+      allow(timed_command).to receive(:wait_for_command).and_raise(SystemExit.new(ExitCode::INTERRUPT))
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        timed_command.capture
+      end.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::INTERRUPT) }
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
     it "preserves merged stderr capture when a timeout is configured" do
       result = described_class.cmd(
         "sh", "-c", "echo captured-err >&2; echo captured-out",
