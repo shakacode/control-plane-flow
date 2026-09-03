@@ -22,6 +22,8 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
         "zzz-env-tabbed-runner" => "#!/usr/bin/env\tbash\n",
         "zzz-env-short-runner" => "#!/bin/env -S bash -e\n",
         "zzz-env-long-runner" => "#!/usr/bin/env --split-string=bash -e\n",
+        "zzz-env-python-split-runner" => "#!/usr/bin/env -S python3 -u\n",
+        "zzz-env-ruby-assignment-runner" => "#!/usr/bin/env RUBYOPT=-W0 ruby\n",
         "zzz-python-runner" => "#!/usr/bin/env python3\n"
       }
       fixtures.each do |name, content|
@@ -103,6 +105,33 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
 
       expect(status).not_to be_success
       expect(stderr).to include("Tracked executable is not readable: missing-runner")
+    end
+  end
+
+  it "fails when a tracked shell file is unreadable" do
+    Dir.mktmpdir("cpflow-check-shell-scripts") do |repo|
+      FileUtils.mkdir_p("#{repo}/script")
+      FileUtils.cp(File.expand_path("../../script/check_shell_scripts", __dir__), "#{repo}/script/check_shell_scripts")
+      File.chmod(0o755, "#{repo}/script/check_shell_scripts")
+      File.write("#{repo}/missing-script.sh", "#!/bin/sh\n")
+
+      fake_bin = "#{repo}/fake-bin"
+      FileUtils.mkdir_p(fake_bin)
+      File.write("#{fake_bin}/shellcheck", "#!/bin/sh\nexit 0\n")
+      File.chmod(0o755, "#{fake_bin}/shellcheck")
+
+      system("git", "init", "--quiet", repo) || raise("git init failed")
+      system("git", "-C", repo, "add", "--", "script/check_shell_scripts", "missing-script.sh") ||
+        raise("git add failed")
+      File.delete("#{repo}/missing-script.sh")
+
+      _stdout, stderr, status = Open3.capture3(
+        { "BASH_ENV" => "/dev/null", "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
+        "#{repo}/script/check_shell_scripts"
+      )
+
+      expect(status).not_to be_success
+      expect(stderr).to include("Tracked shell script is not readable: missing-script.sh")
     end
   end
 end

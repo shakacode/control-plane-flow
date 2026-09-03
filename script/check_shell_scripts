@@ -42,7 +42,7 @@ while IFS= read -r -d '' entry; do
   elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]] ||
        [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     shell_files+=("$file")
-  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-|[^[:space:]]*=) ]]; then
+  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]+|--split-string=)?((-[^[:space:]]+|[^[:space:]=]+=[^[:space:]]*)[[:space:]]+)+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     echo "Unsupported env-prefixed shebang in tracked executable: $file" >&2
     exit 1
   fi
