@@ -320,7 +320,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       checkout_ref_expectations = {
         [reusable_review_app_workflow_path, "deploy"] =>
-          "${{ github.event.pull_request.base.sha || github.sha }}",
+          "${{ github.sha }}",
         [reusable_delete_review_workflow_path, "delete-review-app"] =>
           "${{ github.event.pull_request.base.sha || github.sha }}",
         [reusable_cleanup_stale_review_apps_workflow_path, "cleanup"] => "${{ github.sha }}"
@@ -822,7 +822,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('echo "allowed=false" >> "$GITHUB_OUTPUT"')
     end
 
-    it "keeps trusted generated actions separate from PR-controlled app code" do
+    it "keeps generated actions and runtime source separate from the app checkout" do
       contents = reusable_review_app_workflow_path.read
 
       expect(contents).to include("repository: ${{ job.workflow_repository }}")

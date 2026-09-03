@@ -475,7 +475,11 @@ The generated flow uses these defaults:
   makes the newest intent fail closed instead of falling back to an older operation. This permission gate applies to every
   `+review-app-deploy` comment, whether or not a review app already exists. Later pushes to a base-repository branch PR
   redeploy automatically without another approval because the auto-push path (`pull_request` event) does not use the
-  comment permission gate;
+  comment permission gate. The reusable deploy workflow loads generated local actions from the triggering `github.sha`:
+  the pull-request merge revision for automatic same-repository deploys, the selected ref for manual dispatch, or the
+  default-branch revision for comment triggers. This keeps the wrapper and generated actions synchronized during an
+  upgrade or first-installation PR. Preserve the same-repository caller guard because pull-request workflow and action
+  code run with staging/review credentials;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts invocation to
   the exact command shape; the reusable workflow resolves repository permission before its deploy job runs, then its
