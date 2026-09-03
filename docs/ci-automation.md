@@ -773,6 +773,10 @@ GitHub Actions files in the same PR. The gem version does not make GitHub load
 new reusable workflow YAML or local action files by itself; GitHub uses the
 workflow ref and `.github/actions/cpflow-*` files committed in the repository.
 
+For a new repository that does not have generated wrappers yet, run
+`cpflow generate-github-actions` first. Use the update command below for later
+gem upgrades.
+
 Use the installed gem to refresh the generated workflows and actions:
 
 ```sh
