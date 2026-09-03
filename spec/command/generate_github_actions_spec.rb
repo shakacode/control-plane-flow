@@ -516,6 +516,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
     end
 
+    it "rejects a generated workflow whose referenced local action is missing" do
+      setup_action = generated_action_path("cpflow-setup-environment")
+      FileUtils.mv(setup_action, setup_action.dirname.join("action.yml.missing"))
+
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+      expect(status).not_to be_success
+      expect("#{stdout}\n#{stderr}").to include(
+        ".github/workflows/cpflow-promote-staging-to-production.yml references missing local action " \
+        ".github/actions/cpflow-setup-environment"
+      )
+    end
+
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 

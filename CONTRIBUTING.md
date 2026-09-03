@@ -123,9 +123,9 @@ cpflow test
 
 ## Developing the GitHub flow generator
 
-`cpflow generate-github-actions` copies templates from `lib/github_flow_templates/` into a target repo's `.github/` directory. To work on this feature:
+`cpflow generate-github-actions` copies workflow templates in `lib/github_flow_templates/` and canonical composite actions in `.github/actions/cpflow-*` into a target repo's `.github/` directory. To work on this feature:
 
-- **Edit the templates in place.** The generator does no string-mangling beyond a small set of substitutions handled in `lib/command/generate_github_actions.rb`; what you put in `lib/github_flow_templates/.github/` is (almost) exactly what ships into a generated repo. Make changes there, not in a generated copy.
+- **Edit each canonical source in place.** The generator does no string-mangling beyond a small set of substitutions handled in `lib/command/generate_github_actions.rb`; what you put in `lib/github_flow_templates/.github/` is (almost) exactly what ships into a generated repo. Edit composite actions in the root `.github/actions/cpflow-*` directories. Make changes in those canonical sources, not in a generated copy.
 - **Surface area to keep consistent.** A change to a PR command (e.g. `+review-app-deploy`) usually touches three places: the trigger workflow (`lib/github_flow_templates/.github/workflows/cpflow-deploy-review-app.yml`), the PR-open quick reference (`cpflow-review-app-help.yml`), and the long-form help (`lib/github_flow_templates/.github/cpflow-help.md`). The AI flow prompt (`lib/command/ai_github_flow_prompt.rb`) also names commands and should be kept in sync.
 - **Run the generator spec on every change:**
 
