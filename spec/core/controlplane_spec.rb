@@ -340,6 +340,21 @@ describe Controlplane do
       expect($child_pids).not_to include(12_345) # rubocop:disable Style/GlobalVars
     end
 
+    it "keeps an unreaped subprocess registered when output draining is interrupted" do
+      allow(Process).to receive(:spawn).and_return(12_346)
+      allow(Process).to receive(:wait2)
+      allow(described_instance).to receive(:drain_captured_output).and_raise(SystemExit.new(ExitCode::INTERRUPT))
+
+      expect do
+        described_instance.send(:perform_with_output, "cpln workload update")
+      end.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::INTERRUPT) }
+
+      expect(Process).not_to have_received(:wait2).with(12_346)
+      expect($child_pids).to include(12_346) # rubocop:disable Style/GlobalVars
+    ensure
+      $child_pids.delete(12_346) # rubocop:disable Style/GlobalVars
+    end
+
     it "streams output while capturing it when command output is visible" do
       stub_env("HIDE_COMMAND_OUTPUT", "false")
       Shell.verbose_mode(true)

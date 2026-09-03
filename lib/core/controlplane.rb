@@ -601,11 +601,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     pid = spawn_captured_process(cmd, output_writer)
     captured_output = drain_captured_output(output_reader)
     _, status = Process.wait2(pid)
+    reaped = true
     { output: captured_output, success: status.exited? && status.success? }
   ensure
     output_reader&.close unless output_reader&.closed?
     output_writer&.close unless output_writer&.closed?
-    $child_pids.delete(pid) if pid # rubocop:disable Style/GlobalVars
+    $child_pids.delete(pid) if reaped # rubocop:disable Style/GlobalVars
   end
 
   def spawn_captured_process(cmd, output_writer)
