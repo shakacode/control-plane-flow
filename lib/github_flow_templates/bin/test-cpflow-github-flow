@@ -29,13 +29,21 @@ documents.each_key do |path|
   puts "parsed #{path}"
 end
 
+generated_local_action_pattern = %r{\A\./(?<directory>\.github/actions/cpflow-[a-z0-9]+(?:-[a-z0-9]+)*)\z}
 local_action_references = []
+invalid_local_action_references = []
 walk = lambda do |node, source_path|
   case node
   when Hash
     uses = node["uses"]
     if uses.is_a?(String) && uses.start_with?("./.github/actions/")
-      local_action_references << [source_path, uses.delete_prefix("./")]
+      match = uses.match(generated_local_action_pattern)
+      if match
+        local_action_references << [source_path, match[:directory]]
+      else
+        invalid_local_action_references <<
+          "#{source_path} has invalid generated local action reference #{uses}"
+      end
     end
     node.each_value { |value| walk.call(value, source_path) }
   when Array
@@ -43,6 +51,8 @@ walk = lambda do |node, source_path|
   end
 end
 documents.each { |path, document| walk.call(document, path) }
+
+abort invalid_local_action_references.uniq.join("\n") unless invalid_local_action_references.empty?
 
 missing_actions = local_action_references.uniq.filter_map do |source_path, action_directory|
   directory_is_local = begin

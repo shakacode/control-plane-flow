@@ -529,6 +529,32 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "rejects generated local action references that escape the canonical action directory" do
+      external_action = Pathname.new(Dir.mktmpdir("cpflow-external-action", playground.parent.to_s))
+      external_action.join("action.yml").write(<<~YAML)
+        name: External action
+        runs:
+          using: composite
+          steps:
+            - shell: bash
+              run: "true"
+      YAML
+      traversal_ref = "./.github/actions/../../../#{external_action.basename}"
+      promote_workflow_path.write(
+        promote_workflow_path.read.sub("./.github/actions/cpflow-setup-environment", traversal_ref)
+      )
+
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+      expect(status).not_to be_success
+      expect("#{stdout}\n#{stderr}").to include(
+        ".github/workflows/cpflow-promote-staging-to-production.yml has invalid generated local action " \
+        "reference #{traversal_ref}"
+      )
+    ensure
+      FileUtils.remove_entry(external_action.to_s) if external_action&.exist?
+    end
+
     it "passes setup action versions through env before using them in shell commands" do
       contents = setup_action_path.read
 
