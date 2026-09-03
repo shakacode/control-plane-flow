@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "rbconfig"
 
 describe Shell do
   describe ".use_tmp_stderr" do
@@ -16,6 +17,14 @@ describe Shell do
 
       expect(captured_tmp_stderr).not_to be_nil
       expect(captured_message).to eq("some error")
+      expect(described_class.tmp_stderr).to be_nil
+    end
+
+    it "clears the tempfile when the block raises" do
+      expect do
+        described_class.use_tmp_stderr { raise "failed command" }
+      end.to raise_error("failed command")
+
       expect(described_class.tmp_stderr).to be_nil
     end
   end
@@ -232,6 +241,86 @@ describe Shell do
       result = described_class.cmd("some", "command")
 
       expect(result).to eq(output: "stdout only\n", success: true)
+    end
+
+    it "terminates a command that exceeds its timeout" do
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        described_class.cmd("sh", "-c", "sleep 5", timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout, /0.05-second timeout/)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "terminates descendants that keep output open after the leader exits" do
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      command = "trap 'exit 0' TERM; sh -c 'trap \"\" TERM; sleep 5' & wait"
+
+      expect do
+        described_class.cmd("sh", "-c", command, timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "times out when a successful leader leaves a descendant holding output open" do
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        described_class.cmd("sh", "-c", "sleep 5 & exit 0", timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "returns promptly when a descendant escapes the command process group" do
+      command = "#{RbConfig.ruby} -e 'Process.setsid; sleep 3' & exit 0"
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        described_class.cmd("sh", "-c", command, timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "terminates the command when capture unwinds exceptionally" do
+      timed_command = TimedCommand.new(["sh", "-c", "sleep 5"], false, false, 10)
+      allow(timed_command).to receive(:wait_for_command).and_raise(SystemExit.new(ExitCode::INTERRUPT))
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+      expect do
+        timed_command.capture
+      end.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::INTERRUPT) }
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
+    it "preserves merged stderr capture when a timeout is configured" do
+      result = described_class.cmd(
+        "sh", "-c", "echo captured-err >&2; echo captured-out",
+        capture_stderr: true,
+        timeout_seconds: 1
+      )
+
+      expect(result[:output]).to include("captured-err", "captured-out")
+      expect(result[:success]).to be(true)
+    end
+
+    it "preserves separate stderr capture when a timeout is configured" do
+      result = described_class.cmd(
+        "sh", "-c", "echo captured-err >&2; echo captured-out",
+        separate_stderr: true,
+        timeout_seconds: 1
+      )
+
+      expect(result).to eq(output: "captured-out\n", error_output: "captured-err\n", success: true)
     end
   end
 

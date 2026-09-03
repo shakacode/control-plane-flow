@@ -49,6 +49,12 @@ module Command
         (can be configured though `runner_job_timeout` in `controlplane.yml`)
       - Waiting for a runner replica is limited to the smaller of `runner_job_timeout` and 1000 seconds.
         A terminal cron status fails immediately, and reaching the observation deadline reports the last safe status
+      - With non-interactive log methods 2 and 3, after a command prints its completion marker, Control Plane
+        has up to 20 minutes to reconcile the cron job to a terminal status. This can be configured through
+        `runner_job_status_reconciliation_timeout` in `controlplane.yml`; timing out exits nonzero and reports
+        the job, replica, and last observed status
+      - Log method 1 does not emit a completion marker, so its job-status polling is not covered by the
+        post-command reconciliation timeout
       - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
         Control Plane exposes a runner replica to attach logs to
       - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
@@ -108,15 +114,19 @@ module Command
     DEFAULT_JOB_CPU = "1"
     DEFAULT_JOB_MEMORY = "2Gi"
     DEFAULT_JOB_TIMEOUT = 21_600 # 6 hours
+    DEFAULT_JOB_STATUS_RECONCILIATION_TIMEOUT = 1_200 # 20 minutes
     DEFAULT_JOB_HISTORY_LIMIT = 10
     MAX_REPLICA_OBSERVATION_SECONDS = 1_000
     REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS = 1
+    JOB_STATUS_POLL_INTERVAL_SECONDS = 1
+    JOB_STATUS_REQUEST_TIMEOUT_SECONDS = 30
     NORMALIZED_JOB_STATUS_PATTERN = /\A[a-z][a-z0-9_-]{0,31}\z/
     MAGIC_END = "---cpflow run command finished---"
 
     attr_reader :interactive, :detached, :location, :original_workload, :runner_workload,
                 :default_image, :default_cpu, :default_memory, :job_timeout, :job_history_limit,
-                :container, :job, :replica, :command, :job_completed_before_replica_exit_status
+                :job_status_reconciliation_timeout, :container, :job, :replica, :command,
+                :job_completed_before_replica_exit_status
 
     def call # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       @interactive = config.options[:interactive] || interactive_command?
@@ -130,6 +140,8 @@ module Command
       @default_cpu = config.current[:runner_job_default_cpu] || DEFAULT_JOB_CPU
       @default_memory = config.current[:runner_job_default_memory] || DEFAULT_JOB_MEMORY
       @job_timeout = config.current[:runner_job_timeout] || DEFAULT_JOB_TIMEOUT
+      @job_status_reconciliation_timeout =
+        config.current[:runner_job_status_reconciliation_timeout] || DEFAULT_JOB_STATUS_RECONCILIATION_TIMEOUT
       @job_history_limit = DEFAULT_JOB_HISTORY_LIMIT
 
       unless interactive
@@ -614,6 +626,7 @@ module Command
 
     def wait_for_job_status_and_log(logs_pipe) # rubocop:disable Metrics/MethodLength
       no_logs_counter = 0
+      command_finished = false
 
       loop do
         no_logs_counter += 1
@@ -623,12 +636,16 @@ module Command
 
         no_logs_counter = 0
         line = logs_pipe.gets
-        break if line.chomp == MAGIC_END
+        if line.chomp == MAGIC_END
+          command_finished = true
+          break
+        end
 
         puts(line)
       end
 
-      resolve_job_status
+      status_deadline = job_status_reconciliation_deadline if command_finished
+      resolve_job_status(status_deadline: status_deadline)
     end
 
     def print_detached_commands
@@ -642,15 +659,36 @@ module Command
       )
     end
 
-    def resolve_job_status # rubocop:disable Metrics/MethodLength
+    # rubocop:disable Metrics/BlockLength, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def resolve_job_status(status_deadline: nil)
+      last_status = @last_job_status
       loop do
-        status = current_job_status
+        remaining_seconds = status_deadline && (status_deadline - monotonic_time)
+        if remaining_seconds && remaining_seconds <= 0
+          progress.puts(Shell.color(job_status_reconciliation_timeout_message(last_status), :red))
+          break ExitCode::ERROR_DEFAULT
+        end
+
+        request_timeout = if remaining_seconds
+                            [JOB_STATUS_REQUEST_TIMEOUT_SECONDS, remaining_seconds].min
+                          else
+                            JOB_STATUS_REQUEST_TIMEOUT_SECONDS
+                          end
+        begin
+          status = current_job_status(timeout_seconds: request_timeout)
+        rescue Shell::CommandTimeout
+          next
+        end
+        last_status = status
+        @last_job_status = status
 
         Shell.debug("JOB STATUS", status)
 
         case status
         when "active", "pending"
-          sleep 1
+          sleep_seconds = JOB_STATUS_POLL_INTERVAL_SECONDS
+          sleep_seconds = [sleep_seconds, remaining_seconds].min if remaining_seconds
+          Kernel.sleep(sleep_seconds) if sleep_seconds.positive?
         when "successful"
           break ExitCode::SUCCESS
         else
@@ -658,35 +696,66 @@ module Command
         end
       end
     end
+    # rubocop:enable Metrics/BlockLength, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
-    def current_job_status
-      result = cp.fetch_cron_workload(runner_workload, location: location)
+    def current_job_status(timeout_seconds: nil)
+      result = if timeout_seconds
+                 cp.fetch_cron_workload(runner_workload, location: location, timeout_seconds: timeout_seconds)
+               else
+                 cp.fetch_cron_workload(runner_workload, location: location)
+               end
       job_details = result&.dig("items")&.find { |item| item["id"] == job }
       job_details&.dig("status")
+    end
+
+    def job_status_reconciliation_deadline
+      monotonic_time + job_status_reconciliation_timeout
+    end
+
+    def job_status_reconciliation_timeout_message(status)
+      replica_args = app_workload_replica_args.join(" ")
+
+      <<~MESSAGE.chomp
+        ERROR: Control Plane job status did not reconcile within #{job_status_reconciliation_timeout} seconds after the command finished.
+        job: #{job}
+        replica: #{replica}
+        status: #{status || 'unknown'}
+        Inspect logs: cpflow logs #{replica_args}
+        Stop the stale runner: cpflow ps:stop #{replica_args}
+      MESSAGE
     end
 
     ###########################################
     ### temporary extaction from run:detached
     ###########################################
-    def show_logs_waiting # rubocop:disable Metrics/MethodLength
+    def show_logs_waiting # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
       retries = 0
+      status_deadline = nil
       begin
         job_finished_count = 0
-        loop do
-          case print_uniq_logs
-          when :finished
-            break
-          when :changed
-            next
-          else
-            job_finished_count += 1 if resolve_job_status
-            break if job_finished_count > 5
+        unless status_deadline
+          loop do
+            case print_uniq_logs
+            when :finished
+              status_deadline = job_status_reconciliation_deadline
+              break
+            when :changed
+              next
+            else
+              status = current_job_status(timeout_seconds: JOB_STATUS_REQUEST_TIMEOUT_SECONDS)
+              @last_job_status = status
+              job_finished_count = %w[active pending].include?(status) ? 0 : job_finished_count + 1
+              if job_finished_count > 5
+                status_deadline = job_status_reconciliation_deadline
+                break
+              end
 
-            sleep(1)
+              Kernel.sleep(1)
+            end
           end
         end
 
-        resolve_job_status
+        resolve_job_status(status_deadline: status_deadline)
       rescue RuntimeError => e
         raise "#{e} Exiting..." unless retries < 10 # MAX_RETRIES
 

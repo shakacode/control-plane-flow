@@ -232,6 +232,9 @@ Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
 - manual promotion from staging to production
 - nightly cleanup and PR help workflows
 
+It also copies cpflow's composite actions into `.github/actions/cpflow-*`
+so every local `uses:` target is checked in and can be audited directly.
+
 Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
 other than `main` or `master`; the generator will bake that branch into the
 GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
@@ -240,13 +243,13 @@ Pass `--force` to overwrite existing generated files. Prefer
 repo.
 
 ```sh
-# Creates thin .github/workflows wrappers for the Control Plane flow
+# Creates workflow wrappers, local composite actions, and validation helpers
 cpflow generate-github-actions
 
 # Creates the flow with staging deploys triggered from develop
 cpflow generate-github-actions --staging-branch develop
 
-# Overwrites existing generated wrappers from the installed cpflow gem
+# Overwrites existing generated GitHub Actions files from the installed cpflow gem
 cpflow generate-github-actions --force
 ```
 
@@ -483,6 +486,12 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
 - Waiting for a runner replica is limited to the smaller of `runner_job_timeout` and 1000 seconds.
   A terminal cron status fails immediately, and reaching the observation deadline reports the last safe status
+- With non-interactive log methods 2 and 3, after a command prints its completion marker, Control Plane
+  has up to 20 minutes to reconcile the cron job to a terminal status. This can be configured through
+  `runner_job_status_reconciliation_timeout` in `controlplane.yml`; timing out exits nonzero and reports
+  the job, replica, and last observed status
+- Log method 1 does not emit a completion marker, so its job-status polling is not covered by the
+  post-command reconciliation timeout
 - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
   Control Plane exposes a runner replica to attach logs to
 - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
@@ -579,17 +588,18 @@ cpflow terraform import
 
 ### `update-github-actions`
 
-Regenerates the generated cpflow GitHub Actions wrappers and helper files
-from the currently installed cpflow gem. Use this after updating the
-cpflow gem so checked-in workflow wrappers move to the matching upstream
-release tag, for example `v5.2.0`.
+Regenerates the cpflow workflow wrappers, local composite actions, and
+helper files from the currently installed cpflow gem. Use this after
+updating the cpflow gem so checked-in workflow wrappers move to the
+matching upstream release tag, for example `v5.3.0`, and the
+generated action implementations move with them.
 
 If the existing generated staging workflow uses a custom single staging
 branch, the command preserves it. Pass `--staging-branch BRANCH` to set or
 replace the generated staging branch explicitly.
 
 ```sh
-# After updating the cpflow gem, refresh generated GitHub Actions wrappers
+# After updating the cpflow gem, refresh every generated GitHub Actions file
 cpflow update-github-actions
 
 # When running cpflow through Bundler

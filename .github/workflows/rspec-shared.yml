@@ -19,6 +19,13 @@ on:
         required: false
         default: false
         type: boolean
+    secrets:
+      CPLN_TOKEN:
+        description: Control Plane token used by integration specs
+        required: false
+
+permissions:
+  contents: read
 
 jobs:
   rspec:
@@ -38,15 +45,14 @@ jobs:
       cancel-in-progress: false
     env:
       RAILS_ENV: test
-      # We have to add "_CI" to the end, otherwise it messes with tests where we switch profiles,
-      # as Control Plane will try to use this token's profile instead.
-      CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
       CPLN_ORG: ${{ vars.CPLN_ORG }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           ruby-version: ${{ inputs.ruby_version }}
           bundler-cache: true
@@ -54,22 +60,41 @@ jobs:
         run: bundle install
       - name: Install Control Plane tools
         run: |
-          sudo npm install -g @controlplane/cli
+          sudo npm install -g @controlplane/cli@3.11.0
           cpln --version
       - name: Setup Control Plane tools
+        env:
+          # Keep the _CI suffix so tests that switch profiles do not use this token's profile.
+          CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
         run: |
-          cpln profile create default --token $CPLN_TOKEN_CI --org $CPLN_ORG
+          cpln profile create default --token "$CPLN_TOKEN_CI" --org "$CPLN_ORG"
           cpln image docker-login
       - name: Run tests
-        run: bundle exec rspec --format documentation ${{ inputs.test_tag && format('--tag {0}', inputs.test_tag) }} ${{ inputs.spec_paths }}
+        env:
+          CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
+          RSPEC_SPEC_PATHS: ${{ inputs.spec_paths }}
+          RSPEC_TEST_TAG: ${{ inputs.test_tag }}
+        run: |
+          set -euo pipefail
+
+          rspec_args=(--format documentation)
+          if [[ -n "${RSPEC_TEST_TAG}" ]]; then
+            rspec_args+=(--tag "${RSPEC_TEST_TAG}")
+          fi
+          if [[ -n "${RSPEC_SPEC_PATHS}" ]]; then
+            read -r -a requested_paths <<< "${RSPEC_SPEC_PATHS}"
+            rspec_args+=("${requested_paths[@]}")
+          fi
+
+          bundle exec rspec "${rspec_args[@]}"
       - name: Upload spec log
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: spec-${{ inputs.test_tag }}-${{ github.run_id }}-${{ inputs.os_version }}-${{ inputs.ruby_version }}.log
           path: spec.log
       - name: Upload coverage results
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: coverage-report-${{ inputs.test_tag }}-${{ github.run_id }}-${{ inputs.os_version }}-${{ inputs.ruby_version }}
