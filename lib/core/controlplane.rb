@@ -597,39 +597,52 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def perform_with_output(cmd)
-    output_reader, output_writer = IO.pipe
-    pid = spawn_captured_process(cmd, output_writer)
-    captured_output = drain_captured_output(output_reader)
+    readers, writers = 2.times.map { IO.pipe }.transpose
+    pid = spawn_captured_process(cmd, writers)
+    captured_output = drain_captured_output(readers, determine_command_output_mode)
     _, status = Process.wait2(pid)
     reaped = true
     { output: captured_output, success: status.exited? && status.success? }
   ensure
-    output_reader&.close unless output_reader&.closed?
-    output_writer&.close unless output_writer&.closed?
+    [*readers, *writers].compact.each { |pipe| pipe.close unless pipe.closed? }
     $child_pids.delete(pid) if reaped # rubocop:disable Style/GlobalVars
   end
 
-  def spawn_captured_process(cmd, output_writer)
-    pid = Process.spawn(cmd, out: output_writer, err: %i[child out])
+  def spawn_captured_process(cmd, writers)
+    pid = Process.spawn(cmd, out: writers.fetch(0), err: writers.fetch(1))
     $child_pids << pid # rubocop:disable Style/GlobalVars
-    output_writer.close
+    writers.each(&:close)
     pid
   end
 
-  def drain_captured_output(output_reader)
+  def drain_captured_output(readers, output_mode)
+    stream_roles = { readers.fetch(0) => :stdout, readers.fetch(1) => :stderr }
+    pending_readers = readers.dup
     captured_output = +""
-    loop do
-      chunk = output_reader.readpartial(4096)
-      captured_output << chunk
-      next unless determine_command_output_mode == :all
 
-      $stdout.write(chunk)
-      $stdout.flush
+    until pending_readers.empty?
+      IO.select(pending_readers).first.each do |reader|
+        drain_ready_output(reader, stream_roles.fetch(reader), pending_readers, captured_output, output_mode)
+      end
     end
-  rescue EOFError
+
     captured_output
   end
-  private :spawn_captured_process, :drain_captured_output
+
+  def drain_ready_output(reader, stream_role, pending_readers, captured_output, output_mode)
+    chunk = reader.read_nonblock(4096)
+    captured_output << chunk
+    return if output_mode == :none || (stream_role == :stdout && output_mode != :all)
+
+    stream = stream_role == :stdout ? $stdout : $stderr
+    stream.write(chunk)
+    stream.flush
+  rescue IO::WaitReadable
+    nil
+  rescue EOFError
+    pending_readers.delete(reader)
+  end
+  private :spawn_captured_process, :drain_captured_output, :drain_ready_output
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
     success = perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern)

@@ -335,7 +335,7 @@ describe Controlplane do
       expect(Process).to have_received(:spawn).with(
         "cpln workload update",
         out: an_instance_of(IO),
-        err: %i[child out]
+        err: an_instance_of(IO)
       )
       expect($child_pids).not_to include(12_345) # rubocop:disable Style/GlobalVars
     end
@@ -355,29 +355,58 @@ describe Controlplane do
       $child_pids.delete(12_346) # rubocop:disable Style/GlobalVars
     end
 
-    it "streams output while capturing it when command output is visible" do
+    it "streams stdout and stderr to their original channels while capturing both when output is visible" do
       stub_env("HIDE_COMMAND_OUTPUT", "false")
       Shell.verbose_mode(true)
 
       result = nil
       expect do
-        result = described_instance.send(:perform_with_output, "printf 'live output'")
-      end.to output("live output").to_stdout
+        result = described_instance.send(
+          :perform_with_output,
+          "printf 'live stdout'; printf 'live stderr' >&2"
+        )
+      end.to output("live stdout").to_stdout.and output("live stderr").to_stderr
 
-      expect(result).to eq(success: true, output: "live output")
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("live stdout", "live stderr")
     ensure
       Shell.verbose_mode(false)
     end
 
-    it "captures output without streaming it when command output is hidden" do
-      stub_env("HIDE_COMMAND_OUTPUT", "true")
+    it "streams only stderr in errors-only mode while capturing both channels" do
+      stub_env("HIDE_COMMAND_OUTPUT", "false")
+      Shell.verbose_mode(false)
 
       result = nil
       expect do
-        result = described_instance.send(:perform_with_output, "printf 'hidden output'")
-      end.not_to output.to_stdout
+        Shell.use_tmp_stderr do
+          result = described_instance.send(
+            :perform_with_output,
+            "printf 'captured stdout'; printf 'visible stderr' >&2"
+          )
+        end
+      end.to output("").to_stdout.and output("visible stderr").to_stderr
 
-      expect(result).to eq(success: true, output: "hidden output")
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("captured stdout", "visible stderr")
+    end
+
+    it "captures both channels without streaming them when command output is hidden" do
+      stub_env("HIDE_COMMAND_OUTPUT", "true")
+      Shell.verbose_mode(true)
+
+      result = nil
+      expect do
+        result = described_instance.send(
+          :perform_with_output,
+          "printf 'hidden stdout'; printf 'hidden stderr' >&2"
+        )
+      end.to output("").to_stdout.and output("").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("hidden stdout", "hidden stderr")
+    ensure
+      Shell.verbose_mode(false)
     end
   end
 end
