@@ -34,7 +34,9 @@ describe Command::Run do
       output, error_output, status = Open3.capture3("bash", "-c", runner_script)
 
       expect(status).to be_success, error_output
-      expect(output.lines(chomp: true)).to eq(payloads.map { |payload| "<#{payload}>" } + [described_class::MAGIC_END])
+      expect(output.lines(chomp: true)).to eq(
+        payloads.map { |payload| "<#{payload}>" } + ["", described_class::MAGIC_END]
+      )
     end
 
     it "preserves intentional shell syntax in a single command string" do
@@ -59,7 +61,26 @@ describe Command::Run do
       output, error_output, status = Open3.capture3("bash", "-c", runner_script)
 
       expect(status).to be_success, error_output
-      expect(output.lines(chomp: true)).to eq(["left", "right", described_class::MAGIC_END])
+      expect(output.lines(chomp: true)).to eq(["left", "right", "", described_class::MAGIC_END])
+    end
+
+    it "delimits the finish marker after output without a trailing newline" do
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command("run", "--app", app, "--org", "test-org", "--", "printf", "done")
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+      expect(status).to be_success, error_output
+      expect(output.lines(chomp: true)).to eq(["done", described_class::MAGIC_END])
     end
 
     it "uses one ordered stream for payload stderr and the finish marker without changing the exit status" do
@@ -80,14 +101,14 @@ describe Command::Run do
 
       expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
       expect(runner_script).to match(
-        /\) 2>&1\nCPFLOW_EXIT_CODE=\$\?\necho '#{Regexp.escape(described_class::MAGIC_END)}'/
+        /\) 2>&1\nCPFLOW_EXIT_CODE=\$\?\nprintf '\\n%s\\n' '#{Regexp.escape(described_class::MAGIC_END)}'/
       )
 
       output, error_output, status = Open3.capture3("bash", "-c", runner_script)
 
       expect(status.exitstatus).to eq(23)
       expect(error_output).to be_empty
-      expect(output.lines(chomp: true)).to eq(["payload stderr", described_class::MAGIC_END])
+      expect(output.lines(chomp: true)).to eq(["payload stderr", "", described_class::MAGIC_END])
     end
   end
 
@@ -920,25 +941,25 @@ describe Command::Run do
       expect(progress).not_to have_received(:puts).with(described_class::MAGIC_END)
     end
 
-    it "recognizes and strips a finish marker appended to unterminated output" do
+    it "does not treat payload ending with the marker text as the finish record" do
       timestamp = "1788000010000000000"
-      appended_marker_log = {
+      marker_suffix_payload = "phase: #{described_class::MAGIC_END}"
+      payload_log = {
         "data" => {
           "result" => [{
-            "values" => [[timestamp, "done#{described_class::MAGIC_END}"]]
+            "values" => [[timestamp, marker_suffix_payload]]
           }]
         }
       }
 
       allow(command).to receive_messages(cp: cp, progress: progress)
-      allow(cp).to receive(:log_get).and_return(appended_marker_log)
+      allow(cp).to receive(:log_get).and_return(payload_log)
       allow(Time).to receive(:now).and_return(Time.at(1_788_000_020))
       command.instance_variable_set(:@runner_workload, "rails-runner")
       command.instance_variable_set(:@replica, "rails-runner-replica")
 
-      expect(command.send(:print_uniq_logs)).to eq(:finished)
-      expect(progress).to have_received(:puts).with("done")
-      expect(progress).not_to have_received(:puts).with(include(described_class::MAGIC_END))
+      expect(command.send(:print_uniq_logs)).to eq(:changed)
+      expect(progress).to have_received(:puts).with(marker_suffix_payload)
     end
   end
 

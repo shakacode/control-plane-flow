@@ -605,7 +605,7 @@ module Command
           <<~SCRIPT
             ( #{args_join(config.args)} ) 2>&1
             CPFLOW_EXIT_CODE=$?
-            echo '#{MAGIC_END}'
+            printf '\\n%s\\n' '#{MAGIC_END}'
             exit $CPFLOW_EXIT_CODE
           SCRIPT
         end
@@ -629,11 +629,7 @@ module Command
 
         no_logs_counter = 0
         line = logs_pipe.gets
-        marker_payload = output_before_finish_marker(line)
-        if marker_payload
-          puts(marker_payload) unless marker_payload.empty?
-          break
-        end
+        break if line.chomp == MAGIC_END
 
         puts(line)
       end
@@ -778,29 +774,13 @@ module Command
       entries = normalized_log_entries(from: @post_terminal_log_from || (ts - LOG_QUERY_LOOKBACK_SECONDS), to: ts)
 
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
-        entry_status = print_log_entry(val)
-        status = entry_status == :finished ? :finished : (status || :changed)
+        status ||= :changed
+        val.chomp == MAGIC_END ? status = :finished : progress.puts(val)
       end
 
       @printed_log_entries = entries # as well truncate old entries if any
 
       status || :unchanged
-    end
-
-    def print_log_entry(value)
-      marker_payload = output_before_finish_marker(value)
-      if marker_payload
-        progress.puts(marker_payload) unless marker_payload.empty?
-        :finished
-      else
-        progress.puts(value)
-        :changed
-      end
-    end
-
-    def output_before_finish_marker(value)
-      normalized = value.chomp
-      normalized.delete_suffix(MAGIC_END) if normalized.end_with?(MAGIC_END)
     end
 
     def normalized_log_entries(from:, to:)
