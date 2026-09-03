@@ -232,6 +232,9 @@ Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
 - manual promotion from staging to production
 - nightly cleanup and PR help workflows
 
+It also copies cpflow's composite actions into `.github/actions/cpflow-*`
+so every local `uses:` target is checked in and can be audited directly.
+
 Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
 other than `main` or `master`; the generator will bake that branch into the
 GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
@@ -240,13 +243,13 @@ Pass `--force` to overwrite existing generated files. Prefer
 repo.
 
 ```sh
-# Creates thin .github/workflows wrappers for the Control Plane flow
+# Creates workflow wrappers, local composite actions, and validation helpers
 cpflow generate-github-actions
 
 # Creates the flow with staging deploys triggered from develop
 cpflow generate-github-actions --staging-branch develop
 
-# Overwrites existing generated wrappers from the installed cpflow gem
+# Overwrites existing generated GitHub Actions files from the installed cpflow gem
 cpflow generate-github-actions --force
 ```
 
@@ -585,17 +588,18 @@ cpflow terraform import
 
 ### `update-github-actions`
 
-Regenerates the generated cpflow GitHub Actions wrappers and helper files
-from the currently installed cpflow gem. Use this after updating the
-cpflow gem so checked-in workflow wrappers move to the matching upstream
-release tag, for example `v5.3.0`.
+Regenerates the cpflow workflow wrappers, local composite actions, and
+helper files from the currently installed cpflow gem. Use this after
+updating the cpflow gem so checked-in workflow wrappers move to the
+matching upstream release tag, for example `v5.3.0`, and the
+generated action implementations move with them.
 
 If the existing generated staging workflow uses a custom single staging
 branch, the command preserves it. Pass `--staging-branch BRANCH` to set or
 replace the generated staging branch explicitly.
 
 ```sh
-# After updating the cpflow gem, refresh generated GitHub Actions wrappers
+# After updating the cpflow gem, refresh every generated GitHub Actions file
 cpflow update-github-actions
 
 # When running cpflow through Bundler

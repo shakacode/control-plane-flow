@@ -14,6 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Changed
 
+- **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. [PR 451](https://github.com/shakacode/control-plane-flow/pull/451) by [Justin Gordon](https://github.com/justin808). Part of [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).
 - **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
 
 ### Fixed
