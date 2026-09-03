@@ -233,11 +233,14 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+        stub_env("DISABLE_APPLY_READY", nil)
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
+        expect(result[:stderr]).to match(/\[CMD\] cpln apply [^\n]* --ready(?:\n|\z)/)
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("Updating runner workload")
         expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
 
@@ -253,11 +256,14 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+        stub_env("DISABLE_APPLY_READY", nil)
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
+        expect(result[:stderr]).to match(/\[CMD\] cpln apply [^\n]* --ready(?:\n|\z)/)
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("Updating runner workload")
         expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
 
@@ -275,11 +281,14 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+        stub_env("DISABLE_APPLY_READY", nil)
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
+        expect(result[:stderr]).to match(/\[CMD\] cpln apply [^\n]* --ready(?:\n|\z)/)
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("Updating runner workload")
         expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
   end
