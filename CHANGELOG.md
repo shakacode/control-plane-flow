@@ -16,6 +16,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
 
+### Fixed
+
+- **Bounded `cpflow run` status reconciliation after a non-interactive command finishes.** When Control Plane keeps reporting a cron job as active or pending after the command completion marker, `cpflow run` now waits up to a configurable 20-minute grace period and then exits nonzero with the job, replica, and last observed status instead of polling forever. Addresses the bounded-reconciliation portion of [HiChee issue 10375](https://github.com/shakacode/hichee/issues/10375).
+
 ## [5.3.0] - 2026-09-02
 
 ### Added

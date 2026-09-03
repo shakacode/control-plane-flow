@@ -483,6 +483,12 @@ timeout 300 cpflow ps:wait -a $APP_NAME
   (can be configured though `runner_job_timeout` in `controlplane.yml`)
 - Waiting for a runner replica is limited to the smaller of `runner_job_timeout` and 1000 seconds.
   A terminal cron status fails immediately, and reaching the observation deadline reports the last safe status
+- With non-interactive log methods 2 and 3, after a command prints its completion marker, Control Plane
+  has up to 20 minutes to reconcile the cron job to a terminal status. This can be configured through
+  `runner_job_status_reconciliation_timeout` in `controlplane.yml`; timing out exits nonzero and reports
+  the job, replica, and last observed status
+- Log method 1 does not emit a completion marker, so its job-status polling is not covered by the
+  post-command reconciliation timeout
 - Non-interactive jobs return the Control Plane cron job status even when the job finishes before
   Control Plane exposes a runner replica to attach logs to
 - Injects `CPFLOW_GVC_ID` and `CPFLOW_GVC_CREATED` into the job, exposing the app's immutable GVC
