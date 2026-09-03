@@ -757,6 +757,10 @@ GitHub Actions wrappers in the same PR. The gem version does not make GitHub loa
 new reusable workflow YAML by itself; GitHub loads the `uses:` ref committed in
 `.github/workflows/cpflow-*.yml`.
 
+For a new repository that does not have generated wrappers yet, run
+`cpflow generate-github-actions` first. Use the update command below for later
+gem upgrades.
+
 Use the installed gem to refresh the generated wrappers:
 
 ```sh

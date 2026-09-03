@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
+
 ### Fixed
 
 - **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, transient workload image deployment, and delayed one-off job output.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile and stderr capture, workload image updates retry for a bounded window before failing, and non-interactive `cpflow run` commands drain logs for a bounded post-terminal window so delayed ingestion does not drop completed job output. Slow-suite command logs and failure artifacts now redact token options and explicitly supplied sensitive values. [PR 413](https://github.com/shakacode/control-plane-flow/pull/413) by [Justin Gordon](https://github.com/justin808). Addresses [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
