@@ -539,7 +539,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
             - shell: bash
               run: "true"
       YAML
-      traversal_ref = "./.github/actions/../../../#{external_action.basename}"
+      traversal_ref = "./.github/actions/cpflow-setup-environment/../../../../#{external_action.basename}"
       promote_workflow_path.write(
         promote_workflow_path.read.sub("./.github/actions/cpflow-setup-environment", traversal_ref)
       )
@@ -553,6 +553,42 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     ensure
       FileUtils.remove_entry(external_action.to_s) if external_action&.exist?
+    end
+
+    it "ignores local actions outside the generated cpflow namespace" do
+      unrelated_action = playground.join(".github/actions/setup-node-cache")
+      unrelated_action.mkpath
+      unrelated_action.join("action.yml").write(<<~YAML)
+        name: Setup node cache
+        runs:
+          using: composite
+          steps:
+            - shell: bash
+              run: "true"
+      YAML
+      playground.join(".github/workflows/custom.yml").write(<<~YAML)
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: ./.github/actions/setup-node-cache
+      YAML
+
+      Dir.mktmpdir("cpflow-actionlint") do |tmpdir|
+        actionlint = Pathname.new(tmpdir).join("actionlint")
+        actionlint.write("#!/bin/sh\nexit 0\n")
+        FileUtils.chmod(0o755, actionlint)
+        env = {
+          "PATH" => "#{tmpdir}:#{ENV.fetch('PATH')}",
+          "BASH_ENV" => "/dev/null",
+          "ENV" => "/dev/null"
+        }
+
+        stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+        expect(status).to be_success, "#{stdout}\n#{stderr}"
+        expect(stdout).to include("all referenced local actions have checked-in descriptors")
+      end
     end
 
     it "handles recursive YAML aliases while validating generated local action references" do

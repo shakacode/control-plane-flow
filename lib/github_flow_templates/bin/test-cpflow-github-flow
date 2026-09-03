@@ -43,7 +43,7 @@ walk = lambda do |node, source_path|
   case node
   when Hash
     uses = node["uses"]
-    if uses.is_a?(String) && uses.start_with?("./.github/actions/")
+    if uses.is_a?(String) && uses.start_with?("./.github/actions/cpflow-")
       match = uses.match(generated_local_action_pattern)
       if match
         local_action_references << [source_path, match[:directory]]
