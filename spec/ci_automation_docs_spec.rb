@@ -38,4 +38,13 @@ RSpec.describe "CI automation documentation" do # rubocop:disable RSpec/Describe
       "Edit composite actions in the root `.github/actions/cpflow-*` directories"
     )
   end
+
+  it "consistently requires a protected production deployment ref" do
+    expect(normalized_documentation).to include(
+      "restrict deployment branches/tags to your protected release branch"
+    )
+    expect(normalized_documentation).not_to include(
+      "optionally disable administrator bypass and restrict deployment branches/tags"
+    )
+  end
 end

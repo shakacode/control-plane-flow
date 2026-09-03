@@ -215,7 +215,8 @@ For production promotion, also configure:
 - a GitHub Environment named `production`
 - required reviewers on that environment, limited to the people or team allowed to promote production
 - "Prevent self-review" on that environment, so the person who starts the promotion cannot approve it
-- optionally disable administrator bypass and restrict deployment branches/tags to your protected release branch
+- disable administrator bypass if your organization requires two-person control
+- restrict deployment branches/tags to your protected release branch
 - `CPLN_TOKEN_PRODUCTION` as an environment secret on `production`, not as a repository or organization secret
 - `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
