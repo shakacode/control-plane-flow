@@ -7,6 +7,34 @@ require "yaml"
 
 RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/DescribeClass
   let(:workflow_files) { Dir[File.expand_path("../.github/workflows/**/*.{yml,yaml}", __dir__)] }
+  let(:approved_top_level_permissions) do
+    {
+      "check_cpln_links.yml" => { "contents" => "read" },
+      "claude-code-review.yml" => {},
+      "claude.yml" => {},
+      "command_docs.yml" => { "contents" => "read" },
+      "cpflow-cleanup-stale-review-apps.yml" => { "contents" => "read" },
+      "cpflow-delete-review-app.yml" => {
+        "actions" => "write", "contents" => "read", "deployments" => "write",
+        "issues" => "write", "pull-requests" => "write"
+      },
+      "cpflow-deploy-review-app.yml" => {
+        "actions" => "write", "contents" => "read", "deployments" => "write",
+        "issues" => "write", "pull-requests" => "write"
+      },
+      "cpflow-deploy-staging.yml" => { "contents" => "read" },
+      "cpflow-help-command.yml" => {
+        "contents" => "read", "issues" => "write", "pull-requests" => "write"
+      },
+      "cpflow-promote-staging-to-production.yml" => { "contents" => "read" },
+      "cpflow-review-app-help.yml" => { "issues" => "write", "pull-requests" => "write" },
+      "rspec-shared.yml" => { "contents" => "read" },
+      "rspec-specific.yml" => { "contents" => "read" },
+      "rspec.yml" => { "contents" => "read" },
+      "rubocop.yml" => { "contents" => "read" },
+      "trigger-docs-site.yml" => {}
+    }
+  end
   let(:action_files) do
     [
       *workflow_files,
@@ -218,6 +246,15 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
 
     relative_directory = Pathname(path).dirname.relative_path_from(Pathname(__dir__).parent)
     "/#{relative_directory}"
+  end
+
+  def top_level_permissions_violation(path, workflow)
+    filename = File.basename(path)
+    expected = approved_top_level_permissions[filename]
+    return "#{filename}: top-level permissions are not registered" unless expected
+    return if workflow["permissions"] == expected
+
+    "#{filename}: top-level permissions must equal #{expected.inspect}; got #{workflow['permissions'].inspect}"
   end
 
   it "distinguishes exact release tags from moving version aliases" do
@@ -469,13 +506,20 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     expect(violations).to be_empty, violations.join("\n")
   end
 
+  it "rejects top-level workflow permissions outside the exact approved map" do
+    workflow = { "permissions" => { "contents" => "write" } }
+
+    expect(top_level_permissions_violation("rspec.yml", workflow)).to include("must equal")
+  end
+
   it "uses least-privilege workflow defaults and never persists checkout credentials" do
+    expect(workflow_files.map { |path| File.basename(path) }.sort).to eq(approved_top_level_permissions.keys.sort)
+
     violations = workflow_files.flat_map do |path|
       workflow = YAML.safe_load_file(path, aliases: true)
       file_violations = []
-      unless workflow["permissions"].is_a?(Hash)
-        file_violations << "#{File.basename(path)}: missing top-level permissions"
-      end
+      permissions_violation = top_level_permissions_violation(path, workflow)
+      file_violations << permissions_violation if permissions_violation
 
       walk_yaml(workflow) do |value, yaml_path|
         next unless value.is_a?(Hash) && value["uses"]&.start_with?("actions/checkout@")
