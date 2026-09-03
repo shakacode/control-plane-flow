@@ -307,6 +307,11 @@ aliases:
     # If not specified, defaults to 21600 (6 hours).
     runner_job_timeout: 1000
 
+    # Sets how long `cpflow run` waits for Control Plane to reconcile a cron job status
+    # after the non-interactive command prints its completion marker.
+    # If not specified, defaults to 1200 (20 minutes).
+    runner_job_status_reconciliation_timeout: 1200
+
     # Apps with a deployed image, or an image-less GVC, created before this amount of days
     # will be listed for deletion when running the command `cpflow cleanup-stale-apps`.
     stale_app_image_deployed_days: 5

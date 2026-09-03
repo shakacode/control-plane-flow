@@ -99,6 +99,62 @@ describe Command::Run do
     end
   end
 
+  describe "post-command job status reconciliation" do
+    let(:config) { instance_double(Config) }
+    let(:cp) { instance_double(Controlplane) }
+    let(:progress) { instance_double(IO, puts: nil) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(config).to receive(:app).and_return("test-app")
+      allow(command).to receive_messages(cp: cp, progress: progress)
+      allow(command).to receive(:print_uniq_logs).and_return(:finished)
+      allow(Kernel).to receive(:sleep)
+
+      command.instance_variable_set(:@job, "job-123")
+      command.instance_variable_set(:@replica, "rails-runner-job-123")
+      command.instance_variable_set(:@location, "aws-us-east-2")
+      command.instance_variable_set(:@runner_workload, "rails-runner")
+      command.instance_variable_set(:@job_status_reconciliation_timeout, 1_200)
+    end
+
+    it "fails after the command marker when an active job never reconciles" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_300.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise "unbounded polling" if status_reads > 1
+
+        "active"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(progress).to have_received(:puts).with(
+        include(
+          "did not reconcile within 1200 seconds",
+          "job: job-123",
+          "replica: rails-runner-job-123",
+          "status: active"
+        )
+      )
+    end
+
+    it "accepts eventual success within the post-command grace period" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0)
+      allow(command).to receive(:current_job_status).and_return("active", "successful")
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+    end
+
+    it "applies the same deadline to streamed logs after the command marker" do
+      logs_pipe = instance_double(IO, eof?: false, ready?: true, gets: "#{described_class::MAGIC_END}\n")
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_300.0)
+      allow(command).to receive(:current_job_status).and_return("pending")
+
+      expect(command.send(:wait_for_job_status_and_log, logs_pipe)).to eq(ExitCode::ERROR_DEFAULT)
+    end
+  end
+
   describe "#update_runner_workload" do
     let(:config) { instance_double(Config) }
     let(:cp) { instance_double(Controlplane) }
