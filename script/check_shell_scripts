@@ -39,7 +39,7 @@ while IFS= read -r -d '' entry; do
   if [[ $first_line =~ ^'#!'.*/(sh|bash)([[:space:]].*)?$ ]] ||
      [[ $first_line =~ ^'#!'.*/env[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     shell_files+=("$file")
-  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]] ||
+  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]*(.*/)?(sh|bash)([[:space:]].*)?$ ]] ||
        [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     shell_files+=("$file")
   elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]+|--split-string=)?((-[^[:space:]]+|[^[:space:]=]+=[^[:space:]]*)[[:space:]]+)+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then

@@ -20,6 +20,7 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
         "zzz-env-runner" => "#!/usr/bin/env /bin/bash -e\n",
         "zzz-env-spaced-runner" => "#!/usr/bin/env  bash\n",
         "zzz-env-tabbed-runner" => "#!/usr/bin/env\tbash\n",
+        "zzz-env-attached-split-runner" => "#!/usr/bin/env -Sbash -e\n",
         "zzz-env-short-runner" => "#!/bin/env -S bash -e\n",
         "zzz-env-long-runner" => "#!/usr/bin/env --split-string=bash -e\n",
         "zzz-env-python-split-runner" => "#!/usr/bin/env -S python3 -u\n",
@@ -47,8 +48,9 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       expect(status).to be_success, stderr
       expect(stdout.lines.map(&:chomp)).to eq(
         [
-          "--", "script/check_shell_scripts", "shell-file.sh", "zzz-direct-runner", "zzz-env-long-runner",
-          "zzz-env-runner", "zzz-env-short-runner", "zzz-env-spaced-runner", "zzz-env-tabbed-runner"
+          "--", "script/check_shell_scripts", "shell-file.sh", "zzz-direct-runner",
+          "zzz-env-attached-split-runner", "zzz-env-long-runner", "zzz-env-runner", "zzz-env-short-runner",
+          "zzz-env-spaced-runner", "zzz-env-tabbed-runner"
         ]
       )
     end
