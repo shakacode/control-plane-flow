@@ -659,7 +659,8 @@ module Command
       )
     end
 
-    def resolve_job_status(status_deadline: nil) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+    # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    def resolve_job_status(status_deadline: nil)
       last_status = @last_job_status
       loop do
         remaining_seconds = status_deadline && (status_deadline - monotonic_time)
@@ -668,8 +669,14 @@ module Command
           break ExitCode::ERROR_DEFAULT
         end
 
-        request_timeout = [JOB_STATUS_REQUEST_TIMEOUT_SECONDS, remaining_seconds].compact.min
-        status = current_job_status(timeout_seconds: request_timeout)
+        request_timeout = [JOB_STATUS_REQUEST_TIMEOUT_SECONDS, remaining_seconds].min if remaining_seconds
+        begin
+          status = current_job_status(timeout_seconds: request_timeout)
+        rescue Shell::CommandTimeout
+          raise unless status_deadline
+
+          next
+        end
         last_status = status
         @last_job_status = status
 
@@ -686,10 +693,8 @@ module Command
           break ExitCode::ERROR_DEFAULT
         end
       end
-    rescue Shell::CommandTimeout
-      progress.puts(Shell.color(job_status_reconciliation_timeout_message(last_status), :red))
-      ExitCode::ERROR_DEFAULT
     end
+    # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
     def current_job_status(timeout_seconds: nil)
       result = if timeout_seconds
@@ -736,6 +741,7 @@ module Command
               next
             else
               status = current_job_status(timeout_seconds: JOB_STATUS_REQUEST_TIMEOUT_SECONDS)
+              @last_job_status = status
               job_finished_count = %w[active pending].include?(status) ? 0 : job_finished_count + 1
               break if job_finished_count > 5
 

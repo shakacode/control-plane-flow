@@ -155,7 +155,7 @@ describe Command::Run do
     end
 
     it "does not let one status request outlive the remaining reconciliation deadline" do
-      allow(command).to receive(:monotonic_time).and_return(100.0, 1_250.0)
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_250.0, 1_300.0)
       allow(cp).to receive(:fetch_cron_workload).and_raise(Shell::CommandTimeout)
 
       expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
@@ -163,6 +163,33 @@ describe Command::Run do
         "rails-runner",
         location: "aws-us-east-2",
         timeout_seconds: 30
+      )
+    end
+
+    it "retries a bounded status request until the reconciliation deadline" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0, 200.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise Shell::CommandTimeout if status_reads == 1
+
+        "successful"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+      expect(status_reads).to eq(2)
+    end
+
+    it "does not apply the post-marker request timeout without a reconciliation deadline" do
+      allow(cp).to receive(:fetch_cron_workload).with(
+        "rails-runner",
+        location: "aws-us-east-2"
+      ).and_return("items" => [{ "id" => "job-123", "status" => "successful" }])
+
+      expect(command.send(:resolve_job_status)).to eq(ExitCode::SUCCESS)
+      expect(cp).to have_received(:fetch_cron_workload).with(
+        "rails-runner",
+        location: "aws-us-east-2"
       )
     end
 
@@ -189,6 +216,23 @@ describe Command::Run do
 
       expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
       expect(command).to have_received(:print_uniq_logs).once
+      expect(progress_messages.join("\n")).to include("status: active")
+    end
+
+    it "reports the last pre-marker status if the first post-marker request times out" do
+      progress_messages = []
+      allow(progress).to receive(:puts) { |message| progress_messages << message }
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0, 1_300.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise Shell::CommandTimeout if status_reads > 1
+
+        "active"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
       expect(progress_messages.join("\n")).to include("status: active")
     end
   end

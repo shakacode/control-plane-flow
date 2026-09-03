@@ -253,6 +253,18 @@ describe Shell do
       expect(elapsed).to be < 2
     end
 
+    it "terminates descendants that keep output open after the leader exits" do
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      command = "trap 'exit 0' TERM; sh -c 'trap \"\" TERM; sleep 5' & wait"
+
+      expect do
+        described_class.cmd("sh", "-c", command, timeout_seconds: 0.05)
+      end.to raise_error(described_class::CommandTimeout)
+
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+      expect(elapsed).to be < 2
+    end
+
     it "preserves merged stderr capture when a timeout is configured" do
       result = described_class.cmd(
         "sh", "-c", "echo captured-err >&2; echo captured-out",
