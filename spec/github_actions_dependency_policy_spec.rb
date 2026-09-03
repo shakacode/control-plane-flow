@@ -42,19 +42,16 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     ].sort
   end
 
-  def walk_yaml(value, path = [], visited_containers: {}.compare_by_identity, &block)
-    return if yaml_container_seen?(value, visited_containers)
+  def walk_yaml(value, path = [], active_containers: {}.compare_by_identity, &block)
+    container = value.is_a?(Hash) || value.is_a?(Array)
+    return if container && active_containers.key?(value)
 
+    active_containers[value] = true if container
     yield(value, path)
     yaml_children(value).each do |path_segment, child|
-      walk_yaml(child, [*path, path_segment], visited_containers: visited_containers, &block)
+      walk_yaml(child, [*path, path_segment], active_containers: active_containers, &block)
     end
-  end
-
-  def yaml_container_seen?(value, visited_containers)
-    return false unless value.is_a?(Hash) || value.is_a?(Array)
-
-    visited_containers.key?(value).tap { visited_containers[value] = true }
+    active_containers.delete(value) if container
   end
 
   def yaml_children(value)
@@ -439,6 +436,28 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       expect(walked_paths).to include(%w[metadata loop])
       expect(external_action_policy_violations(path)).to be_empty
     end
+  end
+
+  it "walks a shared aliased container at each non-recursive path" do
+    document = YAML.safe_load(<<~YAML, aliases: true)
+      shared: &shared
+        run: echo "${{ github.ref }}"
+      jobs:
+        first:
+          steps:
+            - *shared
+        second:
+          steps:
+            - *shared
+    YAML
+
+    walked_paths = []
+    walk_yaml(document) { |_value, yaml_path| walked_paths << yaml_path }
+
+    expect(walked_paths).to include(
+      ["jobs", "first", "steps", 0, "run"],
+      ["jobs", "second", "steps", 0, "run"]
+    )
   end
 
   it "pins every external action to a reviewed commit with an auditable version comment" do
