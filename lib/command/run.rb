@@ -600,8 +600,10 @@ module Command
         if @log_method == 1 || @interactive
           args_join(config.args)
         else
+          # MAGIC_END must be a same-stream barrier after all payload output. Merge stderr into stdout before
+          # capturing the payload exit status and emitting the marker.
           <<~SCRIPT
-            ( #{args_join(config.args)} )
+            ( #{args_join(config.args)} ) 2>&1
             CPFLOW_EXIT_CODE=$?
             echo '#{MAGIC_END}'
             exit $CPFLOW_EXIT_CODE

@@ -61,6 +61,34 @@ describe Command::Run do
       expect(status).to be_success, error_output
       expect(output.lines(chomp: true)).to eq(["left", "right", described_class::MAGIC_END])
     end
+
+    it "uses one ordered stream for payload stderr and the finish marker without changing the exit status" do
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command(
+        "run", "--app", app, "--org", "test-org", "--",
+        "ruby", "-e", "warn 'payload stderr'; exit 23"
+      )
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      expect(runner_script).to match(
+        /\) 2>&1\nCPFLOW_EXIT_CODE=\$\?\necho '#{Regexp.escape(described_class::MAGIC_END)}'/
+      )
+
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+
+      expect(status.exitstatus).to eq(23)
+      expect(error_output).to be_empty
+      expect(output.lines(chomp: true)).to eq(["payload stderr", described_class::MAGIC_END])
+    end
   end
 
   describe "#call" do
