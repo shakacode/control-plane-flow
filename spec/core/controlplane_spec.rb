@@ -334,10 +334,35 @@ describe Controlplane do
       expect(result).to eq(success: false, output: "")
       expect(Process).to have_received(:spawn).with(
         "cpln workload update",
-        out: an_instance_of(File),
+        out: an_instance_of(IO),
         err: %i[child out]
       )
       expect($child_pids).not_to include(12_345) # rubocop:disable Style/GlobalVars
+    end
+
+    it "streams output while capturing it when command output is visible" do
+      stub_env("HIDE_COMMAND_OUTPUT", "false")
+      Shell.verbose_mode(true)
+
+      result = nil
+      expect do
+        result = described_instance.send(:perform_with_output, "printf 'live output'")
+      end.to output("live output").to_stdout
+
+      expect(result).to eq(success: true, output: "live output")
+    ensure
+      Shell.verbose_mode(false)
+    end
+
+    it "captures output without streaming it when command output is hidden" do
+      stub_env("HIDE_COMMAND_OUTPUT", "true")
+
+      result = nil
+      expect do
+        result = described_instance.send(:perform_with_output, "printf 'hidden output'")
+      end.not_to output.to_stdout
+
+      expect(result).to eq(success: true, output: "hidden output")
     end
   end
 end

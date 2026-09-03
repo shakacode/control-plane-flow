@@ -597,12 +597,38 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def perform_with_output(cmd)
-    Tempfile.create("cpflow-command-output") do |output|
-      success = kernel_system_with_pid_handling(cmd, out: output, err: %i[child out])
-      output.rewind
-      { output: output.read, success: success == true }
-    end
+    output_reader, output_writer = IO.pipe
+    pid = spawn_captured_process(cmd, output_writer)
+    captured_output = drain_captured_output(output_reader)
+    _, status = Process.wait2(pid)
+    { output: captured_output, success: status.exited? && status.success? }
+  ensure
+    output_reader&.close unless output_reader&.closed?
+    output_writer&.close unless output_writer&.closed?
+    $child_pids.delete(pid) if pid # rubocop:disable Style/GlobalVars
   end
+
+  def spawn_captured_process(cmd, output_writer)
+    pid = Process.spawn(cmd, out: output_writer, err: %i[child out])
+    $child_pids << pid # rubocop:disable Style/GlobalVars
+    output_writer.close
+    pid
+  end
+
+  def drain_captured_output(output_reader)
+    captured_output = +""
+    loop do
+      chunk = output_reader.readpartial(4096)
+      captured_output << chunk
+      next unless determine_command_output_mode == :all
+
+      $stdout.write(chunk)
+      $stdout.flush
+    end
+  rescue EOFError
+    captured_output
+  end
+  private :spawn_captured_process, :drain_captured_output
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
     success = perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern)

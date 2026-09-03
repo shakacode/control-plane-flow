@@ -648,16 +648,12 @@ module Command
       )
     end
 
-    def resolve_job_status(unavailable_status_retry_limit: 0)
-      unavailable_status_retries = 0
-
+    def resolve_job_status
       loop do
         status = current_job_status
-        unavailable_is_pending = status.nil? && unavailable_status_retries < unavailable_status_retry_limit
-        exit_status = job_exit_status(status, unavailable_is_pending: unavailable_is_pending)
+        exit_status = job_exit_status(status, unavailable_is_pending: false)
         break exit_status if exit_status
 
-        unavailable_status_retries = status.nil? ? unavailable_status_retries + 1 : 0
         sleep 1
       end
     end
