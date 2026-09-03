@@ -15,6 +15,7 @@ class TimedCommand
   end
 
   def capture
+    @deadline = monotonic_time + @timeout_seconds
     return capture_separate_streams if @separate_stderr
     return capture_merged_streams if @capture_stderr
 
@@ -27,7 +28,7 @@ class TimedCommand
     Open3.popen2(*@command, pgroup: true) do |stdin, stdout, wait_thread|
       stdin.close
       output_reader = Thread.new { stdout.read }
-      wait_for_command(wait_thread)
+      wait_for_command(wait_thread, output_reader)
       { output: output_reader.value, success: wait_thread.value.success? }
     ensure
       output_reader&.join
@@ -38,7 +39,7 @@ class TimedCommand
     Open3.popen2e(*@command, pgroup: true) do |stdin, output, wait_thread|
       stdin.close
       output_reader = Thread.new { output.read }
-      wait_for_command(wait_thread)
+      wait_for_command(wait_thread, output_reader)
       { output: output_reader.value, success: wait_thread.value.success? }
     ensure
       output_reader&.join
@@ -50,7 +51,7 @@ class TimedCommand
       stdin.close
       output_reader = Thread.new { stdout.read }
       error_reader = Thread.new { stderr.read }
-      wait_for_command(wait_thread)
+      wait_for_command(wait_thread, output_reader, error_reader)
       {
         output: output_reader.value,
         error_output: error_reader.value,
@@ -62,11 +63,20 @@ class TimedCommand
     end
   end
 
-  def wait_for_command(wait_thread)
-    return if wait_thread.join(@timeout_seconds)
+  def wait_for_command(wait_thread, *output_readers)
+    observed_threads = [wait_thread, *output_readers]
+    return if observed_threads.all? { |thread| thread.join(remaining_timeout) }
 
     terminate_process_group(wait_thread)
     raise Shell::CommandTimeout, "Command exceeded the #{@timeout_seconds}-second timeout"
+  end
+
+  def remaining_timeout
+    [@deadline - monotonic_time, 0].max
+  end
+
+  def monotonic_time
+    Process.clock_gettime(Process::CLOCK_MONOTONIC)
   end
 
   def terminate_process_group(wait_thread)

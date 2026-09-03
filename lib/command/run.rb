@@ -659,7 +659,7 @@ module Command
       )
     end
 
-    # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    # rubocop:disable Metrics/BlockLength, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
     def resolve_job_status(status_deadline: nil)
       last_status = @last_job_status
       loop do
@@ -669,12 +669,14 @@ module Command
           break ExitCode::ERROR_DEFAULT
         end
 
-        request_timeout = [JOB_STATUS_REQUEST_TIMEOUT_SECONDS, remaining_seconds].min if remaining_seconds
+        request_timeout = if remaining_seconds
+                            [JOB_STATUS_REQUEST_TIMEOUT_SECONDS, remaining_seconds].min
+                          else
+                            JOB_STATUS_REQUEST_TIMEOUT_SECONDS
+                          end
         begin
           status = current_job_status(timeout_seconds: request_timeout)
         rescue Shell::CommandTimeout
-          raise unless status_deadline
-
           next
         end
         last_status = status
@@ -694,7 +696,7 @@ module Command
         end
       end
     end
-    # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    # rubocop:enable Metrics/BlockLength, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
     def current_job_status(timeout_seconds: nil)
       result = if timeout_seconds

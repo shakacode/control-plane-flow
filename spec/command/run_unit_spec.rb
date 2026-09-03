@@ -180,17 +180,25 @@ describe Command::Run do
       expect(status_reads).to eq(2)
     end
 
-    it "does not apply the post-marker request timeout without a reconciliation deadline" do
+    it "bounds and retries status requests without a reconciliation deadline" do
+      status_reads = 0
       allow(cp).to receive(:fetch_cron_workload).with(
         "rails-runner",
-        location: "aws-us-east-2"
-      ).and_return("items" => [{ "id" => "job-123", "status" => "successful" }])
+        location: "aws-us-east-2",
+        timeout_seconds: 30
+      ) do
+        status_reads += 1
+        raise Shell::CommandTimeout if status_reads == 1
+
+        { "items" => [{ "id" => "job-123", "status" => "successful" }] }
+      end
 
       expect(command.send(:resolve_job_status)).to eq(ExitCode::SUCCESS)
       expect(cp).to have_received(:fetch_cron_workload).with(
         "rails-runner",
-        location: "aws-us-east-2"
-      )
+        location: "aws-us-east-2",
+        timeout_seconds: 30
+      ).twice
     end
 
     it "keeps reading logs while the pre-marker job status is active" do
