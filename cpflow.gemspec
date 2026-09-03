@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
     cpflow #{Cpflow::VERSION} installed.
 
     If this repository already uses generated cpflow GitHub Actions, update the
-    checked-in wrappers so GitHub loads the matching control-plane-flow release tag:
+    checked-in workflows and local actions together:
 
       cpflow update-github-actions
       bin/test-cpflow-github-flow

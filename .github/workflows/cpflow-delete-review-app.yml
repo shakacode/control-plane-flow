@@ -563,6 +563,12 @@ jobs:
               }
             }
 
+      - name: Checkout generated cpflow actions
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+
       - name: Checkout control-plane-flow actions
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -573,7 +579,7 @@ jobs:
 
       - name: Validate required secrets and variables
         id: config
-        uses: ./.cpflow/.github/actions/cpflow-validate-config
+        uses: ./.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
         with:
@@ -591,7 +597,7 @@ jobs:
       - name: Resolve review app config
         if: steps.config.outputs.ready == 'true'
         id: review-config
-        uses: ./.cpflow/.github/actions/cpflow-resolve-review-config
+        uses: ./.github/actions/cpflow-resolve-review-config
         with:
           working_directory: app
           configured_cpln_org_staging: ${{ vars.CPLN_ORG_STAGING }}
@@ -600,7 +606,7 @@ jobs:
 
       - name: Setup environment
         if: steps.config.outputs.ready == 'true'
-        uses: ./.cpflow/.github/actions/cpflow-setup-environment
+        uses: ./.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ steps.review-config.outputs.cpln_org }}
@@ -644,7 +650,7 @@ jobs:
       - name: Delete review app
         id: delete-app
         if: steps.config.outputs.ready == 'true'
-        uses: ./.cpflow/.github/actions/cpflow-delete-control-plane-app
+        uses: ./.github/actions/cpflow-delete-control-plane-app
         with:
           app_name: ${{ steps.review-config.outputs.app_name }}
           cpln_org: ${{ steps.review-config.outputs.cpln_org }}

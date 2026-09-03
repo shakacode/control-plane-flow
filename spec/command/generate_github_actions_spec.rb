@@ -230,6 +230,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     Cpflow.root_path.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
   end
 
+  def generated_action_path(name)
+    playground.join(".github/actions/#{name}/action.yml")
+  end
+
+  def generated_delete_app_script_path
+    playground.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh")
+  end
+
   def generated_yaml_paths
     Dir.glob(playground.join(".github/**/*.yml"))
   end
@@ -264,19 +272,77 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_app_workflow_path).to exist
       expect(build_action_path).to exist
       expect(setup_action_path).to exist
+      expect(generated_action_path("cpflow-build-docker-image")).to exist
+      expect(generated_action_path("cpflow-setup-environment")).to exist
       expect(pin_cpflow_ref_path).to exist
       expect(test_cpflow_flow_path).to exist
-      expect(delete_app_script_path).to exist
+      expect(generated_delete_app_script_path).to exist
       expect(pin_cpflow_ref_path).to be_executable
       expect(test_cpflow_flow_path).to be_executable
-      expect(delete_app_script_path).to be_executable
-      expect(playground.join(".github/actions")).not_to exist
+      expect(generated_delete_app_script_path).to be_executable
+    end
+
+    it "uses generated local actions while keeping .cpflow as the runtime source checkout" do
+      workflow_paths = Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s) +
+                       Dir.glob(playground.join(".github/workflows/cpflow-*.yml").to_s)
+      contents = workflow_paths.map { |path| File.read(path) }.join("\n")
+      setup_action = YAML.load_file(generated_action_path("cpflow-setup-environment"), aliases: true)
+      install_step = setup_action.fetch("runs").fetch("steps").find do |step|
+        step["name"] == "Install Control Plane CLI and cpflow gem"
+      end
+
+      expect(contents).to include("uses: ./.github/actions/cpflow-setup-environment")
+      expect(contents).not_to include("uses: ./.cpflow/.github/actions/")
+      expect(setup_action.dig("inputs", "cpflow_source_directory", "default")).to eq(".cpflow")
+      expect(install_step).not_to be_nil
+      expect(install_step.dig("env", "CPFLOW_SOURCE_DIR")).to eq("${{ inputs.cpflow_source_directory }}")
+    end
+
+    it "checks out consumer-owned generated actions before invoking them" do
+      workflow_paths = Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s) +
+                       Dir.glob(playground.join(".github/workflows/cpflow-*.yml").to_s)
+
+      workflow_paths.each do |path|
+        workflow = YAML.load_file(path, aliases: true)
+        workflow.fetch("jobs").each do |job_name, job|
+          steps = Array(job["steps"])
+          first_local_action = steps.index { |step| step["uses"]&.start_with?("./.github/actions/") }
+          next unless first_local_action
+
+          checkout = steps.take(first_local_action).find do |step|
+            step["uses"]&.start_with?("actions/checkout@") && !step.fetch("with", {}).key?("path")
+          end
+
+          expect(checkout).not_to be_nil, "#{path} job #{job_name} must check out generated actions at repository root"
+          expect(checkout.fetch("with")).to include("persist-credentials" => false)
+        end
+      end
+
+      checkout_ref_expectations = {
+        [reusable_review_app_workflow_path, "deploy"] =>
+          "${{ github.event.pull_request.base.sha || github.sha }}",
+        [reusable_delete_review_workflow_path, "delete-review-app"] =>
+          "${{ github.event.pull_request.base.sha || github.sha }}",
+        [reusable_cleanup_stale_review_apps_workflow_path, "cleanup"] => "${{ github.sha }}"
+      }
+      checkout_ref_expectations.each do |(path, job_name), expected_ref|
+        steps = YAML.load_file(path, aliases: true).dig("jobs", job_name, "steps")
+        first_local_action = steps.index { |step| step["uses"]&.start_with?("./.github/actions/") }
+        generated_actions_checkout = steps.take(first_local_action).find do |step|
+          step["uses"]&.start_with?("actions/checkout@") && !step.fetch("with", {}).key?("path")
+        end
+
+        expect(generated_actions_checkout.dig("with", "ref")).to(
+          eq(expected_ref),
+          "#{path} must load generated actions from the triggering workflow commit"
+        )
+      end
     end
 
     it "installs cpflow from the checked-out upstream repository by default" do
       contents = setup_action_path.read
 
-      expect(contents).to include("CPFLOW_SOURCE_DIR: ${{ github.action_path }}/../../..")
+      expect(contents).to include("CPFLOW_SOURCE_DIR: ${{ inputs.cpflow_source_directory }}")
       expect(contents).to include('cd "${cpflow_source_dir}"')
       expect(contents).to include('if [[ ! -f "${cpflow_source_dir}/cpflow.gemspec" ]]; then')
       expect(contents).to include("gem build cpflow.gemspec")
@@ -333,6 +399,20 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("actions/github-script@v7")
     end
 
+    it "keeps auditable release comments on generated production workflow action pins" do
+      external_uses = promote_workflow_path.readlines.filter_map.with_index(1) do |line, line_number|
+        match = line.match(/^\s*uses:\s*([^@\s#]+)@([^\s#]+)(?:\s+#\s*(\S.*))?\s*$/)
+        [line_number, *match.captures] if match
+      end
+      violations = external_uses.reject do |_line_number, _repository, ref, version_comment|
+        ref.match?(/\A[0-9a-f]{40}\z/) && version_comment&.match?(/\Av\d+\.\d+\.\d+\z/)
+      end
+
+      expect(external_uses.length).to eq(3)
+      expect(violations).to be_empty,
+                            "generated production external actions need SHA pins and release comments: #{violations}"
+    end
+
     it "generates thin reusable-workflow wrappers for non-production flows" do
       contents = review_app_workflow_path.read
       default_ref = "v#{Cpflow::VERSION}"
@@ -352,11 +432,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("did not validate the Docker image")
     end
 
-    it "updates existing generated wrappers to the installed cpflow release tag" do
+    it "updates existing generated wrappers and local actions from the installed cpflow gem" do
       old_ref = "v5.0.0"
       current_ref = "v#{Cpflow::VERSION}"
 
       File.write(review_app_workflow_path, review_app_workflow_path.read.gsub(current_ref, old_ref))
+      generated_action_path("cpflow-setup-environment").write("name: Stale generated action\n")
 
       inside_dir(playground) do
         result = run_cpflow_command("update-github-actions")
@@ -368,6 +449,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_app_workflow_path.read).to include(
         "uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{current_ref}"
       )
+      expect(generated_action_path("cpflow-setup-environment").read).to eq(setup_action_path.read)
     end
 
     it "preserves an existing custom staging branch while updating generated wrappers" do
@@ -511,7 +593,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
               ), "#{path} cpflow checkout must use the called workflow source"
             end
 
-            next unless step["uses"] == "./.cpflow/.github/actions/cpflow-setup-environment"
+            next unless step["uses"] == "./.github/actions/cpflow-setup-environment"
 
             saw_setup_environment = true
             expect(step.fetch("with")).to include(
@@ -695,7 +777,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to match(
         %r{
-          uses:\ \./\.cpflow/\.github/actions/cpflow-setup-environment
+          uses:\ \./\.github/actions/cpflow-setup-environment
           .*?
           working_directory:\ app
         }mx
@@ -805,7 +887,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(wrapper).to include("Cleanup targets the current inferred review-app prefix")
       expect(contents).to include("Resolve review app config")
-      expect(contents).to include("uses: ./.cpflow/.github/actions/cpflow-resolve-review-config")
+      expect(contents).to include("uses: ./.github/actions/cpflow-resolve-review-config")
       expect(contents).to include("configured_review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}")
       expect(contents).to include("configured_cpln_org_staging: ${{ vars.CPLN_ORG_STAGING }}")
       expect(action_contents).to include("def safe_load_yaml_file(path)")
@@ -893,7 +975,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
       expect(contents).to include("- name: Wait for deployment health")
       expect(contents).to include("id: health-check")
-      expect(contents).to include("uses: ./.cpflow/.github/actions/cpflow-wait-for-health")
+      expect(contents).to include("uses: ./.github/actions/cpflow-wait-for-health")
       expect(contents).to include("workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}")
       expect(contents).to include("app_name: ${{ steps.review-config.outputs.app_name }}")
       expect(contents).to include("org: ${{ steps.review-config.outputs.cpln_org }}")
@@ -1145,7 +1227,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "does not persist checkout credentials in staging jobs" do
-      expect(reusable_staging_workflow_path.read.scan("persist-credentials: false").length).to eq(5)
+      expect(reusable_staging_workflow_path.read.scan("persist-credentials: false").length).to eq(6)
     end
 
     it "documents the branch-filter trade-off and sets staging concurrency/vars" do
@@ -1586,22 +1668,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(Cpflow::Cli).not_to have_received(:check_cpflow_version)
     end
 
-    # Snapshot guard: every generated file must equal its template with the documented
+    # Snapshot guard: every generated file must equal its canonical source with the documented
     # substitutions applied. This catches drift when the generator silently mutates
     # output (e.g. a refactor introduces an unintended transform) and forces template
     # changes to be reviewed line-by-line in the diff rather than relying on individual
     # `expect(...).to include(...)` assertions to remember every load-bearing line.
     it "emits files identical to their templates with default substitutions applied" do
-      template_root = Cpflow.root_path.join("lib/github_flow_templates")
-      relative_paths = described_class.generated_files
+      generated_file_sources = described_class.generated_file_sources
 
-      expect(relative_paths).not_to be_empty
+      expect(generated_file_sources).not_to be_empty
 
-      relative_paths.each do |relative_path|
-        template = template_root.join(relative_path).read
+      generated_file_sources.each do |relative_path, source_path|
+        source = source_path.read
         # Re-derive __CPFLOW_MINOR_SERIES__ here rather than calling cpflow_minor_series,
         # so this snapshot guard stays independent of the code under test.
-        expected = template
+        expected = source
                    .gsub("__CPFLOW_GITHUB_ACTIONS_REF__", "v#{Cpflow::VERSION}")
                    .gsub("__CPFLOW_MINOR_SERIES__", "#{Cpflow::VERSION.split('.').first(2).join('.')}.x")
                    .gsub("__STAGING_BRANCH_FILTER__", %("main", "master"))
@@ -1612,12 +1693,16 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       end
     end
 
-    it "generates exactly the templated file set (catches accidental additions/removals)" do
+    it "generates exactly the canonical source file set (catches accidental additions/removals)" do
       template_root = Cpflow.root_path.join("lib/github_flow_templates")
-      expected = Dir.glob(template_root.join("**", "*").to_s, File::FNM_DOTMATCH)
-                    .select { |path| File.file?(path) }
-                    .map { |path| Pathname.new(path).relative_path_from(template_root).to_s }
-                    .sort
+      action_root = Cpflow.root_path.join(".github/actions")
+      template_files = Dir.glob(template_root.join("**", "*").to_s, File::FNM_DOTMATCH)
+                          .select { |path| File.file?(path) }
+                          .map { |path| Pathname.new(path).relative_path_from(template_root).to_s }
+      action_files = Dir.glob(action_root.join("cpflow-*/**/*").to_s, File::FNM_DOTMATCH)
+                        .select { |path| File.file?(path) }
+                        .map { |path| Pathname.new(path).relative_path_from(Cpflow.root_path).to_s }
+      expected = (template_files + action_files).sort
 
       generated = Dir.glob(playground.join("**", "*").to_s, File::FNM_DOTMATCH)
                      .select { |path| File.file?(path) }
@@ -1641,10 +1726,29 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
   end
 
+  context "when update-github-actions finds only a stale generated local action" do
+    before do
+      FileUtils.mkdir_p(generated_action_path("cpflow-setup-environment").dirname)
+      generated_action_path("cpflow-setup-environment").write("name: Stale generated action\n")
+    end
+
+    it "repairs the partial tree as the complete canonical generated file set" do
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:status]).to eq(0)
+      end
+
+      expect(generated_action_path("cpflow-setup-environment").read).to eq(setup_action_path.read)
+      expect(review_app_workflow_path).to exist
+      expect(generated_delete_app_script_path).to be_executable
+    end
+  end
+
   context "when one of the generated files already exists" do
     before do
-      FileUtils.mkdir_p(review_app_workflow_path.dirname)
-      review_app_workflow_path.write("existing-content\n")
+      FileUtils.mkdir_p(generated_action_path("cpflow-setup-environment").dirname)
+      generated_action_path("cpflow-setup-environment").write("existing-content\n")
     end
 
     it "warns and leaves the project untouched" do
@@ -1653,7 +1757,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           Cpflow::Cli.start([described_class::NAME])
         end.to output(/already exist/).to_stderr
 
-        expect(review_app_workflow_path.read).to eq("existing-content\n")
+        expect(generated_action_path("cpflow-setup-environment").read).to eq("existing-content\n")
         expect(staging_workflow_path).not_to exist
       end
     end
