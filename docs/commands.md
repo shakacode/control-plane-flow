@@ -585,7 +585,7 @@ cpflow terraform import
 Regenerates the cpflow workflow wrappers, local composite actions, and
 helper files from the currently installed cpflow gem. Use this after
 updating the cpflow gem so checked-in workflow wrappers move to the
-matching upstream release tag, for example `v5.2.0`, and the
+matching upstream release tag, for example `v5.3.0`, and the
 generated action implementations move with them.
 
 If the existing generated staging workflow uses a custom single staging

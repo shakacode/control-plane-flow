@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. Fixes [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).
+
 ## [5.3.0] - 2026-09-02
 
 ### Added
