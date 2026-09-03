@@ -32,10 +32,12 @@ jobs:
     # touch the shared domain use one ref-independent queue, covering scheduled,
     # manual slow, and manual specific runs. Fall back to the repository rather
     # than a unique run ID so missing CPLN_ORG cannot bypass serialization.
-    # cancel-in-progress is false, so queued runs wait rather than cancel.
+    # queue: max retains up to 100 shared-org waiters instead of replacing the
+    # prior pending run; cancel-in-progress: false preserves the active run.
     concurrency:
       group: cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-${{ inputs.uses_shared_org && 'shared-org' || github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
+      queue: max
     env:
       RAILS_ENV: test
       # We have to add "_CI" to the end, otherwise it messes with tests where we switch profiles,

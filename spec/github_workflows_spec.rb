@@ -116,14 +116,16 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
     it "serializes shared-org runs while keeping fast queues per PR (or ref)" do
       # Scheduled, slow, and specific runs that can touch the live domain share
       # one queue. Fast runs remain scoped by PR number (or ref) so unrelated
-      # PRs don't share one blocking queue. Queued runs never cancel each other.
+      # PRs don't share one blocking queue. queue: max retains up to 100 waiters
+      # instead of replacing the existing pending run.
       expected_group =
         "cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-" \
         "${{ inputs.uses_shared_org && 'shared-org' || github.event.pull_request.number || github.ref }}"
 
       expect(job.fetch("concurrency")).to eq(
         "group" => expected_group,
-        "cancel-in-progress" => false
+        "cancel-in-progress" => false,
+        "queue" => "max"
       )
     end
   end
