@@ -328,9 +328,9 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def fetch_cron_workload(workload, location:)
+  def fetch_cron_workload(workload, location:, timeout_seconds: nil)
     cmd = "cpln workload cron get #{workload} #{gvc_org} --location #{location} -o yaml"
-    perform_yaml(cmd)
+    perform_yaml(cmd, timeout_seconds: timeout_seconds)
   end
 
   def cron_workload_deployed_version(workload)
@@ -649,10 +649,14 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     success || Shell.abort("Command exited with non-zero status.")
   end
 
-  def perform_yaml(cmd)
+  def perform_yaml(cmd, timeout_seconds: nil)
     Shell.debug("CMD", cmd)
 
-    result = Shell.cmd(cmd)
+    result = if timeout_seconds
+               Shell.cmd(cmd, timeout_seconds: timeout_seconds)
+             else
+               Shell.cmd(cmd)
+             end
     YAML.safe_load(result[:output], permitted_classes: [Time]) if result[:success]
   end
 

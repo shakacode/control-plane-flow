@@ -23,7 +23,7 @@ End-to-end rollout in one view:
 
 1. `cpflow github-flow-readiness` — exits non-zero if the repo is not ready to deploy.
 2. `cpflow generate` — creates `.controlplane/` if missing.
-3. `cpflow generate-github-actions` — adds `cpflow-*` workflow wrappers. Review-app, staging, cleanup, and helper workflows call upstream reusable workflows; production promotion is a normal caller-repo job so it can own the protected production Environment.
+3. `cpflow generate-github-actions` — adds `cpflow-*` workflow wrappers and `.github/actions/cpflow-*` composite actions. Review-app, staging, cleanup, and helper workflows call upstream reusable workflows; production promotion is a normal caller-repo job so it can own the protected production Environment.
 4. Configure the [GitHub Actions secrets and variables](#github-actions-secrets-and-variables) the workflows expect.
 5. Push the branch, then comment `+review-app-deploy` on a PR to spin up a review environment.
 
@@ -69,6 +69,7 @@ The second command writes namespaced files so they can coexist with an app's exi
 - `.github/workflows/cpflow-deploy-staging.yml`
 - `.github/workflows/cpflow-promote-staging-to-production.yml`
 - `.github/workflows/cpflow-cleanup-stale-review-apps.yml`
+- `.github/actions/cpflow-*` (the local composite actions used by those workflows)
 - `bin/pin-cpflow-github-ref`
 - `bin/test-cpflow-github-flow`
 
@@ -214,7 +215,8 @@ For production promotion, also configure:
 - a GitHub Environment named `production`
 - required reviewers on that environment, limited to the people or team allowed to promote production
 - "Prevent self-review" on that environment, so the person who starts the promotion cannot approve it
-- optionally disable administrator bypass and restrict deployment branches/tags to your protected release branch
+- disable administrator bypass if your organization requires two-person control
+- restrict deployment branches/tags to your protected release branch
 - `CPLN_TOKEN_PRODUCTION` as an environment secret on `production`, not as a repository or organization secret
 - `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
@@ -473,7 +475,11 @@ The generated flow uses these defaults:
   makes the newest intent fail closed instead of falling back to an older operation. This permission gate applies to every
   `+review-app-deploy` comment, whether or not a review app already exists. Later pushes to a base-repository branch PR
   redeploy automatically without another approval because the auto-push path (`pull_request` event) does not use the
-  comment permission gate;
+  comment permission gate. The reusable deploy workflow loads generated local actions from the triggering `github.sha`:
+  the pull-request merge revision for automatic same-repository deploys, the selected ref for manual dispatch, or the
+  default-branch revision for comment triggers. This keeps the wrapper and generated actions synchronized during an
+  upgrade or first-installation PR. Preserve the same-repository caller guard because pull-request workflow and action
+  code run with staging/review credentials;
 - fork pull requests cannot deploy via the generated `pull_request` path because the caller workflow's job-level `if:`
   condition explicitly skips fork-originated runs. For `issue_comment` events, the caller `if:` restricts invocation to
   the exact command shape; the reusable workflow resolves repository permission before its deploy job runs, then its
@@ -510,13 +516,15 @@ generated staging/review org and make that token disposable and unable to access
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
 PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
 on any app whose name does not match the review-app prefix. This shell-level guard is effective because the generated
-delete workflow checks out base/default-branch code, not PR or fork code: its repository checkout has no `ref:` override,
-so `pull_request_target` runs use the base branch. If you customize this workflow, never check out PR or fork code in the
-same job as the delete step; doing so could let a PR replace the guard script itself and would also make
-`hooks.pre_deletion` come from the PR's `controlplane.yml`. This is still not a token policy, so use a scoped staging
-service account limited to review/staging operations. A configured `hooks.pre_deletion` command still runs through the
-latest PR-built image on all delete paths: PR-close teardown, `+review-app-delete` comments, manual dispatch, and
-scheduled cleanup. Review-app credentials must remain disposable even during deletion.
+delete workflow explicitly loads generated actions from `github.event.pull_request.base.sha` for PR events, falling back
+to the triggering `github.sha` for non-PR dispatches. Its separate app checkout has no `ref:` override, so
+`pull_request_target` teardown uses base-branch code for both paths rather than PR or fork code. If you customize this
+workflow, never check out PR or fork code in the same job as the delete step; doing so could let a PR replace the guard
+script itself and would also make `hooks.pre_deletion` come from the PR's `controlplane.yml`. This is still not a token
+policy, so use a scoped staging service account limited to review/staging operations. A configured
+`hooks.pre_deletion` command still runs through the latest PR-built image on all delete paths: PR-close teardown,
+`+review-app-delete` comments, manual dispatch, and scheduled cleanup. Review-app credentials must remain disposable
+even during deletion.
 
 If you customize the generated `pull_request_target` workflow, never pass `github.event.pull_request.head.sha` or another
 fork-controlled ref to `actions/checkout`, `git fetch`, `git merge`, `git cherry-pick`, or any other step that fetches,
@@ -698,11 +706,13 @@ wrapper-level `if:` guard shown in that file, for example
 ## Upstream Workflows And Actions
 
 Most generated workflows are intentionally small wrappers. The deployment
-logic, comment formatting, Control Plane CLI setup, Docker image build, and
-cleanup helpers live in upstream reusable workflows and composite actions in
-this repository. Production promotion is expanded into the caller repository so
-it can own `environment: production`, but it still checks out the same upstream
-ref for shared composite actions.
+logic and comment formatting live in upstream reusable workflows. The canonical
+composite actions live in this repository and the gem copies them into each
+downstream repository at `.github/actions/cpflow-*`; the reusable workflows use
+those regular local action paths. They separately check out the matching
+upstream ref at `.cpflow` for the `cpflow` runtime source. Production promotion
+is expanded into the caller repository so it can own `environment: production`,
+but follows the same local-action and `.cpflow` source split.
 
 - `cpflow-setup-environment`: installs Ruby, the Control Plane CLI, and `cpflow`, then logs into the target org. By default it builds `cpflow` from the checked-out upstream `control-plane-flow` ref; set the `CPFLOW_VERSION` repository variable only when you want to force a published RubyGems release.
 - `cpflow-build-docker-image`: builds and pushes the app image with the desired commit SHA
@@ -727,41 +737,51 @@ reusable-workflow wrappers should not pass `control_plane_flow_ref`; if you see
 that input outside the production promotion setup step, regenerate with a newer
 `cpflow`.
 
-There are two locks, and they protect different things:
+There are two coordinated inputs, and they protect different things:
 
-- The GitHub ref locks the reusable workflow and composite action code that
-  GitHub runs.
-- The RubyGems version locks the `cpflow` CLI/runtime code only when you install
-  or run that gem. It does not make GitHub load reusable workflow YAML from the
-  gem.
+- The GitHub ref locks the reusable workflow and the `.cpflow` runtime source
+  checkout that GitHub runs.
+- The installed Ruby gem supplies the generated local composite actions and
+  wrappers. `CPFLOW_VERSION`, when configured, separately locks the published
+  `cpflow` runtime installed by the setup action.
 
 That means a downstream app cannot rely on the gem alone for GitHub Actions
 behavior. The safe stable path is still gem-driven for generation, but
-developers must commit generated wrappers that reference the matching upstream
-release tag:
+developers must commit the generated wrappers and local actions from the gem
+that matches the upstream release tag:
 
 1. Publish a `cpflow` gem.
 2. Install or bundle that released gem in the downstream project.
 3. Run `cpflow generate-github-actions`.
-4. Commit the generated wrappers that point to the matching upstream release tag
-   such as `v5.0.0`.
+4. Commit the generated wrappers and `.github/actions/cpflow-*` files; the
+   wrappers should point to the matching upstream release tag such as `v5.0.0`.
 
 That release tag should point to the same source that produced the RubyGems
 release. Downstream production automation should use release tags, not `main` or
 feature-branch refs.
 
+Generated cross-repository reusable-workflow calls deliberately use an exact
+release tag such as `v5.0.0`. This is the intentional downstream exception to
+the repository's full-SHA external-action policy: it keeps the installed gem,
+generated wrappers, generated local actions, and upstream workflow on one
+reviewed release update contract. It does not extend to external actions inside
+those workflows, which remain pinned to full commit SHAs with readable release
+comments. Unreleased downstream validation temporarily replaces the exact tag
+with the upstream PR's full commit SHA as described below; moving version
+aliases and branches remain forbidden.
+
 ## Updating Generated GitHub Actions After Gem Updates
 
-Whenever a downstream repo updates the `cpflow` gem, update the checked-in
-GitHub Actions wrappers in the same PR. The gem version does not make GitHub load
-new reusable workflow YAML by itself; GitHub loads the `uses:` ref committed in
-`.github/workflows/cpflow-*.yml`.
+Whenever a downstream repo updates the `cpflow` gem, update all checked-in
+GitHub Actions files in the same PR. The gem version does not make GitHub load
+new reusable workflow YAML or local action files by itself; GitHub uses the
+workflow ref and `.github/actions/cpflow-*` files committed in the repository.
 
 For a new repository that does not have generated wrappers yet, run
 `cpflow generate-github-actions` first. Use the update command below for later
 gem upgrades.
 
-Use the installed gem to refresh the generated wrappers:
+Use the installed gem to refresh the generated workflows and actions:
 
 ```sh
 cpflow update-github-actions
@@ -775,11 +795,11 @@ bundle exec cpflow update-github-actions
 bin/test-cpflow-github-flow bundle exec cpflow
 ```
 
-`cpflow update-github-actions` regenerates the generated wrapper and helper
-files from the installed gem, pins the wrapper `uses:` refs to `v<gem-version>`,
-and preserves a single custom staging branch from the existing generated staging
-workflow. Pass `--staging-branch BRANCH` when changing or restoring a custom
-staging branch explicitly.
+`cpflow update-github-actions` regenerates the workflow wrappers, local
+composite actions, and helper files from the installed gem, pins the wrapper
+`uses:` refs to `v<gem-version>`, and preserves a single custom staging branch
+from the existing generated staging workflow. Pass `--staging-branch BRANCH`
+when changing or restoring a custom staging branch explicitly.
 
 When keeping `cpflow` in an app Gemfile, leave a comment next to the gem entry
 so future dependency bumps include the wrapper update:
@@ -813,7 +833,8 @@ action commit, so a moving branch named like `v5.0.0` cannot be used with
 runners that cannot reach GitHub should leave `CPFLOW_VERSION` unset and build
 `cpflow` from the checked-out ref instead. When testing an unreleased upstream
 commit SHA, leave `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the
-same source that supplies the reusable workflow and composite actions.
+same source that supplies the reusable workflow. Refresh the generated local
+actions from that checkout before testing as described below.
 
 ## Testing Unreleased Upstream Changes Downstream
 
@@ -821,24 +842,26 @@ You can test a `control-plane-flow` PR in a downstream app before merging or
 releasing it. Use an immutable commit SHA from the upstream PR branch:
 
 1. Push the upstream PR branch and copy its full 40-character head SHA.
-2. In a downstream test branch, run:
+2. In a downstream test branch, regenerate from the upstream checkout and then
+   pin the wrappers to its exact SHA:
 
    ```sh
+   ruby /path/to/control-plane-flow/bin/cpflow update-github-actions
    bin/pin-cpflow-github-ref <upstream-pr-sha>
    ```
 
-   The helper updates every generated reusable-workflow `uses:` ref plus the
-   production workflow's pinned `control-plane-flow` checkout and setup
-   validation ref. It accepts release tags and full commit SHAs by default,
-   rejects branch names such as `main` or `feature/foo`, and requires
-   `--allow-moving-ref` for short-lived local experiments that should not be
-   committed.
+   The update command copies the PR checkout's canonical composite actions into
+   `.github/actions/cpflow-*`. The pin helper then updates every generated
+   reusable-workflow `uses:` ref plus the production workflow's pinned
+   `control-plane-flow` checkout and setup validation ref. It accepts release
+   tags and full commit SHAs by default, rejects branch names such as `main` or
+   `feature/foo`, and requires `--allow-moving-ref` for short-lived local
+   experiments that should not be committed.
 
-3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the same
-   upstream SHA that supplies the reusable workflow and composite actions. If
-   `CPFLOW_VERSION` is set while the wrapper is pinned to a SHA, the setup
-   action fails before deployment because the gem and action code cannot be
-   proven to match.
+3. Keep `CPFLOW_VERSION` unset so the workflow builds `cpflow` from the pinned
+   upstream SHA. If `CPFLOW_VERSION` is set while the wrapper is pinned to a
+   SHA, the setup action fails before deployment because the published gem and
+   upstream source cannot be proven to match.
 4. Run:
 
    ```sh
@@ -852,25 +875,48 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
    bin/test-cpflow-github-flow ruby /path/to/control-plane-flow/bin/cpflow
    ```
 
-5. Open a downstream PR and trigger the real review app with a comment whose body
-   is exactly:
+5. Push the downstream test branch, then choose the remote validation path that
+   matches the repository's installation state.
 
-   ```text
-   +review-app-deploy
+   For an existing installation, where `cpflow-deploy-review-app.yml` is already
+   present on the default branch, dispatch the workflow definition and generated
+   local actions from the unmerged downstream test branch against a suitable open
+   base-repository PR:
+
+   ```sh
+   gh workflow run cpflow-deploy-review-app.yml --ref <downstream-test-branch> -f pr_number=<pr-number>
    ```
 
-6. Verify the deploy logs show the expected upstream commit SHA, the setup step
-   prints the expected `cpflow` source/version, and the review app URL returns
-   HTTP 200.
+   The `--ref` selects the downstream wrapper and local-action commit under test;
+   `pr_number` selects the application source to deploy. Do not use a
+   `+review-app-deploy` comment for this pre-merge validation: `issue_comment`
+   always loads the workflow definition from the default branch, so it cannot
+   validate unmerged wrappers or local actions.
+
+   For a first installation, GitHub will not dispatch a workflow that does not
+   yet exist on the default branch, even when `--ref` names the installation
+   branch. Treat the rollout as staged: run the local contract before merging,
+   review the generated diff, merge it, and dispatch the merged workflow
+   immediately afterward against a suitable open base-repository PR:
+
+   ```sh
+   gh workflow run cpflow-deploy-review-app.yml --ref <default-branch> -f pr_number=<pr-number>
+   ```
+
+6. Verify the dispatched deploy logs show the expected upstream commit SHA, the
+   setup step prints the expected `cpflow` source/version, and the review app URL
+   returns HTTP 200. After merge, `+review-app-deploy` remains the normal
+   maintainer-facing trigger for subsequent review apps.
 7. After the upstream PR merges and a gem is released, regenerate the downstream
    wrappers from that released gem and commit the release tag. Use
    `bin/pin-cpflow-github-ref vX.Y.Z` only for a ref-only update when the
    generated templates are already current.
 
-This tests the real reusable workflows, the production workflow's checked-out
-shared composite actions, and the source-built `cpflow` gem from one immutable
-upstream commit. It avoids merging upstream blind and avoids running production
-automation against a moving branch.
+For an existing installation, this tests the real reusable workflows, the
+unmerged regenerated local composite actions, and the source-built `cpflow` gem
+against one immutable upstream commit. A first installation gets the same remote
+proof immediately after its locally validated files reach the default branch.
+Both paths avoid testing against a moving upstream branch.
 
 ## Local Generated-Flow Checks
 

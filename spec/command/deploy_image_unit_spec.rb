@@ -312,6 +312,13 @@ describe Command::DeployImage do
           .ordered
         expect(command).to have_received(:run_release_script).ordered
       end
+
+      it "does not deploy workloads when the release script fails" do
+        allow(command).to receive(:run_release_script).and_raise("release phase failed")
+
+        expect { command.call }.to raise_error("release phase failed")
+        expect(cp).not_to have_received(:workload_set_image_ref)
+      end
     end
 
     context "when release phase config is invalid" do
