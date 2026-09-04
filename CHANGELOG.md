@@ -14,6 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Changed
 
+- **Bumped the pinned GitHub Actions in the generated production-promotion workflow and this repository's reusable workflows to `actions/checkout` 7.0.1, `actions/github-script` 9.0.0, and `docker/setup-buildx-action` 4.3.0.** Downstream repositories pick up the template change with `cpflow update-github-actions`. [PR 460](https://github.com/shakacode/control-plane-flow/pull/460) by [Justin Gordon](https://github.com/justin808). Fixes [issue 459](https://github.com/shakacode/control-plane-flow/issues/459).
 - **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. [PR 451](https://github.com/shakacode/control-plane-flow/pull/451) by [Justin Gordon](https://github.com/justin808). Part of [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).
 - **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
 

@@ -545,7 +545,7 @@ jobs:
       - name: React to delete command
         if: github.event_name == 'issue_comment'
         continue-on-error: true
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             try {
@@ -564,13 +564,13 @@ jobs:
             }
 
       - name: Checkout generated cpflow actions
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
 
       - name: Checkout control-plane-flow actions
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -589,7 +589,7 @@ jobs:
 
       - name: Checkout repository
         if: steps.config.outputs.ready == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: app
           persist-credentials: false
@@ -617,7 +617,7 @@ jobs:
 
       - name: Set workflow links
         if: steps.config.outputs.ready == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const workflowUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -630,7 +630,7 @@ jobs:
       - name: Create initial PR comment
         if: steps.config.outputs.ready == 'true'
         id: create-comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const body = [
@@ -661,7 +661,7 @@ jobs:
         id: deactivate-deployments
         if: steps.config.outputs.ready == 'true' && steps.delete-app.outcome == 'success'
         continue-on-error: true
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           APP_NAME: ${{ steps.review-config.outputs.app_name }}
         with:
@@ -716,7 +716,7 @@ jobs:
       # config validation created the initial PR comment and workflow link env vars it updates.
       - name: Finalize delete status
         if: always() && steps.config.outputs.ready == 'true'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           APP_NAME: ${{ steps.review-config.outputs.app_name }}
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
