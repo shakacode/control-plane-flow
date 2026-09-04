@@ -417,7 +417,8 @@ describe Controlplane do
           "cpln", "workload", "cron", "get", "worker`id`",
           "--gvc", "my app $(id)", "--org", "my org; id",
           "--location", "location; id", "-o", "yaml"
-        ]
+        ],
+        timeout_seconds: nil
       )
       expect(described_instance).to have_received(:perform!).with(
         [
@@ -647,8 +648,8 @@ describe Controlplane do
       expect(result).to eq(success: false, output: "")
       expect(Process).to have_received(:spawn).with(
         "cpln", "workload", "update",
-        out: an_instance_of(File),
-        err: %i[child out]
+        out: an_instance_of(IO),
+        err: an_instance_of(IO)
       )
       expect($child_pids).not_to include(12_345) # rubocop:disable Style/GlobalVars
     end
@@ -687,6 +688,75 @@ describe Controlplane do
         ENV["PATH"] = previous_path
         ENV["CPFLOW_ARGV_LOG"] = previous_argv_log
       end
+    end
+
+    it "keeps an unreaped subprocess registered when output draining is interrupted" do
+      allow(Process).to receive(:spawn).and_return(12_346)
+      allow(Process).to receive(:wait2)
+      allow(described_instance).to receive(:drain_captured_output).and_raise(SystemExit.new(ExitCode::INTERRUPT))
+
+      expect do
+        described_instance.send(:perform_with_output, %w[cpln workload update])
+      end.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::INTERRUPT) }
+
+      expect(Process).not_to have_received(:wait2).with(12_346)
+      expect($child_pids).to include(12_346) # rubocop:disable Style/GlobalVars
+    ensure
+      $child_pids.delete(12_346) # rubocop:disable Style/GlobalVars
+    end
+
+    it "streams stdout and stderr to their original channels while capturing both when output is visible" do
+      stub_env("HIDE_COMMAND_OUTPUT", "false")
+      Shell.verbose_mode(true)
+
+      result = nil
+      expect do
+        result = described_instance.send(
+          :perform_with_output,
+          ["sh", "-c", "printf 'live stdout'; printf 'live stderr' >&2"]
+        )
+      end.to output("live stdout").to_stdout.and output("live stderr").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("live stdout", "live stderr")
+    ensure
+      Shell.verbose_mode(false)
+    end
+
+    it "streams only stderr in errors-only mode while capturing both channels" do
+      stub_env("HIDE_COMMAND_OUTPUT", "false")
+      Shell.verbose_mode(false)
+
+      result = nil
+      expect do
+        Shell.use_tmp_stderr do
+          result = described_instance.send(
+            :perform_with_output,
+            ["sh", "-c", "printf 'captured stdout'; printf 'visible stderr' >&2"]
+          )
+        end
+      end.to output("").to_stdout.and output("visible stderr").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("captured stdout", "visible stderr")
+    end
+
+    it "captures both channels without streaming them when command output is hidden" do
+      stub_env("HIDE_COMMAND_OUTPUT", "true")
+      Shell.verbose_mode(true)
+
+      result = nil
+      expect do
+        result = described_instance.send(
+          :perform_with_output,
+          ["sh", "-c", "printf 'hidden stdout'; printf 'hidden stderr' >&2"]
+        )
+      end.to output("").to_stdout.and output("").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("hidden stdout", "hidden stderr")
+    ensure
+      Shell.verbose_mode(false)
     end
   end
 end

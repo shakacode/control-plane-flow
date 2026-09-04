@@ -171,6 +171,10 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     @@apps_to_delete ||= [] # rubocop:disable Style/ClassVars
   end
 
+  def incomplete_apps
+    @@incomplete_apps ||= [] # rubocop:disable Style/ClassVars
+  end
+
   # Registers the dummy app named by `args` for `after(:suite)` cleanup when
   # those args invoke a command that can create it.
   #
@@ -200,21 +204,59 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     apps_to_delete.push(app) unless apps_to_delete.include?(app)
 
     result = run_cpflow_command("exists", "-a", app)
-    return app if result[:status].zero?
+    return reuse_existing_app(app) if result[:status] == ExitCode::SUCCESS
+    unless result[:status] == ExitCode::NOT_FOUND
+      raise "Cannot determine whether test app '#{app}' exists: cpflow exists exited with status #{result[:status]}"
+    end
 
     puts "\nCreating app '#{app}' for tests\n\n" if ENV.fetch("VERBOSE_TESTS", nil) == "true"
 
-    run_cpflow_command!("setup-app", "-a", app, "--skip-secrets-setup")
+    incomplete_apps.push(app) unless incomplete_apps.include?(app)
+    prepared = false
+    begin
+      run_cpflow_command!("setup-app", "-a", app, "--skip-secrets-setup")
 
-    image_before_deploy_count.times do
-      run_cpflow_command!("build-image", "-a", app)
-    end
-    run_cpflow_command!("deploy-image", "-a", app) if deploy
-    image_after_deploy_count.times do
-      run_cpflow_command!("build-image", "-a", app)
+      image_before_deploy_count.times do
+        run_cpflow_command!("build-image", "-a", app)
+      end
+      run_cpflow_command!("deploy-image", "-a", app) if deploy
+      image_after_deploy_count.times do
+        run_cpflow_command!("build-image", "-a", app)
+      end
+      prepared = true
+    ensure
+      finalize_app_preparation(app, prepared)
     end
 
     app
+  end
+
+  def reuse_existing_app(app)
+    return app unless incomplete_apps.include?(app)
+
+    cleanup_incomplete_app_unless_preserved(app)
+    raise "Refusing to reuse incomplete test app '#{app}' while its cleanup is still converging."
+  end
+
+  def finalize_app_preparation(app, prepared)
+    return incomplete_apps.delete(app) if prepared
+
+    cleanup_incomplete_app_unless_preserved(app)
+  end
+
+  def cleanup_incomplete_app_unless_preserved(app)
+    return if ENV.fetch("SKIP_CLEANUP", nil) == "true"
+
+    cleanup_incomplete_app(app)
+  end
+
+  def cleanup_incomplete_app(app)
+    result = run_cpflow_command("delete", "-a", app, "--yes")
+    return if result[:status] == ExitCode::SUCCESS
+
+    warn "Failed to clean up incomplete test app '#{app}' (exit status #{result[:status]})."
+  rescue StandardError => e
+    warn "Failed to clean up incomplete test app '#{app}' (#{e.class})."
   end
 
   def command_sensitive_data_pattern(args, supplied_pattern)

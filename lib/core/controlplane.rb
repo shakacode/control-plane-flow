@@ -340,12 +340,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def fetch_cron_workload(workload, location:)
+  def fetch_cron_workload(workload, location:, timeout_seconds: nil)
     cmd = [
       "cpln", "workload", "cron", "get", workload,
       *gvc_org_args, "--location", location, "-o", "yaml"
     ]
-    perform_yaml(cmd)
+    perform_yaml(cmd, timeout_seconds: timeout_seconds)
   end
 
   def cron_workload_deployed_version(workload)
@@ -598,23 +598,64 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def perform_with_output(cmd)
-    Tempfile.create("cpflow-command-output") do |output|
-      success = kernel_system_with_pid_handling(cmd, out: output, err: %i[child out])
-      output.rewind
-      { output: output.read, success: success == true }
-    end
+    readers, writers = 2.times.map { IO.pipe }.transpose
+    pid = spawn_captured_process(cmd, writers)
+    captured_output = drain_captured_output(readers, determine_command_output_mode)
+    _, status = Process.wait2(pid)
+    reaped = true
+    { output: captured_output, success: status.exited? && status.success? }
+  ensure
+    [*readers, *writers].compact.each { |pipe| pipe.close unless pipe.closed? }
+    $child_pids.delete(pid) if reaped # rubocop:disable Style/GlobalVars
   end
+
+  def spawn_captured_process(cmd, writers)
+    validate_argv!(cmd)
+    pid = Process.spawn(*cmd, out: writers.fetch(0), err: writers.fetch(1))
+    $child_pids << pid # rubocop:disable Style/GlobalVars
+    writers.each(&:close)
+    pid
+  end
+
+  def drain_captured_output(readers, output_mode)
+    stream_roles = { readers.fetch(0) => :stdout, readers.fetch(1) => :stderr }
+    pending_readers = readers.dup
+    captured_output = +""
+
+    until pending_readers.empty?
+      IO.select(pending_readers).first.each do |reader|
+        drain_ready_output(reader, stream_roles.fetch(reader), pending_readers, captured_output, output_mode)
+      end
+    end
+
+    captured_output
+  end
+
+  def drain_ready_output(reader, stream_role, pending_readers, captured_output, output_mode)
+    chunk = reader.read_nonblock(4096)
+    captured_output << chunk
+    return if output_mode == :none || (stream_role == :stdout && output_mode != :all)
+
+    stream = stream_role == :stdout ? $stdout : $stderr
+    stream.write(chunk)
+    stream.flush
+  rescue IO::WaitReadable
+    nil
+  rescue EOFError
+    pending_readers.delete(reader)
+  end
+  private :spawn_captured_process, :drain_captured_output, :drain_ready_output
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
     success = perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern)
     success || Shell.abort("Command exited with non-zero status.")
   end
 
-  def perform_yaml(cmd, **spawn_options)
+  def perform_yaml(cmd, timeout_seconds: nil, **spawn_options)
     validate_argv!(cmd)
     Shell.debug("CMD", Shellwords.join(cmd))
 
-    result = Shell.cmd(*cmd, **spawn_options)
+    result = Shell.cmd(*cmd, timeout_seconds: timeout_seconds, **spawn_options)
     YAML.safe_load(result[:output], permitted_classes: [Time]) if result[:success]
   end
 

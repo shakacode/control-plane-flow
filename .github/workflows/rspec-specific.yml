@@ -7,6 +7,9 @@ on:
         description: "Test files or directories that should be run"
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   rspec-specific:
     name: RSpec (Specific)
@@ -16,4 +19,5 @@ jobs:
       ruby_version: "3.2"
       spec_paths: ${{ inputs.spec_paths }}
       uses_shared_org: true
-    secrets: inherit
+    secrets:
+      CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}

@@ -307,6 +307,11 @@ aliases:
     # If not specified, defaults to 21600 (6 hours).
     runner_job_timeout: 1000
 
+    # Sets how long `cpflow run` waits for Control Plane to reconcile a cron job status
+    # after the non-interactive command prints its completion marker.
+    # If not specified, defaults to 1200 (20 minutes).
+    runner_job_status_reconciliation_timeout: 1200
+
     # Apps with a deployed image, or an image-less GVC, created before this amount of days
     # will be listed for deletion when running the command `cpflow cleanup-stale-apps`.
     stale_app_image_deployed_days: 5
@@ -393,7 +398,7 @@ cpflow generate-github-actions
 bin/test-cpflow-github-flow
 ```
 
-`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate-github-actions` also writes `bin/test-cpflow-github-flow` for local validation and `bin/pin-cpflow-github-ref` for temporarily pinning downstream wrappers to an upstream commit SHA during pre-release testing. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, give it the [AI rollout prompt](./docs/ai-github-flow-prompt.md) rather than a vague "set up CI" request.
+`cpflow github-flow-readiness` exits non-zero when it finds blockers such as unpublished exact-pinned packages or a missing production Dockerfile, so use it as the gate before generation. Then review the generated `.controlplane/controlplane.yml` entries, adjust any app-specific workloads, and configure the GitHub repository variables and secrets described in [CI automation](./docs/ci-automation.md), including the optional Docker build settings for private GitHub dependencies and custom SSH known hosts. `cpflow generate-github-actions` checks in the local `.github/actions/cpflow-*` implementations alongside the workflows, and also writes `bin/test-cpflow-github-flow` for local validation and `bin/pin-cpflow-github-ref` for temporarily pinning downstream wrappers to an upstream commit SHA during pre-release testing. `cpflow generate` already switches to persistent `db` and `storage` volumes when `config/database.yml` shows SQLite in production and preserves detected frontend precompile hooks, but you should still confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement and that the emitted workload set matches the real app. If you want an AI agent to do this end to end, give it the [AI rollout prompt](./docs/ai-github-flow-prompt.md) rather than a vague "set up CI" request.
 
 For a live example, see the [react-webpack-rails-tutorial](https://github.com/shakacode/react-webpack-rails-tutorial/blob/master/.controlplane/readme.md) repository.
 

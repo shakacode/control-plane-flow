@@ -34,7 +34,9 @@ describe Command::Run do
       output, error_output, status = Open3.capture3("bash", "-c", runner_script)
 
       expect(status).to be_success, error_output
-      expect(output.lines(chomp: true)).to eq(payloads.map { |payload| "<#{payload}>" } + [described_class::MAGIC_END])
+      expect(output.lines(chomp: true)).to eq(
+        payloads.map { |payload| "<#{payload}>" } + ["", described_class::MAGIC_END]
+      )
     end
 
     it "preserves intentional shell syntax in a single command string" do
@@ -59,7 +61,26 @@ describe Command::Run do
       output, error_output, status = Open3.capture3("bash", "-c", runner_script)
 
       expect(status).to be_success, error_output
-      expect(output.lines(chomp: true)).to eq(["left", "right", described_class::MAGIC_END])
+      expect(output.lines(chomp: true)).to eq(["left", "right", "", described_class::MAGIC_END])
+    end
+
+    it "delimits the finish marker after output without a trailing newline" do
+      runner_script = nil
+      app = dummy_test_app
+
+      stub_env("DISABLE_VALIDATIONS", "true")
+      allow_any_instance_of(described_class).to receive(:call) do |command| # rubocop:disable RSpec/AnyInstance
+        command.instance_variable_set(:@interactive, false)
+        command.instance_variable_set(:@log_method, 3)
+        runner_script = command.send(:runner_script)
+      end
+
+      result = run_cpflow_command("run", "--app", app, "--org", "test-org", "--", "printf", "done")
+
+      expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
+      output, error_output, status = Open3.capture3("bash", "-c", runner_script)
+      expect(status).to be_success, error_output
+      expect(output.lines(chomp: true)).to eq(["done", described_class::MAGIC_END])
     end
 
     it "uses one ordered stream for payload stderr and the finish marker without changing the exit status" do
@@ -80,14 +101,14 @@ describe Command::Run do
 
       expect(result[:status]).to eq(ExitCode::SUCCESS), result.inspect
       expect(runner_script).to match(
-        /\) 2>&1\nCPFLOW_EXIT_CODE=\$\?\necho '#{Regexp.escape(described_class::MAGIC_END)}'/
+        /\) 2>&1\nCPFLOW_EXIT_CODE=\$\?\nprintf '\\n%s\\n' '#{Regexp.escape(described_class::MAGIC_END)}'/
       )
 
       output, error_output, status = Open3.capture3("bash", "-c", runner_script)
 
       expect(status.exitstatus).to eq(23)
       expect(error_output).to be_empty
-      expect(output.lines(chomp: true)).to eq(["payload stderr", described_class::MAGIC_END])
+      expect(output.lines(chomp: true)).to eq(["payload stderr", "", described_class::MAGIC_END])
     end
   end
 
@@ -124,6 +145,169 @@ describe Command::Run do
       end
 
       expect(command).not_to have_received(:run_non_interactive)
+    end
+  end
+
+  describe "post-command job status reconciliation" do
+    let(:config) { instance_double(Config) }
+    let(:cp) { instance_double(Controlplane) }
+    let(:progress) { instance_double(IO, puts: nil) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(config).to receive(:app).and_return("test-app")
+      allow(command).to receive_messages(cp: cp, progress: progress)
+      allow(command).to receive(:print_uniq_logs).and_return(:finished)
+      allow(Kernel).to receive(:sleep)
+
+      command.instance_variable_set(:@job, "job-123")
+      command.instance_variable_set(:@replica, "rails-runner-job-123")
+      command.instance_variable_set(:@location, "aws-us-east-2")
+      command.instance_variable_set(:@runner_workload, "rails-runner")
+      command.instance_variable_set(:@job_status_reconciliation_timeout, 1_200)
+    end
+
+    it "fails after the command marker when an active job never reconciles" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_300.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise "unbounded polling" if status_reads > 1
+
+        "active"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(progress).to have_received(:puts).with(
+        include(
+          "did not reconcile within 1200 seconds",
+          "job: job-123",
+          "replica: rails-runner-job-123",
+          "status: unknown"
+        )
+      )
+    end
+
+    it "accepts eventual success within the post-command grace period" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0)
+      allow(command).to receive(:current_job_status).and_return("active", "successful")
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+    end
+
+    it "applies the same deadline to streamed logs after the command marker" do
+      logs_pipe = instance_double(IO, eof?: false, ready?: true, gets: "#{described_class::MAGIC_END}\n")
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_300.0)
+      allow(command).to receive(:current_job_status).and_return("pending")
+
+      expect(command.send(:wait_for_job_status_and_log, logs_pipe)).to eq(ExitCode::ERROR_DEFAULT)
+    end
+
+    it "does not let one status request outlive the remaining reconciliation deadline" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 1_250.0, 1_300.0)
+      allow(cp).to receive(:fetch_cron_workload).and_raise(Shell::CommandTimeout)
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(cp).to have_received(:fetch_cron_workload).with(
+        "rails-runner",
+        location: "aws-us-east-2",
+        timeout_seconds: 30
+      )
+    end
+
+    it "retries a bounded status request until the reconciliation deadline" do
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0, 200.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise Shell::CommandTimeout if status_reads == 1
+
+        "successful"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+      expect(status_reads).to eq(2)
+    end
+
+    it "bounds and retries status requests without a reconciliation deadline" do
+      status_reads = 0
+      allow(cp).to receive(:fetch_cron_workload).with(
+        "rails-runner",
+        location: "aws-us-east-2",
+        timeout_seconds: 30
+      ) do
+        status_reads += 1
+        raise Shell::CommandTimeout if status_reads == 1
+
+        { "items" => [{ "id" => "job-123", "status" => "successful" }] }
+      end
+
+      expect(command.send(:resolve_job_status)).to eq(ExitCode::SUCCESS)
+      expect(cp).to have_received(:fetch_cron_workload).with(
+        "rails-runner",
+        location: "aws-us-east-2",
+        timeout_seconds: 30
+      ).twice
+    end
+
+    it "keeps reading logs while the pre-marker job status is active" do
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:current_job_status).and_return("active", "successful")
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0)
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).twice
+    end
+
+    it "continues draining logs when terminal status precedes the completion marker" do
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :unchanged, :finished)
+      allow(command).to receive(:current_job_status).and_return("failed")
+      allow(command).to receive(:monotonic_time).and_return(100.0, 100.0, 101.0, 101.0, 102.0, 102.0)
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).exactly(3).times
+      expect(command).to have_received(:current_job_status).once
+      expect(Kernel).to have_received(:sleep).with(1).twice
+    end
+
+    it "preserves the reconciliation deadline across transient retries" do
+      now = 0.0
+      progress_messages = []
+      allow(progress).to receive(:puts) { |message| progress_messages << message }
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        if status_reads == 2
+          now = 1_200.0
+          raise "transient status failure"
+        end
+
+        "active"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(command).to have_received(:print_uniq_logs).once
+      expect(status_reads).to eq(2)
+      expect(progress_messages.join("\n")).to include("transient status failure", "status: active")
+    end
+
+    it "reports the last pre-marker status if the first post-marker request times out" do
+      progress_messages = []
+      allow(progress).to receive(:puts) { |message| progress_messages << message }
+      allow(command).to receive(:print_uniq_logs).and_return(:unchanged, :finished)
+      allow(command).to receive(:monotonic_time).and_return(100.0, 200.0, 1_300.0)
+      status_reads = 0
+      allow(command).to receive(:current_job_status) do
+        status_reads += 1
+        raise Shell::CommandTimeout if status_reads > 1
+
+        "active"
+      end
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
+      expect(progress_messages.join("\n")).to include("status: active")
     end
   end
 
@@ -413,8 +597,21 @@ describe Command::Run do
   end
 
   describe "#show_logs_waiting" do
-    let(:command) { described_class.allocate }
+    let(:command) do
+      described_class.allocate.tap do |allocated_command|
+        allocated_command.instance_variable_set(:@config, instance_double(Config, app: "test-app"))
+        allocated_command.instance_variable_set(:@job, "job-123")
+        allocated_command.instance_variable_set(:@location, "aws-us-east-2")
+        allocated_command.instance_variable_set(:@replica, "rails-runner-job-123")
+        allocated_command.instance_variable_set(:@runner_workload, "rails-runner")
+        allocated_command.instance_variable_set(:@job_status_reconciliation_timeout, 1_200)
+      end
+    end
     let(:progress) { instance_double(IO, puts: nil) }
+
+    before do
+      allow(command).to receive(:progress).and_return(progress)
+    end
 
     it "continues beyond the former 30-second horizon for delayed logs" do
       now = 0.0
@@ -454,7 +651,7 @@ describe Command::Run do
       expect(Kernel).to have_received(:sleep).with(1).exactly(7).times
     end
 
-    it "stops draining when the post-terminal log window expires" do
+    it "warns on incomplete output and preserves the authoritative job exit status" do
       now = 0.0
       expected_polls = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
 
@@ -464,6 +661,7 @@ describe Command::Run do
       )
       allow(command).to receive(:monotonic_time) { now }
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
 
       result = command.send(:show_logs_waiting)
 
@@ -471,6 +669,10 @@ describe Command::Run do
       expect(command).to have_received(:print_uniq_logs).exactly(expected_polls).times
       expect(command).to have_received(:current_job_status).once
       expect(Kernel).to have_received(:sleep).with(1).exactly(expected_polls).times
+      expect(Shell).to have_received(:warn).with(
+        "Runner job reached terminal status successful but the command completion marker was unavailable after " \
+        "120 seconds; returning authoritative job exit status 0 with incomplete output."
+      ).once
     end
 
     it "does not let changing log entries extend the post-terminal deadline" do
@@ -680,9 +882,9 @@ describe Command::Run do
       expect(Shell).not_to have_received(:warn)
     end
 
-    it "returns an error at the fixed deadline when status stays unavailable after the finish marker" do
+    it "returns an error at the configured deadline when status stays unavailable after the finish marker" do
       now = 0.0
-      warning = nil
+      diagnostic = nil
       unsafe_diagnostics = {
         raw_response: "raw-response-detail",
         command: "command-detail",
@@ -695,19 +897,17 @@ describe Command::Run do
       allow(command).to receive(:monotonic_time) { now }
       allow(command).to receive(:sleep) { |duration| now += duration }
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
-      allow(Shell).to receive(:warn) { |message| warning = message }
+      allow(progress).to receive(:puts) { |message| diagnostic = message }
+      allow(Shell).to receive(:warn)
 
       result = command.send(:show_logs_waiting)
 
       expect(result).to eq(ExitCode::ERROR_DEFAULT)
-      expect(now).to eq(described_class::POST_TERMINAL_LOG_DRAIN_SECONDS)
+      expect(now).to eq(1_200)
       expect(command).to have_received(:print_uniq_logs).once
-      expect(warning).to eq(
-        "Runner job status reconciliation reached the 120-second deadline " \
-        "(last_status: unavailable); returning exit status 64."
-      )
-      expect(Shell).to have_received(:warn).once
-      unsafe_diagnostics.each_value { |value| expect(warning).not_to include(value) }
+      expect(diagnostic).to include("did not reconcile within 1200 seconds", "status: unknown")
+      expect(Shell).not_to have_received(:warn)
+      unsafe_diagnostics.each_value { |value| expect(diagnostic).not_to include(value) }
     end
 
     it "caps provisional polling at the fixed monotonic deadline" do
@@ -715,7 +915,7 @@ describe Command::Run do
 
       allow(command).to receive(:print_uniq_logs).and_return(:finished)
       allow(command).to receive(:current_job_status) do
-        now = described_class::POST_TERMINAL_LOG_DRAIN_SECONDS - 0.25
+        now = 1_199.75
         nil
       end
       allow(command).to receive(:monotonic_time) { now }
@@ -725,9 +925,9 @@ describe Command::Run do
       result = command.send(:show_logs_waiting)
 
       expect(result).to eq(ExitCode::ERROR_DEFAULT)
-      expect(now).to eq(described_class::POST_TERMINAL_LOG_DRAIN_SECONDS)
+      expect(now).to eq(1_200)
       expect(Kernel).to have_received(:sleep).with(0.25).once
-      expect(Shell).to have_received(:warn).once
+      expect(Shell).not_to have_received(:warn)
     end
 
     it "does not start a status request after a log request crosses the reconciliation deadline" do
@@ -918,6 +1118,27 @@ describe Command::Run do
       ).ordered
       expect(progress).to have_received(:puts).with("Gemfile")
       expect(progress).not_to have_received(:puts).with(described_class::MAGIC_END)
+    end
+
+    it "does not treat payload ending with the marker text as the finish record" do
+      timestamp = "1788000010000000000"
+      marker_suffix_payload = "phase: #{described_class::MAGIC_END}"
+      payload_log = {
+        "data" => {
+          "result" => [{
+            "values" => [[timestamp, marker_suffix_payload]]
+          }]
+        }
+      }
+
+      allow(command).to receive_messages(cp: cp, progress: progress)
+      allow(cp).to receive(:log_get).and_return(payload_log)
+      allow(Time).to receive(:now).and_return(Time.at(1_788_000_020))
+      command.instance_variable_set(:@runner_workload, "rails-runner")
+      command.instance_variable_set(:@replica, "rails-runner-replica")
+
+      expect(command.send(:print_uniq_logs)).to eq(:changed)
+      expect(progress).to have_received(:puts).with(marker_suffix_payload)
     end
   end
 

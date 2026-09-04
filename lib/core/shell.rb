@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Shell
+  class CommandTimeout < RuntimeError; end
+
   class << self
     attr_reader :tmp_stderr, :verbose
   end
@@ -67,19 +69,36 @@ class Shell
     tmp_stderr && !verbose
   end
 
-  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false, **spawn_options)
+  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false, timeout_seconds: nil, **spawn_options)
+    return timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds, spawn_options) if timeout_seconds
+
     return cmd_with_separate_stderr(*cmd_to_run, **spawn_options) if separate_stderr
 
-    output, status = if capture_stderr
-                       Open3.capture2e(*cmd_to_run, **spawn_options)
-                     else
-                       Open3.capture2(*cmd_to_run, **spawn_options)
-                     end
+    output, status = capture_output(cmd_to_run, capture_stderr, spawn_options)
     {
       output: output,
       success: status.success?
     }
   end
+
+  def self.capture_output(cmd_to_run, capture_stderr, spawn_options)
+    return Open3.capture2e(*cmd_to_run, **spawn_options) if capture_stderr
+
+    Open3.capture2(*cmd_to_run, **spawn_options)
+  end
+  private_class_method :capture_output
+
+  def self.timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds, spawn_options)
+    raise ArgumentError, "Process options cannot be combined with timeout_seconds." unless spawn_options.empty?
+
+    TimedCommand.capture(
+      *cmd_to_run,
+      capture_stderr: capture_stderr,
+      separate_stderr: separate_stderr,
+      timeout_seconds: timeout_seconds
+    )
+  end
+  private_class_method :timed_cmd
 
   def self.cmd_with_separate_stderr(*cmd_to_run, **spawn_options)
     output, error_output, status = Open3.capture3(*cmd_to_run, **spawn_options)

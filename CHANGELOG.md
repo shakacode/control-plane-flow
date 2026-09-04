@@ -12,10 +12,16 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. [PR 451](https://github.com/shakacode/control-plane-flow/pull/451) by [Justin Gordon](https://github.com/justin808). Part of [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).
+- **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
+
 ### Fixed
 
 - **Prevented shell interpretation of dynamic Control Plane CLI and Docker arguments.** Resource names, image references, container names, locations, and other dynamic values now remain literal argv elements; output suppression and stderr capture use process redirection options without rebuilding a shell command. Fixes [issue 452](https://github.com/shakacode/control-plane-flow/issues/452).
 - **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, transient workload image deployment, and delayed one-off job output.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile and stderr capture, workload image updates retry for a bounded window before failing, and non-interactive `cpflow run` commands drain logs for a bounded post-terminal window so delayed ingestion does not drop completed job output. Slow-suite command logs and failure artifacts now redact token options and explicitly supplied sensitive values. [PR 413](https://github.com/shakacode/control-plane-flow/pull/413) by [Justin Gordon](https://github.com/justin808). Addresses [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
+- **Bounded `cpflow run` status reconciliation after a non-interactive command finishes.** When Control Plane keeps reporting a cron job as active or pending after the command completion marker, `cpflow run` now waits up to a configurable 20-minute grace period and then exits nonzero with the job, replica, and last observed status instead of polling forever. Addresses the bounded-reconciliation portion of [HiChee issue 10375](https://github.com/shakacode/hichee/issues/10375).
 
 ## [5.3.0] - 2026-09-02
 

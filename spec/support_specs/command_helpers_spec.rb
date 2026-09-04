@@ -192,6 +192,134 @@ describe CommandHelpers do
     end
   end
 
+  describe ".create_app_if_not_exists" do
+    let(:app) { "#{described_class::DUMMY_TEST_APP_PREFIX}-default-ab12" }
+    let(:success) { { status: ExitCode::SUCCESS, stdout: "", stderr: "" } }
+    let(:not_found) { { status: ExitCode::NOT_FOUND, stdout: "", stderr: "" } }
+
+    around do |example|
+      registered = described_class.apps_to_delete.dup
+      incomplete = described_class.incomplete_apps.dup
+      example.run
+      described_class.apps_to_delete.replace(registered)
+      described_class.incomplete_apps.replace(incomplete)
+    end
+
+    it "reuses an existing app without preparing or deleting it" do
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(success)
+      allow(described_class).to receive(:run_cpflow_command!)
+
+      result = described_class.create_app_if_not_exists(app)
+
+      expect(result).to eq(app)
+      expect(described_class).not_to have_received(:run_cpflow_command).with("delete", "-a", app, "--yes")
+      expect(described_class).not_to have_received(:run_cpflow_command!)
+    end
+
+    it "does not reuse an incomplete app while an accepted deletion is converging" do
+      described_class.incomplete_apps.push(app)
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(success)
+      allow(described_class).to receive(:run_cpflow_command).with("delete", "-a", app, "--yes").and_return(success)
+      allow(described_class).to receive(:run_cpflow_command!)
+
+      expect { described_class.create_app_if_not_exists(app) }
+        .to raise_error(RuntimeError, /Refusing to reuse incomplete test app/)
+      expect(described_class).not_to have_received(:run_cpflow_command!)
+      expect(described_class.incomplete_apps).to include(app)
+    end
+
+    it "fails closed when the existence lookup returns an unexpected status" do
+      lookup_failure = { status: ExitCode::ERROR_DEFAULT, stdout: "", stderr: "backend unavailable" }
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(lookup_failure)
+      allow(described_class).to receive(:run_cpflow_command!)
+
+      expect { described_class.create_app_if_not_exists(app) }
+        .to raise_error(RuntimeError, /cpflow exists exited with status 64/)
+      expect(described_class).not_to have_received(:run_cpflow_command!)
+    end
+
+    it "deletes an incomplete app and preserves the preparation error" do
+      preparation_error = RuntimeError.new("build failed")
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(not_found)
+      allow(described_class).to receive(:run_cpflow_command).with("delete", "-a", app, "--yes").and_return(success)
+      allow(described_class).to receive(:run_cpflow_command!).with(
+        "setup-app", "-a", app, "--skip-secrets-setup"
+      )
+      allow(described_class).to receive(:run_cpflow_command!).with("build-image", "-a", app)
+                                                             .and_raise(preparation_error)
+
+      same_error = raise_error(RuntimeError) { |error| expect(error).to equal(preparation_error) }
+      expect { described_class.create_app_if_not_exists(app, image_before_deploy_count: 1) }.to same_error
+      expect(described_class).to have_received(:run_cpflow_command).with("delete", "-a", app, "--yes").once
+      expect(described_class.apps_to_delete).to include(app)
+    end
+
+    it "preserves the preparation error when cleanup returns a failure" do
+      preparation_error = RuntimeError.new("setup failed")
+      cleanup_failure = { status: ExitCode::ERROR_DEFAULT, stdout: "", stderr: "delete failed" }
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(not_found)
+      allow(described_class).to receive(:run_cpflow_command).with("delete", "-a", app, "--yes")
+                                                            .and_return(cleanup_failure)
+      allow(described_class).to receive(:run_cpflow_command!).and_raise(preparation_error)
+      allow(described_class).to receive(:warn)
+
+      same_error = raise_error(RuntimeError) { |error| expect(error).to equal(preparation_error) }
+      expect { described_class.create_app_if_not_exists(app) }.to same_error
+      expect(described_class).to have_received(:warn).with(include("exit status 64"))
+    end
+
+    it "preserves the preparation error when cleanup raises" do
+      preparation_error = RuntimeError.new("setup failed")
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(not_found)
+      allow(described_class).to receive(:run_cpflow_command).with("delete", "-a", app, "--yes")
+                                                            .and_raise("delete crashed")
+      allow(described_class).to receive(:run_cpflow_command!).and_raise(preparation_error)
+      allow(described_class).to receive(:warn)
+
+      same_error = raise_error(RuntimeError) { |error| expect(error).to equal(preparation_error) }
+      expect { described_class.create_app_if_not_exists(app) }.to same_error
+      expect(described_class).to have_received(:warn).with(include("RuntimeError"))
+    end
+
+    it "keeps an incomplete app when suite cleanup is disabled" do
+      preparation_error = RuntimeError.new("setup failed")
+      stub_env("SKIP_CLEANUP", "true")
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app).and_return(not_found)
+      allow(described_class).to receive(:run_cpflow_command!).and_raise(preparation_error)
+
+      expect { described_class.create_app_if_not_exists(app) }.to raise_error(preparation_error)
+      expect(described_class).not_to have_received(:run_cpflow_command).with("delete", "-a", app, "--yes")
+    end
+
+    it "does not reuse after failed cleanup and recreates once deletion finishes" do
+      preparation_error = RuntimeError.new("first setup failed")
+      setup_attempts = 0
+      cleanup_failure = { status: ExitCode::ERROR_DEFAULT, stdout: "", stderr: "delete failed" }
+      allow(described_class).to receive(:run_cpflow_command).with("exists", "-a", app)
+                                                            .and_return(not_found, success, not_found)
+      allow(described_class).to receive(:run_cpflow_command).with("delete", "-a", app, "--yes")
+                                                            .and_return(cleanup_failure, success)
+      allow(described_class).to receive(:run_cpflow_command!).with(
+        "setup-app", "-a", app, "--skip-secrets-setup"
+      ) do
+        setup_attempts += 1
+        raise preparation_error if setup_attempts == 1
+
+        success
+      end
+      allow(described_class).to receive(:warn)
+
+      expect { described_class.create_app_if_not_exists(app) }.to raise_error(preparation_error)
+      expect { described_class.create_app_if_not_exists(app) }
+        .to raise_error(RuntimeError, /Refusing to reuse incomplete test app/)
+      expect(described_class.create_app_if_not_exists(app)).to eq(app)
+      expect(described_class).to have_received(:run_cpflow_command!).with(
+        "setup-app", "-a", app, "--skip-secrets-setup"
+      ).twice
+      expect(described_class.incomplete_apps).not_to include(app)
+    end
+  end
+
   describe "DUMMY_TEST_APP_NAME_PATTERN" do
     it "matches every app name the dummy app helpers can generate" do
       names = [
