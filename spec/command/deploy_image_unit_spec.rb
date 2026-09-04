@@ -458,6 +458,35 @@ describe Command::DeployImage do
       expect(progress.string).to include("- frontend: https://frontend-test.cpln.app")
     end
 
+    it "recognizes a standalone textual conflict response" do
+      progress = StringIO.new
+      update_results = ([{ success: false, output: "Conflict" }] * 30) +
+                       [{ success: true, output: "" }]
+      allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }.not_to raise_error
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").exactly(31).times
+    end
+
+    it "does not classify unrelated conflict text as an update conflict" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: "spec conflict: cannot set image on disabled container" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS).times
+    end
+
     it "does not repeat a successful image update when no public endpoint is available" do
       progress = StringIO.new
       allow(command).to receive(:progress).and_return(progress)
