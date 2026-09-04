@@ -564,9 +564,12 @@ jobs:
             }
 
       - name: Checkout generated cpflow actions
+        # No explicit ref: the default checkout resolves to the trusted base-branch
+        # commit GitHub set for the event (the base tip under pull_request_target),
+        # which also keeps actions/checkout v7's fork-PR guard from ever inspecting
+        # an explicit SHA that could coincide with a fork PR head or merge commit.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
 
       - name: Checkout control-plane-flow actions
