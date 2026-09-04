@@ -33,6 +33,10 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
   # the app is torn down even when the command that created it fails afterwards,
   # or when the example that would have deleted it fails.
   APP_CREATING_COMMANDS = %w[setup-app apply-template].freeze
+  SENSITIVE_VALUE_OPTIONS = %w[--token --upstream-token --upstream_token -t].freeze
+  SENSITIVE_VALUE_ASSIGNMENT_PATTERN =
+    /\A(?:#{SENSITIVE_VALUE_OPTIONS.map { |option| Regexp.escape(option) }.join('|')})=(?<value>.+)\z/
+  SENSITIVE_ATTACHED_SHORT_VALUE_PATTERN = /\A-t[-+]?(?<value>(?:\d*\.\d+|\d+))\z/
 
   CREATE_APP_PARAMS = {
     "default" => {
@@ -167,6 +171,10 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     @@apps_to_delete ||= [] # rubocop:disable Style/ClassVars
   end
 
+  def incomplete_apps
+    @@incomplete_apps ||= [] # rubocop:disable Style/ClassVars
+  end
+
   # Registers the dummy app named by `args` for `after(:suite)` cleanup when
   # those args invoke a command that can create it.
   #
@@ -196,25 +204,89 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     apps_to_delete.push(app) unless apps_to_delete.include?(app)
 
     result = run_cpflow_command("exists", "-a", app)
-    return app if result[:status].zero?
+    return reuse_existing_app(app) if result[:status] == ExitCode::SUCCESS
+    unless result[:status] == ExitCode::NOT_FOUND
+      raise "Cannot determine whether test app '#{app}' exists: cpflow exists exited with status #{result[:status]}"
+    end
 
     puts "\nCreating app '#{app}' for tests\n\n" if ENV.fetch("VERBOSE_TESTS", nil) == "true"
 
-    run_cpflow_command!("setup-app", "-a", app, "--skip-secrets-setup")
+    incomplete_apps.push(app) unless incomplete_apps.include?(app)
+    prepared = false
+    begin
+      run_cpflow_command!("setup-app", "-a", app, "--skip-secrets-setup")
 
-    image_before_deploy_count.times do
-      run_cpflow_command!("build-image", "-a", app)
-    end
-    run_cpflow_command!("deploy-image", "-a", app) if deploy
-    image_after_deploy_count.times do
-      run_cpflow_command!("build-image", "-a", app)
+      image_before_deploy_count.times do
+        run_cpflow_command!("build-image", "-a", app)
+      end
+      run_cpflow_command!("deploy-image", "-a", app) if deploy
+      image_after_deploy_count.times do
+        run_cpflow_command!("build-image", "-a", app)
+      end
+      prepared = true
+    ensure
+      finalize_app_preparation(app, prepared)
     end
 
     app
   end
 
-  def run_cpflow_command(*args, raise_errors: false) # rubocop:disable Metrics/MethodLength
-    LogHelpers.write_command_to_log(args.join(" "))
+  def reuse_existing_app(app)
+    return app unless incomplete_apps.include?(app)
+
+    cleanup_incomplete_app_unless_preserved(app)
+    raise "Refusing to reuse incomplete test app '#{app}' while its cleanup is still converging."
+  end
+
+  def finalize_app_preparation(app, prepared)
+    return incomplete_apps.delete(app) if prepared
+
+    cleanup_incomplete_app_unless_preserved(app)
+  end
+
+  def cleanup_incomplete_app_unless_preserved(app)
+    return if ENV.fetch("SKIP_CLEANUP", nil) == "true"
+
+    cleanup_incomplete_app(app)
+  end
+
+  def cleanup_incomplete_app(app)
+    result = run_cpflow_command("delete", "-a", app, "--yes")
+    return if result[:status] == ExitCode::SUCCESS
+
+    warn "Failed to clean up incomplete test app '#{app}' (exit status #{result[:status]})."
+  rescue StandardError => e
+    warn "Failed to clean up incomplete test app '#{app}' (#{e.class})."
+  end
+
+  def command_sensitive_data_pattern(args, supplied_pattern)
+    value_patterns = sensitive_argument_values(args)
+                     .uniq
+                     .sort_by { |value| -value.length }
+                     .map { |value| Regexp.new(Regexp.escape(value)) }
+    patterns = [*value_patterns, supplied_pattern].compact
+
+    Regexp.union(patterns) unless patterns.empty?
+  end
+
+  def sensitive_argument_values(args)
+    string_args = args.map(&:to_s)
+    separate_values = string_args.each_cons(2).filter_map do |option, value|
+      value if SENSITIVE_VALUE_OPTIONS.include?(option) && !value.empty?
+    end
+    inline_values = string_args.filter_map { |arg| inline_sensitive_argument_value(arg) }
+
+    separate_values + inline_values
+  end
+
+  def inline_sensitive_argument_value(arg)
+    match = arg.match(SENSITIVE_VALUE_ASSIGNMENT_PATTERN) || arg.match(SENSITIVE_ATTACHED_SHORT_VALUE_PATTERN)
+    match&.[](:value)
+  end
+
+  def run_cpflow_command(*args, raise_errors: false, sensitive_data_pattern: nil) # rubocop:disable Metrics/MethodLength
+    sensitive_data_pattern = command_sensitive_data_pattern(args, sensitive_data_pattern)
+    LogHelpers.write_command_to_log(args.join(" "), sensitive_data_pattern: sensitive_data_pattern)
     register_app_to_delete(args)
 
     result = {
@@ -239,15 +311,18 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     result[:stderr] = restore_stderr(original_stderr)
     result[:stdout] = restore_stdout(original_stdout)
 
-    LogHelpers.write_command_result_to_log(result)
+    LogHelpers.write_command_result_to_log(result, sensitive_data_pattern: sensitive_data_pattern)
 
-    raise result.to_json if result[:status].nonzero? && raise_errors
+    if result[:status].nonzero? && raise_errors
+      redacted_result = LogHelpers.redact_command_result(result, sensitive_data_pattern: sensitive_data_pattern)
+      raise redacted_result.to_json
+    end
 
     result
   end
 
-  def run_cpflow_command!(*args)
-    run_cpflow_command(*args, raise_errors: true)
+  def run_cpflow_command!(*args, sensitive_data_pattern: nil)
+    run_cpflow_command(*args, raise_errors: true, sensitive_data_pattern: sensitive_data_pattern)
   end
 
   def spawn_cpflow_command(*args, stty_rows: nil, stty_cols: nil, wait_for_process: true) # rubocop:disable Metrics/MethodLength
@@ -257,13 +332,18 @@ module CommandHelpers # rubocop:disable Metrics/ModuleLength
     cmd += "#{cpflow_executable_with_simplecov} #{args.join(' ')}"
 
     register_app_to_delete(args)
-    LogHelpers.write_command_to_log(cmd)
+    sensitive_data_pattern = command_sensitive_data_pattern(args, nil)
+    LogHelpers.write_command_to_log(cmd, sensitive_data_pattern: sensitive_data_pattern)
     LogHelpers.write_section_separator_to_log
 
     PTY.spawn(cmd) do |output, input, pid|
-      yield(SpawnedCommand.new(output, input, pid))
+      spawned_command = SpawnedCommand.new(
+        output, input, pid,
+        sensitive_data_pattern: sensitive_data_pattern
+      )
+      yield(spawned_command)
     ensure
-      Process.wait(pid) if wait_for_process
+      spawned_command&.wait if wait_for_process
     end
   end
 

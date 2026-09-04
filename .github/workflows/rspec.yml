@@ -27,6 +27,12 @@ jobs:
     name: RSpec (Fast)
     uses: ./.github/workflows/rspec-shared.yml
     if: github.event_name != 'schedule'
+    # Fast runs use isolated random app suffixes, so only serialize the same PR
+    # or ref. Keep the default single pending slot so obsolete heads are
+    # replaced instead of accumulating behind the current run.
+    concurrency:
+      group: cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     with:
       os_version: ubuntu-latest
       ruby_version: "3.2"
@@ -38,11 +44,16 @@ jobs:
     name: RSpec (Slow)
     uses: ./.github/workflows/rspec-shared.yml
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    # Slow and Specific runs can mutate the shared domain. Retain every waiter
+    # in one repository-wide queue instead of replacing an earlier pending run.
+    concurrency:
+      group: cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-shared-org
+      cancel-in-progress: false
+      queue: max
     with:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: slow
-      uses_shared_org: true
     secrets:
       CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}
 

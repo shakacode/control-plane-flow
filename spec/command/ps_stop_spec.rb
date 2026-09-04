@@ -45,7 +45,7 @@ describe Command::PsStop do
       run_cpflow_command!("ps:start", "-a", app, "--wait")
 
       result = run_cpflow_command!("ps", "-a", app, "--workload", "rails")
-      result[:stdout].strip
+      result[:stdout].lines.first.strip
     end
 
     it "stops specific replica", :slow do

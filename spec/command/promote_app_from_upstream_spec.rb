@@ -10,6 +10,9 @@ describe Command::PromoteAppFromUpstream do
   let(:upstream_app) { dummy_test_app }
   let(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
   let(:extra_args) { [] }
+  let(:rails_endpoint_pattern) do
+    %r{https://rails-[^\s/]+?\.(?:cpln\.app|(?:[^./]+\.)?controlplane\.us)(?=[:/?#\s]|$)}
+  end
 
   before do
     stub_env("CPLN_UPSTREAM", upstream_app)
@@ -46,7 +49,7 @@ describe Command::PromoteAppFromUpstream do
         expect(result[:stderr]).to match(/Deploying image '#{app}:1(?!@)'/)
       end
 
-      expect(result[:stderr]).to match(%r{rails: https://rails-.+?.cpln.app})
+      expect(result[:stderr]).to match(rails_endpoint_pattern)
     end
   end
 
@@ -98,7 +101,7 @@ describe Command::PromoteAppFromUpstream do
       expect(result[:stderr]).to include("Running release script")
       expect(result[:stderr]).to include("Failed to run release script")
       expect(result[:stderr]).not_to include("Deploying image")
-      expect(result[:stderr]).not_to match(%r{rails: https://rails-.+?.cpln.app})
+      expect(result[:stderr]).not_to match(rails_endpoint_pattern)
     end
   end
 

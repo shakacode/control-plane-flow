@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Command
-  class CleanupStaleApps < Base
+  class CleanupStaleApps < Base # rubocop:disable Metrics/ClassLength
     CLEANUP_MODE_OPTION = {
       name: :mode,
       params: {
@@ -24,7 +24,7 @@ module Command
     LONG_DESCRIPTION = <<~DESC
       - Acts on stale apps based on the creation date of the latest image, or the GVC if no images exist
       - With `--mode=delete` (default): deletes the whole app (GVC with all workloads, all volumesets and all images), and unbinds the app from the secrets policy and any configured `shared_secret_grants` policies as long as both the identity and each policy exist (and are bound)
-      - With `--mode=stop`: suspends all workloads via `cpflow ps:stop` — no GVC, volumeset, or image is removed; resume with `cpflow ps:start`
+      - With `--mode=stop`: suspends configured workloads that exist in the live GVC through Control Plane — no GVC, volumeset, or image is removed; resume with `cpflow ps:start`
       - `--mode=stop` only suspends workloads listed in `app_workloads` + `additional_workloads`; workloads present in the live GVC but missing from the config are skipped silently
       - `--mode=stop` returns once each workload is marked suspended; it does not wait for the workload to reach a not-ready state
       - Specify the amount of days after an app should be considered stale through `stale_app_image_deployed_days` in the `.controlplane/controlplane.yml` file
@@ -101,14 +101,38 @@ module Command
     def process_app(app)
       if mode == "stop"
         progress.puts("Stopping app '#{app}'")
-        run_cpflow_command("ps:stop", "-a", app)
+        stop_configured_live_workloads(app)
       else
         run_cpflow_command("delete", "-a", app, "--yes")
       end
     end
 
+    def stop_configured_live_workloads(app)
+      app_config = config.find_app_config(app)
+      raise "Can't find config for stale app '#{app}'." unless app_config
+
+      configured_workloads = required_app_option(app_config, app, :app_workloads) +
+                             required_app_option(app_config, app, :additional_workloads)
+      live_workloads = (cp.fetch_workloads(app)&.fetch("items", []) || []).map { |workload| workload.fetch("name") }
+
+      (configured_workloads & live_workloads).each do |workload|
+        step("Stopping workload '#{workload}'") do
+          cp.set_workload_suspend(workload, true, app, missing_ok: true)
+        end
+      end
+    end
+
+    def required_app_option(app_config, app, option)
+      raise "Can't find option '#{option}' for app '#{app}' in 'controlplane.yml'." unless app_config.key?(option)
+
+      value = app_config.fetch(option)
+      raise "Option '#{option}' for app '#{app}' in 'controlplane.yml' must be an array." unless value.is_a?(Array)
+
+      value
+    end
+
     def action_description
-      mode == "stop" ? "suspend all workloads in" : "delete"
+      mode == "stop" ? "suspend configured workloads in" : "delete"
     end
 
     def mode

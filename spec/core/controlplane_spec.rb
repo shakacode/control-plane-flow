@@ -62,6 +62,34 @@ describe Controlplane do
     end
   end
 
+  describe "#kernel_system_with_pid_handling" do
+    let(:described_instance) { described_class.allocate }
+    let(:process_status) { instance_double(Process::Status, exited?: true, success?: true) }
+
+    before do
+      allow(Process).to receive(:spawn).and_return(1234)
+      allow(Process).to receive(:wait2).with(1234).and_return([1234, process_status])
+    end
+
+    it "passes capture options to an argv-safe process spawn" do
+      output = instance_double(IO)
+
+      result = described_instance.send(
+        :kernel_system_with_pid_handling,
+        ["cpln", "workload", "update", "rails runner"],
+        out: output,
+        err: %i[child out]
+      )
+
+      expect(result).to be(true)
+      expect(Process).to have_received(:spawn).with(
+        "cpln", "workload", "update", "rails runner",
+        out: output,
+        err: %i[child out]
+      )
+    end
+  end
+
   describe "#build_command" do
     let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
     let!(:described_instance) { described_class.new(fake_config) }
@@ -173,6 +201,70 @@ describe Controlplane do
     end
   end
 
+  describe "#set_workload_suspend" do
+    let(:api) { instance_double(ControlplaneApi) }
+    let(:described_instance) do
+      described_class.allocate.tap do |instance|
+        instance.instance_variable_set(:@gvc, "prefix")
+        instance.instance_variable_set(:@org, "my-org")
+        instance.instance_variable_set(:@api, api)
+      end
+    end
+    let(:workload_data) do
+      { "spec" => { "defaultOptions" => { "suspend" => false } } }
+    end
+
+    it "targets an explicitly selected GVC for stale-app cleanup" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(workload_data)
+      allow(api).to receive(:update_workload)
+
+      expect(described_instance.set_workload_suspend("postgres", true, "matched-stale-app")).to be_nil
+
+      expect(api).to have_received(:update_workload).with(
+        org: "my-org",
+        gvc: "matched-stale-app",
+        workload: "postgres",
+        data: { "spec" => { "defaultOptions" => { "suspend" => true } } }
+      )
+    end
+
+    it "treats a missing workload as already suspended when requested" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(nil)
+      allow(api).to receive(:update_workload)
+
+      expect(
+        described_instance.set_workload_suspend("postgres", true, "matched-stale-app", missing_ok: true)
+      ).to be(true)
+      expect(api).not_to have_received(:update_workload)
+    end
+
+    it "still raises for a missing workload by default" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(nil)
+
+      expect do
+        described_instance.set_workload_suspend("postgres", true, "matched-stale-app")
+      end.to raise_error("Can't find workload 'postgres', " \
+                         "please create it with 'cpflow apply-template postgres -a matched-stale-app'.")
+    end
+
+    it "treats a workload deleted during the suspend update as already suspended when requested" do
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "matched-stale-app", workload: "postgres")
+        .and_return(workload_data)
+      allow(api).to receive(:update_workload).and_return(nil)
+
+      expect(
+        described_instance.set_workload_suspend("postgres", true, "matched-stale-app", missing_ok: true)
+      ).to be(true)
+    end
+  end
+
   describe "#image_build" do
     let!(:fake_config) { Struct.new(:app, :org).new("my-app", nil) }
     let!(:described_instance) { described_class.new(fake_config) }
@@ -201,6 +293,120 @@ describe Controlplane do
           ]
         )
       end
+    end
+  end
+
+  describe "#workload_set_image_ref" do
+    let(:fake_config) { Struct.new(:app, :org).new("my-app", "my-org") }
+    let(:described_instance) { described_class.new(fake_config) }
+
+    before do
+      allow_any_instance_of(ControlplaneApi).to receive(:list_orgs).and_return({ "items" => [{ "name" => "my-org" }] }) # rubocop:disable RSpec/AnyInstance
+      allow(described_instance).to receive(:perform_with_output).and_call_original
+      allow(described_instance).to receive(:perform_with_output)
+        .with(
+          "cpln workload update rails --gvc my-app --org my-org " \
+          "--set spec.containers.web.image=/org/my-org/image/my-app:2"
+        )
+        .and_return({ success: false, output: "409 Conflict" })
+    end
+
+    it "returns the captured command result so the caller can classify the failure" do
+      result = described_instance.workload_set_image_ref(
+        "rails",
+        container: "web",
+        image: "my-app:2"
+      )
+
+      expect(result).to eq(success: false, output: "409 Conflict")
+    end
+
+    it "tracks the captured subprocess until it exits" do
+      process_status = instance_double(Process::Status, exited?: true, success?: false)
+      allow(Process).to receive(:spawn).and_return(12_345)
+      allow(Process).to receive(:wait2).with(12_345) do
+        expect($child_pids).to include(12_345) # rubocop:disable Style/GlobalVars
+        [12_345, process_status]
+      end
+
+      result = described_instance.send(:perform_with_output, "cpln workload update")
+
+      expect(result).to eq(success: false, output: "")
+      expect(Process).to have_received(:spawn).with(
+        "cpln workload update",
+        out: an_instance_of(IO),
+        err: an_instance_of(IO)
+      )
+      expect($child_pids).not_to include(12_345) # rubocop:disable Style/GlobalVars
+    end
+
+    it "keeps an unreaped subprocess registered when output draining is interrupted" do
+      allow(Process).to receive(:spawn).and_return(12_346)
+      allow(Process).to receive(:wait2)
+      allow(described_instance).to receive(:drain_captured_output).and_raise(SystemExit.new(ExitCode::INTERRUPT))
+
+      expect do
+        described_instance.send(:perform_with_output, "cpln workload update")
+      end.to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::INTERRUPT) }
+
+      expect(Process).not_to have_received(:wait2).with(12_346)
+      expect($child_pids).to include(12_346) # rubocop:disable Style/GlobalVars
+    ensure
+      $child_pids.delete(12_346) # rubocop:disable Style/GlobalVars
+    end
+
+    it "streams stdout and stderr to their original channels while capturing both when output is visible" do
+      stub_env("HIDE_COMMAND_OUTPUT", "false")
+      Shell.verbose_mode(true)
+
+      result = nil
+      expect do
+        result = described_instance.send(
+          :perform_with_output,
+          "printf 'live stdout'; printf 'live stderr' >&2"
+        )
+      end.to output("live stdout").to_stdout.and output("live stderr").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("live stdout", "live stderr")
+    ensure
+      Shell.verbose_mode(false)
+    end
+
+    it "streams only stderr in errors-only mode while capturing both channels" do
+      stub_env("HIDE_COMMAND_OUTPUT", "false")
+      Shell.verbose_mode(false)
+
+      result = nil
+      expect do
+        Shell.use_tmp_stderr do
+          result = described_instance.send(
+            :perform_with_output,
+            "printf 'captured stdout'; printf 'visible stderr' >&2"
+          )
+        end
+      end.to output("").to_stdout.and output("visible stderr").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("captured stdout", "visible stderr")
+    end
+
+    it "captures both channels without streaming them when command output is hidden" do
+      stub_env("HIDE_COMMAND_OUTPUT", "true")
+      Shell.verbose_mode(true)
+
+      result = nil
+      expect do
+        result = described_instance.send(
+          :perform_with_output,
+          "printf 'hidden stdout'; printf 'hidden stderr' >&2"
+        )
+      end.to output("").to_stdout.and output("").to_stderr
+
+      expect(result.fetch(:success)).to be(true)
+      expect(result.fetch(:output)).to include("hidden stdout", "hidden stderr")
+    ensure
+      Shell.verbose_mode(false)
     end
   end
 end
