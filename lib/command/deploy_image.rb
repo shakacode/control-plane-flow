@@ -7,7 +7,8 @@ module Command
     WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS = 30
     # Preserve the general failure cap; only optimistic-concurrency conflicts get the longer convergence window.
     WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS = 120
-    WORKLOAD_IMAGE_UPDATE_CONFLICT_PATTERN = /\b409\b|conflict/i
+    WORKLOAD_IMAGE_UPDATE_CONFLICT_PATTERN =
+      /(?:\b409\b|(?:\A|\n)[ \t]*(?:error:[ \t]*)?conflict[ \t]*(?:\r?\n|\z))/i
 
     NAME = "deploy-image"
     OPTIONS = [

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "timeout"
+
 module Command
   class Run < Base # rubocop:disable Metrics/ClassLength
     INTERACTIVE_COMMANDS = [
@@ -121,6 +123,7 @@ module Command
     LOG_QUERY_LOOKBACK_SECONDS = 60
     POST_TERMINAL_LOG_DRAIN_SECONDS = 120
     POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS = 1
+    LOG_REQUEST_TIMEOUT_SECONDS = 30
     JOB_STATUS_UNAVAILABLE_RETRY_LIMIT = 5
     JOB_STATUS_POLL_INTERVAL_SECONDS = 1
     JOB_STATUS_REQUEST_TIMEOUT_SECONDS = 30
@@ -775,10 +778,17 @@ module Command
       begin
         # rubocop:disable Metrics/BlockLength
         loop do
-          break if reconciliation_deadline && monotonic_time >= reconciliation_deadline
+          remaining = reconciliation_deadline && (reconciliation_deadline - monotonic_time)
+          break if remaining && !remaining.positive?
 
           unless finish_marker_seen
-            finish_marker_seen = print_uniq_logs == :finished
+            log_request_timeout = remaining ? [LOG_REQUEST_TIMEOUT_SECONDS, remaining].min : LOG_REQUEST_TIMEOUT_SECONDS
+            log_status = begin
+              print_uniq_logs(timeout_seconds: log_request_timeout)
+            rescue Shell::CommandTimeout
+              :unchanged
+            end
+            finish_marker_seen = log_status == :finished
             if finish_marker_seen && reconciliation_deadline.nil?
               reconciliation_deadline = start_reconciliation_deadline(
                 reconciliation_deadline,
@@ -786,7 +796,9 @@ module Command
               )
               reconciliation_deadline_origin = :finish_marker
             elsif finish_marker_seen && reconciliation_deadline_origin == :status_outage
-              reconciliation_deadline_origin = :status_outage_after_finish_marker
+              reconciliation_deadline = monotonic_time +
+                                        (job_status_reconciliation_timeout || POST_TERMINAL_LOG_DRAIN_SECONDS)
+              reconciliation_deadline_origin = :finish_marker
             end
           end
           remaining = reconciliation_deadline && (reconciliation_deadline - monotonic_time)
@@ -808,7 +820,10 @@ module Command
             last_job_status = observed_status unless observed_status.nil?
             current_exit_status
           end
-          if exit_status && reconciliation_deadline.nil?
+          if exit_status && reconciliation_deadline_origin == :status_outage
+            reconciliation_deadline = monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS
+            reconciliation_deadline_origin = :terminal
+          elsif exit_status && reconciliation_deadline.nil?
             reconciliation_deadline = start_reconciliation_deadline(
               reconciliation_deadline,
               duration: POST_TERMINAL_LOG_DRAIN_SECONDS
@@ -862,12 +877,12 @@ module Command
       monotonic_time + duration
     end
 
-    def print_uniq_logs
+    def print_uniq_logs(timeout_seconds: nil)
       status = nil
 
       @printed_log_entries ||= []
       ts = Time.now.to_i
-      entries = normalized_log_entries(from: @post_terminal_log_from || (ts - LOG_QUERY_LOOKBACK_SECONDS), to: ts)
+      entries = fetch_log_entries(ts, timeout_seconds)
 
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         status ||= :changed
@@ -877,6 +892,15 @@ module Command
       @printed_log_entries = entries # as well truncate old entries if any
 
       status || :unchanged
+    end
+
+    def fetch_log_entries(to, timeout_seconds)
+      from = @post_terminal_log_from || (to - LOG_QUERY_LOOKBACK_SECONDS)
+      return normalized_log_entries(from: from, to: to) unless timeout_seconds
+
+      Timeout.timeout(timeout_seconds, Shell::CommandTimeout) do
+        normalized_log_entries(from: from, to: to)
+      end
     end
 
     def normalized_log_entries(from:, to:)
