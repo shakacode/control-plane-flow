@@ -209,7 +209,7 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
 
     it "runs cpflow delete from a downstream app checkout" do
       expect(step_named("Checkout repository")).to include(
-        "uses" => "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+        "uses" => "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "with" => include(
           "path" => "app",
           "persist-credentials" => false

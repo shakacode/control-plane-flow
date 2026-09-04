@@ -105,7 +105,7 @@ require "yaml"
 CONTROL_PLANE_FLOW_WORKFLOW = %r{\Ashakacode/control-plane-flow/\.github/workflows/[^@\s]+@([^\s]+)\z}
 PROMOTE_WORKFLOW = %r{\Ashakacode/control-plane-flow/\.github/workflows/cpflow-promote-staging-to-production\.yml@([^\s]+)\z}
 EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT = "shakacode/control-plane-flow/.github/workflows/cpflow-promote-staging-to-production.yml@vX.Y.Z"
-EXPECTED_CPFLOW_CHECKOUT_ACTION = "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+EXPECTED_CPFLOW_CHECKOUT_ACTION = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 EXPECTED_CPFLOW_CHECKOUT_REPOSITORY = "shakacode/control-plane-flow"
 
 refs = Hash.new { |hash, key| hash[key] = [] }
