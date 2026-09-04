@@ -809,10 +809,7 @@ module Command
             current_exit_status
           end
           if exit_status && reconciliation_deadline_origin == :status_outage
-            reconciliation_deadline = start_reconciliation_deadline(
-              nil,
-              duration: POST_TERMINAL_LOG_DRAIN_SECONDS
-            )
+            reconciliation_deadline = monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS
             reconciliation_deadline_origin = :terminal
           elsif exit_status && reconciliation_deadline.nil?
             reconciliation_deadline = start_reconciliation_deadline(

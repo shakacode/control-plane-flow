@@ -761,11 +761,13 @@ describe Command::Run do
 
     it "starts a full log-drain window when terminal status recovers from an outage" do
       now = 0.0
+      wall_time = 1_788_000_000.0
       unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
       statuses = [*unavailable_streak, "successful"]
       outage_deadline = described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT +
                         described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
       status_index = 0
+      frozen_log_from_before_recovery = nil
 
       allow(command).to receive(:print_uniq_logs)
         .and_return(*Array.new(statuses.length, :changed), :finished)
@@ -773,9 +775,13 @@ describe Command::Run do
         status = statuses[status_index]
         status_index += 1
         now = outage_deadline - 0.25 if status == "successful"
+        if status == "successful"
+          frozen_log_from_before_recovery = command.instance_variable_get(:@post_terminal_log_from)
+        end
         status
       end
       allow(command).to receive(:monotonic_time) { now }
+      allow(Time).to receive(:now) { Time.at(wall_time + now) }
       allow(Kernel).to receive(:sleep) { |duration| now += duration }
       allow(Shell).to receive(:warn)
 
@@ -784,6 +790,8 @@ describe Command::Run do
       expect(result).to eq(ExitCode::SUCCESS)
       expect(command).to have_received(:print_uniq_logs).exactly(statuses.length + 1).times
       expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(command.instance_variable_get(:@post_terminal_log_from))
+        .to eq(frozen_log_from_before_recovery)
       expect(Shell).not_to have_received(:warn)
     end
 
