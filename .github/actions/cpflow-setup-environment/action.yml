@@ -19,6 +19,10 @@ inputs:
     description: Directory where ruby/setup-ruby should detect Ruby version files.
     required: false
     default: "."
+  cpflow_source_directory:
+    description: Directory containing the checked-out control-plane-flow source.
+    required: false
+    default: ".cpflow"
   # GitHub parses double-brace expression snippets inside action metadata (including
   # `description:`) while loading the composite action, and the `vars` context is not
   # available in that phase. Keep these descriptions in plain prose - reference repo
@@ -47,8 +51,8 @@ inputs:
 
 runs:
   using: composite
-  # ruby/setup-ruby tracks Ruby/toolcache updates on a major tag. The privileged
-  # reusable workflows pin GitHub-owned actions to immutable SHAs.
+  # Dependabot proposes action updates, but each reviewed dependency remains
+  # pinned to the release commit recorded beside its exact version comment.
   steps:
     - name: Resolve Ruby setup version
       id: ruby-version
@@ -80,9 +84,7 @@ runs:
         echo "ruby_version=${ruby_version}" >> "$GITHUB_OUTPUT"
 
     - name: Set up Ruby
-      # ruby/setup-ruby intentionally tracks the v1 tag so Ruby/toolcache updates
-      # roll out automatically; Dependabot/Renovate can manage this non-GitHub action.
-      uses: ruby/setup-ruby@v1
+      uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
       with:
         ruby-version: ${{ steps.ruby-version.outputs.ruby_version }}
         working-directory: ${{ inputs.working_directory }}
@@ -93,7 +95,7 @@ runs:
         CONTROL_PLANE_FLOW_REF: ${{ inputs.control_plane_flow_ref }}
         CPLN_CLI_VERSION: ${{ inputs.cpln_cli_version }}
         CPFLOW_VERSION: ${{ inputs.cpflow_version }}
-        CPFLOW_SOURCE_DIR: ${{ github.action_path }}/../../..
+        CPFLOW_SOURCE_DIR: ${{ inputs.cpflow_source_directory }}
       run: |
         set -euo pipefail
 

@@ -19,6 +19,9 @@ on:
   schedule:
     - cron: "0 2 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   rspec-fast:
     name: RSpec (Fast)
@@ -34,7 +37,8 @@ jobs:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: ~slow
-    secrets: inherit
+    secrets:
+      CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}
 
   rspec-slow:
     name: RSpec (Slow)
@@ -50,7 +54,8 @@ jobs:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: slow
-    secrets: inherit
+    secrets:
+      CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}
 
   report-scheduled-slow-suite-failure:
     name: Report scheduled slow suite failure
@@ -61,7 +66,7 @@ jobs:
       issues: write
     steps:
       - name: Create or update the scheduled slow suite failure issue
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const title = "Scheduled slow suite failing";

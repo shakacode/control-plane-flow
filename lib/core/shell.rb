@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Shell
+  class CommandTimeout < RuntimeError; end
+
   class << self
     attr_reader :tmp_stderr, :verbose
   end
@@ -9,8 +11,8 @@ class Shell
     @tmp_stderr = Tempfile.create
 
     yield
-
-    @tmp_stderr.close
+  ensure
+    @tmp_stderr&.close
     @tmp_stderr = nil
   end
 
@@ -65,7 +67,9 @@ class Shell
     tmp_stderr && !verbose
   end
 
-  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false)
+  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false, timeout_seconds: nil)
+    return timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds) if timeout_seconds
+
     return cmd_with_separate_stderr(*cmd_to_run) if separate_stderr
 
     output, status = capture_stderr ? Open3.capture2e(*cmd_to_run) : Open3.capture2(*cmd_to_run)
@@ -74,6 +78,16 @@ class Shell
       success: status.success?
     }
   end
+
+  def self.timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds)
+    TimedCommand.capture(
+      *cmd_to_run,
+      capture_stderr: capture_stderr,
+      separate_stderr: separate_stderr,
+      timeout_seconds: timeout_seconds
+    )
+  end
+  private_class_method :timed_cmd
 
   def self.cmd_with_separate_stderr(*cmd_to_run)
     output, error_output, status = Open3.capture3(*cmd_to_run)

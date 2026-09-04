@@ -6,13 +6,14 @@ path — not the public internet.
 
 This guide covers the recommended setup: **CPLN Cloud Wormhole via an Agent**.
 
-> **Sourcing note — verify field casing before you apply.** Field names, schema, and limits in this guide
-> are sourced from the public Control Plane documentation at <https://shakadocs.controlplane.com> as of
-> May 2026 and have **not** been end-to-end verified against a live org. This matters because a casing
-> mismatch **fails silently**: `cpln apply` accepts the file, ignores the unrecognized field, and the
-> workload then can't reach the database — with no error pointing back to the YAML. Before applying in
-> production, diff your edited files against a fresh `cpln identity get <name> -o yaml-slim` (and
-> `cpln agent get <name> -o yaml`) export to confirm the exact field names, and consult
+> **Field casing verified.** Sanitized `cpln identity get <name> -o yaml-slim` exports from live orgs
+> confirmed the `networkResources` nesting and the common `name`, `agentLink`, `FQDN`, and `ports` field casing.
+> The current Control Plane [Identity reference](https://shakadocs.controlplane.com/reference/identity) and
+> [Identity API](https://shakadocs.controlplane.com/api-reference/identity/get-an-identity-by-gvc-and-name)
+> confirm the alternative `IPs` form and optional `resolverIP` spelling; neither appeared in the inspected
+> live resources. Field names are case-sensitive: `cpln apply` can accept an unrecognized field while omitting
+> the intended route, without pointing back to the identity YAML. Before applying in production, check the new
+> block against these casing sources, diff your edited file against a fresh identity export, and consult
 > `cpln <command> --help` for the latest CLI flags.
 
 ## Why private networking
@@ -234,11 +235,10 @@ cpln identity get my-app-production-identity \
 Edit `identity-db.yaml` and **add** the `networkResources` block — keep every other apply-safe field
 exactly as exported:
 
-> ⚠️ **Verify field casing against your org before applying.** The field names below (`FQDN`, `IPs`,
-> `agentLink`, `resolverIP`) are sourced from public CPLN docs. If the live API uses different casing,
-> `cpln apply` will accept the file but silently ignore the resource — workloads will hit
-> `could not translate host name` with no obvious link to the identity YAML. Diff your edited file
-> against the original `yaml-slim` export from `cpln identity get` to confirm.
+> **Apply-safe editing:** start from a fresh `yaml-slim` export and diff your edited file against the
+> original before applying. This helps detect unintended changes to exported fields, but it does not validate
+> the newly added `networkResources` block. Check every key in that block, including `agentLink`, `FQDN`/`IPs`,
+> `resolverIP`, and `ports`, against the verified casing sources above.
 
 ```yaml
 # identity-db.yaml (after edit — abbreviated, your file will have more fields)
