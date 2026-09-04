@@ -759,6 +759,34 @@ describe Command::Run do
       expect(Shell).not_to have_received(:warn)
     end
 
+    it "starts a full log-drain window when terminal status recovers from an outage" do
+      now = 0.0
+      unavailable_streak = Array.new(described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT + 1)
+      statuses = [*unavailable_streak, "successful"]
+      outage_deadline = described_class::JOB_STATUS_UNAVAILABLE_RETRY_LIMIT +
+                        described_class::POST_TERMINAL_LOG_DRAIN_SECONDS
+      status_index = 0
+
+      allow(command).to receive(:print_uniq_logs)
+        .and_return(*Array.new(statuses.length, :changed), :finished)
+      allow(command).to receive(:current_job_status) do
+        status = statuses[status_index]
+        status_index += 1
+        now = outage_deadline - 0.25 if status == "successful"
+        status
+      end
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+      allow(Shell).to receive(:warn)
+
+      result = command.send(:show_logs_waiting)
+
+      expect(result).to eq(ExitCode::SUCCESS)
+      expect(command).to have_received(:print_uniq_logs).exactly(statuses.length + 1).times
+      expect(command).to have_received(:current_job_status).exactly(statuses.length).times
+      expect(Shell).not_to have_received(:warn)
+    end
+
     it "starts one fixed reconciliation deadline when the sixth status is unavailable" do
       now = 0.0
       wall_time = 1_788_000_000
