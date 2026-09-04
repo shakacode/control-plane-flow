@@ -173,8 +173,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.workload_list_by_org(org: a_org)
   end
 
-  def fetch_workload(workload)
-    api.workload_get(workload: workload, gvc: gvc, org: org)
+  def fetch_workload(workload, a_gvc = gvc)
+    api.workload_get(workload: workload, gvc: a_gvc, org: org)
   end
 
   def fetch_workload_with_status(workload)
@@ -199,12 +199,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
   private :workload_status_result
 
-  def fetch_workload!(workload)
-    workload_data = fetch_workload(workload)
+  def fetch_workload!(workload, a_gvc = gvc)
+    workload_data = fetch_workload(workload, a_gvc)
     return workload_data if workload_data
 
     raise "Can't find workload '#{workload}', " \
-          "please create it with 'cpflow apply-template #{workload} -a #{config.app}'."
+          "please create it with 'cpflow apply-template #{workload} -a #{a_gvc}'."
   end
 
   def query_workloads(workload, a_gvc = gvc, a_org = org, partial_workload_match: false, partial_gvc_match: nil)
@@ -254,7 +254,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   def workload_set_image_ref(workload, container:, image:)
     cmd = "cpln workload update #{workload} #{gvc_org}"
     cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
-    perform!(cmd)
+    Shell.debug("CMD", cmd)
+    perform_with_output(cmd)
   end
 
   def set_workload_env_var(workload, container:, name:, value:)
@@ -272,11 +273,16 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
   end
 
-  def set_workload_suspend(workload, value)
-    data = fetch_workload!(workload)
+  def set_workload_suspend(workload, value, a_gvc = gvc, missing_ok: false)
+    data = missing_ok ? fetch_workload(workload, a_gvc) : fetch_workload!(workload, a_gvc)
+    return true if missing_ok && data.nil?
+
     data["spec"]["defaultOptions"]["suspend"] = value
 
-    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
+    result = api.update_workload(org: org, gvc: a_gvc, workload: workload, data: data)
+    return true if missing_ok && result.nil?
+
+    result
   end
 
   def workload_suspended?(workload)
@@ -576,8 +582,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing.
   # Returns true on zero exit, false on non-zero exit, nil when the process was signal-killed.
   # SystemCallError (e.g. cpln binary missing) propagates — startup checks ensure this is unreachable in practice.
-  def kernel_system_with_pid_handling(cmd)
-    pid = cmd.is_a?(Array) ? Process.spawn(*cmd) : Process.spawn(cmd)
+  def kernel_system_with_pid_handling(cmd, **spawn_options)
+    pid = if cmd.is_a?(Array)
+            Process.spawn(*cmd, **spawn_options)
+          else
+            Process.spawn(cmd, **spawn_options)
+          end
     $child_pids << pid # rubocop:disable Style/GlobalVars
 
     _, status = Process.wait2(pid)
@@ -585,6 +595,54 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
     status.exited? ? status.success? : nil
   end
+
+  def perform_with_output(cmd)
+    readers, writers = 2.times.map { IO.pipe }.transpose
+    pid = spawn_captured_process(cmd, writers)
+    captured_output = drain_captured_output(readers, determine_command_output_mode)
+    _, status = Process.wait2(pid)
+    reaped = true
+    { output: captured_output, success: status.exited? && status.success? }
+  ensure
+    [*readers, *writers].compact.each { |pipe| pipe.close unless pipe.closed? }
+    $child_pids.delete(pid) if reaped # rubocop:disable Style/GlobalVars
+  end
+
+  def spawn_captured_process(cmd, writers)
+    pid = Process.spawn(cmd, out: writers.fetch(0), err: writers.fetch(1))
+    $child_pids << pid # rubocop:disable Style/GlobalVars
+    writers.each(&:close)
+    pid
+  end
+
+  def drain_captured_output(readers, output_mode)
+    stream_roles = { readers.fetch(0) => :stdout, readers.fetch(1) => :stderr }
+    pending_readers = readers.dup
+    captured_output = +""
+
+    until pending_readers.empty?
+      IO.select(pending_readers).first.each do |reader|
+        drain_ready_output(reader, stream_roles.fetch(reader), pending_readers, captured_output, output_mode)
+      end
+    end
+
+    captured_output
+  end
+
+  def drain_ready_output(reader, stream_role, pending_readers, captured_output, output_mode)
+    chunk = reader.read_nonblock(4096)
+    captured_output << chunk
+    return if output_mode == :none || (stream_role == :stdout && output_mode != :all)
+
+    stream = stream_role == :stdout ? $stdout : $stderr
+    stream.write(chunk)
+    stream.flush
+  rescue IO::WaitReadable
+    nil
+  rescue EOFError
+    pending_readers.delete(reader)
+  end
+  private :spawn_captured_process, :drain_captured_output, :drain_ready_output
 
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
     success = perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern)

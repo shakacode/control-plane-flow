@@ -161,6 +161,7 @@ apps:
     match_if_app_name_starts_with: true
     upstream: dummy-test-upstream
     release_script: release-invalid.sh
+    runner_job_timeout: 300
 
   dummy-test-use-digest-image-ref-{GLOBAL_IDENTIFIER}:
     <<: *common

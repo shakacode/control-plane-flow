@@ -4,6 +4,12 @@ require "resolv"
 
 module Command
   class DeployImage < Base # rubocop:disable Metrics/ClassLength
+    WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS = 30
+    # Preserve the general failure cap; only optimistic-concurrency conflicts get the longer convergence window.
+    WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS = 120
+    WORKLOAD_IMAGE_UPDATE_CONFLICT_PATTERN =
+      /(?:\b409\b|(?:\A|\n)[ \t]*(?:error:[ \t]*)?conflict[ \t]*(?:\r?\n|\z))/i
+
     NAME = "deploy-image"
     OPTIONS = [
       app_option(required: true),
@@ -122,7 +128,8 @@ module Command
 
           container_name = container["name"]
           step("Deploying image '#{image}' for workload '#{workload}'") do
-            cp.workload_set_image_ref(workload, container: container_name, image: image)
+            update_workload_image_ref(workload, container_name, image)
+
             deployed_endpoints[workload] = endpoint_for_workload(workload_data)
             # A missing public endpoint is valid; the image update still completed successfully.
             true
@@ -134,6 +141,36 @@ module Command
       end
 
       deployed_endpoints
+    end
+
+    def update_workload_image_ref(workload, container, image)
+      attempts = 0
+
+      loop do
+        attempts += 1
+        result = cp.workload_set_image_ref(workload, container: container, image: image)
+        return true if result.fetch(:success)
+
+        output = result.fetch(:output).to_s
+        raise workload_image_update_error(output) if attempts >= workload_image_update_limit(output)
+
+        wait_before_workload_image_update_retry
+      end
+    end
+
+    def workload_image_update_limit(output)
+      return WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS if output.match?(WORKLOAD_IMAGE_UPDATE_CONFLICT_PATTERN)
+
+      WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS
+    end
+
+    def workload_image_update_error(output)
+      output.strip.empty? ? "Command exited with non-zero status." : output
+    end
+
+    def wait_before_workload_image_update_retry
+      progress.print(".")
+      Kernel.sleep(1)
     end
 
     def print_deployed_endpoints(deployed_endpoints)

@@ -113,7 +113,9 @@ describe Command::Logs do
     it "displays entries from correct duration", :slow do
       result = nil
 
-      spawn_cpflow_command(*cmd_args[:logs], "--since", "30s") do |process|
+      # Keep the cutoff strictly inside the completed wait so timestamp rounding and
+      # subprocess startup cannot put Line 1 back on the exact 30-second boundary.
+      spawn_cpflow_command(*cmd_args[:logs], "--since", "25s") do |process|
         result = process.wait_for(/Line 2/)
         process.kill
       end

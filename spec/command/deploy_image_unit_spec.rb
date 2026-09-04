@@ -157,7 +157,7 @@ describe Command::DeployImage do
       allow(cp).to receive_messages(
         latest_image: "test-app:1",
         fetch_image_details: {},
-        workload_set_image_ref: true,
+        workload_set_image_ref: { success: true, output: "" },
         bind_identity_to_policy: true
       )
       allow(cp).to receive(:fetch_policy)
@@ -426,6 +426,139 @@ describe Command::DeployImage do
         .with("frontend", container: "rails", image: "test-app:1")
     end
 
+    it "retries a transient workload image update before recording the deployed endpoint" do
+      update_results = [
+        { success: false, output: "temporary failure" },
+        { success: true, output: "" }
+      ]
+      allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to output(%r{- frontend: https://frontend-test\.cpln\.app}).to_stderr
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").twice
+      expect(Kernel).to have_received(:sleep).with(1).once
+    end
+
+    it "retries a workload update conflict beyond the general 30-attempt limit" do
+      progress = StringIO.new
+      update_results = ([{ success: false, output: "409 Conflict" }] * 30) +
+                       [{ success: true, output: "" }]
+      allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }.not_to raise_error
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").exactly(31).times
+      expect(Kernel).to have_received(:sleep).with(1).exactly(30).times
+      expect(progress.string).to include("- frontend: https://frontend-test.cpln.app")
+    end
+
+    it "recognizes a standalone textual conflict response" do
+      progress = StringIO.new
+      update_results = ([{ success: false, output: "Conflict" }] * 30) +
+                       [{ success: true, output: "" }]
+      allow(cp).to receive(:workload_set_image_ref) { update_results.shift }
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }.not_to raise_error
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").exactly(31).times
+    end
+
+    it "does not classify unrelated conflict text as an update conflict" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: "spec conflict: cannot set image on disabled container" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS).times
+    end
+
+    it "does not repeat a successful image update when no public endpoint is available" do
+      progress = StringIO.new
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Resolv).to receive(:getaddress).and_raise(Resolv::ResolvError)
+      allow(cp).to receive(:fetch_workload_deployments)
+        .with("frontend")
+        .and_return({ "items" => [{ "status" => { "endpoint" => nil } }] })
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }.not_to raise_error
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1").once
+      expect(cp).to have_received(:fetch_workload_deployments).with("frontend").once
+      expect(Kernel).not_to have_received(:sleep)
+      expect(progress.string).to include("- frontend: (no public endpoint)")
+    end
+
+    it "fails after the bounded workload image update retry window without recording an endpoint" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: "400 Bad Request" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS).times
+      expect(Kernel).to have_received(:sleep)
+        .with(1).at_least(:once)
+      expect(progress.string).to include("failed!")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
+    it "reports the generic failure message when the final command output is only whitespace" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: " \n\t" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_MAX_ATTEMPTS).times
+      expect(progress.string).to include("Command exited with non-zero status.")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
+    it "fails after the extended conflict retry window without recording an endpoint" do
+      progress = StringIO.new
+      allow(cp).to receive(:workload_set_image_ref)
+        .and_return({ success: false, output: "409 Conflict" })
+      allow(command).to receive(:progress).and_return(progress)
+      allow(Kernel).to receive(:sleep)
+
+      expect { command.call }
+        .to raise_error(SystemExit) { |error| expect(error.status).to eq(ExitCode::ERROR_DEFAULT) }
+
+      expect(cp).to have_received(:workload_set_image_ref)
+        .with("frontend", container: "rails", image: "test-app:1")
+        .exactly(described_class::WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS).times
+      expect(Kernel).to have_received(:sleep)
+        .with(1).exactly(described_class::WORKLOAD_IMAGE_UPDATE_CONFLICT_MAX_ATTEMPTS - 1).times
+      expect(progress.string).to include("409 Conflict")
+      expect(progress.string).not_to include("- frontend:")
+    end
+
     context "when a workload uses a bare app image reference" do
       before do
         workload_data.dig("spec", "containers", 0)["image"] = "test-app:1"
@@ -526,7 +659,10 @@ describe Command::DeployImage do
 
       it "deploys ordered groups and waits for each group before deploying the next" do
         events = []
-        allow(cp).to receive(:workload_set_image_ref) { |workload, **| events << [:deploy, workload] }
+        allow(cp).to receive(:workload_set_image_ref) do |workload, **|
+          events << [:deploy, workload]
+          { success: true, output: "" }
+        end
         allow(cp).to receive(:workload_suspended?) do |workload|
           events << [:suspended?, workload]
           false
