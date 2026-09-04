@@ -21,8 +21,10 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
         "zzz-env-spaced-runner" => "#!/usr/bin/env  bash\n",
         "zzz-env-tabbed-runner" => "#!/usr/bin/env\tbash\n",
         "zzz-env-attached-split-runner" => "#!/usr/bin/env -Sbash -e\n",
+        "zzz-env-double-quoted-split-runner" => "#!/usr/bin/env -S \"bash\" -e\n",
         "zzz-env-short-runner" => "#!/bin/env -S bash -e\n",
         "zzz-env-long-runner" => "#!/usr/bin/env --split-string=bash -e\n",
+        "zzz-env-long-quoted-split-runner" => "#!/usr/bin/env --split-string='bash' -e\n",
         "zzz-env-python-split-runner" => "#!/usr/bin/env -S python3 -u\n",
         "zzz-env-ruby-assignment-runner" => "#!/usr/bin/env RUBYOPT=-W0 ruby\n",
         "zzz-python-runner" => "#!/usr/bin/env python3\n"
@@ -49,8 +51,9 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
       expect(stdout.lines.map(&:chomp)).to eq(
         [
           "--", "script/check_shell_scripts", "shell-file.sh", "zzz-direct-runner",
-          "zzz-env-attached-split-runner", "zzz-env-long-runner", "zzz-env-runner", "zzz-env-short-runner",
-          "zzz-env-spaced-runner", "zzz-env-tabbed-runner"
+          "zzz-env-attached-split-runner", "zzz-env-double-quoted-split-runner",
+          "zzz-env-long-quoted-split-runner", "zzz-env-long-runner", "zzz-env-runner",
+          "zzz-env-short-runner", "zzz-env-spaced-runner", "zzz-env-tabbed-runner"
         ]
       )
     end

@@ -10,6 +10,7 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 shell_files=()
+split_shell_interpreter="((.*/)?(sh|bash)|\"(.*/)?(sh|bash)\"|'(.*/)?(sh|bash)')"
 
 while IFS= read -r -d '' entry; do
   metadata=${entry%%$'\t'*}
@@ -39,8 +40,8 @@ while IFS= read -r -d '' entry; do
   if [[ $first_line =~ ^'#!'.*/(sh|bash)([[:space:]].*)?$ ]] ||
      [[ $first_line =~ ^'#!'.*/env[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     shell_files+=("$file")
-  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]*(.*/)?(sh|bash)([[:space:]].*)?$ ]] ||
-       [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
+  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]*${split_shell_interpreter}([[:space:]].*)?$ ]] ||
+       [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=${split_shell_interpreter}([[:space:]].*)?$ ]]; then
     shell_files+=("$file")
   elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]+|--split-string=)?((-[^[:space:]]+|[^[:space:]=]+=[^[:space:]]*)[[:space:]]+)+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     echo "Unsupported env-prefixed shebang in tracked executable: $file" >&2
