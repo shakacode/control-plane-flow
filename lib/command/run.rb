@@ -782,15 +782,12 @@ module Command
           break if remaining && !remaining.positive?
 
           unless finish_marker_seen
-            log_status = if remaining
-                           begin
-                             print_uniq_logs(timeout_seconds: [LOG_REQUEST_TIMEOUT_SECONDS, remaining].min)
-                           rescue Shell::CommandTimeout
-                             :unchanged
-                           end
-                         else
-                           print_uniq_logs
-                         end
+            log_request_timeout = remaining ? [LOG_REQUEST_TIMEOUT_SECONDS, remaining].min : LOG_REQUEST_TIMEOUT_SECONDS
+            log_status = begin
+              print_uniq_logs(timeout_seconds: log_request_timeout)
+            rescue Shell::CommandTimeout
+              :unchanged
+            end
             finish_marker_seen = log_status == :finished
             if finish_marker_seen && reconciliation_deadline.nil?
               reconciliation_deadline = start_reconciliation_deadline(

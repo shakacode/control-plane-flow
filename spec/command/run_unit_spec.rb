@@ -1020,6 +1020,35 @@ describe Command::Run do
       expect(Shell).to have_received(:warn).once
     end
 
+    it "caps the initial log request so terminal status can be observed before reconciliation starts" do
+      now = 0.0
+      status_observed_at = nil
+      log_requests = 0
+
+      allow(command).to receive(:print_uniq_logs) do |timeout_seconds: nil|
+        log_requests += 1
+        if log_requests == 1
+          now += timeout_seconds || 3_600
+          raise Shell::CommandTimeout if timeout_seconds
+
+          :unchanged
+        else
+          :finished
+        end
+      end
+      allow(command).to receive(:current_job_status) do
+        status_observed_at = now
+        "successful"
+      end
+      allow(command).to receive(:monotonic_time) { now }
+      allow(Kernel).to receive(:sleep) { |duration| now += duration }
+
+      expect(command.send(:show_logs_waiting)).to eq(ExitCode::SUCCESS)
+      expect(status_observed_at).to eq(described_class::LOG_REQUEST_TIMEOUT_SECONDS)
+      expect(command).to have_received(:current_job_status).once
+      expect(command).to have_received(:print_uniq_logs).twice
+    end
+
     it "caps a stalled log request so recovered status can still be observed" do
       now = 0.0
       log_timeouts = []
