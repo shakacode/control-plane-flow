@@ -271,6 +271,17 @@ describe Shell do
       expect(result).to eq(output: "stdout only\n", success: true)
     end
 
+    it "passes process redirection options without requiring shell syntax" do
+      status = instance_double(Process::Status, success?: true)
+      allow(Open3).to receive(:capture2)
+        .with("cpln", "workload", "get", err: File::NULL)
+        .and_return(["items: []\n", status])
+
+      result = described_class.cmd("cpln", "workload", "get", err: File::NULL)
+
+      expect(result).to eq(output: "items: []\n", success: true)
+    end
+
     it "terminates a command that exceeds its timeout" do
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
