@@ -43,7 +43,9 @@ while IFS= read -r -d '' entry; do
   elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]*${split_shell_interpreter}([[:space:]].*)?$ ]] ||
        [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=${split_shell_interpreter}([[:space:]].*)?$ ]]; then
     shell_files+=("$file")
-  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]+|--split-string=)?((-[^[:space:]]+|[^[:space:]=]+=[^[:space:]]*)[[:space:]]+)+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
+  # Nested split options can hide the interpreter inside another quoted string.
+  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]*|--split-string=)(-S|--split-string=) ]] ||
+       [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]+|--split-string=)?((-[^[:space:]]+|[^[:space:]=]+=[^[:space:]]*)[[:space:]]+)+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
     echo "Unsupported env-prefixed shebang in tracked executable: $file" >&2
     exit 1
   fi

@@ -59,30 +59,41 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
     end
   end
 
-  it "fails visibly for ambiguous env split shebangs" do
-    Dir.mktmpdir("cpflow-check-shell-scripts") do |repo|
-      FileUtils.mkdir_p("#{repo}/script")
-      FileUtils.cp(File.expand_path("../../script/check_shell_scripts", __dir__), "#{repo}/script/check_shell_scripts")
-      File.chmod(0o755, "#{repo}/script/check_shell_scripts")
-      File.write("#{repo}/ambiguous-runner", "#!/usr/bin/env -S -i FOO=bar bash -e\n")
-      File.chmod(0o755, "#{repo}/ambiguous-runner")
+  [
+    "-S -i FOO=bar bash -e",
+    '-S -S "bash -e"',
+    '-S-S"bash -e"',
+    '-S --split-string="bash -e"',
+    '--split-string=-S "bash -e"',
+    '--split-string=-S"bash -e"',
+    '--split-string=--split-string="bash -e"'
+  ].each do |env_arguments|
+    it "fails visibly for ambiguous env split shebangs: #{env_arguments}" do
+      Dir.mktmpdir("cpflow-check-shell-scripts") do |repo|
+        FileUtils.mkdir_p("#{repo}/script")
+        FileUtils.cp(File.expand_path("../../script/check_shell_scripts", __dir__),
+                     "#{repo}/script/check_shell_scripts")
+        File.chmod(0o755, "#{repo}/script/check_shell_scripts")
+        File.write("#{repo}/ambiguous-runner", "#!/usr/bin/env #{env_arguments}\n")
+        File.chmod(0o755, "#{repo}/ambiguous-runner")
 
-      fake_bin = "#{repo}/fake-bin"
-      FileUtils.mkdir_p(fake_bin)
-      File.write("#{fake_bin}/shellcheck", "#!/bin/sh\nexit 0\n")
-      File.chmod(0o755, "#{fake_bin}/shellcheck")
+        fake_bin = "#{repo}/fake-bin"
+        FileUtils.mkdir_p(fake_bin)
+        File.write("#{fake_bin}/shellcheck", "#!/bin/sh\nexit 0\n")
+        File.chmod(0o755, "#{fake_bin}/shellcheck")
 
-      system("git", "init", "--quiet", repo) || raise("git init failed")
-      system("git", "-C", repo, "add", "--", "script/check_shell_scripts", "ambiguous-runner") ||
-        raise("git add failed")
+        system("git", "init", "--quiet", repo) || raise("git init failed")
+        system("git", "-C", repo, "add", "--", "script/check_shell_scripts", "ambiguous-runner") ||
+          raise("git add failed")
 
-      _stdout, stderr, status = Open3.capture3(
-        { "BASH_ENV" => "/dev/null", "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
-        "#{repo}/script/check_shell_scripts"
-      )
+        _stdout, stderr, status = Open3.capture3(
+          { "BASH_ENV" => "/dev/null", "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}" },
+          "#{repo}/script/check_shell_scripts"
+        )
 
-      expect(status).not_to be_success
-      expect(stderr).to include("Unsupported env-prefixed shebang in tracked executable: ambiguous-runner")
+        expect(status).not_to be_success
+        expect(stderr).to include("Unsupported env-prefixed shebang in tracked executable: ambiguous-runner")
+      end
     end
   end
 
