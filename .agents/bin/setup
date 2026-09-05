@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 # Install dependencies.
 set -euo pipefail
-cd "$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+cd "$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 exec bundle install
