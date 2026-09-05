@@ -17,6 +17,14 @@ means that capability is n/a here.
 `validate` requires ShellCheck to be installed and available as `shellcheck` on
 `PATH`.
 
+`script/check_shell_scripts` checks every Git-tracked `.sh` and `.bash` file,
+plus the extensionless shell entrypoints declared in its
+`extensionless_shell_files` array. It does not infer script languages from
+shebangs. When adding, renaming, or removing an extensionless shell script,
+update that array and its inventory regression test; use a `.sh` or `.bash`
+suffix for automatic inclusion. Declared paths must remain tracked and readable.
+Unlisted extensionless files and non-shell files are outside this check.
+
 Canonical non-command policy, including the release-QA runbook reference, lives
 in [`../agent-workflow.yml`](../agent-workflow.yml). [`../../AGENTS.md`](../../AGENTS.md)
 is the thin discovery pointer for portable shared skills and does not duplicate

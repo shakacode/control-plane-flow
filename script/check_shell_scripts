@@ -9,51 +9,58 @@ if ! command -v shellcheck >/dev/null 2>&1; then
   exit 127
 fi
 
+# Add, rename, or remove extensionless shell entrypoints here. See .agents/bin/README.md.
+extensionless_shell_files=(
+  .agents/bin/docs
+  .agents/bin/lint
+  .agents/bin/setup
+  .agents/bin/test
+  .agents/bin/validate
+  lib/github_flow_templates/bin/test-cpflow-github-flow
+  script/check_command_docs
+  script/check_cpln_links
+  script/check_shell_scripts
+  script/precommit/check_command_docs
+  script/precommit/check_cpln_links
+  script/precommit/check_trailing_newlines
+  script/precommit/get_changed_files
+  script/precommit/ruby_autofix
+  script/precommit/ruby_lint
+  spec/dummy/bin/dev
+)
+
+# A file preserves NUL-separated names while letting us check Git's exit status.
+inventory_file=$(mktemp)
+trap 'rm -f -- "$inventory_file"' EXIT
+if ! git ls-files -z -- '*.sh' '*.bash' "${extensionless_shell_files[@]}" >"$inventory_file"; then
+  echo "Unable to read tracked shell inventory." >&2
+  exit 1
+fi
+
 shell_files=()
-split_shell_interpreter="((.*/)?(sh|bash)|\"(.*/)?(sh|bash)\"|'(.*/)?(sh|bash)')"
-
-while IFS= read -r -d '' entry; do
-  metadata=${entry%%$'\t'*}
-  file=${entry#*$'\t'}
-  mode=${metadata%% *}
-
-  case "$file" in
-    *.sh|*.bash)
-      if [ ! -r "$file" ]; then
-        echo "Tracked shell script is not readable: $file" >&2
-        exit 1
-      fi
-      shell_files+=("$file")
-      continue
-      ;;
-  esac
-
-  [ "$mode" = "100755" ] || continue
+while IFS= read -r -d '' file; do
   if [ ! -r "$file" ]; then
-    echo "Tracked executable is not readable: $file" >&2
+    echo "Tracked shell script is not readable: $file" >&2
     exit 1
   fi
-  first_line=''
-  IFS= read -r first_line < <(LC_ALL=C head -c 4096 -- "$file") || true
-  first_line=${first_line%$'\r'}
-
-  if [[ $first_line =~ ^'#!'.*/(sh|bash)([[:space:]].*)?$ ]] ||
-     [[ $first_line =~ ^'#!'.*/env[[:space:]]+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
-    shell_files+=("$file")
-  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+-S[[:space:]]*${split_shell_interpreter}([[:space:]].*)?$ ]] ||
-       [[ $first_line =~ ^'#!'.*/env[[:space:]]+--split-string=${split_shell_interpreter}([[:space:]].*)?$ ]]; then
-    shell_files+=("$file")
-  # Nested split options can hide the interpreter inside another quoted string.
-  elif [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]*|--split-string=)(-S|--split-string=) ]] ||
-       [[ $first_line =~ ^'#!'.*/env[[:space:]]+(-S[[:space:]]+|--split-string=)?((-[^[:space:]]+|[^[:space:]=]+=[^[:space:]]*)[[:space:]]+)+(.*/)?(sh|bash)([[:space:]].*)?$ ]]; then
-    echo "Unsupported env-prefixed shebang in tracked executable: $file" >&2
-    exit 1
-  fi
-done < <(git ls-files --stage -z)
+  shell_files+=("$file")
+done < "$inventory_file"
 
 if [ "${#shell_files[@]}" -eq 0 ]; then
   echo "No tracked shell scripts found." >&2
   exit 1
 fi
 
-exec shellcheck -- "${shell_files[@]}"
+for file in "${extensionless_shell_files[@]}"; do
+  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+    echo "Declared shell entrypoint is not a readable file: $file" >&2
+    exit 1
+  fi
+done
+
+if ! git ls-files --error-unmatch -- "${extensionless_shell_files[@]}" >/dev/null; then
+  echo "Declared extensionless shell scripts must be tracked; update the inventory for renamed or removed files." >&2
+  exit 1
+fi
+
+shellcheck -- "${shell_files[@]}"
