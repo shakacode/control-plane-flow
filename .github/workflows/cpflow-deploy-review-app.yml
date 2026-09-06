@@ -608,10 +608,11 @@ jobs:
               }
             }
 
+      # No explicit ref: checkout's default resolves to this event's recorded commit
+      # (GITHUB_SHA), which is trusted base-repository code and is exempt from checkout v7's fork-PR guard.
       - name: Checkout generated cpflow actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Checkout control-plane-flow actions
@@ -697,7 +698,9 @@ jobs:
             exit 0
           fi
 
-          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+          # pull_request_target is in this workflow's event allowlist, so it needs the same
+          # fork skip as pull_request instead of falling through to the workflow_dispatch error.
+          if [[ "${EVENT_NAME}" == "pull_request" || "${EVENT_NAME}" == "pull_request_target" ]]; then
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             {
               echo "Review app deploys are skipped for fork pull requests."
