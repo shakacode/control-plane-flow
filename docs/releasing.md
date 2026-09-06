@@ -23,6 +23,11 @@ Always update `CHANGELOG.md` before running the release task.
    - Fixes, improvements, deprecations, removals, or security updates: patch
 4. Merge the changelog PR before releasing.
 
+A minimum Ruby version change is a breaking change. Merge the gemspec floor,
+CI coverage for each supported Ruby minor, and an `Unreleased` breaking-change
+entry together. Keep `Cpflow::VERSION` unchanged in that implementation PR.
+The release task applies the required major version when the change ships.
+
 If updating the changelog manually, move the relevant `Unreleased` entries into
 a versioned header:
 

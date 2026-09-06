@@ -38,7 +38,7 @@ describe Command::CleanupStaleApps do
       it "confirms workload suspension" do
         command.send(:confirm_action)
 
-        expect(Shell).to have_received(:confirm).with(include("suspend all workloads in these 2 apps"))
+        expect(Shell).to have_received(:confirm).with(include("suspend configured workloads in these 2 apps"))
       end
     end
   end
@@ -73,6 +73,121 @@ describe Command::CleanupStaleApps do
 
       it "skips the app instead of raising" do
         expect(command.send(:stale_apps)).to eq([])
+      end
+    end
+  end
+
+  describe "#process_app" do
+    let(:config) do
+      instance_double(
+        Config,
+        options: { mode: "stop" },
+        find_app_config: {
+          app_workloads: ["rails"],
+          additional_workloads: ["postgres"]
+        }
+      )
+    end
+    let(:cp) do
+      instance_double(
+        Controlplane,
+        fetch_workloads: {
+          "items" => [
+            { "name" => "postgres" },
+            { "name" => "unconfigured-worker" }
+          ]
+        },
+        set_workload_suspend: true
+      )
+    end
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(command).to receive(:cp).and_return(cp)
+      allow(command).to receive(:run_cpflow_command)
+    end
+
+    it "stops only configured workloads that exist in the stale app" do
+      command.send(:process_app, "stale-app")
+
+      expect(cp).to have_received(:fetch_workloads).with("stale-app")
+      expect(cp).to have_received(:set_workload_suspend)
+        .with("postgres", true, "stale-app", missing_ok: true).once
+      expect(cp).not_to have_received(:set_workload_suspend).with("rails", true, "stale-app", missing_ok: true)
+      expect(cp).not_to have_received(:set_workload_suspend)
+        .with("unconfigured-worker", true, "stale-app", missing_ok: true)
+    end
+
+    it "skips workload suspension when the stale app disappears before it is stopped" do
+      allow(cp).to receive(:fetch_workloads).with("stale-app").and_return(nil)
+
+      expect { command.send(:process_app, "stale-app") }.not_to raise_error
+      expect(cp).not_to have_received(:set_workload_suspend)
+    end
+
+    it "continues to later workloads when a listed workload disappears before suspension" do
+      api = instance_double(ControlplaneApi)
+      live_cp = Controlplane.allocate.tap do |instance|
+        instance.instance_variable_set(:@api, api)
+        instance.instance_variable_set(:@gvc, "unused")
+        instance.instance_variable_set(:@org, "my-org")
+      end
+      allow(api).to receive(:workload_list)
+        .with(org: "my-org", gvc: "stale-app")
+        .and_return("items" => [{ "name" => "rails" }, { "name" => "postgres" }])
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "stale-app", workload: "rails")
+        .and_return(nil)
+      allow(api).to receive(:workload_get)
+        .with(org: "my-org", gvc: "stale-app", workload: "postgres")
+        .and_return("spec" => { "defaultOptions" => { "suspend" => false } })
+      allow(api).to receive(:update_workload).and_return(true)
+      allow(command).to receive(:cp).and_return(live_cp)
+
+      expect { command.send(:process_app, "stale-app") }.not_to raise_error
+      expect(api).to have_received(:workload_get).with(org: "my-org", gvc: "stale-app", workload: "rails").ordered
+      expect(api).to have_received(:workload_get)
+        .with(org: "my-org", gvc: "stale-app", workload: "postgres").ordered
+      expect(api).to have_received(:update_workload).with(
+        org: "my-org",
+        gvc: "stale-app",
+        workload: "postgres",
+        data: { "spec" => { "defaultOptions" => { "suspend" => true } } }
+      )
+    end
+
+    it "raises when the stale app config does not define app_workloads" do
+      allow(config).to receive(:find_app_config)
+        .with("stale-app")
+        .and_return({ additional_workloads: ["postgres"] })
+
+      expect { command.send(:process_app, "stale-app") }
+        .to raise_error("Can't find option 'app_workloads' for app 'stale-app' in 'controlplane.yml'.")
+      expect(cp).not_to have_received(:fetch_workloads)
+      expect(cp).not_to have_received(:set_workload_suspend)
+    end
+
+    it "raises when the stale app config does not define additional_workloads" do
+      allow(config).to receive(:find_app_config)
+        .with("stale-app")
+        .and_return({ app_workloads: ["rails"] })
+
+      expect { command.send(:process_app, "stale-app") }
+        .to raise_error("Can't find option 'additional_workloads' for app 'stale-app' in 'controlplane.yml'.")
+      expect(cp).not_to have_received(:fetch_workloads)
+      expect(cp).not_to have_received(:set_workload_suspend)
+    end
+
+    [nil, "rails"].each do |invalid_workloads|
+      it "raises when app_workloads is #{invalid_workloads.nil? ? 'blank' : 'not an array'}" do
+        allow(config).to receive(:find_app_config)
+          .with("stale-app")
+          .and_return({ app_workloads: invalid_workloads, additional_workloads: ["postgres"] })
+
+        expect { command.send(:process_app, "stale-app") }
+          .to raise_error("Option 'app_workloads' for app 'stale-app' in 'controlplane.yml' must be an array.")
+        expect(cp).not_to have_received(:fetch_workloads)
+        expect(cp).not_to have_received(:set_workload_suspend)
       end
     end
   end
@@ -139,7 +254,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "uses workload-suspension wording when --mode=stop and does nothing on declined confirmation", :slow do
-      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(false)
+      allow(Shell).to receive(:confirm).with(include("suspend configured workloads in these 2 apps")).and_return(false)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")
@@ -152,7 +267,7 @@ describe Command::CleanupStaleApps do
     end
 
     it "asks for confirmation and stops stale apps when --mode=stop", :slow do
-      allow(Shell).to receive(:confirm).with(include("suspend all workloads in these 2 apps")).and_return(true)
+      allow(Shell).to receive(:confirm).with(include("suspend configured workloads in these 2 apps")).and_return(true)
 
       travel_to_days_later(30)
       result = run_cpflow_command("cleanup-stale-apps", "-a", app_prefix, "--mode=stop")

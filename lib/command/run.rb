@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "timeout"
+
 module Command
   class Run < Base # rubocop:disable Metrics/ClassLength
     INTERACTIVE_COMMANDS = [
@@ -118,6 +120,11 @@ module Command
     DEFAULT_JOB_HISTORY_LIMIT = 10
     MAX_REPLICA_OBSERVATION_SECONDS = 1_000
     REPLICA_OBSERVATION_POLL_INTERVAL_SECONDS = 1
+    LOG_QUERY_LOOKBACK_SECONDS = 60
+    POST_TERMINAL_LOG_DRAIN_SECONDS = 120
+    POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS = 1
+    LOG_REQUEST_TIMEOUT_SECONDS = 30
+    JOB_STATUS_UNAVAILABLE_RETRY_LIMIT = 5
     JOB_STATUS_POLL_INTERVAL_SECONDS = 1
     JOB_STATUS_REQUEST_TIMEOUT_SECONDS = 30
     NORMALIZED_JOB_STATUS_PATTERN = /\A[a-z][a-z0-9_-]{0,31}\z/
@@ -608,10 +615,12 @@ module Command
         if @log_method == 1 || @interactive
           args_join(config.args)
         else
+          # MAGIC_END must be a same-stream barrier after all payload output. Merge stderr into stdout before
+          # capturing the payload exit status and emitting the marker.
           <<~SCRIPT
-            ( #{args_join(config.args)} )
+            ( #{args_join(config.args)} ) 2>&1
             CPFLOW_EXIT_CODE=$?
-            echo '#{MAGIC_END}'
+            printf '\\n%s\\n' '#{MAGIC_END}'
             exit $CPFLOW_EXIT_CODE
           SCRIPT
         end
@@ -659,7 +668,7 @@ module Command
       )
     end
 
-    # rubocop:disable Metrics/BlockLength, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
     def resolve_job_status(status_deadline: nil)
       last_status = @last_job_status
       loop do
@@ -682,21 +691,49 @@ module Command
         last_status = status
         @last_job_status = status
 
-        Shell.debug("JOB STATUS", status)
+        exit_status = job_exit_status(status, unavailable_is_pending: false)
+        break exit_status if exit_status
 
-        case status
-        when "active", "pending"
-          sleep_seconds = JOB_STATUS_POLL_INTERVAL_SECONDS
-          sleep_seconds = [sleep_seconds, remaining_seconds].min if remaining_seconds
-          Kernel.sleep(sleep_seconds) if sleep_seconds.positive?
-        when "successful"
-          break ExitCode::SUCCESS
-        else
-          break ExitCode::ERROR_DEFAULT
-        end
+        sleep_seconds = JOB_STATUS_POLL_INTERVAL_SECONDS
+        sleep_seconds = [sleep_seconds, remaining_seconds].min if remaining_seconds
+        Kernel.sleep(sleep_seconds) if sleep_seconds.positive?
       end
     end
-    # rubocop:enable Metrics/BlockLength, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+
+    def reconciled_job_status(unavailable_status_streak, reconciliation_deadline, reconciliation_deadline_origin,
+                              request_timeout:)
+      status = begin
+        current_job_status(timeout_seconds: request_timeout)
+      rescue Shell::CommandTimeout
+        nil
+      end
+      next_unavailable_status_streak = status.nil? ? unavailable_status_streak + 1 : 0
+      exit_status = job_exit_status(status, unavailable_is_pending: status.nil?)
+
+      if next_unavailable_status_streak > JOB_STATUS_UNAVAILABLE_RETRY_LIMIT && reconciliation_deadline.nil?
+        reconciliation_deadline = start_reconciliation_deadline(
+          reconciliation_deadline,
+          duration: POST_TERMINAL_LOG_DRAIN_SECONDS
+        )
+        reconciliation_deadline_origin = :status_outage
+      elsif reconciliation_deadline_origin == :status_outage && %w[active pending].include?(status)
+        reconciliation_deadline = reconciliation_deadline_origin = @post_terminal_log_from = nil
+      end
+
+      [exit_status, next_unavailable_status_streak, status, reconciliation_deadline, reconciliation_deadline_origin]
+    end
+
+    def job_exit_status(status, unavailable_is_pending:)
+      Shell.debug("JOB STATUS", normalized_job_status(status))
+
+      case status
+      when nil then unavailable_is_pending ? nil : ExitCode::ERROR_DEFAULT
+      when "active", "pending" then nil
+      when "successful" then ExitCode::SUCCESS
+      else ExitCode::ERROR_DEFAULT
+      end
+    end
+    # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
     def current_job_status(timeout_seconds: nil)
       result = if timeout_seconds
@@ -728,34 +765,101 @@ module Command
     ###########################################
     ### temporary extaction from run:detached
     ###########################################
-    def show_logs_waiting # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+    # Tracks log completion, authoritative job status, provisional status outages, and bounded deadlines.
+    def show_logs_waiting # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
       retries = 0
-      status_deadline = nil
-      begin
-        job_finished_count = 0
-        unless status_deadline
-          loop do
-            case print_uniq_logs
-            when :finished
-              status_deadline = job_status_reconciliation_deadline
-              break
-            when :changed
-              next
-            else
-              status = current_job_status(timeout_seconds: JOB_STATUS_REQUEST_TIMEOUT_SECONDS)
-              @last_job_status = status
-              job_finished_count = %w[active pending].include?(status) ? 0 : job_finished_count + 1
-              if job_finished_count > 5
-                status_deadline = job_status_reconciliation_deadline
-                break
-              end
+      exit_status = nil
+      reconciliation_deadline = nil
+      reconciliation_deadline_origin = nil
+      unavailable_status_streak = 0
+      finish_marker_seen = false
+      last_job_status = nil
 
-              Kernel.sleep(1)
+      begin
+        # rubocop:disable Metrics/BlockLength
+        loop do
+          remaining = reconciliation_deadline && (reconciliation_deadline - monotonic_time)
+          break if remaining && !remaining.positive?
+
+          unless finish_marker_seen
+            log_request_timeout = remaining ? [LOG_REQUEST_TIMEOUT_SECONDS, remaining].min : LOG_REQUEST_TIMEOUT_SECONDS
+            log_status = begin
+              print_uniq_logs(timeout_seconds: log_request_timeout)
+            rescue Shell::CommandTimeout
+              :unchanged
+            end
+            finish_marker_seen = log_status == :finished
+            if finish_marker_seen && reconciliation_deadline.nil?
+              reconciliation_deadline = start_reconciliation_deadline(
+                reconciliation_deadline,
+                duration: job_status_reconciliation_timeout || POST_TERMINAL_LOG_DRAIN_SECONDS
+              )
+              reconciliation_deadline_origin = :finish_marker
+            elsif finish_marker_seen && reconciliation_deadline_origin == :status_outage
+              reconciliation_deadline = monotonic_time +
+                                        (job_status_reconciliation_timeout || POST_TERMINAL_LOG_DRAIN_SECONDS)
+              reconciliation_deadline_origin = :finish_marker
             end
           end
-        end
+          remaining = reconciliation_deadline && (reconciliation_deadline - monotonic_time)
+          break if remaining && !remaining.positive?
 
-        resolve_job_status(status_deadline: status_deadline)
+          request_timeout = if remaining
+                              [JOB_STATUS_REQUEST_TIMEOUT_SECONDS, remaining].min
+                            else
+                              JOB_STATUS_REQUEST_TIMEOUT_SECONDS
+                            end
+
+          exit_status ||= begin
+            job_status_state = reconciled_job_status(
+              unavailable_status_streak, reconciliation_deadline, reconciliation_deadline_origin,
+              request_timeout: request_timeout
+            )
+            current_exit_status, unavailable_status_streak, observed_status,
+              reconciliation_deadline, reconciliation_deadline_origin = job_status_state
+            last_job_status = observed_status unless observed_status.nil?
+            current_exit_status
+          end
+          if exit_status && reconciliation_deadline_origin == :status_outage
+            reconciliation_deadline = monotonic_time + POST_TERMINAL_LOG_DRAIN_SECONDS
+            reconciliation_deadline_origin = :terminal
+          elsif exit_status && reconciliation_deadline.nil?
+            reconciliation_deadline = start_reconciliation_deadline(
+              reconciliation_deadline,
+              duration: POST_TERMINAL_LOG_DRAIN_SECONDS
+            )
+            reconciliation_deadline_origin = :terminal
+          end
+          break if finish_marker_seen && exit_status
+
+          remaining = reconciliation_deadline && (reconciliation_deadline - monotonic_time)
+          break if remaining && !remaining.positive?
+
+          poll_interval = POST_TERMINAL_LOG_POLL_INTERVAL_SECONDS
+          poll_interval = [poll_interval, remaining].min if remaining
+          Kernel.sleep(poll_interval)
+        end
+        # rubocop:enable Metrics/BlockLength
+
+        if exit_status && finish_marker_seen
+          exit_status
+        elsif exit_status
+          Shell.warn(
+            "Runner job reached terminal status #{normalized_job_status(last_job_status)} but the command " \
+            "completion marker was unavailable after #{POST_TERMINAL_LOG_DRAIN_SECONDS} seconds; " \
+            "returning authoritative job exit status #{exit_status} with incomplete output."
+          )
+          exit_status
+        elsif reconciliation_deadline_origin == :finish_marker && job_status_reconciliation_timeout
+          progress.puts(Shell.color(job_status_reconciliation_timeout_message(last_job_status), :red))
+          ExitCode::ERROR_DEFAULT
+        else
+          Shell.warn(
+            "Runner job status reconciliation reached the #{POST_TERMINAL_LOG_DRAIN_SECONDS}-second deadline " \
+            "(last_status: #{normalized_job_status(last_job_status)}); returning exit status #{ExitCode::ERROR_DEFAULT}."
+          )
+          ExitCode::ERROR_DEFAULT
+        end
       rescue RuntimeError => e
         raise "#{e} Exiting..." unless retries < 10 # MAX_RETRIES
 
@@ -765,12 +869,20 @@ module Command
       end
     end
 
-    def print_uniq_logs
+    def start_reconciliation_deadline(current_deadline, duration:)
+      return current_deadline if current_deadline
+
+      # Freeze the pre-terminal overlap so late-ingested entries do not age out of the query window.
+      @post_terminal_log_from = Time.now.to_i - LOG_QUERY_LOOKBACK_SECONDS
+      monotonic_time + duration
+    end
+
+    def print_uniq_logs(timeout_seconds: nil)
       status = nil
 
       @printed_log_entries ||= []
       ts = Time.now.to_i
-      entries = normalized_log_entries(from: ts - 60, to: ts)
+      entries = fetch_log_entries(ts, timeout_seconds)
 
       (entries - @printed_log_entries).sort.each do |(_ts, val)|
         status ||= :changed
@@ -780,6 +892,15 @@ module Command
       @printed_log_entries = entries # as well truncate old entries if any
 
       status || :unchanged
+    end
+
+    def fetch_log_entries(to, timeout_seconds)
+      from = @post_terminal_log_from || (to - LOG_QUERY_LOOKBACK_SECONDS)
+      return normalized_log_entries(from: from, to: to) unless timeout_seconds
+
+      Timeout.timeout(timeout_seconds, Shell::CommandTimeout) do
+        normalized_log_entries(from: from, to: to)
+      end
     end
 
     def normalized_log_entries(from:, to:)

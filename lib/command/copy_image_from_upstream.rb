@@ -80,6 +80,9 @@ module Command
         upstream_image = cp.latest_image(@upstream, @upstream_org) if !upstream_image || upstream_image == "latest"
         @commit = cp.extract_image_commit(upstream_image)
         @upstream_image_url = "#{@upstream_org}.registry.cpln.io/#{upstream_image}"
+      rescue ControlplaneApiDirect::ForbiddenError => e
+        Shell.write_to_tmp_stderr(e.message)
+        false
       end
     end
 

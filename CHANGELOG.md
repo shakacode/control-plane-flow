@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- BREAKING CHANGE: Raised the minimum supported Ruby version from 3.0 to 3.2. Users on Ruby 3.0 or 3.1 must upgrade Ruby before installing the next major cpflow release. CI now tests each supported Ruby minor from 3.2 through 3.4.
+
 ### Changed
 
 - **Bumped the pinned GitHub Actions in the generated production-promotion workflow and this repository's reusable workflows to `actions/checkout` 7.0.1, `actions/github-script` 9.0.0, and `docker/setup-buildx-action` 4.3.0.** Downstream repositories pick up the template change with `cpflow update-github-actions`. [PR 460](https://github.com/shakacode/control-plane-flow/pull/460) by [Justin Gordon](https://github.com/justin808). Fixes [issue 459](https://github.com/shakacode/control-plane-flow/issues/459).
@@ -20,6 +24,8 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- **Prevented shell interpretation of dynamic Control Plane CLI and Docker arguments.** Resource names, image references, container names, locations, and other dynamic values now remain literal argv elements; output suppression and stderr capture use process redirection options without rebuilding a shell command. Fixes [issue 452](https://github.com/shakacode/control-plane-flow/issues/452).
+- **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, transient workload image deployment, and delayed one-off job output.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile and stderr capture, workload image updates retry for a bounded window before failing, and non-interactive `cpflow run` commands drain logs for a bounded post-terminal window so delayed ingestion does not drop completed job output. Slow-suite command logs and failure artifacts now redact token options and explicitly supplied sensitive values. [PR 413](https://github.com/shakacode/control-plane-flow/pull/413) by [Justin Gordon](https://github.com/justin808). Addresses [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
 - **Queued every pending shared-org Slow and Specific RSpec run instead of letting GitHub replace an older waiter.** Fast runs keep their per-PR or per-ref queue, while the domain-mutating suites use GitHub's bounded `queue: max` behavior in one repository-wide concurrency group. Fixes [issue 403](https://github.com/shakacode/control-plane-flow/issues/403).
 - **Bounded `cpflow run` status reconciliation after a non-interactive command finishes.** When Control Plane keeps reporting a cron job as active or pending after the command completion marker, `cpflow run` now waits up to a configurable 20-minute grace period and then exits nonzero with the job, replica, and last observed status instead of polling forever. Addresses the bounded-reconciliation portion of [HiChee issue 10375](https://github.com/shakacode/hichee/issues/10375).
 

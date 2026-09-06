@@ -40,6 +40,56 @@ jobs:
     secrets:
       CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}
 
+  ruby-compatibility:
+    name: Ruby ${{ matrix.ruby-version }} compatibility
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version:
+          - "3.3"
+          - "3.4"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: ${{ matrix.ruby-version }}
+          bundler-cache: true
+      - name: Run credential-free offline suite
+        env:
+          CPLN_ORG: ""
+        run: |
+          bundle exec rspec \
+            spec/cpflow_spec.rb \
+            spec/github_workflows_spec.rb \
+            spec/patches \
+            spec/support_specs \
+            spec/core/controlplane_api_direct_spec.rb \
+            spec/core/controlplane_api_spec.rb \
+            spec/core/doctor_service_spec.rb \
+            spec/core/github_flow_readiness/checks_spec.rb \
+            spec/core/github_flow_readiness_service_spec.rb \
+            spec/core/helpers_spec.rb \
+            spec/core/repo_introspection_spec.rb \
+            spec/core/shell_spec.rb \
+            spec/rakelib/create_release_spec.rb \
+            spec/command/no_command_spec.rb \
+            spec/command/staging_branch_validation_spec.rb \
+            spec/command/test_spec.rb \
+            spec/command/update_github_actions_spec.rb \
+            spec/command/version_spec.rb \
+            spec/command/deploy_image_unit_spec.rb \
+            spec/command/promote_app_from_upstream_unit_spec.rb
+      - name: Analyze code
+        run: bundle exec rubocop
+
   rspec-slow:
     name: RSpec (Slow)
     uses: ./.github/workflows/rspec-shared.yml

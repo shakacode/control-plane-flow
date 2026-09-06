@@ -4,12 +4,15 @@ Some specs exercise only local behavior and can run without Control Plane creden
 
 ```sh
 CPLN_ORG='' bundle exec rspec \
+  spec/cpflow_spec.rb \
+  spec/github_workflows_spec.rb \
   spec/patches \
   spec/support_specs \
   spec/core/controlplane_api_direct_spec.rb \
   spec/core/controlplane_api_spec.rb \
   spec/core/doctor_service_spec.rb \
   spec/core/github_flow_readiness/checks_spec.rb \
+  spec/core/github_flow_readiness_service_spec.rb \
   spec/core/helpers_spec.rb \
   spec/core/repo_introspection_spec.rb \
   spec/core/shell_spec.rb \

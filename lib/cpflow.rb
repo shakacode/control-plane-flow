@@ -122,7 +122,7 @@ module Cpflow
     end
 
     def self.subcommand?
-      (subcommand_names & ARGV).any?
+      subcommand_names.intersect?(ARGV)
     end
     private_class_method :subcommand?
 

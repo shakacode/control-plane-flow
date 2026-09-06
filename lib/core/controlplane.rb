@@ -24,18 +24,18 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def profile_exists?(profile)
-    cmd = "cpln profile get #{profile} -o yaml"
+    cmd = ["cpln", "profile", "get", profile, "-o", "yaml"]
     perform_yaml!(cmd).length.positive?
   end
 
   def profile_create(profile, token)
-    sensitive_data_pattern = /(?<=--token )(\S+)/
-    cmd = "cpln profile create #{profile} --token #{token}"
+    sensitive_data_pattern = /(?<=--token ).+\z/m
+    cmd = ["cpln", "profile", "create", profile, "--token", token]
     perform!(cmd, sensitive_data_pattern: sensitive_data_pattern)
   end
 
   def profile_delete(profile)
-    cmd = "cpln profile delete #{profile}"
+    cmd = ["cpln", "profile", "delete", profile]
     perform!(cmd)
   end
 
@@ -102,7 +102,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     build_args.each { |build_arg| cmd.push("--build-arg", build_arg) }
     cmd << docker_context
 
-    perform!(Shellwords.join(cmd))
+    perform!(cmd)
   end
 
   def fetch_image_details(image)
@@ -114,22 +114,22 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def image_login(org_name = config.org)
-    cmd = "cpln image docker-login --org #{org_name}"
+    cmd = ["cpln", "image", "docker-login", "--org", org_name]
     perform!(cmd, output_mode: :none)
   end
 
   def image_pull(image)
-    cmd = "docker pull #{image}"
+    cmd = ["docker", "pull", image]
     perform!(cmd, output_mode: :none)
   end
 
   def image_tag(old_tag, new_tag)
-    cmd = "docker tag #{old_tag} #{new_tag}"
+    cmd = ["docker", "tag", old_tag, new_tag]
     perform!(cmd)
   end
 
   def image_push(image)
-    cmd = "docker push #{image}"
+    cmd = ["docker", "push", image]
     perform!(cmd)
   end
 
@@ -144,7 +144,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     # otherwise we query for a gvc with the exact name.
     op = config.should_app_start_with?(app_name) ? "~" : "="
 
-    cmd = "cpln gvc query --org #{org} -o yaml --prop name#{op}#{app_name}"
+    cmd = ["cpln", "gvc", "query", "--org", org, "-o", "yaml", "--prop", "name#{op}#{app_name}"]
     perform_yaml!(cmd)
   end
 
@@ -173,8 +173,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.workload_list_by_org(org: a_org)
   end
 
-  def fetch_workload(workload)
-    api.workload_get(workload: workload, gvc: gvc, org: org)
+  def fetch_workload(workload, a_gvc = gvc)
+    api.workload_get(workload: workload, gvc: a_gvc, org: org)
   end
 
   def fetch_workload_with_status(workload)
@@ -199,12 +199,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
   private :workload_status_result
 
-  def fetch_workload!(workload)
-    workload_data = fetch_workload(workload)
+  def fetch_workload!(workload, a_gvc = gvc)
+    workload_data = fetch_workload(workload, a_gvc)
     return workload_data if workload_data
 
     raise "Can't find workload '#{workload}', " \
-          "please create it with 'cpflow apply-template #{workload} -a #{config.app}'."
+          "please create it with 'cpflow apply-template #{workload} -a #{a_gvc}'."
   end
 
   def query_workloads(workload, a_gvc = gvc, a_org = org, partial_workload_match: false, partial_gvc_match: nil)
@@ -216,12 +216,18 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def fetch_workload_replicas(workload, location:)
-    cmd = "cpln workload replica get #{workload} #{gvc_org} --location #{location} -o yaml 2> /dev/null"
-    perform_yaml(cmd)
+    cmd = [
+      "cpln", "workload", "replica", "get", workload,
+      *gvc_org_args, "--location", location, "-o", "yaml"
+    ]
+    perform_yaml(cmd, err: File::NULL)
   end
 
   def stop_workload_replica(workload, replica, location:)
-    cmd = "cpln workload replica stop #{workload} #{gvc_org} --replica-name #{replica} --location #{location}"
+    cmd = [
+      "cpln", "workload", "replica", "stop", workload,
+      *gvc_org_args, "--replica-name", replica, "--location", location
+    ]
     perform(cmd, output_mode: :none)
   end
 
@@ -252,9 +258,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_set_image_ref(workload, container:, image:)
-    cmd = "cpln workload update #{workload} #{gvc_org}"
-    cmd += " --set spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
-    perform!(cmd)
+    cmd = [
+      "cpln", "workload", "update", workload,
+      "--gvc", gvc, "--org", org,
+      "--set", "spec.containers.#{container}.image=/org/#{config.org}/image/#{image}"
+    ]
+    Shell.debug("CMD", Shellwords.join(cmd))
+    perform_with_output(cmd)
   end
 
   def set_workload_env_var(workload, container:, name:, value:)
@@ -272,11 +282,16 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
   end
 
-  def set_workload_suspend(workload, value)
-    data = fetch_workload!(workload)
+  def set_workload_suspend(workload, value, a_gvc = gvc, missing_ok: false)
+    data = missing_ok ? fetch_workload(workload, a_gvc) : fetch_workload!(workload, a_gvc)
+    return true if missing_ok && data.nil?
+
     data["spec"]["defaultOptions"]["suspend"] = value
 
-    api.update_workload(org: org, gvc: gvc, workload: workload, data: data)
+    result = api.update_workload(org: org, gvc: a_gvc, workload: workload, data: data)
+    return true if missing_ok && result.nil?
+
+    result
   end
 
   def workload_suspended?(workload)
@@ -285,7 +300,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_force_redeployment(workload)
-    cmd = "cpln workload force-redeployment #{workload} #{gvc_org}"
+    cmd = ["cpln", "workload", "force-redeployment", workload, *gvc_org_args]
     perform!(cmd)
   end
 
@@ -294,9 +309,9 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def workload_connect(workload, location:, container: nil, shell: nil)
-    cmd = "cpln workload connect #{workload} #{gvc_org} --location #{location}"
-    cmd += " --container #{container}" if container
-    cmd += " --shell #{shell}" if shell
+    cmd = ["cpln", "workload", "connect", workload, *gvc_org_args, "--location", location]
+    cmd.push("--container", container) if container
+    cmd.push("--shell", shell) if shell
     perform!(cmd, output_mode: :all)
   end
 
@@ -317,13 +332,19 @@ class Controlplane # rubocop:disable Metrics/ClassLength
       f.write(job_start_yaml)
       f.rewind
 
-      cmd = "cpln workload cron start #{workload} #{gvc_org} --file #{f.path} --location #{location} -o yaml"
+      cmd = [
+        "cpln", "workload", "cron", "start", workload,
+        *gvc_org_args, "--file", f.path, "--location", location, "-o", "yaml"
+      ]
       perform_yaml(cmd)
     end
   end
 
   def fetch_cron_workload(workload, location:, timeout_seconds: nil)
-    cmd = "cpln workload cron get #{workload} #{gvc_org} --location #{location} -o yaml"
+    cmd = [
+      "cpln", "workload", "cron", "get", workload,
+      *gvc_org_args, "--location", location, "-o", "yaml"
+    ]
     perform_yaml(cmd, timeout_seconds: timeout_seconds)
   end
 
@@ -396,7 +417,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     query_parts.push("replica=\"#{replica}\"") if replica
     query = "{#{query_parts.join(',')}}"
 
-    cmd = "cpln logs '#{query}' --org #{org} -t -o raw --limit #{limit} --since #{since}"
+    cmd = [
+      "cpln", "logs", query, "--org", org, "-t", "-o", "raw",
+      "--limit", limit.to_s, "--since", since.to_s
+    ]
     perform!(cmd, output_mode: :all)
   end
 
@@ -433,7 +457,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
       "--identity", identity_link,
       "--permission", "reveal"
     ]
-    perform!(Shellwords.join(cmd))
+    perform!(cmd)
   end
 
   def unbind_identity_from_policy(identity_link, policy, permission: "reveal")
@@ -443,33 +467,25 @@ class Controlplane # rubocop:disable Metrics/ClassLength
       "--identity", identity_link,
       "--permission", permission
     ]
-    perform!(Shellwords.join(cmd))
+    perform!(cmd)
   end
 
   # apply
-  def apply_template(data, wait: false) # rubocop:disable Metrics/MethodLength, Metrics/PerceivedComplexity
+  def apply_template(data, wait: false) # rubocop:disable Metrics/MethodLength
     Tempfile.create do |f|
       f.write(data)
       f.rewind
-      cmd = "cpln apply #{gvc_org} --file #{f.path}"
-      cmd += " --ready" if wait && ENV.fetch("DISABLE_APPLY_READY", nil).nil?
-      if Shell.tmp_stderr
-        cmd += " 2> #{Shell.tmp_stderr.path}" if Shell.should_hide_output?
+      cmd = ["cpln", "apply", *gvc_org_args, "--file", f.path]
+      cmd << "--ready" if wait && ENV.fetch("DISABLE_APPLY_READY", nil).nil?
+      spawn_options = {}
+      spawn_options[:err] = Shell.tmp_stderr if Shell.should_hide_output?
 
-        Shell.debug("CMD", cmd)
+      Shell.debug("CMD", Shellwords.join(cmd))
 
-        result = Shell.cmd(cmd)
-        parse_apply_result(result[:output]) if result[:success]
-      else
-        Shell.debug("CMD", cmd)
+      result = Shell.cmd(*cmd, **spawn_options)
+      return parse_apply_result(result[:output]) if result[:success]
 
-        result = Shell.cmd(cmd)
-        if result[:success]
-          parse_apply_result(result[:output])
-        else
-          Shell.abort("Command exited with non-zero status.")
-        end
-      end
+      Shell.abort("Command exited with non-zero status.") unless Shell.tmp_stderr
     end
   end
 
@@ -535,23 +551,15 @@ class Controlplane # rubocop:disable Metrics/ClassLength
           "or ensure that the name is correct."
   end
 
-  # `output_mode` can be :all, :errors_only or :none.
-  # If not provided, it will be determined based on the `HIDE_COMMAND_OUTPUT` env var
-  # or the return value of `Shell.should_hide_output?`.
-  def build_command(cmd, output_mode: nil) # rubocop:disable Metrics/MethodLength
+  # `output_mode` can be :all, :errors_only or :none. Redirection is expressed as
+  # Process.spawn options so argv commands never need to pass through a shell.
+  def command_spawn_options(output_mode = nil)
     output_mode ||= determine_command_output_mode
-    raise "Array commands require output mode 'all'." if cmd.is_a?(Array) && %i[errors_only none].include?(output_mode)
+    return {} if output_mode == :all
+    return { out: File::NULL } if output_mode == :errors_only
+    return { out: File::NULL, err: File::NULL } if output_mode == :none
 
-    case output_mode
-    when :all
-      cmd
-    when :errors_only
-      "#{cmd} > /dev/null"
-    when :none
-      "#{cmd} > /dev/null 2>&1"
-    else
-      raise "Invalid command output mode '#{output_mode}'."
-    end
+    raise "Invalid command output mode '#{output_mode}'."
   end
 
   def determine_command_output_mode
@@ -565,19 +573,22 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def perform(cmd, output_mode: nil, sensitive_data_pattern: nil)
-    cmd = build_command(cmd, output_mode: output_mode)
+    validate_argv!(cmd)
+    spawn_options = command_spawn_options(output_mode)
 
-    debug_cmd = cmd.is_a?(Array) ? Shellwords.join(cmd) : cmd
+    debug_cmd = Shellwords.join(cmd)
     Shell.debug("CMD", debug_cmd, sensitive_data_pattern: sensitive_data_pattern)
 
-    kernel_system_with_pid_handling(cmd)
+    kernel_system_with_pid_handling(cmd, **spawn_options)
   end
 
   # NOTE: full analogue of Kernel.system which returns pids and saves it to child_pids for proper killing.
   # Returns true on zero exit, false on non-zero exit, nil when the process was signal-killed.
   # SystemCallError (e.g. cpln binary missing) propagates — startup checks ensure this is unreachable in practice.
-  def kernel_system_with_pid_handling(cmd)
-    pid = cmd.is_a?(Array) ? Process.spawn(*cmd) : Process.spawn(cmd)
+  def kernel_system_with_pid_handling(cmd, **spawn_options)
+    validate_argv!(cmd)
+
+    pid = Process.spawn(*cmd, **spawn_options)
     $child_pids << pid # rubocop:disable Style/GlobalVars
 
     _, status = Process.wait2(pid)
@@ -586,19 +597,65 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     status.exited? ? status.success? : nil
   end
 
+  def perform_with_output(cmd)
+    readers, writers = 2.times.map { IO.pipe }.transpose
+    pid = spawn_captured_process(cmd, writers)
+    captured_output = drain_captured_output(readers, determine_command_output_mode)
+    _, status = Process.wait2(pid)
+    reaped = true
+    { output: captured_output, success: status.exited? && status.success? }
+  ensure
+    [*readers, *writers].compact.each { |pipe| pipe.close unless pipe.closed? }
+    $child_pids.delete(pid) if reaped # rubocop:disable Style/GlobalVars
+  end
+
+  def spawn_captured_process(cmd, writers)
+    validate_argv!(cmd)
+    pid = Process.spawn(*cmd, out: writers.fetch(0), err: writers.fetch(1))
+    $child_pids << pid # rubocop:disable Style/GlobalVars
+    writers.each(&:close)
+    pid
+  end
+
+  def drain_captured_output(readers, output_mode)
+    stream_roles = { readers.fetch(0) => :stdout, readers.fetch(1) => :stderr }
+    pending_readers = readers.dup
+    captured_output = +""
+
+    until pending_readers.empty?
+      IO.select(pending_readers).first.each do |reader|
+        drain_ready_output(reader, stream_roles.fetch(reader), pending_readers, captured_output, output_mode)
+      end
+    end
+
+    captured_output
+  end
+
+  def drain_ready_output(reader, stream_role, pending_readers, captured_output, output_mode)
+    chunk = reader.read_nonblock(4096)
+    captured_output << chunk
+    return if output_mode == :none || (stream_role == :stdout && output_mode != :all)
+
+    stream = stream_role == :stdout ? $stdout : $stderr
+    stream.write(chunk)
+    stream.flush
+  rescue IO::WaitReadable
+    nil
+  rescue EOFError
+    pending_readers.delete(reader)
+  end
+  private :spawn_captured_process, :drain_captured_output, :drain_ready_output
+
   def perform!(cmd, output_mode: nil, sensitive_data_pattern: nil)
     success = perform(cmd, output_mode: output_mode, sensitive_data_pattern: sensitive_data_pattern)
     success || Shell.abort("Command exited with non-zero status.")
   end
 
-  def perform_yaml(cmd, timeout_seconds: nil)
-    Shell.debug("CMD", cmd)
+  def perform_yaml(cmd, timeout_seconds: nil, **spawn_options)
+    validate_argv!(cmd)
+    Shell.debug("CMD", Shellwords.join(cmd))
 
-    result = if timeout_seconds
-               Shell.cmd(cmd, timeout_seconds: timeout_seconds)
-             else
-               Shell.cmd(cmd)
-             end
+    result = Shell.cmd(*cmd, timeout_seconds: timeout_seconds, **spawn_options)
     YAML.safe_load(result[:output], permitted_classes: [Time]) if result[:success]
   end
 
@@ -606,7 +663,13 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     perform_yaml(cmd) || Shell.abort("Command exited with non-zero status.")
   end
 
-  def gvc_org
-    "--gvc #{gvc} --org #{org}"
+  def gvc_org_args
+    ["--gvc", gvc, "--org", org]
+  end
+
+  def validate_argv!(cmd)
+    return if cmd.is_a?(Array) && cmd.length >= 2
+
+    raise ArgumentError, "Commands must be argv arrays with at least two elements."
   end
 end

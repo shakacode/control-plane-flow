@@ -8,12 +8,14 @@ class Shell
   end
 
   def self.use_tmp_stderr
-    @tmp_stderr = Tempfile.create
+    previous_tmp_stderr = @tmp_stderr
 
-    yield
-  ensure
-    @tmp_stderr&.close
-    @tmp_stderr = nil
+    Tempfile.create do |tmp_stderr|
+      @tmp_stderr = tmp_stderr
+      yield
+    ensure
+      @tmp_stderr = previous_tmp_stderr
+    end
   end
 
   def self.write_to_tmp_stderr(message)
@@ -67,19 +69,28 @@ class Shell
     tmp_stderr && !verbose
   end
 
-  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false, timeout_seconds: nil)
-    return timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds) if timeout_seconds
+  def self.cmd(*cmd_to_run, capture_stderr: false, separate_stderr: false, timeout_seconds: nil, **spawn_options)
+    return timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds, spawn_options) if timeout_seconds
 
-    return cmd_with_separate_stderr(*cmd_to_run) if separate_stderr
+    return cmd_with_separate_stderr(*cmd_to_run, **spawn_options) if separate_stderr
 
-    output, status = capture_stderr ? Open3.capture2e(*cmd_to_run) : Open3.capture2(*cmd_to_run)
+    output, status = capture_output(cmd_to_run, capture_stderr, spawn_options)
     {
       output: output,
       success: status.success?
     }
   end
 
-  def self.timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds)
+  def self.capture_output(cmd_to_run, capture_stderr, spawn_options)
+    return Open3.capture2e(*cmd_to_run, **spawn_options) if capture_stderr
+
+    Open3.capture2(*cmd_to_run, **spawn_options)
+  end
+  private_class_method :capture_output
+
+  def self.timed_cmd(cmd_to_run, capture_stderr, separate_stderr, timeout_seconds, spawn_options)
+    raise ArgumentError, "Process options cannot be combined with timeout_seconds." unless spawn_options.empty?
+
     TimedCommand.capture(
       *cmd_to_run,
       capture_stderr: capture_stderr,
@@ -89,8 +100,8 @@ class Shell
   end
   private_class_method :timed_cmd
 
-  def self.cmd_with_separate_stderr(*cmd_to_run)
-    output, error_output, status = Open3.capture3(*cmd_to_run)
+  def self.cmd_with_separate_stderr(*cmd_to_run, **spawn_options)
+    output, error_output, status = Open3.capture3(*cmd_to_run, **spawn_options)
     { output: output, error_output: error_output, success: status.success? }
   end
   private_class_method :cmd_with_separate_stderr
