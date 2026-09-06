@@ -4,7 +4,7 @@ echo "Starting entrypoint.sh..."
 
 wait_for_service()
 {
-  until curl -I -sS $1 2>&1 | grep -q "Empty reply from server"; do
+  until curl -I -sS "$1" 2>&1 | grep -q "Empty reply from server"; do
     echo " - $1 is unavailable, sleeping..."
     sleep 1
   done
@@ -16,7 +16,7 @@ wait_for_services()
 {
   echo "Waiting for services..."
 
-  wait_for_service $(echo $DATABASE_URL | sed -e 's|^.*@||' -e 's|/.*$||')
+  wait_for_service "$(printf '%s\n' "$DATABASE_URL" | sed -e 's|^.*@||' -e 's|/.*$||')"
 }
 
 wait_for_services
@@ -29,6 +29,6 @@ if [ "${1}" = "./bin/rails" ] && [ "${2}" = "server" ]; then
   ./bin/rails db:prepare
 fi
 
-echo "Finishing entrypoint.sh, executing '$@'..."
+printf "Finishing entrypoint.sh, executing '%s'...\n" "$*"
 
 exec "$@"

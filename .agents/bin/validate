@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Pre-push gate: full local validation (run before pushing).
 set -euo pipefail
-cd "$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+cd "$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
+./script/check_shell_scripts
 exec bundle exec rake
