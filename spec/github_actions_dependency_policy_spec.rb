@@ -601,8 +601,10 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       }x
     end
 
-    def checkout_constant_pattern
-      %r{\AEXPECTED_CPFLOW_CHECKOUT_ACTION\s*=\s*"(?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"]+)"}
+    # Any `CONSTANT = "owner/repo[/path]@ref"` assignment in the generated scripts, so a second
+    # pin such as EXPECTED_BUILDX_ACTION is collected instead of hiding behind a `uses:` shape.
+    def script_constant_pattern
+      %r{\A(?<constant>[A-Z][A-Z0-9_]*)\s*=\s*"(?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"]+)"}
     end
 
     def commented_line?(line)
@@ -610,17 +612,39 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     end
 
     def immutable_ref?(entry)
-      return entry[:ref].to_s.match?(/\Asha256:[0-9a-f]{64}\z/) if entry[:kind] == :docker
-
-      entry[:ref].to_s.match?(/\A[0-9a-f]{40}\z/)
+      case entry[:kind]
+      when :docker then entry[:ref].to_s.match?(/\Asha256:[0-9a-f]{64}\z/)
+      when :repository then entry[:ref].to_s.match?(/\A[0-9a-f]{40}\z/)
+      else false
+      end
     end
 
     def required_ref_description(entry)
       case entry[:kind]
       when :docker then "an immutable sha256:<64-hex> image digest"
       when :unauditable then "a standalone uses: repository@commit entry"
+      when :self_reference then "the __CPFLOW_GITHUB_ACTIONS_REF__ placeholder or an exact vX.Y.Z release tag"
       else "a 40-hex commit SHA"
       end
+    end
+
+    # cpflow's own cross-repository reusable workflow calls are the deliberate exception to the
+    # commit-pin rule, but only for the generator placeholder, the `vX.Y.Z` format token the
+    # generated scripts document, and exact release tags. `@main`, `@v5`, a branch name or a bare
+    # commit must still be reported: a moving self-reference desynchronizes the released gem.
+    def cpflow_self_reference?(identity)
+      identity == "shakacode/control-plane-flow"
+    end
+
+    def accepted_cpflow_self_reference?(ref)
+      %w[__CPFLOW_GITHUB_ACTIONS_REF__ vX.Y.Z].include?(ref) || exact_release_tag?(ref)
+    end
+
+    def cpflow_self_reference_entry(identity, value, ref, source)
+      return if accepted_cpflow_self_reference?(ref)
+
+      build_entry(kind: :self_reference, identity: identity, reference: value, ref: ref,
+                  version: nil, version_optional: true, source: source)
     end
 
     def trusted_action_identity(action)
@@ -658,17 +682,20 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       end
     end
 
-    # cpflow's own cross-repository reusable workflow calls (`@__CPFLOW_GITHUB_ACTIONS_REF__`,
-    # `@vX.Y.Z`) are not external pins; `external_action_reference` already drops `./` local steps.
+    # `external_action_reference` already drops `./` local steps.
     def yaml_action_entry(reference, source_lines, relative)
       source = "#{relative}:#{reference[:line_number]}"
       return docker_yaml_entry(reference, source) if reference[:kind] == :docker
-      return if reference[:trusted_repository] == "shakacode/control-plane-flow"
       return unauditable_entry(reference, source) unless reference[:repository] && reference[:ref]
+      return yaml_self_reference_entry(reference, source) if cpflow_self_reference?(reference[:trusted_repository])
 
       build_entry(kind: :repository, identity: reference[:trusted_repository], reference: reference[:value],
                   ref: reference[:ref], version: bound_version_comment(reference, source_lines),
                   version_optional: false, source: source)
+    end
+
+    def yaml_self_reference_entry(reference, source)
+      cpflow_self_reference_entry(reference[:trusted_repository], reference[:value], reference[:ref], source)
     end
 
     def docker_yaml_entry(reference, source)
@@ -690,40 +717,44 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       source_match[:version_comment]
     end
 
-    # EXPECTED_CPFLOW_CHECKOUT_ACTION has its own scan, so only that line is skipped here; any
-    # other pin added to the script is still collected exactly once.
+    # Constant assignments have their own scan, so only those lines are skipped here; any other
+    # pin added to a generated script is still collected exactly once.
     def script_action_entries(path)
       relative = relative_repo_path(path)
 
       read_source(path).lines.each_with_index.filter_map do |line, index|
-        next if commented_line?(line) || line.match?(checkout_constant_pattern)
+        next if commented_line?(line) || line.match?(script_constant_pattern)
 
         match = line.match(script_pin_pattern)
         next unless match
 
-        script_action_entry(match, "#{relative}:#{index + 1}")
+        script_action_entry(match, "#{relative}:#{index + 1}", version_optional: false)
       end
     end
 
-    def script_action_entry(match, source)
-      identity = trusted_action_identity(match[:action])
-      return if identity == "shakacode/control-plane-flow"
-
-      build_entry(kind: :repository, identity: identity, reference: "#{match[:action]}@#{match[:ref]}",
-                  ref: match[:ref], version: match[:version], version_optional: false, source: source)
-    end
-
-    def constant_entries(path)
+    # Script constants cannot carry a same-line release-tag comment, so their version is optional.
+    def script_constant_entries(path)
       relative = relative_repo_path(path)
 
       read_source(path).lines.each_with_index.filter_map do |line, index|
-        match = line.match(checkout_constant_pattern)
+        next if commented_line?(line)
+
+        match = line.match(script_constant_pattern)
         next unless match
 
-        build_entry(kind: :repository, identity: trusted_action_identity(match[:action]), version: nil,
-                    reference: "#{match[:action]}@#{match[:ref]}", ref: match[:ref],
-                    version_optional: true, source: "#{relative}:#{index + 1}")
+        script_action_entry(match, "#{relative}:#{index + 1}", version_optional: true)
       end
+    end
+
+    def script_action_entry(match, source, version_optional:)
+      identity = trusted_action_identity(match[:action])
+      value = "#{match[:action]}@#{match[:ref]}"
+      return cpflow_self_reference_entry(identity, value, match[:ref], source) if cpflow_self_reference?(identity)
+
+      version = match.names.include?("version") ? match[:version] : nil
+      build_entry(kind: :repository, identity: identity, reference: value, ref: match[:ref],
+                  version: version, version_optional: version_optional, source: source,
+                  constant: match.names.include?("constant") ? match[:constant] : nil)
     end
 
     def format_action_entries(entries)
@@ -918,18 +949,56 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       end
     end
 
-    it "scans other pins in the constant script while the constant keeps its own scan" do
+    it "collects every script constant pin and still scans uses:-shaped lines once" do
       Dir.mktmpdir("template-pin-guard") do |directory|
         path = Pathname(directory).join("test-cpflow-github-flow")
         path.write(<<~SCRIPT)
           EXPECTED_CPFLOW_CHECKOUT_ACTION = "actions/checkout@#{'a' * 40}"
+          EXPECTED_BUILDX_ACTION = "docker/setup-buildx-action@#{'b' * 40}"
+          EXPECTED_CPFLOW_CHECKOUT_REPOSITORY = "shakacode/control-plane-flow"
           # uses: commented/action@v1
           uses: other/action@v2
         SCRIPT
+        constants = script_constant_entries(path)
 
+        expect(constants.map { |entry| entry[:constant] }).to(
+          eq(%w[EXPECTED_CPFLOW_CHECKOUT_ACTION EXPECTED_BUILDX_ACTION])
+        )
+        expect(constants.map { |entry| entry[:identity] }).to eq(%w[actions/checkout docker/setup-buildx-action])
         expect(script_action_entries(path).map { |entry| entry[:reference] }).to eq(["other/action@v2"])
-        expect(constant_entries(path).map { |entry| entry[:reference] }).to(
-          eq(["actions/checkout@#{'a' * 40}"])
+      end
+    end
+
+    it "compares script constant pins against the repository pin and rejects mutable ones" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        step = "      - uses: docker/setup-buildx-action@#{'b' * 40} # v4.3.0\n"
+        repository_entries = yaml_action_entries(write_workflow(directory, "repository.yml", step))
+        pinned = Pathname(directory).join("pinned")
+        pinned.write("EXPECTED_BUILDX_ACTION = \"docker/setup-buildx-action@#{'b' * 40}\"\n")
+        drifted = Pathname(directory).join("drifted")
+        drifted.write("EXPECTED_BUILDX_ACTION = \"docker/setup-buildx-action@v4\"\n")
+
+        expect(pin_guard_violations(repository_entries, script_constant_entries(pinned))).to be_empty
+        expect(pin_guard_violations(repository_entries, script_constant_entries(drifted))).to contain_exactly(
+          a_string_including("drifted:1", "docker/setup-buildx-action@v4", "40-hex commit SHA")
+        )
+      end
+    end
+
+    it "rejects cpflow self-references outside the generator placeholder and exact release tags" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        call = ->(ref) { "      - uses: shakacode/control-plane-flow/.github/workflows/foo.yml@#{ref}\n" }
+        placeholder = write_workflow(directory, "placeholder.yml", call.call("__CPFLOW_GITHUB_ACTIONS_REF__"))
+        released = write_workflow(directory, "released.yml", call.call("v6.0.0"))
+        moving = write_workflow(directory, "moving.yml", call.call("main"))
+
+        expect(yaml_action_entries(placeholder)).to be_empty
+        expect(yaml_action_entries(released)).to be_empty
+        expect(pin_guard_violations([], yaml_action_entries(moving))).to contain_exactly(
+          a_string_including(
+            "moving.yml:4", "shakacode/control-plane-flow/.github/workflows/foo.yml@main",
+            "__CPFLOW_GITHUB_ACTIONS_REF__ placeholder or an exact vX.Y.Z release tag"
+          )
         )
       end
     end
@@ -971,16 +1040,16 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     end
 
     it "pins the same commits and version comments as the repository workflows" do
-      constant = constant_entries(checkout_constant_file)
-      expect(constant.map { |entry| entry[:identity] }).to(
-        eq(["actions/checkout"]),
+      constants = template_script_files.flat_map { |path| script_constant_entries(path) }
+      expect(constants.map { |entry| [entry[:constant], entry[:identity]] }).to(
+        include(%w[EXPECTED_CPFLOW_CHECKOUT_ACTION actions/checkout]),
         "EXPECTED_CPFLOW_CHECKOUT_ACTION is no longer discoverable in " \
         "#{relative_repo_path(checkout_constant_file)}"
       )
 
       repository_entries = action_files.flat_map { |path| yaml_action_entries(path) }
       template_entries = template_workflow_files.flat_map { |path| yaml_action_entries(path) } +
-                         template_script_files.flat_map { |path| script_action_entries(path) } + constant
+                         template_script_files.flat_map { |path| script_action_entries(path) } + constants
       expect(repository_entries.map { |entry| entry[:identity] }.uniq).to(
         include("actions/checkout", "docker/setup-buildx-action")
       )

@@ -64,8 +64,10 @@ or CI fails:
 `spec/github_actions_dependency_policy_spec.rb` guards the first three. It fails when a template occurrence's commit
 SHA or version comment drifts from the repository pin for the same action, when a template `uses:` entry is left on a
 mutable ref such as `@v7` or `@main`, or when a template pins an external action that the repository workflows do not
-use. Only `EXPECTED_CPFLOW_CHECKOUT_ACTION` may omit the version comment, because it is a Ruby constant rather than a
-workflow step.
+use. Only script constants such as `EXPECTED_CPFLOW_CHECKOUT_ACTION` and `docker://` image references may omit the
+version comment, because neither is a workflow step with somewhere to hang a same-line release tag. Calls to cpflow's
+own reusable workflows are the one exception to the commit-pin rule, and only for the
+`@__CPFLOW_GITHUB_ACTIONS_REF__` generator placeholder or an exact `vX.Y.Z` release tag; `@main` or `@v5` fails.
 
 ## Docs Site Dispatch
 
