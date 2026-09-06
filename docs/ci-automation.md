@@ -516,9 +516,10 @@ generated staging/review org and make that token disposable and unable to access
 The PR-close teardown workflow runs trusted base-branch workflow code with repository secret access so it can delete fork
 PR review apps. The generated `cpflow-delete-control-plane-app` composite action script refuses to call `cpflow delete`
 on any app whose name does not match the review-app prefix. This shell-level guard is effective because the generated
-delete workflow explicitly loads generated actions from `github.event.pull_request.base.sha` for PR events, falling back
-to the triggering `github.sha` for non-PR dispatches. Its separate app checkout has no `ref:` override, so
-`pull_request_target` teardown uses base-branch code for both paths rather than PR or fork code. If you customize this
+delete workflow loads generated actions through `actions/checkout`'s default with no `ref:` override, which resolves to
+the commit GitHub recorded for the triggering event (`GITHUB_SHA`, the base-branch tip under `pull_request_target`). Its
+separate app checkout has no `ref:` override either, so `pull_request_target` teardown uses base-branch code for both
+paths rather than PR or fork code. If you customize this
 workflow, never check out PR or fork code in the same job as the delete step; doing so could let a PR replace the guard
 script itself and would also make `hooks.pre_deletion` come from the PR's `controlplane.yml`. This is still not a token
 policy, so use a scoped staging service account limited to review/staging operations. A configured

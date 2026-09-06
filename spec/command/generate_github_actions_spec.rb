@@ -318,24 +318,31 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         end
       end
 
-      checkout_ref_expectations = {
-        [reusable_review_app_workflow_path, "deploy"] =>
-          "${{ github.sha }}",
-        [reusable_delete_review_workflow_path, "delete-review-app"] =>
-          "${{ github.event.pull_request.base.sha || github.sha }}",
-        [reusable_cleanup_stale_review_apps_workflow_path, "cleanup"] => "${{ github.sha }}"
-      }
-      checkout_ref_expectations.each do |(path, job_name), expected_ref|
+      # Issue #463: the generated-actions checkout deliberately carries no `ref:` and no
+      # `repository:`. actions/checkout's default resolves to the commit GitHub already
+      # recorded for the event (GITHUB_SHA; the base-branch tip under pull_request_target),
+      # the same trusted revision the explicit expressions used to name, and a default
+      # checkout is never inspected by checkout v7's fork-PR checkout guard.
+      trusted_default_checkout_jobs = [
+        [reusable_review_app_workflow_path, "deploy"],
+        [reusable_delete_review_workflow_path, "delete-review-app"],
+        [reusable_cleanup_stale_review_apps_workflow_path, "cleanup"]
+      ]
+      trusted_default_checkout_jobs.each do |path, job_name|
         steps = YAML.load_file(path, aliases: true).dig("jobs", job_name, "steps")
+        message = "#{path} job #{job_name} must load generated actions through the trusted default checkout"
+
         first_local_action = steps.index { |step| step["uses"]&.start_with?("./.github/actions/") }
+        expect(first_local_action).not_to be_nil, message
+
         generated_actions_checkout = steps.take(first_local_action).find do |step|
           step["uses"]&.start_with?("actions/checkout@") && !step.fetch("with", {}).key?("path")
         end
+        expect(generated_actions_checkout).not_to be_nil, message
 
-        expect(generated_actions_checkout.dig("with", "ref")).to(
-          eq(expected_ref),
-          "#{path} must load generated actions from the triggering workflow commit"
-        )
+        checkout_options = generated_actions_checkout.fetch("with")
+        expect(checkout_options.keys & %w[ref repository]).to eq([]), message
+        expect(checkout_options).to include("persist-credentials" => false), message
       end
     end
 
