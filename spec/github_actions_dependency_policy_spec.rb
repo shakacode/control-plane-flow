@@ -570,22 +570,33 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     # The four places that must move together whenever an external action pin is bumped.
     def pin_update_sites
       [
-        ".github/workflows/**",
+        ".github/workflows/** and .github/actions/**",
         "lib/github_flow_templates/.github/workflows/**",
         "lib/github_flow_templates/bin/test-cpflow-github-flow (EXPECTED_CPFLOW_CHECKOUT_ACTION)",
         "spec/command/generate_github_actions_spec.rb / spec/github_workflows_spec.rb (pinned SHA assertions)"
       ]
     end
 
+    # Anchored to a real YAML step key so a commented-out line or `uses:` text inside a `run: |`
+    # block cannot masquerade as a pin.
     def action_pin_pattern
       %r{
-        uses:\s*(?<quote>["']?)(?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"'\#]+)\k<quote>
+        \A\s*-?\s*(?<key_quote>["']?)uses\k<key_quote>:\s*(?<quote>["']?)
+        (?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"'\#]+)\k<quote>
         (?:\s*\#\s*(?<version>\S+))?
       }x
     end
 
     def checkout_constant_pattern
-      %r{^EXPECTED_CPFLOW_CHECKOUT_ACTION\s*=\s*"(?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"]+)"}
+      %r{\AEXPECTED_CPFLOW_CHECKOUT_ACTION\s*=\s*"(?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"]+)"}
+    end
+
+    def commented_line?(line)
+      line.lstrip.start_with?("#")
+    end
+
+    def commit_pinned?(entry)
+      entry[:ref].match?(/\A[0-9a-f]{40}\z/)
     end
 
     def trusted_action_identity(action)
@@ -596,100 +607,182 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       Pathname(path).relative_path_from(Pathname(__dir__).parent).to_s
     end
 
-    def scan_action_pins(path, pattern = action_pin_pattern)
+    def action_entries(path, pattern = action_pin_pattern, version_optional: false)
       File.readlines(path).each_with_index.filter_map do |line, index|
+        next if commented_line?(line)
+
         match = line.match(pattern)
         next unless match
 
-        build_action_pin(match, path, index + 1)
+        build_action_entry(match, path, index + 1, version_optional: version_optional)
       end
     end
 
-    # Placeholder refs (`@__CPFLOW_GITHUB_ACTIONS_REF__`), release-tag refs and local `./.github/actions/*`
-    # entries are not commit pins, so they carry no cross-tree drift risk and are skipped here.
-    def build_action_pin(match, path, line_number)
+    # Local `./.github/actions/*` steps and cpflow's own cross-repository reusable workflow calls
+    # (`@__CPFLOW_GITHUB_ACTIONS_REF__`, `@vX.Y.Z`) are not external action pins. Every other
+    # external `uses:` entry is kept, including mutable refs, so they can be reported as violations.
+    def build_action_entry(match, path, line_number, version_optional:)
       action = match[:action]
-      return if action.start_with?("./")
-      return if trusted_action_identity(action) == "shakacode/control-plane-flow"
-      return unless match[:ref].match?(/\A[0-9a-f]{40}\z/)
+      identity = trusted_action_identity(action)
+      return if action.start_with?("./") || identity == "shakacode/control-plane-flow"
 
       version = match.names.include?("version") ? match[:version] : nil
       {
-        action: trusted_action_identity(action), sha: match[:ref], version: version,
-        source: "#{relative_repo_path(path)}:#{line_number}",
+        identity: identity, action: action, ref: match[:ref], version: version,
+        version_optional: version_optional, source: "#{relative_repo_path(path)}:#{line_number}",
         pin: [action, "@", match[:ref], version ? " # #{version}" : ""].join
       }
     end
 
-    def action_pins_by_identity(pins)
-      pins.group_by { |pin| pin[:action] }
-    end
-
-    def action_pin_summary(pins)
-      {
-        shas: pins.map { |pin| pin[:sha] }.uniq.sort,
-        versions: pins.filter_map { |pin| pin[:version] }.uniq.sort
-      }
-    end
-
-    def consistent_action_pins?(repository_pins, template_pins)
-      summary = action_pin_summary(repository_pins)
-      summary[:shas].one? && summary == action_pin_summary(template_pins)
-    end
-
-    def format_action_pins(pins)
-      pins.group_by { |pin| pin[:pin] }.map do |pin, grouped|
+    def format_action_entries(entries)
+      entries.group_by { |entry| entry[:pin] }.map do |pin, grouped|
         extra = grouped.length > 1 ? " and #{grouped.length - 1} more" : ""
         "#{pin} (#{grouped.first[:source]}#{extra})"
       end.join("; ")
     end
 
-    def pin_drift_message(action, repository_pins, template_pins)
+    def mutable_ref_violations(entries)
+      entries.reject { |entry| commit_pinned?(entry) }.map do |entry|
+        "#{entry[:source]}: #{entry[:action]}@#{entry[:ref]} is not pinned to a 40-hex commit SHA"
+      end
+    end
+
+    def template_only_violations(repository_identities, template_entries)
+      unmatched = template_entries.reject { |entry| repository_identities.include?(entry[:identity]) }
+
+      unmatched.group_by { |entry| entry[:identity] }.map do |identity, grouped|
+        "#{identity} is pinned only by the generated templates (#{format_action_entries(grouped)}) and has no " \
+          "reviewed counterpart in the repository workflows"
+      end
+    end
+
+    def inconsistent_repository_pin(identity, repository_entries)
+      return if repository_entries.map { |entry| entry[:pin] }.uniq.one?
+
+      "#{identity} is pinned inconsistently inside the repository workflows: " \
+        "#{format_action_entries(repository_entries)}"
+    end
+
+    # Only EXPECTED_CPFLOW_CHECKOUT_ACTION may omit the version comment; it is a Ruby constant,
+    # not a workflow step, so there is nowhere to hang a same-line release tag.
+    def matching_version_comment?(canonical, entry)
+      return true if entry[:version] == canonical[:version]
+
+      entry[:version_optional] && entry[:version].nil?
+    end
+
+    def entry_drift_violations(canonical, entries)
+      entries.filter_map do |entry|
+        next if entry[:ref] == canonical[:ref] && matching_version_comment?(canonical, entry)
+
+        "#{entry[:source]}: #{entry[:pin]} does not match the repository pin " \
+          "#{canonical[:pin]} (#{canonical[:source]})"
+      end
+    end
+
+    def identity_pin_violations(repository_by_identity, entries)
+      pinned = entries.select { |entry| commit_pinned?(entry) }
+
+      pinned.group_by { |entry| entry[:identity] }.flat_map do |identity, grouped|
+        repository_entries = repository_by_identity[identity]
+        next [] unless repository_entries
+
+        inconsistent = inconsistent_repository_pin(identity, repository_entries)
+        next [inconsistent] if inconsistent
+
+        entry_drift_violations(repository_entries.first, grouped)
+      end
+    end
+
+    def pin_guard_violations(repository_entries, template_entries)
+      repository_by_identity = repository_entries.group_by { |entry| entry[:identity] }
+      all_entries = repository_entries + template_entries
+
+      mutable_ref_violations(all_entries) +
+        template_only_violations(repository_by_identity.keys, template_entries) +
+        identity_pin_violations(repository_by_identity, all_entries)
+    end
+
+    def pin_guard_failure_message(violations)
       <<~MESSAGE
-        #{action} is pinned differently in the repository workflows and the generated templates.
-          repository: #{format_action_pins(repository_pins)}
-          templates:  #{format_action_pins(template_pins)}
+        Generated template action pins must match the reviewed repository workflow pins:
+          - #{violations.join("\n  - ")}
         Bump the commit SHA and the version comment in all four places together:
           - #{pin_update_sites.join("\n  - ")}
       MESSAGE
     end
 
-    it "reports drift, and the four places to fix it, when a template pin diverges" do
-      repository_pins = [{ action: "actions/checkout", sha: "a" * 40, version: "v7.0.1",
-                           source: ".github/workflows/rspec.yml:57", pin: "actions/checkout@#{'a' * 40} # v7.0.1" }]
-      template_pins = [{ action: "actions/checkout", sha: "b" * 40, version: "v7.0.0",
-                         source: "lib/github_flow_templates/.github/workflows/promote.yml:64",
-                         pin: "actions/checkout@#{'b' * 40} # v7.0.0" }]
+    def synthetic_entry(source, ref, version, identity: "actions/checkout", version_optional: false)
+      {
+        identity: identity, action: identity, ref: ref, version: version,
+        version_optional: version_optional, source: source,
+        pin: [identity, "@", ref, version ? " # #{version}" : ""].join
+      }
+    end
 
-      expect(consistent_action_pins?(repository_pins, repository_pins)).to be(true)
-      expect(consistent_action_pins?(repository_pins, template_pins)).to be(false)
-      expect(pin_drift_message("actions/checkout", repository_pins, template_pins)).to include(
-        "actions/checkout", ".github/workflows/rspec.yml:57", *pin_update_sites
+    it "reports mutable refs, comment drift, and template-only actions with the four places to fix them" do
+      repository_entries = [synthetic_entry(".github/workflows/rspec.yml:57", "a" * 40, "v7.0.1")]
+      template_entries = [
+        synthetic_entry("lib/github_flow_templates/.github/workflows/promote.yml:64", "v7", "v7.0.1"),
+        synthetic_entry("lib/github_flow_templates/.github/workflows/promote.yml:69", "a" * 40, nil),
+        synthetic_entry("lib/github_flow_templates/bin/test-cpflow-github-flow:108", "a" * 40, nil,
+                        version_optional: true),
+        synthetic_entry("lib/github_flow_templates/.github/workflows/promote.yml:80", "c" * 40, "v1.0.0",
+                        identity: "some/other-action")
+      ]
+
+      violations = pin_guard_violations(repository_entries, template_entries)
+
+      expect(violations).to contain_exactly(
+        a_string_including("promote.yml:64", "is not pinned to a 40-hex commit SHA"),
+        a_string_including("promote.yml:69", "does not match the repository pin"),
+        a_string_including("some/other-action", "pinned only by the generated templates")
+      )
+      expect(pin_guard_failure_message(violations)).to include(
+        "lib/github_flow_templates/.github/workflows/promote.yml:69", ".github/workflows/rspec.yml:57",
+        *pin_update_sites
       )
     end
 
+    it "ignores commented-out and embedded-script uses lines" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        path = Pathname(directory).join("noise.yml")
+        path.write(<<~YAML)
+          jobs:
+            build:
+              steps:
+                # uses: evil/action@#{'d' * 40} # v9.9.9
+                - run: |
+                    echo "uses: evil/action@#{'d' * 40} # v9.9.9"
+                - uses: actions/checkout@#{'a' * 40} # v7.0.1
+        YAML
+
+        entries = action_entries(path)
+
+        expect(entries.map { |entry| entry[:action] }).to eq(["actions/checkout"])
+        expect(entries.map { |entry| entry[:source] }).to all(end_with("noise.yml:7"))
+      end
+    end
+
     it "pins the same commits and version comments as the repository workflows" do
-      constant_pins = scan_action_pins(checkout_constant_file, checkout_constant_pattern)
-      expect(constant_pins.map { |pin| pin[:action] }).to(
+      constant_entries = action_entries(checkout_constant_file, checkout_constant_pattern, version_optional: true)
+      expect(constant_entries.map { |entry| entry[:identity] }).to(
         eq(["actions/checkout"]),
-        "EXPECTED_CPFLOW_CHECKOUT_ACTION is no longer a discoverable commit pin in " \
+        "EXPECTED_CPFLOW_CHECKOUT_ACTION is no longer discoverable in " \
         "#{relative_repo_path(checkout_constant_file)}"
       )
 
-      repository_pins = action_pins_by_identity(action_files.flat_map { |path| scan_action_pins(path) })
-      template_pins = action_pins_by_identity(
-        template_pin_files.flat_map { |path| scan_action_pins(path) } + constant_pins
+      repository_entries = action_files.flat_map { |path| action_entries(path) }
+      template_entries = template_pin_files.flat_map { |path| action_entries(path) } + constant_entries
+      expect(repository_entries.map { |entry| entry[:identity] }.uniq).to(
+        include("actions/checkout", "docker/setup-buildx-action")
       )
-      shared_actions = (repository_pins.keys & template_pins.keys).sort
-      expect(shared_actions).to include("actions/checkout", "docker/setup-buildx-action")
+      expect(template_entries.map { |entry| entry[:identity] }.uniq).to(
+        include("actions/checkout", "docker/setup-buildx-action")
+      )
 
-      drift = shared_actions.filter_map do |action|
-        next if consistent_action_pins?(repository_pins.fetch(action), template_pins.fetch(action))
-
-        pin_drift_message(action, repository_pins.fetch(action), template_pins.fetch(action))
-      end
-
-      expect(drift).to be_empty, drift.join("\n")
+      violations = pin_guard_violations(repository_entries, template_entries)
+      expect(violations).to be_empty, pin_guard_failure_message(violations)
     end
   end
 end
