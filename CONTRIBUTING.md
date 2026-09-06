@@ -47,6 +47,30 @@ they use an exact `vX.Y.Z` release tag so the workflow source stays aligned with
 
 Dependabot checks GitHub Actions dependencies weekly. For each proposed update, verify that the release tag resolves to
 the proposed commit, review the upstream release and diff, and keep the version comment synchronized with the pin.
+Dependabot-authored runs receive no repository secrets, so `RSpec (Fast)` fails at `Setup Control Plane tools`. The
+credential-free `Ruby 3.3 compatibility` and `Ruby 3.4 compatibility` jobs do run
+`spec/github_actions_dependency_policy_spec.rb`, so a bump that leaves the generated templates or the
+`EXPECTED_CPFLOW_CHECKOUT_ACTION` constant behind still fails there, even on a Dependabot-authored pull request that
+cannot run the credentialed suite. A Dependabot bump is therefore never merged directly: a maintainer opens a pull
+request that supersedes it and lands the same pin. That maintainer pull request must update the pin in all four places,
+or CI fails:
+
+- `.github/workflows/**` and `.github/actions/**` — the workflows that actually run in this repository.
+- `lib/github_flow_templates/.github/workflows/**` — the workflows generated into downstream repositories.
+- `lib/github_flow_templates/bin/test-cpflow-github-flow` — the `EXPECTED_CPFLOW_CHECKOUT_ACTION` constant.
+- `spec/command/generate_github_actions_spec.rb` and `spec/github_workflows_spec.rb` — the assertions that hard-code
+  the expected SHA.
+
+`spec/github_actions_dependency_policy_spec.rb` guards the first three. It fails when a template occurrence's commit
+SHA or version comment drifts from the repository pin for the same action, when a template `uses:` entry is left on a
+mutable ref such as `@v7` or `@main`, or when a template pins an external action that the repository workflows do not
+use. Only script constants such as `EXPECTED_CPFLOW_CHECKOUT_ACTION` and `docker://` image references may omit the
+version comment, because neither is a workflow step with somewhere to hang a same-line release tag. Calls to cpflow's
+own reusable workflows under `.github/workflows/` are the one exception to the commit-pin rule, and only for the
+`@__CPFLOW_GITHUB_ACTIONS_REF__` generator placeholder or an exact release tag. `@main` and `@v5` fail, and so does any
+other `shakacode/control-plane-flow` reference, such as `shakacode/control-plane-flow/some-action@v6.0.0` or the bare
+repository, which must be commit-pinned like any external action. The literal `vX.Y.Z` is accepted only in the verifier
+script's `EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT` constant, never in a workflow step.
 
 ## Docs Site Dispatch
 

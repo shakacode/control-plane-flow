@@ -552,4 +552,537 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
 
     expect(violations).to be_empty, violations.join("\n")
   end
+
+  describe "generated GitHub flow templates" do
+    def template_root
+      File.expand_path("../lib/github_flow_templates", __dir__)
+    end
+
+    def checkout_constant_file
+      File.join(template_root, "bin/test-cpflow-github-flow")
+    end
+
+    def template_pin_scripts
+      %w[pin-cpflow-github-ref test-cpflow-github-flow].map { |name| File.join(template_root, "bin", name) }
+    end
+
+    # Only the generated workflows and the two generated scripts carry action pins. Markdown under
+    # the templates root documents illustrative YAML, so a code fence must never fail the guard.
+    def template_workflow_files
+      Dir.glob(File.join(template_root, ".github/**/*.{yml,yaml}")).select { |path| File.file?(path) }.sort
+    end
+
+    def template_script_files
+      template_pin_scripts.select { |path| File.file?(path) }.sort
+    end
+
+    def template_pin_files
+      (template_workflow_files + template_script_files).sort
+    end
+
+    # The four places that must move together whenever an external action pin is bumped.
+    def pin_update_sites
+      [
+        ".github/workflows/** and .github/actions/**",
+        "lib/github_flow_templates/.github/workflows/**",
+        "lib/github_flow_templates/bin/test-cpflow-github-flow (EXPECTED_CPFLOW_CHECKOUT_ACTION)",
+        "spec/command/generate_github_actions_spec.rb / spec/github_workflows_spec.rb (pinned SHA assertions)"
+      ]
+    end
+
+    # Used only for the two non-YAML generated scripts. Every generated workflow goes through the
+    # YAML-structure-aware traversal instead, so flow mappings, folded scalars, quoted keys and
+    # aliases are handled and `uses:` text inside a `run: |` block scalar is never collected.
+    def script_pin_pattern
+      %r{
+        \A\s*-?\s*(?<key_quote>["']?)uses\k<key_quote>:\s*(?<quote>["']?)
+        (?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"'\#]+)\k<quote>
+        (?:\s*\#\s*(?<version>\S+))?
+      }x
+    end
+
+    # Any `CONSTANT = "owner/repo[/path]@ref"` assignment in the generated scripts, so a second
+    # pin such as EXPECTED_BUILDX_ACTION is collected instead of hiding behind a `uses:` shape.
+    def script_constant_pattern
+      %r{\A(?<constant>[A-Z][A-Z0-9_]*)\s*=\s*"(?<action>[\w.-]+/[\w./-]+)@(?<ref>[^\s"]+)"}
+    end
+
+    def commented_line?(line)
+      line.lstrip.start_with?("#")
+    end
+
+    def immutable_ref?(entry)
+      case entry[:kind]
+      when :docker then entry[:ref].to_s.match?(/\Asha256:[0-9a-f]{64}\z/)
+      when :repository then entry[:ref].to_s.match?(/\A[0-9a-f]{40}\z/)
+      else false
+      end
+    end
+
+    def required_ref_description(entry)
+      case entry[:kind]
+      when :docker then "an immutable sha256:<64-hex> image digest"
+      when :unauditable then "a standalone uses: repository@commit entry"
+      when :self_reference then "the __CPFLOW_GITHUB_ACTIONS_REF__ placeholder or an exact release tag (v6.0.0)"
+      else "a 40-hex commit SHA"
+      end
+    end
+
+    # Only cpflow's own reusable workflows are exempt from the commit-pin rule. Any other
+    # `shakacode/control-plane-flow` reference - a sub-action, or the bare repository - follows the
+    # ordinary rules, so `shakacode/control-plane-flow/some-action@v6.0.0` is still a violation.
+    def cpflow_reusable_workflow?(action)
+      action.to_s.match?(%r{\Ashakacode/control-plane-flow/\.github/workflows/[^/@\s]+\.ya?ml\z}i)
+    end
+
+    # The generator only ever substitutes `__CPFLOW_GITHUB_ACTIONS_REF__`, so a YAML step carrying
+    # the literal `vX.Y.Z` would ship a tag that does not exist. That format token is accepted only
+    # in the verifier script's EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT constant, never in a workflow.
+    def accepted_cpflow_self_reference?(ref, script_constant:)
+      return true if ref == "__CPFLOW_GITHUB_ACTIONS_REF__" || exact_release_tag?(ref)
+
+      script_constant && ref == "vX.Y.Z"
+    end
+
+    def cpflow_self_reference_entry(value, ref, source, script_constant:)
+      return if accepted_cpflow_self_reference?(ref, script_constant: script_constant)
+
+      build_entry(kind: :self_reference, identity: "shakacode/control-plane-flow", reference: value,
+                  ref: ref, version: nil, version_optional: true, source: source)
+    end
+
+    def trusted_action_identity(action)
+      action.split("/").first(2).join("/").downcase
+    end
+
+    def relative_repo_path(path)
+      Pathname(path).relative_path_from(Pathname(__dir__).parent).to_s
+    end
+
+    # Generated files may carry non-UTF-8 bytes; scrub them instead of raising ArgumentError.
+    def read_source(path)
+      File.binread(path).force_encoding(Encoding::UTF_8).scrub("")
+    end
+
+    def build_entry(**attributes)
+      reference = attributes.fetch(:reference)
+      version = attributes.fetch(:version)
+
+      attributes.merge(pin: version ? "#{reference} # #{version}" : reference)
+    end
+
+    def entry_signature(entry)
+      [entry[:ref], entry[:version]]
+    end
+
+    def yaml_action_entries(path)
+      source = read_source(path)
+      source_lines = source.lines
+      relative = relative_repo_path(path)
+      document = Psych.parse_stream(source, filename: path.to_s)
+
+      collect_external_action_references(document).filter_map do |reference|
+        yaml_action_entry(reference, source_lines, relative)
+      end
+    end
+
+    # `external_action_reference` already drops `./` local steps.
+    def yaml_action_entry(reference, source_lines, relative)
+      source = "#{relative}:#{reference[:line_number]}"
+      return docker_yaml_entry(reference, source) if reference[:kind] == :docker
+      return unauditable_entry(reference, source) unless reference[:repository] && reference[:ref]
+      return yaml_self_reference_entry(reference, source) if cpflow_reusable_workflow?(reference[:repository])
+
+      build_entry(kind: :repository, identity: reference[:trusted_repository], reference: reference[:value],
+                  ref: reference[:ref], version: bound_version_comment(reference, source_lines),
+                  version_optional: false, source: source)
+    end
+
+    def yaml_self_reference_entry(reference, source)
+      cpflow_self_reference_entry(reference[:value], reference[:ref], source, script_constant: false)
+    end
+
+    def docker_yaml_entry(reference, source)
+      build_entry(kind: :docker, identity: reference[:repository] || reference[:value],
+                  reference: reference[:value], ref: reference[:ref], version: nil,
+                  version_optional: true, source: source)
+    end
+
+    # Aliases, merge keys and non-scalar `uses:` values cannot be bound to one auditable pin.
+    def unauditable_entry(reference, source)
+      build_entry(kind: :unauditable, identity: reference[:value], reference: reference[:value],
+                  ref: nil, version: nil, version_optional: true, source: source)
+    end
+
+    def bound_version_comment(reference, source_lines)
+      source_match = source_lines.fetch(reference[:line_number] - 1).match(action_uses_line_pattern)
+      return unless matching_action_source?(reference, source_match)
+
+      source_match[:version_comment]
+    end
+
+    # Constant assignments have their own scan, so only those lines are skipped here; any other
+    # pin added to a generated script is still collected exactly once.
+    def script_action_entries(path)
+      relative = relative_repo_path(path)
+
+      read_source(path).lines.each_with_index.filter_map do |line, index|
+        next if commented_line?(line) || line.match?(script_constant_pattern)
+
+        match = line.match(script_pin_pattern)
+        next unless match
+
+        script_action_entry(match, "#{relative}:#{index + 1}", script_constant: false)
+      end
+    end
+
+    # Script constants cannot carry a same-line release-tag comment, so their version is optional.
+    def script_constant_entries(path)
+      relative = relative_repo_path(path)
+
+      read_source(path).lines.each_with_index.filter_map do |line, index|
+        next if commented_line?(line)
+
+        match = line.match(script_constant_pattern)
+        next unless match
+
+        script_action_entry(match, "#{relative}:#{index + 1}", script_constant: true)
+      end
+    end
+
+    def script_action_entry(match, source, script_constant:)
+      value = "#{match[:action]}@#{match[:ref]}"
+      if cpflow_reusable_workflow?(match[:action])
+        return cpflow_self_reference_entry(value, match[:ref], source, script_constant: script_constant)
+      end
+
+      build_entry(kind: :repository, identity: trusted_action_identity(match[:action]), reference: value,
+                  ref: match[:ref], version: script_constant ? nil : match[:version],
+                  version_optional: script_constant, source: source,
+                  constant: script_constant ? match[:constant] : nil)
+    end
+
+    def format_action_entries(entries)
+      entries.group_by { |entry| entry[:pin] }.map do |pin, grouped|
+        extra = grouped.length > 1 ? " and #{grouped.length - 1} more" : ""
+        "#{pin} (#{grouped.first[:source]}#{extra})"
+      end.join("; ")
+    end
+
+    def mutable_ref_violations(entries)
+      entries.reject { |entry| immutable_ref?(entry) }.map do |entry|
+        "#{entry[:source]}: #{entry[:reference]} is not pinned to #{required_ref_description(entry)}"
+      end
+    end
+
+    def template_only_violations(repository_identities, template_entries)
+      pinned = template_entries.select { |entry| immutable_ref?(entry) }
+      unmatched = pinned.reject { |entry| repository_identities.include?(entry[:identity]) }
+
+      unmatched.group_by { |entry| entry[:identity] }.map do |identity, grouped|
+        "#{identity} is pinned only by the generated templates (#{format_action_entries(grouped)}) and has no " \
+          "reviewed counterpart in the repository workflows"
+      end
+    end
+
+    # Sub-actions of one repository (`owner/repo/init`, `owner/repo/analyze`) share a trust
+    # identity, so they are compared by commit and version comment rather than by reference.
+    def inconsistent_repository_pin(identity, repository_entries)
+      return if repository_entries.map { |entry| entry_signature(entry) }.uniq.one?
+
+      "#{identity} is pinned inconsistently inside the repository workflows: " \
+        "#{format_action_entries(repository_entries)}"
+    end
+
+    # Only EXPECTED_CPFLOW_CHECKOUT_ACTION and `docker://` images may omit the version comment;
+    # neither is a workflow step with somewhere to hang a same-line release tag.
+    def matching_version_comment?(canonical, entry)
+      return true if entry[:version] == canonical[:version]
+
+      entry[:version_optional] && entry[:version].nil?
+    end
+
+    def entry_drift_violations(canonical, entries)
+      entries.filter_map do |entry|
+        next if entry[:ref] == canonical[:ref] && matching_version_comment?(canonical, entry)
+
+        "#{entry[:source]}: #{entry[:pin]} does not match the repository pin " \
+          "#{canonical[:pin]} (#{canonical[:source]})"
+      end
+    end
+
+    def identity_pin_violations(repository_by_identity, entries)
+      pinned = entries.select { |entry| immutable_ref?(entry) }
+
+      pinned.group_by { |entry| entry[:identity] }.flat_map do |identity, grouped|
+        repository_entries = repository_by_identity[identity]
+        next [] unless repository_entries
+
+        inconsistent = inconsistent_repository_pin(identity, repository_entries)
+        next [inconsistent] if inconsistent
+
+        entry_drift_violations(repository_entries.first, grouped)
+      end
+    end
+
+    def pin_guard_violations(repository_entries, template_entries)
+      pinned_repository = repository_entries.select { |entry| immutable_ref?(entry) }
+      identities = repository_entries.map { |entry| entry[:identity] }.uniq
+      all_entries = repository_entries + template_entries
+
+      mutable_ref_violations(all_entries) +
+        template_only_violations(identities, template_entries) +
+        identity_pin_violations(pinned_repository.group_by { |entry| entry[:identity] }, all_entries)
+    end
+
+    def pin_guard_failure_message(violations)
+      <<~MESSAGE
+        Generated template action pins must match the reviewed repository workflow pins:
+          - #{violations.join("\n  - ")}
+        Bump the commit SHA and the version comment in all four places together:
+          - #{pin_update_sites.join("\n  - ")}
+      MESSAGE
+    end
+
+    def synthetic_entry(source, ref, version, identity: "actions/checkout", version_optional: false)
+      build_entry(kind: :repository, identity: identity, reference: "#{identity}@#{ref}", ref: ref,
+                  version: version, version_optional: version_optional, source: source)
+    end
+
+    def write_workflow(directory, name, body)
+      path = Pathname(directory).join(name)
+      path.write("jobs:\n  build:\n    steps:\n#{body}")
+      path
+    end
+
+    def write_codeql_workflow(directory, name, init_ref, analyze_ref)
+      steps = [
+        "      - uses: github/codeql-action/init@#{init_ref} # v3.0.0",
+        "      - uses: github/codeql-action/analyze@#{analyze_ref} # v3.0.0"
+      ]
+
+      write_workflow(directory, name, "#{steps.join("\n")}\n")
+    end
+
+    it "reports mutable refs, comment drift, and template-only actions with the four places to fix them" do
+      repository_entries = [synthetic_entry(".github/workflows/rspec.yml:57", "a" * 40, "v7.0.1")]
+      template_entries = [
+        synthetic_entry("lib/github_flow_templates/.github/workflows/promote.yml:64", "v7", "v7.0.1"),
+        synthetic_entry("lib/github_flow_templates/.github/workflows/promote.yml:69", "a" * 40, nil),
+        synthetic_entry("lib/github_flow_templates/bin/test-cpflow-github-flow:108", "a" * 40, nil,
+                        version_optional: true),
+        synthetic_entry("lib/github_flow_templates/.github/workflows/promote.yml:80", "c" * 40, "v1.0.0",
+                        identity: "some/other-action")
+      ]
+
+      violations = pin_guard_violations(repository_entries, template_entries)
+
+      expect(violations).to contain_exactly(
+        a_string_including("promote.yml:64", "is not pinned to a 40-hex commit SHA"),
+        a_string_including("promote.yml:69", "does not match the repository pin"),
+        a_string_including("some/other-action", "pinned only by the generated templates")
+      )
+      expect(pin_guard_failure_message(violations)).to include(
+        "lib/github_flow_templates/.github/workflows/promote.yml:69", ".github/workflows/rspec.yml:57",
+        *pin_update_sites
+      )
+    end
+
+    it "collects flow-style, folded and aliased uses entries but never uses: text inside run blocks" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        path = Pathname(directory).join("forms.yml")
+        path.write(<<~YAML)
+          metadata:
+            pin: &pin actions/checkout@#{'a' * 40}
+          jobs:
+            build:
+              steps:
+                - run: |
+                    echo "uses: owner/action@v1"
+                - { uses: flow/action@v2 }
+                - uses: >-
+                    folded/action@v3
+                - uses: *pin
+                - uses: actions/checkout@#{'a' * 40} # v7.0.1
+        YAML
+
+        entries = yaml_action_entries(path)
+
+        expect(entries.map { |entry| entry[:reference] }).to contain_exactly(
+          "flow/action@v2", "folded/action@v3", "non-scalar uses value", "actions/checkout@#{'a' * 40}"
+        )
+        expect(mutable_ref_violations(entries)).to contain_exactly(
+          a_string_including("forms.yml:8", "flow/action@v2", "40-hex commit SHA"),
+          a_string_including("forms.yml:9", "folded/action@v3", "40-hex commit SHA"),
+          a_string_including("forms.yml:11", "non-scalar uses value", "standalone uses: repository@commit entry")
+        )
+      end
+    end
+
+    it "treats sub-actions of one repository as a single pin identity" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        consistent = write_codeql_workflow(directory, "consistent.yml", "a" * 40, "a" * 40)
+        drifted = write_codeql_workflow(directory, "drifted.yml", "a" * 40, "b" * 40)
+
+        expect(yaml_action_entries(consistent).map { |entry| entry[:identity] }).to(
+          eq(%w[github/codeql-action github/codeql-action])
+        )
+        expect(pin_guard_violations(yaml_action_entries(consistent), [])).to be_empty
+        expect(pin_guard_violations(yaml_action_entries(drifted), [])).to contain_exactly(
+          a_string_including("github/codeql-action", "pinned inconsistently")
+        )
+      end
+    end
+
+    it "requires an immutable digest for docker:// steps and compares digests across trees" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        step = ->(suffix) { "      - uses: docker://alpine#{suffix}\n" }
+        repository = write_workflow(directory, "repository.yml", step.call("@sha256:#{'a' * 64}"))
+        pinned = write_workflow(directory, "pinned.yml", step.call("@sha256:#{'a' * 64}"))
+        drifted = write_workflow(directory, "drifted.yml", step.call("@sha256:#{'b' * 64}"))
+        tagged = write_workflow(directory, "tagged.yml", step.call(":latest"))
+        repository_entries = yaml_action_entries(repository)
+
+        expect(repository_entries.map { |entry| entry[:identity] }).to eq(["docker://alpine"])
+        expect(pin_guard_violations(repository_entries, yaml_action_entries(pinned))).to be_empty
+        expect(pin_guard_violations(repository_entries, yaml_action_entries(drifted))).to contain_exactly(
+          a_string_including("drifted.yml:4", "does not match the repository pin")
+        )
+        expect(pin_guard_violations(repository_entries, yaml_action_entries(tagged))).to contain_exactly(
+          a_string_including("tagged.yml:4", "docker://alpine:latest", "sha256:<64-hex> image digest")
+        )
+      end
+    end
+
+    it "collects every script constant pin and still scans uses:-shaped lines once" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        path = Pathname(directory).join("test-cpflow-github-flow")
+        path.write(<<~SCRIPT)
+          EXPECTED_CPFLOW_CHECKOUT_ACTION = "actions/checkout@#{'a' * 40}"
+          EXPECTED_BUILDX_ACTION = "docker/setup-buildx-action@#{'b' * 40}"
+          EXPECTED_CPFLOW_CHECKOUT_REPOSITORY = "shakacode/control-plane-flow"
+          # uses: commented/action@v1
+          uses: other/action@v2
+        SCRIPT
+        constants = script_constant_entries(path)
+
+        expect(constants.map { |entry| entry[:constant] }).to(
+          eq(%w[EXPECTED_CPFLOW_CHECKOUT_ACTION EXPECTED_BUILDX_ACTION])
+        )
+        expect(constants.map { |entry| entry[:identity] }).to eq(%w[actions/checkout docker/setup-buildx-action])
+        expect(script_action_entries(path).map { |entry| entry[:reference] }).to eq(["other/action@v2"])
+      end
+    end
+
+    it "compares script constant pins against the repository pin and rejects mutable ones" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        step = "      - uses: docker/setup-buildx-action@#{'b' * 40} # v4.3.0\n"
+        repository_entries = yaml_action_entries(write_workflow(directory, "repository.yml", step))
+        pinned = Pathname(directory).join("pinned")
+        pinned.write("EXPECTED_BUILDX_ACTION = \"docker/setup-buildx-action@#{'b' * 40}\"\n")
+        drifted = Pathname(directory).join("drifted")
+        drifted.write("EXPECTED_BUILDX_ACTION = \"docker/setup-buildx-action@v4\"\n")
+
+        expect(pin_guard_violations(repository_entries, script_constant_entries(pinned))).to be_empty
+        expect(pin_guard_violations(repository_entries, script_constant_entries(drifted))).to contain_exactly(
+          a_string_including("drifted:1", "docker/setup-buildx-action@v4", "40-hex commit SHA")
+        )
+      end
+    end
+
+    it "limits the cpflow self-reference exception to reusable workflows and release refs" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        workflow_call = ->(ref) { "shakacode/control-plane-flow/.github/workflows/foo.yml@#{ref}" }
+        accepted = %w[__CPFLOW_GITHUB_ACTIONS_REF__ v6.0.0].map do |ref|
+          write_workflow(directory, "accepted-#{ref}.yml", "      - uses: #{workflow_call.call(ref)}\n")
+        end
+        rejected = {
+          "moving.yml" => [workflow_call.call("main"), "__CPFLOW_GITHUB_ACTIONS_REF__ placeholder"],
+          "sub-action.yml" => ["shakacode/control-plane-flow/some-action@v6.0.0", "40-hex commit SHA"],
+          "bare-repository.yml" => ["shakacode/control-plane-flow@v6.0.0", "40-hex commit SHA"]
+        }
+
+        expect(accepted.flat_map { |path| yaml_action_entries(path) }).to be_empty
+        rejected.each do |name, (value, expected)|
+          path = write_workflow(directory, name, "      - uses: #{value}\n")
+
+          expect(pin_guard_violations([], yaml_action_entries(path))).to(
+            contain_exactly(a_string_including("#{name}:4", value, expected)), name
+          )
+        end
+      end
+    end
+
+    it "accepts the vX.Y.Z format token only in a generated script constant" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        reference = "shakacode/control-plane-flow/.github/workflows/foo.yml@vX.Y.Z"
+        script = Pathname(directory).join("test-cpflow-github-flow")
+        script.write("EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT = \"#{reference}\"\n")
+        step = write_workflow(directory, "step.yml", "      - uses: #{reference}\n")
+
+        expect(script_constant_entries(script)).to be_empty
+        expect(mutable_ref_violations(yaml_action_entries(step))).to contain_exactly(
+          a_string_including("step.yml:4", reference, "__CPFLOW_GITHUB_ACTIONS_REF__ placeholder")
+        )
+      end
+    end
+
+    it "reads generated files with invalid UTF-8 bytes instead of raising" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        invalid = [0xC3, 0x28, 0x0A].pack("C*")
+        script = Pathname(directory).join("pin-cpflow-github-ref")
+        script.binwrite("uses: actions/checkout@#{'a' * 40} # v7.0.1\n")
+        script.open("ab") { |file| file.write(invalid) }
+        workflow = write_workflow(directory, "scrubbed.yml", "      - uses: actions/checkout@#{'a' * 40}\n")
+        workflow.open("ab") { |file| file.write("# ") }
+        workflow.open("ab") { |file| file.write(invalid) }
+
+        expect(script_action_entries(script).map { |entry| entry[:pin] }).to(
+          eq(["actions/checkout@#{'a' * 40} # v7.0.1"])
+        )
+        expect(yaml_action_entries(workflow).map { |entry| entry[:ref] }).to eq(["a" * 40])
+      end
+    end
+
+    it "scans only the generated workflows and scripts, so markdown examples cannot fail the guard" do
+      scanned = template_pin_files.map { |path| relative_repo_path(path) }
+
+      expect(scanned).to include(
+        "lib/github_flow_templates/.github/workflows/cpflow-promote-staging-to-production.yml",
+        "lib/github_flow_templates/bin/pin-cpflow-github-ref",
+        "lib/github_flow_templates/bin/test-cpflow-github-flow"
+      )
+      expect(scanned.grep(/\.(?:md|markdown)\z/)).to be_empty
+      expect(File).to exist(File.join(template_root, ".github/cpflow-help.md"))
+
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        sample = Pathname(directory).join("cpflow-help.md")
+        sample.write("Example workflow:\n\n```yaml\n- uses: example/action@v1\n```\n")
+
+        expect(mutable_ref_violations(script_action_entries(sample))).not_to be_empty
+      end
+    end
+
+    it "pins the same commits and version comments as the repository workflows" do
+      constants = template_script_files.flat_map { |path| script_constant_entries(path) }
+      expect(constants.map { |entry| [entry[:constant], entry[:identity]] }).to(
+        include(%w[EXPECTED_CPFLOW_CHECKOUT_ACTION actions/checkout]),
+        "EXPECTED_CPFLOW_CHECKOUT_ACTION is no longer discoverable in " \
+        "#{relative_repo_path(checkout_constant_file)}"
+      )
+
+      repository_entries = action_files.flat_map { |path| yaml_action_entries(path) }
+      template_entries = template_workflow_files.flat_map { |path| yaml_action_entries(path) } +
+                         template_script_files.flat_map { |path| script_action_entries(path) } + constants
+      expect(repository_entries.map { |entry| entry[:identity] }.uniq).to(
+        include("actions/checkout", "docker/setup-buildx-action")
+      )
+      expect(template_entries.map { |entry| entry[:identity] }.uniq).to(
+        include("actions/checkout", "docker/setup-buildx-action")
+      )
+
+      violations = pin_guard_violations(repository_entries, template_entries)
+      expect(violations).to be_empty, pin_guard_failure_message(violations)
+    end
+  end
 end

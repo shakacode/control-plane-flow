@@ -68,6 +68,7 @@ jobs:
         run: |
           bundle exec rspec \
             spec/cpflow_spec.rb \
+            spec/github_actions_dependency_policy_spec.rb \
             spec/github_workflows_spec.rb \
             spec/patches \
             spec/support_specs \
