@@ -47,6 +47,18 @@ they use an exact `vX.Y.Z` release tag so the workflow source stays aligned with
 
 Dependabot checks GitHub Actions dependencies weekly. For each proposed update, verify that the release tag resolves to
 the proposed commit, review the upstream release and diff, and keep the version comment synchronized with the pin.
+Dependabot-authored pull requests cannot pass the credentialed `RSpec (Fast)` job or `claude-code-review.yml`, so a
+Dependabot bump is never merged directly: a maintainer opens a pull request that supersedes it and lands the same pin.
+That maintainer pull request must update the pin in all four places, or CI fails:
+
+- `.github/workflows/**` and `.github/actions/**` — the workflows that actually run in this repository.
+- `lib/github_flow_templates/.github/workflows/**` — the workflows generated into downstream repositories.
+- `lib/github_flow_templates/bin/test-cpflow-github-flow` — the `EXPECTED_CPFLOW_CHECKOUT_ACTION` constant.
+- `spec/command/generate_github_actions_spec.rb` and `spec/github_workflows_spec.rb` — the assertions that hard-code
+  the expected SHA.
+
+`spec/github_actions_dependency_policy_spec.rb` guards the first three: it fails when a template pin's commit SHA or
+version comment drifts from the repository workflow pin for the same action.
 
 ## Docs Site Dispatch
 
