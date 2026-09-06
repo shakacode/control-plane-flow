@@ -54,9 +54,13 @@ With no arguments, `rake release`:
 
 1. Reads the first versioned `CHANGELOG.md` header, such as `## [4.2.0]`.
 2. Uses that version when it is newer than the current gem version.
-3. Uses the current version if the changelog version matches the gem version
-   but has not been tagged yet.
-4. Falls back to a patch bump if no new changelog version is found.
+3. Keeps using that version when it matches the current gem version, including
+   on a retry after a release attempt created the version commit or tag.
+4. Lets the existing-tag policy stop an incomplete retry instead of silently
+   selecting a different version.
+5. Falls back to a patch bump only from a stable current version when the
+   changelog does not name the current or a newer version. Prereleases require
+   an explicit target if the changelog cannot supply one.
 
 Other supported forms:
 
@@ -157,4 +161,6 @@ bundle exec rake "sync_github_release[4.2.0]"
 ```
 
 If the tag was pushed but the gem was not published, delete or correct the tag
-and version commit intentionally before trying again.
+and version commit intentionally before trying again. A no-argument retry keeps
+the changelog version authoritative and refuses to reinterpret a prerelease as
+its stable version.
