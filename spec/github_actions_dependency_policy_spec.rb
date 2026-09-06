@@ -12,6 +12,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       "check_cpln_links.yml" => { "contents" => "read" },
       "claude-code-review.yml" => {},
       "claude.yml" => {},
+      "coderabbit-lifecycle-review.yml" => { "pull-requests" => "write" },
       "command_docs.yml" => { "contents" => "read" },
       "cpflow-cleanup-stale-review-apps.yml" => { "contents" => "read" },
       "cpflow-delete-review-app.yml" => {
