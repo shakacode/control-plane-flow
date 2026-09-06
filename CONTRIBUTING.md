@@ -47,11 +47,13 @@ they use an exact `vX.Y.Z` release tag so the workflow source stays aligned with
 
 Dependabot checks GitHub Actions dependencies weekly. For each proposed update, verify that the release tag resolves to
 the proposed commit, review the upstream release and diff, and keep the version comment synchronized with the pin.
-Dependabot-authored runs receive no repository secrets, so `RSpec (Fast)` fails at `Setup Control Plane tools`, and the
-`Ruby 3.3 compatibility` / `Ruby 3.4 compatibility` jobs fail on the pinned-SHA spec assertions whenever a bump touches
-only `.github/workflows/**`. A Dependabot bump is therefore never merged directly: a maintainer opens a pull request
-that supersedes it and lands the same pin. That maintainer pull request must update the pin in all four places, or CI
-fails:
+Dependabot-authored runs receive no repository secrets, so `RSpec (Fast)` fails at `Setup Control Plane tools`. The
+credential-free `Ruby 3.3 compatibility` and `Ruby 3.4 compatibility` jobs do run
+`spec/github_actions_dependency_policy_spec.rb`, so a bump that leaves the generated templates or the
+`EXPECTED_CPFLOW_CHECKOUT_ACTION` constant behind still fails there, even on a Dependabot-authored pull request that
+cannot run the credentialed suite. A Dependabot bump is therefore never merged directly: a maintainer opens a pull
+request that supersedes it and lands the same pin. That maintainer pull request must update the pin in all four places,
+or CI fails:
 
 - `.github/workflows/**` and `.github/actions/**` — the workflows that actually run in this repository.
 - `lib/github_flow_templates/.github/workflows/**` — the workflows generated into downstream repositories.
