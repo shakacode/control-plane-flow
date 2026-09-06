@@ -12,22 +12,24 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-09-06
+
 ### Breaking Changes
 
-- BREAKING CHANGE: Raised the minimum supported Ruby version from 3.0 to 3.2. Users on Ruby 3.0 or 3.1 must upgrade Ruby before installing the next major cpflow release. CI now tests each supported Ruby minor from 3.2 through 3.4.
+- BREAKING CHANGE: Raised the minimum supported Ruby version from 3.0 to 3.2. Users on Ruby 3.0 or 3.1 must upgrade Ruby before installing the next major cpflow release. CI now tests each supported Ruby minor from 3.2 through 3.4. [PR 464](https://github.com/shakacode/control-plane-flow/pull/464) by [Justin Gordon](https://github.com/justin808).
 
 ### Changed
 
 - **Bumped the pinned GitHub Actions in the generated production-promotion workflow and this repository's reusable workflows to `actions/checkout` 7.0.1, `actions/github-script` 9.0.0, and `docker/setup-buildx-action` 4.3.0.** Downstream repositories pick up the template change with `cpflow update-github-actions`. [PR 460](https://github.com/shakacode/control-plane-flow/pull/460) by [Justin Gordon](https://github.com/justin808). Fixes [issue 459](https://github.com/shakacode/control-plane-flow/issues/459).
 - **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. [PR 451](https://github.com/shakacode/control-plane-flow/pull/451) by [Justin Gordon](https://github.com/justin808). Part of [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).
-- **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
+- **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** [PR 447](https://github.com/shakacode/control-plane-flow/pull/447) by [Justin Gordon](https://github.com/justin808). Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
 
 ### Fixed
 
-- **Prevented shell interpretation of dynamic Control Plane CLI and Docker arguments.** Resource names, image references, container names, locations, and other dynamic values now remain literal argv elements; output suppression and stderr capture use process redirection options without rebuilding a shell command. Fixes [issue 452](https://github.com/shakacode/control-plane-flow/issues/452).
+- **Prevented shell interpretation of dynamic Control Plane CLI and Docker arguments.** Resource names, image references, container names, locations, and other dynamic values now remain literal argv elements; output suppression and stderr capture use process redirection options without rebuilding a shell command. Fixes [issue 452](https://github.com/shakacode/control-plane-flow/issues/452). [PR 458](https://github.com/shakacode/control-plane-flow/pull/458) by [Justin Gordon](https://github.com/justin808).
 - **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, transient workload image deployment, and delayed one-off job output.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile and stderr capture, workload image updates retry for a bounded window before failing, and non-interactive `cpflow run` commands drain logs for a bounded post-terminal window so delayed ingestion does not drop completed job output. Slow-suite command logs and failure artifacts now redact token options and explicitly supplied sensitive values. [PR 413](https://github.com/shakacode/control-plane-flow/pull/413) by [Justin Gordon](https://github.com/justin808). Addresses [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
-- **Queued every pending shared-org Slow and Specific RSpec run instead of letting GitHub replace an older waiter.** Fast runs keep their per-PR or per-ref queue, while the domain-mutating suites use GitHub's bounded `queue: max` behavior in one repository-wide concurrency group. Fixes [issue 403](https://github.com/shakacode/control-plane-flow/issues/403).
-- **Bounded `cpflow run` status reconciliation after a non-interactive command finishes.** When Control Plane keeps reporting a cron job as active or pending after the command completion marker, `cpflow run` now waits up to a configurable 20-minute grace period and then exits nonzero with the job, replica, and last observed status instead of polling forever. Addresses the bounded-reconciliation portion of [HiChee issue 10375](https://github.com/shakacode/hichee/issues/10375).
+- **Queued every pending shared-org Slow and Specific RSpec run instead of letting GitHub replace an older waiter.** Fast runs keep their per-PR or per-ref queue, while the domain-mutating suites use GitHub's bounded `queue: max` behavior in one repository-wide concurrency group. [PR 457](https://github.com/shakacode/control-plane-flow/pull/457) by [Justin Gordon](https://github.com/justin808). Fixes [issue 403](https://github.com/shakacode/control-plane-flow/issues/403).
+- **Bounded `cpflow run` status reconciliation after a non-interactive command finishes.** When Control Plane keeps reporting a cron job as active or pending after the command completion marker, `cpflow run` now waits up to a configurable 20-minute grace period and then exits nonzero with the job, replica, and last observed status instead of polling forever. Addresses the bounded-reconciliation portion of [HiChee issue 10375](https://github.com/shakacode/hichee/issues/10375). [PR 453](https://github.com/shakacode/control-plane-flow/pull/453) by [Justin Gordon](https://github.com/justin808).
 
 ## [5.3.0] - 2026-09-02
 
@@ -491,7 +493,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...main
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0...main
+[6.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0
 [5.3.0]: https://github.com/shakacode/control-plane-flow/compare/v5.2.0...v5.3.0
 [5.2.0]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...v5.2.0
 [5.1.1]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...v5.1.1
