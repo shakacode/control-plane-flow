@@ -390,8 +390,8 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     it "pins GitHub-owned actions to immutable Node 24-compatible releases" do
       contents = (generated_yaml_paths + shared_yaml_paths).map { |path| File.read(path) }.join("\n")
 
-      expect(contents).to include("actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd")
-      expect(contents).to include("actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd")
+      expect(contents).to include("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1")
+      expect(contents).to include("actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3")
       expect(contents).not_to match(%r{actions/checkout@v\d+})
       expect(contents).not_to match(%r{actions/github-script@v\d+})
       expect(contents).not_to include("actions/checkout@v4")
@@ -683,7 +683,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         workflow.fetch("jobs").each_value do |job|
           # Job-level `uses:` entries call reusable workflows; they cannot call composite actions directly.
           Array(job["steps"]).each do |step|
-            if step["uses"] == "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" &&
+            if step["uses"] == "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" &&
                step.dig("with", "path") == ".cpflow"
               saw_cpflow_checkout = true
               expect(step.fetch("with")).to include(
@@ -1450,7 +1450,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("copy_image_attempts=$((copy_image_retries + 1))")
       expect(contents).to include("Staging image '${STAGING_IMAGE}' was not found")
       expect(contents).to include(
-        "uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5"
+        "uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e"
       )
       expect(contents).to include("id: copy-image")
       expect(contents).to include('staging_image="${STAGING_IMAGE}"')

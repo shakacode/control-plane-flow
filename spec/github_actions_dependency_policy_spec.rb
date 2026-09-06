@@ -282,7 +282,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         jobs:
           build:
             steps:
-              - "uses": "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+              - "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
       YAML
 
       expect(external_action_policy_violations(path)).to be_empty
@@ -316,7 +316,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       path.write(<<~YAML)
         runs:
           steps:
-            - uses: Owner/Repository/subpath@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+            - uses: Owner/Repository/subpath@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       YAML
 
       reference = external_action_references(path).fetch(0)
@@ -334,7 +334,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         jobs:
           build:
             steps:
-              - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
                 with:
                   uses: harmless-input
                 env:
@@ -347,7 +347,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
   end
 
   it "rejects external uses forms whose release comment cannot bind to one standalone entry" do
-    pinned_action = "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+    pinned_action = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
     unsafe_documents = {
       "aliased-value" => <<~YAML,
         metadata:
@@ -355,7 +355,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         jobs:
           build:
             steps:
-              - uses: *action # v6.0.2
+              - uses: *action # v7.0.1
       YAML
       "aliased-key" => <<~YAML,
         metadata:
@@ -371,13 +371,13 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         jobs:
           build:
             steps:
-              - <<: *defaults # v6.0.2
+              - <<: *defaults # v7.0.1
       YAML
       "duplicate-value" => <<~YAML,
         jobs:
           build:
             steps:
-              - uses: #{pinned_action} # v6.0.2
+              - uses: #{pinned_action} # v7.0.1
               - uses: #{pinned_action}
       YAML
       "multiline-value" => <<~YAML,
@@ -391,7 +391,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         jobs:
           build:
             steps:
-              - { uses: #{pinned_action} } # v6.0.2
+              - { uses: #{pinned_action} } # v7.0.1
       YAML
     }
 
@@ -413,11 +413,11 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
           build:
             steps:
               - run: |
-                  uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+                  uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       YAML
 
-      expect(external_action_policy_violations(path)).to include(match(%r{actions/checkout@de0fac2e4500}))
+      expect(external_action_policy_violations(path)).to include(match(%r{actions/checkout@3d3c42e5aac5}))
     end
   end
 
