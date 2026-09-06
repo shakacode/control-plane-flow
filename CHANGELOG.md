@@ -12,7 +12,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-## [6.0.0] - 2026-09-06
+## [6.0.0.rc.0] - 2026-09-06
 
 ### Breaking Changes
 
@@ -495,8 +495,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0...main
-[6.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0.rc.0...main
+[6.0.0.rc.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0.rc.0
 [5.3.0]: https://github.com/shakacode/control-plane-flow/compare/v5.2.0...v5.3.0
 [5.2.0]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...v5.2.0
 [5.1.1]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...v5.1.1
