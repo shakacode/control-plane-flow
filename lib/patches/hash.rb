@@ -27,8 +27,8 @@ class Hash
   private
 
   # Copied from Rails
-  def deep_transform_keys(&block)
-    deep_transform_keys_in_object(self, &block)
+  def deep_transform_keys(&)
+    deep_transform_keys_in_object(self, &)
   end
 
   # Copied from Rails

@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
     Docs: https://github.com/shakacode/control-plane-flow/blob/main/docs/ci-automation.md#updating-generated-github-actions-after-gem-updates
   MESSAGE
 
-  spec.required_ruby_version = ">= 3.0.0"
+  spec.required_ruby_version = ">= 3.2"
 
   spec.add_dependency "dotenv",   "~> 3.1"
   spec.add_dependency "jwt",      "~> 3.1"

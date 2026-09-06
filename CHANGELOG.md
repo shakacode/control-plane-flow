@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- BREAKING CHANGE: Raised the minimum supported Ruby version from 3.0 to 3.2. Users on Ruby 3.0 or 3.1 must upgrade Ruby before installing the next major cpflow release. CI now tests each supported Ruby minor from 3.2 through 3.4.
+
 ### Changed
 
 - **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. [PR 451](https://github.com/shakacode/control-plane-flow/pull/451) by [Justin Gordon](https://github.com/justin808). Part of [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).

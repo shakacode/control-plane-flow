@@ -479,8 +479,8 @@ module Release
       match[:repo]
     end
 
-    def capture_gh_output(*args)
-      Open3.capture2e("gh", *args)
+    def capture_gh_output(*)
+      Open3.capture2e("gh", *)
     rescue Errno::ENOENT
       abort "GitHub CLI (`gh`) is not installed. Install it from https://cli.github.com/ and retry."
     end
