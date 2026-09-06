@@ -319,10 +319,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       end
 
       # Issue #463: the generated-actions checkout deliberately carries no `ref:` and no
-      # `repository:`. actions/checkout's default resolves to the commit GitHub already
-      # recorded for the event (GITHUB_SHA; the base-branch tip under pull_request_target),
-      # the same trusted revision the explicit expressions used to name, and a default
-      # checkout is never inspected by checkout v7's fork-PR checkout guard.
+      # `repository:`. actions/checkout's default resolves to the event's trusted
+      # base-repository commit (GITHUB_SHA), which for the delete workflow is the base
+      # branch tip at event time rather than the pull request's recorded base.sha, and a
+      # default checkout is never inspected by checkout v7's fork-PR checkout guard.
       trusted_default_checkout_jobs = [
         [reusable_review_app_workflow_path, "deploy"],
         [reusable_delete_review_workflow_path, "delete-review-app"],
