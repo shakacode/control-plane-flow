@@ -220,6 +220,19 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
         "This successful review-app check did not build or deploy an image."
       )
     end
+
+    # Issue #462: pull_request_target is in this workflow's event allowlist, so the source
+    # validator must give a fork PR the documented skip summary instead of falling through
+    # to the workflow_dispatch error.
+    it "skips fork deploys for pull_request_target alongside pull_request", :aggregate_failures do
+      script = step_named("Validate review app deployment source").fetch("run")
+
+      expect(script).to include(
+        'if [[ "${EVENT_NAME}" == "pull_request" || "${EVENT_NAME}" == "pull_request_target" ]]; then'
+      )
+      expect(script).to include("Review app deploys are skipped for fork pull requests.")
+      expect(script).not_to include('if [[ "${EVENT_NAME}" == "pull_request" ]]; then')
+    end
   end
 
   describe "Delete Review App workflow" do

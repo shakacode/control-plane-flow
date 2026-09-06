@@ -698,7 +698,9 @@ jobs:
             exit 0
           fi
 
-          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+          # pull_request_target is in this workflow's event allowlist, so it needs the same
+          # fork skip as pull_request instead of falling through to the workflow_dispatch error.
+          if [[ "${EVENT_NAME}" == "pull_request" || "${EVENT_NAME}" == "pull_request_target" ]]; then
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             {
               echo "Review app deploys are skipped for fork pull requests."
