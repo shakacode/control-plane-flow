@@ -623,28 +623,32 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       case entry[:kind]
       when :docker then "an immutable sha256:<64-hex> image digest"
       when :unauditable then "a standalone uses: repository@commit entry"
-      when :self_reference then "the __CPFLOW_GITHUB_ACTIONS_REF__ placeholder or an exact vX.Y.Z release tag"
+      when :self_reference then "the __CPFLOW_GITHUB_ACTIONS_REF__ placeholder or an exact release tag (v6.0.0)"
       else "a 40-hex commit SHA"
       end
     end
 
-    # cpflow's own cross-repository reusable workflow calls are the deliberate exception to the
-    # commit-pin rule, but only for the generator placeholder, the `vX.Y.Z` format token the
-    # generated scripts document, and exact release tags. `@main`, `@v5`, a branch name or a bare
-    # commit must still be reported: a moving self-reference desynchronizes the released gem.
-    def cpflow_self_reference?(identity)
-      identity == "shakacode/control-plane-flow"
+    # Only cpflow's own reusable workflows are exempt from the commit-pin rule. Any other
+    # `shakacode/control-plane-flow` reference - a sub-action, or the bare repository - follows the
+    # ordinary rules, so `shakacode/control-plane-flow/some-action@v6.0.0` is still a violation.
+    def cpflow_reusable_workflow?(action)
+      action.to_s.match?(%r{\Ashakacode/control-plane-flow/\.github/workflows/[^/@\s]+\.ya?ml\z}i)
     end
 
-    def accepted_cpflow_self_reference?(ref)
-      %w[__CPFLOW_GITHUB_ACTIONS_REF__ vX.Y.Z].include?(ref) || exact_release_tag?(ref)
+    # The generator only ever substitutes `__CPFLOW_GITHUB_ACTIONS_REF__`, so a YAML step carrying
+    # the literal `vX.Y.Z` would ship a tag that does not exist. That format token is accepted only
+    # in the verifier script's EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT constant, never in a workflow.
+    def accepted_cpflow_self_reference?(ref, script_constant:)
+      return true if ref == "__CPFLOW_GITHUB_ACTIONS_REF__" || exact_release_tag?(ref)
+
+      script_constant && ref == "vX.Y.Z"
     end
 
-    def cpflow_self_reference_entry(identity, value, ref, source)
-      return if accepted_cpflow_self_reference?(ref)
+    def cpflow_self_reference_entry(value, ref, source, script_constant:)
+      return if accepted_cpflow_self_reference?(ref, script_constant: script_constant)
 
-      build_entry(kind: :self_reference, identity: identity, reference: value, ref: ref,
-                  version: nil, version_optional: true, source: source)
+      build_entry(kind: :self_reference, identity: "shakacode/control-plane-flow", reference: value,
+                  ref: ref, version: nil, version_optional: true, source: source)
     end
 
     def trusted_action_identity(action)
@@ -687,7 +691,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       source = "#{relative}:#{reference[:line_number]}"
       return docker_yaml_entry(reference, source) if reference[:kind] == :docker
       return unauditable_entry(reference, source) unless reference[:repository] && reference[:ref]
-      return yaml_self_reference_entry(reference, source) if cpflow_self_reference?(reference[:trusted_repository])
+      return yaml_self_reference_entry(reference, source) if cpflow_reusable_workflow?(reference[:repository])
 
       build_entry(kind: :repository, identity: reference[:trusted_repository], reference: reference[:value],
                   ref: reference[:ref], version: bound_version_comment(reference, source_lines),
@@ -695,7 +699,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     end
 
     def yaml_self_reference_entry(reference, source)
-      cpflow_self_reference_entry(reference[:trusted_repository], reference[:value], reference[:ref], source)
+      cpflow_self_reference_entry(reference[:value], reference[:ref], source, script_constant: false)
     end
 
     def docker_yaml_entry(reference, source)
@@ -728,7 +732,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         match = line.match(script_pin_pattern)
         next unless match
 
-        script_action_entry(match, "#{relative}:#{index + 1}", version_optional: false)
+        script_action_entry(match, "#{relative}:#{index + 1}", script_constant: false)
       end
     end
 
@@ -742,19 +746,20 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
         match = line.match(script_constant_pattern)
         next unless match
 
-        script_action_entry(match, "#{relative}:#{index + 1}", version_optional: true)
+        script_action_entry(match, "#{relative}:#{index + 1}", script_constant: true)
       end
     end
 
-    def script_action_entry(match, source, version_optional:)
-      identity = trusted_action_identity(match[:action])
+    def script_action_entry(match, source, script_constant:)
       value = "#{match[:action]}@#{match[:ref]}"
-      return cpflow_self_reference_entry(identity, value, match[:ref], source) if cpflow_self_reference?(identity)
+      if cpflow_reusable_workflow?(match[:action])
+        return cpflow_self_reference_entry(value, match[:ref], source, script_constant: script_constant)
+      end
 
-      version = match.names.include?("version") ? match[:version] : nil
-      build_entry(kind: :repository, identity: identity, reference: value, ref: match[:ref],
-                  version: version, version_optional: version_optional, source: source,
-                  constant: match.names.include?("constant") ? match[:constant] : nil)
+      build_entry(kind: :repository, identity: trusted_action_identity(match[:action]), reference: value,
+                  ref: match[:ref], version: script_constant ? nil : match[:version],
+                  version_optional: script_constant, source: source,
+                  constant: script_constant ? match[:constant] : nil)
     end
 
     def format_action_entries(entries)
@@ -985,20 +990,39 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       end
     end
 
-    it "rejects cpflow self-references outside the generator placeholder and exact release tags" do
+    it "limits the cpflow self-reference exception to reusable workflows and release refs" do
       Dir.mktmpdir("template-pin-guard") do |directory|
-        call = ->(ref) { "      - uses: shakacode/control-plane-flow/.github/workflows/foo.yml@#{ref}\n" }
-        placeholder = write_workflow(directory, "placeholder.yml", call.call("__CPFLOW_GITHUB_ACTIONS_REF__"))
-        released = write_workflow(directory, "released.yml", call.call("v6.0.0"))
-        moving = write_workflow(directory, "moving.yml", call.call("main"))
+        workflow_call = ->(ref) { "shakacode/control-plane-flow/.github/workflows/foo.yml@#{ref}" }
+        accepted = %w[__CPFLOW_GITHUB_ACTIONS_REF__ v6.0.0].map do |ref|
+          write_workflow(directory, "accepted-#{ref}.yml", "      - uses: #{workflow_call.call(ref)}\n")
+        end
+        rejected = {
+          "moving.yml" => [workflow_call.call("main"), "__CPFLOW_GITHUB_ACTIONS_REF__ placeholder"],
+          "sub-action.yml" => ["shakacode/control-plane-flow/some-action@v6.0.0", "40-hex commit SHA"],
+          "bare-repository.yml" => ["shakacode/control-plane-flow@v6.0.0", "40-hex commit SHA"]
+        }
 
-        expect(yaml_action_entries(placeholder)).to be_empty
-        expect(yaml_action_entries(released)).to be_empty
-        expect(pin_guard_violations([], yaml_action_entries(moving))).to contain_exactly(
-          a_string_including(
-            "moving.yml:4", "shakacode/control-plane-flow/.github/workflows/foo.yml@main",
-            "__CPFLOW_GITHUB_ACTIONS_REF__ placeholder or an exact vX.Y.Z release tag"
+        expect(accepted.flat_map { |path| yaml_action_entries(path) }).to be_empty
+        rejected.each do |name, (value, expected)|
+          path = write_workflow(directory, name, "      - uses: #{value}\n")
+
+          expect(pin_guard_violations([], yaml_action_entries(path))).to(
+            contain_exactly(a_string_including("#{name}:4", value, expected)), name
           )
+        end
+      end
+    end
+
+    it "accepts the vX.Y.Z format token only in a generated script constant" do
+      Dir.mktmpdir("template-pin-guard") do |directory|
+        reference = "shakacode/control-plane-flow/.github/workflows/foo.yml@vX.Y.Z"
+        script = Pathname(directory).join("test-cpflow-github-flow")
+        script.write("EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT = \"#{reference}\"\n")
+        step = write_workflow(directory, "step.yml", "      - uses: #{reference}\n")
+
+        expect(script_constant_entries(script)).to be_empty
+        expect(mutable_ref_violations(yaml_action_entries(step))).to contain_exactly(
+          a_string_including("step.yml:4", reference, "__CPFLOW_GITHUB_ACTIONS_REF__ placeholder")
         )
       end
     end

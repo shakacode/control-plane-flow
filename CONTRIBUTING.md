@@ -66,8 +66,11 @@ SHA or version comment drifts from the repository pin for the same action, when 
 mutable ref such as `@v7` or `@main`, or when a template pins an external action that the repository workflows do not
 use. Only script constants such as `EXPECTED_CPFLOW_CHECKOUT_ACTION` and `docker://` image references may omit the
 version comment, because neither is a workflow step with somewhere to hang a same-line release tag. Calls to cpflow's
-own reusable workflows are the one exception to the commit-pin rule, and only for the
-`@__CPFLOW_GITHUB_ACTIONS_REF__` generator placeholder or an exact `vX.Y.Z` release tag; `@main` or `@v5` fails.
+own reusable workflows under `.github/workflows/` are the one exception to the commit-pin rule, and only for the
+`@__CPFLOW_GITHUB_ACTIONS_REF__` generator placeholder or an exact release tag. `@main` and `@v5` fail, and so does any
+other `shakacode/control-plane-flow` reference, such as `shakacode/control-plane-flow/some-action@v6.0.0` or the bare
+repository, which must be commit-pinned like any external action. The literal `vX.Y.Z` is accepted only in the verifier
+script's `EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT` constant, never in a workflow step.
 
 ## Docs Site Dispatch
 
