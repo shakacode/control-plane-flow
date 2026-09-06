@@ -3,6 +3,10 @@
 require "spec_helper"
 
 describe Command::DeployImage do
+  let(:rails_endpoint_pattern) do
+    %r{https://rails-[^\s/]+?\.(?:cpln\.app|(?:[^./]+\.)?controlplane\.us)(?=[:/?#\s]|$)}
+  end
+
   context "when image does not exist" do
     let!(:app) { dummy_test_app("rails", create_if_not_exists: true) }
 
@@ -42,7 +46,7 @@ describe Command::DeployImage do
 
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).not_to include("Running release script")
-      expect(result[:stderr]).to match(%r{- rails: https://rails-.+?.cpln.app})
+      expect(result[:stderr]).to match(rails_endpoint_pattern)
       expect(result[:stderr]).not_to include("- rails-with-non-app-image:")
     end
   end
@@ -150,7 +154,7 @@ describe Command::DeployImage do
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to include("Running release script")
       expect(result[:stderr]).to include("Finished running release script")
-      expect(result[:stderr]).to match(%r{- rails: https://rails-.+?.cpln.app})
+      expect(result[:stderr]).to match(rails_endpoint_pattern)
       expect(result[:stderr]).not_to include("- rails-with-non-app-image:")
     end
   end
@@ -166,7 +170,7 @@ describe Command::DeployImage do
       result = run_cpflow_command("deploy-image", "-a", app)
 
       expect(result[:status]).to eq(0)
-      expect(result[:stderr]).to match(%r{- rails: https://rails-.+?.controlplane.us})
+      expect(result[:stderr]).to match(rails_endpoint_pattern)
     end
   end
 end

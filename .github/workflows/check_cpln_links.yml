@@ -6,13 +6,18 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check_cpln_links:
     runs-on: ubuntu-latest
     name: Check Links
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Validate outgoing links to Control Plane
         run: |
           TERM=xterm-color ./script/check_cpln_links

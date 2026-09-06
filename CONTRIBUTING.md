@@ -35,6 +35,19 @@ gem install overcommit
 overcommit --install
 ```
 
+## GitHub Actions Dependencies
+
+Every repository-based external `uses:` entry under `.github/workflows/` or `.github/actions/` must use an immutable,
+lowercase 40-character commit SHA followed by the exact release tag in a same-line comment. Do not use moving
+major-version tags or branch names. New action repositories also require explicit review before they are added to
+`trusted_actions` in `.agents/agent-workflow.yml`. Docker actions must use an exact `sha256:` image digest; manually
+review the registry, image, and digest because Docker references are outside the repository allowlist.
+Generated downstream calls to Control Plane Flow's cross-repository reusable workflows are the deliberate exception:
+they use an exact `vX.Y.Z` release tag so the workflow source stays aligned with the released `cpflow` gem.
+
+Dependabot checks GitHub Actions dependencies weekly. For each proposed update, verify that the release tag resolves to
+the proposed commit, review the upstream release and diff, and keep the version comment synchronized with the pin.
+
 ## Docs Site Dispatch
 
 The `trigger-docs-site.yml` workflow notifies `shakacode/controlplaneflow-com` when docs-related files change on `main`.
@@ -113,9 +126,9 @@ cpflow test
 
 ## Developing the GitHub flow generator
 
-`cpflow generate-github-actions` copies templates from `lib/github_flow_templates/` into a target repo's `.github/` directory. To work on this feature:
+`cpflow generate-github-actions` copies workflow templates in `lib/github_flow_templates/` and canonical composite actions in `.github/actions/cpflow-*` into a target repo's `.github/` directory. To work on this feature:
 
-- **Edit the templates in place.** The generator does no string-mangling beyond a small set of substitutions handled in `lib/command/generate_github_actions.rb`; what you put in `lib/github_flow_templates/.github/` is (almost) exactly what ships into a generated repo. Make changes there, not in a generated copy.
+- **Edit each canonical source in place.** The generator does no string-mangling beyond a small set of substitutions handled in `lib/command/generate_github_actions.rb`; what you put in `lib/github_flow_templates/.github/` is (almost) exactly what ships into a generated repo. Edit composite actions in the root `.github/actions/cpflow-*` directories. Make changes in those canonical sources, not in a generated copy.
 - **Surface area to keep consistent.** A change to a PR command (e.g. `+review-app-deploy`) usually touches three places: the trigger workflow (`lib/github_flow_templates/.github/workflows/cpflow-deploy-review-app.yml`), the PR-open quick reference (`cpflow-review-app-help.yml`), and the long-form help (`lib/github_flow_templates/.github/cpflow-help.md`). The AI flow prompt (`lib/command/ai_github_flow_prompt.rb`) also names commands and should be kept in sync.
 - **Run the generator spec on every change:**
 

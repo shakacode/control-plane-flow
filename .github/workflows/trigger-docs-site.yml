@@ -18,6 +18,8 @@ on:
     # Non-main manual dispatches are skipped by the job guard below.
     # Only use this for forcing a rebuild from main.
 
+permissions: {}
+
 concurrency:
   # Include the ref so accidental non-main manual runs cannot cancel a main dispatch
   # before the job guard skips them.

@@ -590,7 +590,7 @@ jobs:
       - name: React to deploy command
         if: github.event_name == 'issue_comment'
         continue-on-error: true
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             try {
@@ -608,8 +608,14 @@ jobs:
               }
             }
 
+      - name: Checkout generated cpflow actions
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - name: Checkout control-plane-flow actions
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -618,7 +624,7 @@ jobs:
 
       - name: Validate required secrets and variables
         id: config
-        uses: ./.cpflow/.github/actions/cpflow-validate-config
+        uses: ./.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
         with:
@@ -714,7 +720,7 @@ jobs:
 
       - name: Checkout PR commit
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ env.PR_SHA }}
           path: app
@@ -730,7 +736,7 @@ jobs:
       - name: Resolve review app config
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
         id: review-config
-        uses: ./.cpflow/.github/actions/cpflow-resolve-review-config
+        uses: ./.github/actions/cpflow-resolve-review-config
         with:
           working_directory: app
           configured_cpln_org_staging: ${{ vars.CPLN_ORG_STAGING }}
@@ -739,7 +745,7 @@ jobs:
 
       - name: Setup environment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
-        uses: ./.cpflow/.github/actions/cpflow-setup-environment
+        uses: ./.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ steps.review-config.outputs.cpln_org }}
@@ -751,7 +757,7 @@ jobs:
       - name: Detect release phase support
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
         id: release-phase
-        uses: ./.cpflow/.github/actions/cpflow-detect-release-phase
+        uses: ./.github/actions/cpflow-detect-release-phase
         with:
           app_name: ${{ steps.review-config.outputs.app_name }}
           working_directory: app
@@ -826,7 +832,7 @@ jobs:
       - name: Create initial PR comment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
         id: create-comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const body = [
@@ -845,7 +851,7 @@ jobs:
 
       - name: Set deployment links
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const workflowUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -858,7 +864,7 @@ jobs:
       - name: Initialize GitHub deployment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
         id: init-deployment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const deployment = await github.rest.repos.createDeployment({
@@ -885,7 +891,7 @@ jobs:
 
       - name: Update PR comment with build status
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
         with:
@@ -913,7 +919,7 @@ jobs:
       - name: Build Docker image
         id: build-image
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
-        uses: ./.cpflow/.github/actions/cpflow-build-docker-image
+        uses: ./.github/actions/cpflow-build-docker-image
         with:
           app_name: ${{ steps.review-config.outputs.app_name }}
           org: ${{ steps.review-config.outputs.cpln_org }}
@@ -926,7 +932,7 @@ jobs:
 
       - name: Update PR comment with deploy status
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
           DEPLOYING_ICON_URL: ${{ vars.REVIEW_APP_DEPLOYING_ICON_URL }}
@@ -998,7 +1004,7 @@ jobs:
       - name: Wait for deployment health
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
         id: health-check
-        uses: ./.cpflow/.github/actions/cpflow-wait-for-health
+        uses: ./.github/actions/cpflow-wait-for-health
         with:
           workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}
           app_name: ${{ steps.review-config.outputs.app_name }}
@@ -1087,7 +1093,7 @@ jobs:
 
       - name: Finalize deployment status
         if: always() && steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
           DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}

@@ -117,7 +117,7 @@ describe Command::Run do
 
     context "when not specifying image" do
       let!(:app) { dummy_test_app }
-      let!(:cmd) { "echo $CPLN_IMAGE" }
+      let!(:cmd) { "sleep 10; echo $CPLN_IMAGE" }
 
       before do
         run_cpflow_command!("apply-template", "app", "rails", "-a", app)
@@ -143,7 +143,7 @@ describe Command::Run do
 
     context "when specifying image" do
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-      let!(:cmd) { "echo $CPLN_IMAGE" }
+      let!(:cmd) { "sleep 10; echo $CPLN_IMAGE" }
 
       it "clones workload and runs with latest image", :slow do
         result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--image", "latest", "--", cmd)
@@ -162,18 +162,26 @@ describe Command::Run do
 
     context "when specifying token" do
       let!(:token) { Shell.cmd("cpln", "profile", "token", "default")[:output].strip }
+      let!(:token_pattern) { /#{Regexp.escape(token)}/ }
       let!(:app) { dummy_test_app("full", create_if_not_exists: true) }
-      let!(:cmd) { "if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi" }
+      # Keep the job active until Control Plane exposes its replica so `run` can attach logs.
+      let!(:cmd) { "sleep 10; if [ \"$CPLN_TOKEN\" = \"#{token}\" ]; then echo \"LOCAL\"; else echo \"REMOTE\"; fi" }
 
       it "clones workload and runs with remote token", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", cmd)
+        result = run_cpflow_command(
+          "run", "-a", app, "--entrypoint", "none", "--", cmd,
+          sensitive_data_pattern: token_pattern
+        )
 
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("REMOTE")
       end
 
       it "clones workload and runs with local token", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd)
+        result = run_cpflow_command(
+          "run", "-a", app, "--entrypoint", "none", "--use-local-token", "--", cmd,
+          sensitive_data_pattern: token_pattern
+        )
 
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("LOCAL")
@@ -225,11 +233,14 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+        stub_env("DISABLE_APPLY_READY", nil)
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
+        expect(result[:stderr]).to match(/\[CMD\] cpln apply [^\n]* --ready(?:\n|\z)/)
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("Updating runner workload")
         expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
 
@@ -245,11 +256,14 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+        stub_env("DISABLE_APPLY_READY", nil)
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
+        expect(result[:stderr]).to match(/\[CMD\] cpln apply [^\n]* --ready(?:\n|\z)/)
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("Updating runner workload")
         expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
 
@@ -267,11 +281,14 @@ describe Command::Run do
       end
 
       it "updates runner workload", :slow do
-        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--", "ls")
+        stub_env("DISABLE_APPLY_READY", nil)
+        result = run_cpflow_command("run", "-a", app, "--entrypoint", "none", "--verbose", "--", "ls")
 
+        expect(result[:stderr]).to match(/\[CMD\] cpln apply [^\n]* --ready(?:\n|\z)/)
         expect(result[:status]).to eq(0)
         expect(result[:stderr]).to include("Updating runner workload")
         expect(result[:stderr]).to include("Gemfile")
+        expect(result[:stderr]).to include("[JOB STATUS] successful")
       end
     end
   end

@@ -10,12 +10,13 @@ module Command
 
     NAME = "update-github-actions"
     OPTIONS = [staging_branch_option].freeze
-    DESCRIPTION = "Regenerates generated GitHub Actions wrappers for the installed cpflow version"
+    DESCRIPTION = "Regenerates GitHub Actions files for the installed cpflow version"
     LONG_DESCRIPTION = <<~DESC.freeze
-      Regenerates the generated cpflow GitHub Actions wrappers and helper files
-      from the currently installed cpflow gem. Use this after updating the
-      cpflow gem so checked-in workflow wrappers move to the matching upstream
-      release tag, for example `v#{Cpflow::VERSION}`.
+      Regenerates the cpflow workflow wrappers, local composite actions, and
+      helper files from the currently installed cpflow gem. Use this after
+      updating the cpflow gem so checked-in workflow wrappers move to the
+      matching upstream release tag, for example `v#{Cpflow::VERSION}`, and the
+      generated action implementations move with them.
 
       If the existing generated staging workflow uses a custom single staging
       branch, the command preserves it. Pass `--staging-branch BRANCH` to set or
@@ -23,7 +24,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # After updating the cpflow gem, refresh generated GitHub Actions wrappers
+      # After updating the cpflow gem, refresh every generated GitHub Actions file
       cpflow update-github-actions
 
       # When running cpflow through Bundler

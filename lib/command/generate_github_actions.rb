@@ -16,7 +16,7 @@ module Command
     def copy_files
       relative_paths = generated_files
       replacements = template_variables
-      copy_template_files(relative_paths)
+      copy_generated_files(relative_paths)
       substitute_template_variables(relative_paths, replacements)
       make_shell_scripts_executable(relative_paths)
     end
@@ -27,11 +27,11 @@ module Command
 
     private
 
-    def copy_template_files(relative_paths)
+    def copy_generated_files(relative_paths)
       relative_paths.each do |relative_path|
         empty_directory(File.dirname(relative_path), verbose: false)
         copy_file(
-          File.join("github_flow_templates", relative_path),
+          GenerateGithubActions.source_file(relative_path),
           relative_path,
           force: true,
           verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
@@ -99,6 +99,9 @@ module Command
       - manual promotion from staging to production
       - nightly cleanup and PR help workflows
 
+      It also copies cpflow's composite actions into `.github/actions/cpflow-*`
+      so every local `uses:` target is checked in and can be audited directly.
+
       Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
       other than `main` or `master`; the generator will bake that branch into the
       GitHub Actions push trigger and use it as the default STAGING_APP_BRANCH.
@@ -108,13 +111,13 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Creates thin .github/workflows wrappers for the Control Plane flow
+      # Creates workflow wrappers, local composite actions, and validation helpers
       cpflow generate-github-actions
 
       # Creates the flow with staging deploys triggered from develop
       cpflow generate-github-actions --staging-branch develop
 
-      # Overwrites existing generated wrappers from the installed cpflow gem
+      # Overwrites existing generated GitHub Actions files from the installed cpflow gem
       cpflow generate-github-actions --force
       ```
     EX
@@ -122,22 +125,43 @@ module Command
     VALIDATIONS = [].freeze
     REQUIRES_STARTUP_CHECKS = false
 
-    # Resolve template root from __dir__ rather than Cpflow.root_path because this file is
+    # Resolve source roots from __dir__ rather than Cpflow.root_path because this file is
     # loaded before `module Cpflow` finishes defining its class methods.
+    REPOSITORY_ROOT = Pathname.new(File.expand_path("../..", __dir__))
     TEMPLATE_ROOT = Pathname.new(File.expand_path("../github_flow_templates", __dir__))
+    ACTIONS_ROOT = REPOSITORY_ROOT.join(".github/actions")
 
-    def self.generated_files
+    def self.generated_file_sources
       ensure_template_root!
 
-      Dir.glob(TEMPLATE_ROOT.join("**", "*").to_s, File::FNM_DOTMATCH)
-         .select { |path| File.file?(path) }
-         .map { |path| Pathname.new(path).relative_path_from(TEMPLATE_ROOT).to_s }
-         .sort
-         .freeze
+      template_sources = files_beneath(TEMPLATE_ROOT).to_h do |source|
+        [source.relative_path_from(TEMPLATE_ROOT).to_s, source]
+      end
+      action_sources = files_beneath(ACTIONS_ROOT, "cpflow-*/**/*").to_h do |source|
+        [source.relative_path_from(REPOSITORY_ROOT).to_s, source]
+      end
+
+      template_sources.merge(action_sources).sort.to_h.freeze
+    end
+
+    def self.generated_files
+      generated_file_sources.keys.freeze
+    end
+
+    def self.source_file(relative_path)
+      generated_file_sources.fetch(relative_path).to_s
     end
 
     def self.ensure_template_root!
       raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
+      raise "cpflow action directory not found: #{ACTIONS_ROOT}" unless ACTIONS_ROOT.directory?
+    end
+
+    def self.files_beneath(root, pattern = "**/*")
+      Dir.glob(root.join(pattern).to_s, File::FNM_DOTMATCH)
+         .select { |path| File.file?(path) }
+         .map { |path| Pathname.new(path) }
+         .sort
     end
 
     def call

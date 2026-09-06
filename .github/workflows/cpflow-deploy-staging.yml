@@ -60,9 +60,15 @@ jobs:
             echo "is_deployable=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout generated cpflow actions
+        if: steps.check-branch.outputs.is_deployable == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
       - name: Checkout control-plane-flow actions
         if: steps.check-branch.outputs.is_deployable == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -71,7 +77,7 @@ jobs:
 
       - name: Validate required secrets and variables
         if: steps.check-branch.outputs.is_deployable == 'true'
-        uses: ./.cpflow/.github/actions/cpflow-validate-config
+        uses: ./.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
           CPLN_ORG_STAGING: ${{ vars.CPLN_ORG_STAGING }}
@@ -89,12 +95,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Checkout control-plane-flow actions
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -102,7 +108,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup environment
-        uses: ./.cpflow/.github/actions/cpflow-setup-environment
+        uses: ./.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ vars.CPLN_ORG_STAGING }}
@@ -112,7 +118,7 @@ jobs:
           control_plane_flow_ref: ${{ job.workflow_ref }}
 
       - name: Build Docker image
-        uses: ./.cpflow/.github/actions/cpflow-build-docker-image
+        uses: ./.github/actions/cpflow-build-docker-image
         with:
           app_name: ${{ env.APP_NAME }}
           org: ${{ vars.CPLN_ORG_STAGING }}
@@ -128,12 +134,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Checkout control-plane-flow actions
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -141,7 +147,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup environment
-        uses: ./.cpflow/.github/actions/cpflow-setup-environment
+        uses: ./.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ vars.CPLN_ORG_STAGING }}
@@ -152,7 +158,7 @@ jobs:
 
       - name: Detect release phase support
         id: release-phase
-        uses: ./.cpflow/.github/actions/cpflow-detect-release-phase
+        uses: ./.github/actions/cpflow-detect-release-phase
         with:
           app_name: ${{ env.APP_NAME }}
 

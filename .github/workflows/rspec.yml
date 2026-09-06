@@ -19,16 +19,26 @@ on:
   schedule:
     - cron: "0 2 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   rspec-fast:
     name: RSpec (Fast)
     uses: ./.github/workflows/rspec-shared.yml
     if: github.event_name != 'schedule'
+    # Fast runs use isolated random app suffixes, so only serialize the same PR
+    # or ref. Keep the default single pending slot so obsolete heads are
+    # replaced instead of accumulating behind the current run.
+    concurrency:
+      group: cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     with:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: ~slow
-    secrets: inherit
+    secrets:
+      CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}
 
   ruby-compatibility:
     name: Ruby ${{ matrix.ruby-version }} compatibility
@@ -84,12 +94,18 @@ jobs:
     name: RSpec (Slow)
     uses: ./.github/workflows/rspec-shared.yml
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    # Slow and Specific runs can mutate the shared domain. Retain every waiter
+    # in one repository-wide queue instead of replacing an earlier pending run.
+    concurrency:
+      group: cpln-shared-org-${{ vars.CPLN_ORG || github.repository }}-shared-org
+      cancel-in-progress: false
+      queue: max
     with:
       os_version: ubuntu-latest
       ruby_version: "3.2"
       test_tag: slow
-      uses_shared_org: true
-    secrets: inherit
+    secrets:
+      CPLN_TOKEN: ${{ secrets.CPLN_TOKEN }}
 
   report-scheduled-slow-suite-failure:
     name: Report scheduled slow suite failure
@@ -100,7 +116,7 @@ jobs:
       issues: write
     steps:
       - name: Create or update the scheduled slow suite failure issue
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const title = "Scheduled slow suite failing";
