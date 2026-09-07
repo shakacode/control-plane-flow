@@ -76,5 +76,40 @@ RSpec.describe Release do
         expect(described_class.resolve_version_input("", gem_root: root)).to eq("4.2.0")
       end
     end
+
+    it "keeps the changelog version authoritative when retrying the current version" do
+      Dir.mktmpdir do |root|
+        write_file(root, "CHANGELOG.md", changelog("## [6.0.0.rc.0] - 2026-09-06"))
+        write_file(root, "lib/cpflow/version.rb", version_file("6.0.0.rc.0"))
+
+        expect(described_class.resolve_version_input("", gem_root: root)).to eq("6.0.0.rc.0")
+      end
+    end
+  end
+
+  describe ".compute_target_gem_version" do
+    it "does not implicitly promote a prerelease to stable" do
+      expect do
+        described_class.compute_target_gem_version(
+          current_gem_version: "6.0.0.rc.0",
+          version_input: "patch"
+        )
+      end.to raise_error(SystemExit, /Pass an explicit version instead/)
+    end
+
+    it "preserves intentional minor and major keyword bumps from a prerelease" do
+      expect(
+        described_class.compute_target_gem_version(
+          current_gem_version: "6.0.0.rc.0",
+          version_input: "minor"
+        )
+      ).to eq("6.1.0")
+      expect(
+        described_class.compute_target_gem_version(
+          current_gem_version: "6.0.0.rc.0",
+          version_input: "major"
+        )
+      ).to eq("7.0.0")
+    end
   end
 end

@@ -22,8 +22,9 @@ desc("Releases the cpflow Ruby gem.
     3. Enter the RubyGems OTP when prompted.
 
   With no version argument, the task reads the latest versioned CHANGELOG.md
-  header and uses it when it is newer than the current gem version. Otherwise,
-  it falls back to a patch bump.
+  header and uses it when it is newer than or equal to the current gem version.
+  It falls back to a patch bump only when the current version is stable and the
+  changelog does not name the current or a newer version.
 
   1st argument: Version (optional). Supported values:
                 patch, minor, major, 4.2.0, or 4.2.0.rc.1
@@ -205,10 +206,15 @@ module Release
 
       version = parse_gem_version_components(current_gem_version)
 
+      if version[:prerelease_type] && version_input.to_s.strip.casecmp?("patch")
+        abort <<~ERROR
+          Automatic patch bumps are not allowed from prerelease version #{current_gem_version}.
+          Pass an explicit version instead so a retry cannot accidentally promote a prerelease to stable.
+        ERROR
+      end
+
       case version_input.to_s.strip.downcase
       when "patch"
-        return "#{version[:major]}.#{version[:minor]}.#{version[:patch]}" if version[:prerelease_type]
-
         "#{version[:major]}.#{version[:minor]}.#{version[:patch] + 1}"
       when "minor"
         "#{version[:major]}.#{version[:minor] + 1}.0"
@@ -269,10 +275,8 @@ module Release
         return changelog_version
       end
 
-      if changelog_version &&
-         Gem::Version.new(changelog_version) == Gem::Version.new(current_version) &&
-         !version_tagged?(gem_root, changelog_version)
-        puts "Found untagged CHANGELOG.md version: #{changelog_version} (current: #{current_version})"
+      if changelog_version && Gem::Version.new(changelog_version) == Gem::Version.new(current_version)
+        puts "Found current CHANGELOG.md version: #{changelog_version}"
         return changelog_version
       end
 
@@ -306,10 +310,6 @@ module Release
       abort "Unable to list git tags for version validation.\n\n#{tags_output.strip}" unless tags_status.success?
 
       tags_output.lines.map(&:strip).filter_map { |tag| parse_release_tag_to_gem_version(tag) }.uniq
-    end
-
-    def version_tagged?(gem_root, version)
-      tagged_release_gem_versions(gem_root, fetch_tags: true).include?(version)
     end
 
     def version_bump_type(previous_stable_gem_version:, target_gem_version:)
