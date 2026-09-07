@@ -12,7 +12,13 @@ USAGE = <<~USAGE
   workflow's pinned control-plane-flow checkout and setup validation ref.
   Regenerate from the cpflow gem when templates changed.
   Use --allow-moving-ref only for short-lived local branch/ref experiments.
+  Use -h or --help to show this help.
 USAGE
+
+if ARGV.include?("--help") || ARGV.include?("-h")
+  puts USAGE
+  exit 0
+end
 
 ALLOWED_OPTIONS = ["--allow-moving-ref"].freeze
 FULL_COMMIT_SHA = /\A[0-9a-f]{40}\z/i
