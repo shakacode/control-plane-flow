@@ -96,5 +96,20 @@ RSpec.describe Release do
         )
       end.to raise_error(SystemExit, /Pass an explicit version instead/)
     end
+
+    it "preserves intentional minor and major keyword bumps from a prerelease" do
+      expect(
+        described_class.compute_target_gem_version(
+          current_gem_version: "6.0.0.rc.0",
+          version_input: "minor"
+        )
+      ).to eq("6.1.0")
+      expect(
+        described_class.compute_target_gem_version(
+          current_gem_version: "6.0.0.rc.0",
+          version_input: "major"
+        )
+      ).to eq("7.0.0")
+    end
   end
 end

@@ -206,9 +206,9 @@ module Release
 
       version = parse_gem_version_components(current_gem_version)
 
-      if version[:prerelease_type]
+      if version[:prerelease_type] && version_input.to_s.strip.casecmp?("patch")
         abort <<~ERROR
-          Automatic #{version_input} bumps are not allowed from prerelease version #{current_gem_version}.
+          Automatic patch bumps are not allowed from prerelease version #{current_gem_version}.
           Pass an explicit version instead so a retry cannot accidentally promote a prerelease to stable.
         ERROR
       end
