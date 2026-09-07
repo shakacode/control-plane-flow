@@ -524,9 +524,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "prints the pin helper help successfully" do
-      _stdout, _stderr, status = Open3.capture3(pin_cpflow_ref_path.to_s, "--help")
+      statuses = %w[-h --help].map do |help_flag|
+        Open3.capture3(pin_cpflow_ref_path.to_s, help_flag).last
+      end
 
-      expect(status).to be_success
+      expect(statuses).to all(be_success)
     end
 
     it "rejects a generated workflow whose referenced local action is missing" do
