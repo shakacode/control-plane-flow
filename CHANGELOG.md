@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fixed the generated `bin/pin-cpflow-github-ref` helper so `-h` and `--help` print usage and exit successfully before inspecting repository state.** Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
+
 ## [6.0.0.rc.0] - 2026-09-06
 
 ### Breaking Changes

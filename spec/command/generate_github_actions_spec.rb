@@ -523,6 +523,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(test_cpflow_flow_path.read).to include("workflow_(ref|sha|repository|file_path)")
     end
 
+    it "prints the pin helper help successfully" do
+      _stdout, _stderr, status = Open3.capture3(pin_cpflow_ref_path.to_s, "--help")
+
+      expect(status).to be_success
+    end
+
     it "rejects a generated workflow whose referenced local action is missing" do
       setup_action = generated_action_path("cpflow-setup-environment")
       FileUtils.mv(setup_action, setup_action.dirname.join("action.yml.missing"))

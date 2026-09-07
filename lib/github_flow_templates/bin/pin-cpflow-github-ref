@@ -14,6 +14,11 @@ USAGE = <<~USAGE
   Use --allow-moving-ref only for short-lived local branch/ref experiments.
 USAGE
 
+if ARGV.include?("--help") || ARGV.include?("-h")
+  puts USAGE
+  exit 0
+end
+
 ALLOWED_OPTIONS = ["--allow-moving-ref"].freeze
 FULL_COMMIT_SHA = /\A[0-9a-f]{40}\z/i
 RELEASE_TAG = /\Av\d+\.\d+\.\d+(?:[-.][0-9A-Za-z][0-9A-Za-z.-]*)?\z/
