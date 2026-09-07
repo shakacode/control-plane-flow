@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "shellwords"
 
 describe Command::BuildImage do
   context "when Docker is not running" do
@@ -68,18 +67,27 @@ describe Command::BuildImage do
     end
 
     it "passes additional options to `docker build`", :slow do
-      docker_build_with_test_arg = satisfy do |command|
-        tokens = Shellwords.split(command)
-
-        tokens.first(2) == %w[docker build] && tokens.each_cons(2).include?(["--build-arg", "TEST=123"])
+      spawn_calls = []
+      allow(Process).to receive(:spawn).and_wrap_original do |original, *argv, **spawn_options|
+        spawn_calls << [argv, spawn_options]
+        original.call(*argv, **spawn_options)
       end
-
-      allow(Process).to receive(:spawn).with(docker_build_with_test_arg).and_call_original
-      allow(Process).to receive(:spawn).with(include("docker push")).and_call_original
 
       result = run_cpflow_command("build-image", "-a", app, "--build-arg", "TEST=123")
 
-      expect(Process).to have_received(:spawn).twice
+      docker_build_calls = spawn_calls.select { |argv, _spawn_options| argv.first(2) == %w[docker build] }
+      docker_push_calls = spawn_calls.select { |argv, _spawn_options| argv.first(2) == %w[docker push] }
+
+      expect(spawn_calls.size).to eq(2)
+      expect(docker_build_calls.size).to eq(1)
+      expect(docker_push_calls.size).to eq(1)
+      docker_build_argv, docker_build_spawn_options = docker_build_calls.first
+      docker_push_argv, docker_push_spawn_options = docker_push_calls.first
+
+      expect(docker_build_argv.each_cons(2)).to include(["--build-arg", "TEST=123"])
+      expect(docker_build_spawn_options).to eq(out: File::NULL, err: File::NULL)
+      expect(docker_push_argv).to start_with("docker", "push")
+      expect(docker_push_spawn_options).to eq(out: File::NULL, err: File::NULL)
       expect(result[:status]).to eq(0)
       expect(result[:stderr]).to match(%r{Pushed image to '/org/.+?/image/#{app}:1'})
     end
