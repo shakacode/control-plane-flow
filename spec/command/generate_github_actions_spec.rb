@@ -891,6 +891,89 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "restores SSH files when the build exits or fails before starting ssh-agent" do
+      action = YAML.safe_load(build_action_path.read)
+      prepare_script = action.fetch("runs").fetch("steps")
+                             .find { |step| step["name"] == "Prepare SSH agent for Docker build" }
+                             .fetch("run")
+      build_script = action.fetch("runs").fetch("steps").find do |step|
+        step["name"] == "Build Docker image"
+      end.fetch("run")
+
+      [
+        { "DOCKER_BUILD_EXTRA_ARGS" => "--build-arg BAD", "WORKING_DIRECTORY" => ".", "success" => false },
+        { "DOCKER_BUILD_EXTRA_ARGS" => "", "WORKING_DIRECTORY" => "missing-directory", "success" => false },
+        { "DOCKER_BUILD_EXTRA_ARGS" => "", "WORKING_DIRECTORY" => ".", "success" => true }
+      ].each do |scenario|
+        Dir.mktmpdir("cpflow-ssh-cleanup") do |home|
+          ssh_dir = Pathname(home).join(".ssh")
+          ssh_dir.mkpath
+          known_hosts = ssh_dir.join("known_hosts")
+          known_hosts.write("original-host-key\n")
+          fake_bin = Pathname(home).join("bin")
+          fake_bin.mkpath
+          %w[cpflow ssh-add].each do |command|
+            fake_bin.join(command).write("#!/bin/sh\nexit 0\n")
+            fake_bin.join(command).chmod(0o755)
+          end
+          fake_bin.join("ssh-agent").write(<<~SH)
+            #!/bin/sh
+            if [ "${1:-}" = "-s" ]; then
+              echo 'SSH_AGENT_PID=123; export SSH_AGENT_PID;'
+            fi
+            exit 0
+          SH
+          fake_bin.join("ssh-agent").chmod(0o755)
+
+          prepare_env = {
+            "HOME" => home,
+            "DOCKER_BUILD_SSH_KEY" => "test-private-key",
+            "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
+          }
+          expect(Open3.capture3(prepare_env, "bash", "-c", prepare_script).last).to be_success
+
+          build_env = {
+            "HOME" => home,
+            "APP_NAME" => "test-app",
+            "COMMIT_SHA" => "a" * 40,
+            "CONTROL_PLANE_ORG" => "test-org",
+            "PR_NUMBER" => "",
+            "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
+            **scenario.except("success")
+          }
+          status = Open3.capture3(build_env, "bash", "-c", build_script).last
+          expect(status.success?).to eq(scenario.fetch("success"))
+          expect(known_hosts.read).to eq("original-host-key\n")
+          expect(ssh_dir.join("cpflow_known_hosts_backup")).not_to exist
+          expect(ssh_dir.join("cpflow_build_key")).not_to exist
+        end
+      end
+    end
+
+    it "restores SSH known_hosts when preparation fails after replacement" do
+      action = YAML.safe_load(build_action_path.read)
+      prepare_script = action.fetch("runs").fetch("steps")
+                             .find { |step| step["name"] == "Prepare SSH agent for Docker build" }
+                             .fetch("run")
+
+      Dir.mktmpdir("cpflow-ssh-prep-failure") do |home|
+        ssh_dir = Pathname(home).join(".ssh")
+        ssh_dir.mkpath
+        known_hosts = ssh_dir.join("known_hosts")
+        known_hosts.write("original-host-key\n")
+        ssh_dir.join("cpflow_build_key").mkpath
+
+        env = {
+          "HOME" => home,
+          "DOCKER_BUILD_SSH_KEY" => "test-private-key",
+          "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
+        }
+        expect(Open3.capture3(env, "bash", "-c", prepare_script).last).not_to be_success
+        expect(known_hosts.read).to eq("original-host-key\n")
+        expect(ssh_dir.join("cpflow_known_hosts_backup")).not_to exist
+      end
+    end
+
     it "wires Docker build inputs through the review-app workflow" do
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
