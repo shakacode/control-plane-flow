@@ -12,14 +12,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-### Fixed
-
-- **Stopped the generated Docker-build action from persisting SSH private keys between composite-action steps.** The key now enters `ssh-agent` through standard input, agent state is passed to the build without the key, and an `always()` cleanup step restores SSH state even when execution stops before the build starts. [PR 478](https://github.com/shakacode/control-plane-flow/pull/478) by [Justin Gordon](https://github.com/justin808). Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
-- **Preserved an existing SSH `known_hosts` file in the generated Docker-build action, including when setup fails before or after replacement.** The action now restores the original file on success and failure, removes only files it created, and rejects stale backup state rather than overwriting trusted host keys. [PR 477](https://github.com/shakacode/control-plane-flow/pull/477) by [Justin Gordon](https://github.com/justin808). Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
-- **Made `update-github-actions` preserve downstream workflows by default and require explicit `--workflows` selection to add or replace them.** Ambiguous staging configuration and differing legacy validators fail before writes. Downstream checks can use the preserved `bin/test-cpflow-github-flow-custom` extension. SHA pins now require a reviewed `--version` label, and the migration guide documents generated action allowlists. Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
-- **Fixed the generated `bin/pin-cpflow-github-ref` helper so `-h` and `--help` print usage and exit successfully before inspecting repository state.** Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
-
-## [6.0.0.rc.0] - 2026-09-06
+## [6.0.0] - 2026-09-07
 
 ### Breaking Changes
 
@@ -29,6 +22,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - **Bumped the pinned GitHub Actions in the generated production-promotion workflow and this repository's reusable workflows to `actions/checkout` 7.0.1, `actions/github-script` 9.0.0, and `docker/setup-buildx-action` 4.3.0.** Downstream repositories pick up the template change with `cpflow update-github-actions`. [PR 460](https://github.com/shakacode/control-plane-flow/pull/460) by [Justin Gordon](https://github.com/justin808). Fixes [issue 459](https://github.com/shakacode/control-plane-flow/issues/459).
 - **Changed generated GitHub Actions to check in cpflow's composite actions under `.github/actions/cpflow-*` and refresh them with `cpflow update-github-actions`.** Reusable workflows now load those local actions from the caller repository's trusted event revision, while the separately pinned checkout at `.cpflow` supplies the cpflow runtime source. Downstream repositories must commit generated workflows and local actions together when upgrading. [PR 451](https://github.com/shakacode/control-plane-flow/pull/451) by [Justin Gordon](https://github.com/justin808). Part of [issue 375](https://github.com/shakacode/control-plane-flow/issues/375).
+- **Made `update-github-actions` preserve downstream workflows by default and require explicit `--workflows` selection to add or replace them.** Ambiguous staging configuration and differing legacy validators fail before writes. Downstream checks can use the preserved `bin/test-cpflow-github-flow-custom` extension. SHA pins require a reviewed `--version` label, and the migration guide documents generated action allowlists. [PR 476](https://github.com/shakacode/control-plane-flow/pull/476) by [Justin Gordon](https://github.com/justin808). Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 - **Trimmed the RubyGems post-install message to a three-line generated-workflow reminder with a link to the full update and validation instructions.** [PR 447](https://github.com/shakacode/control-plane-flow/pull/447) by [Justin Gordon](https://github.com/justin808). Fixes [issue 377](https://github.com/shakacode/control-plane-flow/issues/377).
 
 ### Fixed
@@ -40,6 +34,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 - **Fixed scheduled slow-suite regressions in stale-app workload suspension, invalid upstream-token handling, transient workload image deployment, and delayed one-off job output.** `cleanup-stale-apps --mode=stop` now skips configured workloads absent from a stale app, upstream authorization failures cleanly remove their temporary profile and stderr capture, workload image updates retry for a bounded window before failing, and non-interactive `cpflow run` commands drain logs for a bounded post-terminal window so delayed ingestion does not drop completed job output. Slow-suite command logs and failure artifacts now redact token options and explicitly supplied sensitive values. [PR 413](https://github.com/shakacode/control-plane-flow/pull/413) by [Justin Gordon](https://github.com/justin808). Addresses [issue 409](https://github.com/shakacode/control-plane-flow/issues/409).
 - **Queued every pending shared-org Slow and Specific RSpec run instead of letting GitHub replace an older waiter.** Fast runs keep their per-PR or per-ref queue, while the domain-mutating suites use GitHub's bounded `queue: max` behavior in one repository-wide concurrency group. [PR 457](https://github.com/shakacode/control-plane-flow/pull/457) by [Justin Gordon](https://github.com/justin808). Fixes [issue 403](https://github.com/shakacode/control-plane-flow/issues/403).
 - **Bounded `cpflow run` status reconciliation after a non-interactive command finishes.** When Control Plane keeps reporting a cron job as active or pending after the command completion marker, `cpflow run` now waits up to a configurable 20-minute grace period and then exits nonzero with the job, replica, and last observed status instead of polling forever. Addresses the bounded-reconciliation portion of [HiChee issue 10375](https://github.com/shakacode/hichee/issues/10375). [PR 453](https://github.com/shakacode/control-plane-flow/pull/453) by [Justin Gordon](https://github.com/justin808).
+
+### Security
+
+- **Hardened generated Docker builds that use SSH private dependencies.** Private keys now enter `ssh-agent` through standard input instead of being persisted between composite-action steps, invocation-local cleanup runs even when execution stops before the build, and pre-existing `known_hosts` state is preserved across success and failure. [PR 477](https://github.com/shakacode/control-plane-flow/pull/477) and [PR 478](https://github.com/shakacode/control-plane-flow/pull/478) by [Justin Gordon](https://github.com/justin808). Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 
 ## [5.3.0] - 2026-09-02
 
@@ -503,8 +501,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0.rc.0...main
-[6.0.0.rc.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0.rc.0
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0
 [5.3.0]: https://github.com/shakacode/control-plane-flow/compare/v5.2.0...v5.3.0
 [5.2.0]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...v5.2.0
 [5.1.1]: https://github.com/shakacode/control-plane-flow/compare/v5.1.0...v5.1.1
