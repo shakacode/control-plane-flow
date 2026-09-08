@@ -886,6 +886,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       contents = build_action_path.read
       expect(contents).to include('cp -p -- "${HOME}/.ssh/known_hosts" "${known_hosts_backup}"')
       expect(contents).to include("Refusing to replace symlinked SSH known_hosts.")
+      expect(contents).to include("If no build is currently running on this runner, restore or remove that backup")
       expect(contents).to include(
         'mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"'
       )

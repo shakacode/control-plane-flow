@@ -188,7 +188,8 @@ bin/test-cpflow-github-flow
 
 Do not leave downstream apps pinned to a moving branch such as `main`. For a
 short-lived test of an unreleased upstream PR, pin to a full 40-character commit
-SHA and leave `CPFLOW_VERSION` unset:
+SHA, use the upstream source's current in-progress version tag as the readable
+`--version` label, and leave `CPFLOW_VERSION` unset:
 
 ```sh
 bin/pin-cpflow-github-ref --version vX.Y.Z <40-character-control-plane-flow-commit-sha>

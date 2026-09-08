@@ -53,7 +53,8 @@ runs:
 
         known_hosts_backup="${HOME}/.ssh/cpflow_known_hosts_backup"
         if [[ -e "${known_hosts_backup}" ]]; then
-          echo "Refusing to replace SSH known_hosts while a prior cpflow backup exists." >&2
+          echo "Refusing to replace SSH known_hosts: a prior cpflow backup exists at ${known_hosts_backup}." >&2
+          echo "If no build is currently running on this runner, restore or remove that backup, then retry." >&2
           exit 1
         fi
 
