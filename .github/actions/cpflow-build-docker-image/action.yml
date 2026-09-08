@@ -57,14 +57,18 @@ runs:
           exit 1
         fi
 
+        known_hosts_backup_ready=false
         known_hosts_replaced=false
         restore_known_hosts_on_prep_failure() {
           status=$?
           if [[ "${status}" -ne 0 ]]; then
-            if [[ -f "${known_hosts_backup}" ]]; then
+            if [[ "${known_hosts_backup_ready}" == "true" ]]; then
               mv -f -- "${known_hosts_backup}" "${HOME}/.ssh/known_hosts"
-            elif [[ "${known_hosts_replaced}" == "true" ]]; then
-              rm -f "${HOME}/.ssh/known_hosts"
+            else
+              rm -f "${known_hosts_backup}"
+              if [[ "${known_hosts_replaced}" == "true" ]]; then
+                rm -f "${HOME}/.ssh/known_hosts"
+              fi
             fi
           fi
           exit "${status}"
@@ -81,6 +85,7 @@ runs:
             exit 1
           fi
           cp -p -- "${HOME}/.ssh/known_hosts" "${known_hosts_backup}"
+          known_hosts_backup_ready=true
         fi
 
         known_hosts_replaced=true

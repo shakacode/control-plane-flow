@@ -142,11 +142,15 @@ caller-owned job can keep `environment: production` and receive production
 environment secrets directly.
 
 Leave `CPFLOW_VERSION` unset so the workflow builds cpflow from the same
-checked-out upstream source. If you set `CPFLOW_VERSION`, it must match the
-release tag your wrappers are pinned to: a `CPFLOW_VERSION=__CPFLOW_MINOR_SERIES__` runtime
-override must select the same release as the wrapper source, whether the
-wrapper still uses its initial release tag or an immutable SHA annotated with
-that tag (substitute the release you pinned above).
+checked-out upstream source. `CPFLOW_VERSION` is supported only while the
+wrapper itself uses an actual release-tag ref; it must match that tag. Keep it
+unset after replacing the wrapper ref with an immutable SHA because the
+checked-out source already determines the runtime version.
+
+If an existing `bin/test-cpflow-github-flow` differs from cpflow's generated
+validator, first preserve its downstream checks in executable
+`bin/test-cpflow-github-flow-custom`, then remove or rename the old generated
+validator before retrying the update.
 
 After updating the `cpflow` gem in this repo, refresh the generated local
 actions and validation helpers in the same PR. The default command
@@ -172,9 +176,7 @@ cpflow update-github-actions --workflows FILE...
 ```
 
 Reapply required downstream customizations after a selected replacement, then
-pin and validate the complete flow. A differing legacy validator must first
-move its downstream checks to executable
-`bin/test-cpflow-github-flow-custom`.
+pin and validate the complete flow.
 
 For a reviewed release, resolve its tag to the exact commit SHA, then pin and
 validate that immutable source:

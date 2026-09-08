@@ -974,6 +974,38 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       end
     end
 
+    it "does not restore a partial SSH known_hosts backup when copying fails" do
+      action = YAML.safe_load(build_action_path.read)
+      prepare_script = action.fetch("runs").fetch("steps")
+                             .find { |step| step["name"] == "Prepare SSH agent for Docker build" }
+                             .fetch("run")
+
+      Dir.mktmpdir("cpflow-ssh-backup-failure") do |home|
+        ssh_dir = Pathname(home).join(".ssh")
+        ssh_dir.mkpath
+        known_hosts = ssh_dir.join("known_hosts")
+        known_hosts.write("original-host-key\n")
+        fake_bin = Pathname(home).join("bin")
+        fake_bin.mkpath
+        fake_bin.join("cp").write(<<~SH)
+          #!/bin/sh
+          printf 'partial' > "$4"
+          exit 1
+        SH
+        fake_bin.join("cp").chmod(0o755)
+
+        env = {
+          "HOME" => home,
+          "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
+          "DOCKER_BUILD_SSH_KEY" => "test-private-key",
+          "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
+        }
+        expect(Open3.capture3(env, "bash", "-c", prepare_script).last).not_to be_success
+        expect(known_hosts.read).to eq("original-host-key\n")
+        expect(ssh_dir.join("cpflow_known_hosts_backup")).not_to exist
+      end
+    end
+
     it "wires Docker build inputs through the review-app workflow" do
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
@@ -1468,6 +1500,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "pins the +review-app-* commands in the long-form help markdown" do
       help_md = playground.join(".github/cpflow-help.md").read
+      normalized_help = help_md.gsub(/\s+/, " ")
 
       expect(help_md).to include("`+review-app-deploy`")
       expect(help_md).to include("`+review-app-delete`")
@@ -1505,6 +1538,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("For a reviewed release, resolve its tag to the exact commit SHA")
       expect(help_md).to include("Freshly generated wrappers start with a Control Plane Flow release tag")
       expect(help_md).to include("replace that tag with its immutable commit SHA")
+      expect(help_md).to include("must match that tag")
+      expect(normalized_help).to include("Keep it unset after replacing the wrapper ref with an immutable SHA")
+      expect(normalized_help).to include("then remove or rename the old generated validator")
       expect(help_md).not_to include("pin the tag in their `uses:` ref")
       expect(help_md).not_to include("update the generated wrappers in")
       expect(help_md).not_to include("control_plane_flow_ref")
@@ -1537,14 +1573,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("DOCKER_BUILD_SSH_KNOWN_HOSTS")
     end
 
-    # Issue #341: the version-locking example must not emit a concrete release number.
-    # A literal version (e.g. 5.0.1) goes stale against the @v#{VERSION} wrapper refs in
-    # the same generated file and reads like a required old runtime override.
-    it "uses a placeholder version in the CPFLOW_VERSION example" do
+    # Issue #341: version-locking guidance must not suggest a stale concrete runtime
+    # override, and SHA-pinned wrappers must leave CPFLOW_VERSION unset.
+    it "limits CPFLOW_VERSION to release-tag wrapper refs" do
       help_md = playground.join(".github/cpflow-help.md").read
+      normalized_help = help_md.gsub(/\s+/, " ")
 
-      expect(help_md).to match(/CPFLOW_VERSION=\d+\.\d+\.x\b/)
-      expect(help_md).to match(/wrapper still uses its initial release tag or an immutable SHA annotated with/)
+      expect(normalized_help).to include("supported only while the wrapper itself uses an actual release-tag ref")
+      expect(normalized_help).to include("Keep it unset after replacing the wrapper ref with an immutable SHA")
       expect(help_md).not_to match(/CPFLOW_VERSION=\d+\.\d+\.\d+/)
     end
 
