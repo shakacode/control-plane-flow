@@ -51,6 +51,20 @@ runs:
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
 
+        known_hosts_backup="${HOME}/.ssh/cpflow_known_hosts_backup"
+        rm -f "${known_hosts_backup}"
+        if [[ -L "${HOME}/.ssh/known_hosts" ]]; then
+          echo "Refusing to replace symlinked SSH known_hosts." >&2
+          exit 1
+        fi
+        if [[ -e "${HOME}/.ssh/known_hosts" ]]; then
+          if [[ ! -f "${HOME}/.ssh/known_hosts" ]]; then
+            echo "Refusing to replace non-file SSH known_hosts." >&2
+            exit 1
+          fi
+          cp -p -- "${HOME}/.ssh/known_hosts" "${known_hosts_backup}"
+        fi
+
         if [[ -n "${DOCKER_BUILD_SSH_KNOWN_HOSTS}" ]]; then
           printf '%s\n' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
         else
@@ -87,11 +101,14 @@ runs:
             ssh-agent -k >/dev/null || true
           fi
           rm -f "${HOME}/.ssh/cpflow_build_key"
-          # Only remove known_hosts if this action's prep step wrote it. On self-hosted
-          # or reused runners we must not touch a user-managed file we did not create,
-          # so the flag is set inside the same prep-detection branch below.
+          # Restore a pre-existing known_hosts file on reused runners. When there was
+          # no original file, remove only the file created by this action.
           if [[ "${build_ssh_prepped}" == "true" ]]; then
-            rm -f "${HOME}/.ssh/known_hosts"
+            if [[ -f "${HOME}/.ssh/cpflow_known_hosts_backup" ]]; then
+              mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"
+            else
+              rm -f "${HOME}/.ssh/known_hosts"
+            fi
           fi
         }
         trap cleanup_build_ssh EXIT
@@ -117,8 +134,8 @@ runs:
         fi
 
         if [[ -f "${HOME}/.ssh/cpflow_build_key" ]]; then
-          # Mark prep-step ownership so cleanup_build_ssh only removes known_hosts
-          # when this action wrote it (see trap above).
+          # Mark prep-step ownership so cleanup_build_ssh restores or removes only
+          # the known_hosts file prepared by this action (see trap above).
           build_ssh_prepped=true
           eval "$(ssh-agent -s)"
           ssh_agent_started=true

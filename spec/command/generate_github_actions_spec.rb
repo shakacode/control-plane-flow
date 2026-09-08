@@ -882,6 +882,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("github.com ssh-ed25519")
     end
 
+    it "preserves and restores a pre-existing SSH known_hosts file" do
+      contents = build_action_path.read
+      expect(contents).to include('cp -p -- "${HOME}/.ssh/known_hosts" "${known_hosts_backup}"')
+      expect(contents).to include("Refusing to replace symlinked SSH known_hosts.")
+      expect(contents).to include(
+        'mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"'
+      )
+    end
+
     it "wires Docker build inputs through the review-app workflow" do
       contents = reusable_review_app_workflow_path.read
       expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
