@@ -138,10 +138,8 @@ runs:
         cleanup_build_ssh() {
           if [[ "${build_ssh_prepped}" == "true" ]]; then
             ssh-agent -k >/dev/null || true
-          fi
-          # Restore a pre-existing known_hosts file on reused runners. When there was
-          # no original file, remove only the file created by this action.
-          if [[ "${build_ssh_prepped}" == "true" ]]; then
+            # Restore a pre-existing known_hosts file on reused runners. When there was
+            # no original file, remove only the file created by this action.
             if [[ -f "${HOME}/.ssh/cpflow_known_hosts_backup" ]]; then
               mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"
             else
