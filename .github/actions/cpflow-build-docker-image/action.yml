@@ -38,10 +38,9 @@ runs:
       if: ${{ inputs.docker_build_ssh_key != '' }}
       shell: bash
       env:
-        # Pass the key via env so the file write is a single printf call rather than a
-        # heredoc with a fixed terminator (a heredoc would silently truncate the key if
-        # any line of the key value happened to match the terminator). Scope is still
-        # this step only — the build step below does not receive DOCKER_BUILD_SSH_KEY.
+        # Pass the key via env so ssh-add can read it from stdin without persisting it to
+        # disk. Scope is this step only — the build step below receives the agent socket,
+        # not DOCKER_BUILD_SSH_KEY.
         DOCKER_BUILD_SSH_KEY: ${{ inputs.docker_build_ssh_key }}
         DOCKER_BUILD_SSH_KNOWN_HOSTS: ${{ inputs.docker_build_ssh_known_hosts }}
       run: |
@@ -60,9 +59,13 @@ runs:
 
         known_hosts_backup_ready=false
         known_hosts_replaced=false
+        ssh_agent_started=false
         restore_known_hosts_on_prep_failure() {
           status=$?
           if [[ "${status}" -ne 0 ]]; then
+            if [[ "${ssh_agent_started}" == "true" ]]; then
+              ssh-agent -k >/dev/null || true
+            fi
             if [[ "${known_hosts_backup_ready}" == "true" ]]; then
               mv -f -- "${known_hosts_backup}" "${HOME}/.ssh/known_hosts"
             else
@@ -101,8 +104,15 @@ runs:
         fi
         chmod 600 ~/.ssh/known_hosts
 
-        printf '%s\n' "${DOCKER_BUILD_SSH_KEY}" > ~/.ssh/cpflow_build_key
-        chmod 600 ~/.ssh/cpflow_build_key
+        eval "$(ssh-agent -s)"
+        ssh_agent_started=true
+        printf '%s\n' "${DOCKER_BUILD_SSH_KEY}" | ssh-add -
+        {
+          echo "CPFLOW_BUILD_SSH_PREPPED=true"
+          echo "CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL=${known_hosts_backup_ready}"
+          echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
+          echo "SSH_AGENT_PID=${SSH_AGENT_PID}"
+        } >> "${GITHUB_ENV}"
 
     - name: Build Docker image
       shell: bash
@@ -118,17 +128,12 @@ runs:
 
         PR_INFO=""
         docker_build_args=()
-        ssh_agent_started=false
-        build_ssh_prepped=false
-        if [[ -f "${HOME}/.ssh/cpflow_build_key" ]]; then
-          build_ssh_prepped=true
-        fi
+        build_ssh_prepped="${CPFLOW_BUILD_SSH_PREPPED:-false}"
 
         cleanup_build_ssh() {
-          if [[ "${ssh_agent_started}" == "true" ]]; then
+          if [[ "${build_ssh_prepped}" == "true" ]]; then
             ssh-agent -k >/dev/null || true
           fi
-          rm -f "${HOME}/.ssh/cpflow_build_key"
           # Restore a pre-existing known_hosts file on reused runners. When there was
           # no original file, remove only the file created by this action.
           if [[ "${build_ssh_prepped}" == "true" ]]; then
@@ -162,12 +167,25 @@ runs:
         fi
 
         if [[ "${build_ssh_prepped}" == "true" ]]; then
-          eval "$(ssh-agent -s)"
-          ssh_agent_started=true
-          ssh-add "${HOME}/.ssh/cpflow_build_key"
           docker_build_args+=("--ssh=default")
         fi
 
         echo "🏗️ Building Docker image${PR_INFO} (commit ${COMMIT_SHA})..."
         cpflow build-image -a "${APP_NAME}" --commit="${COMMIT_SHA}" --org="${CONTROL_PLANE_ORG}" "${docker_build_args[@]}"
         echo "✅ Docker image build successful${PR_INFO} (commit ${COMMIT_SHA})"
+
+    - name: Clean up SSH build state
+      if: ${{ always() && inputs.docker_build_ssh_key != '' }}
+      shell: bash
+      run: |
+        set +e
+
+        if [[ "${CPFLOW_BUILD_SSH_PREPPED:-false}" == "true" ]]; then
+          ssh-agent -k >/dev/null || true
+        fi
+
+        if [[ -f "${HOME}/.ssh/cpflow_known_hosts_backup" ]]; then
+          mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"
+        elif [[ "${CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL:-}" == "false" ]]; then
+          rm -f "${HOME}/.ssh/known_hosts"
+        fi

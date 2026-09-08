@@ -875,6 +875,18 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
     end
 
+    it "never persists the SSH private key between composite steps and always cleans build state" do
+      action = YAML.safe_load(build_action_path.read)
+      contents = build_action_path.read
+      cleanup_step = action.fetch("runs").fetch("steps").find do |step|
+        step["name"] == "Clean up SSH build state"
+      end
+
+      expect(contents).not_to include("cpflow_build_key")
+      expect(contents).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KEY}" | ssh-add -')
+      expect(cleanup_step.fetch("if")).to include("always()")
+    end
+
     it "pins the default SSH known_hosts entries without ssh-keyscan" do
       contents = build_action_path.read
       expect(contents).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}"')
@@ -920,6 +932,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
           fake_bin.join("ssh-agent").write(<<~SH)
             #!/bin/sh
             if [ "${1:-}" = "-s" ]; then
+              echo 'SSH_AUTH_SOCK=/tmp/cpflow-test-agent.sock; export SSH_AUTH_SOCK;'
               echo 'SSH_AGENT_PID=123; export SSH_AGENT_PID;'
             fi
             exit 0
@@ -928,10 +941,15 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
           prepare_env = {
             "HOME" => home,
+            "GITHUB_ENV" => Pathname(home).join("github-env").to_s,
+            "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
             "DOCKER_BUILD_SSH_KEY" => "test-private-key",
             "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
           }
           expect(Open3.capture3(prepare_env, "bash", "-c", prepare_script).last).to be_success
+          persisted_env = File.readlines(prepare_env.fetch("GITHUB_ENV"), chomp: true).to_h do |line|
+            line.split("=", 2)
+          end
 
           build_env = {
             "HOME" => home,
@@ -940,6 +958,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
             "CONTROL_PLANE_ORG" => "test-org",
             "PR_NUMBER" => "",
             "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
+            **persisted_env,
             **scenario.except("success")
           }
           status = Open3.capture3(build_env, "bash", "-c", build_script).last
@@ -962,10 +981,24 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         ssh_dir.mkpath
         known_hosts = ssh_dir.join("known_hosts")
         known_hosts.write("original-host-key\n")
-        ssh_dir.join("cpflow_build_key").mkpath
+        fake_bin = Pathname(home).join("bin")
+        fake_bin.mkpath
+        fake_bin.join("ssh-agent").write(<<~SH)
+          #!/bin/sh
+          if [ "${1:-}" = "-s" ]; then
+            echo 'SSH_AUTH_SOCK=/tmp/cpflow-test-agent.sock; export SSH_AUTH_SOCK;'
+            echo 'SSH_AGENT_PID=123; export SSH_AGENT_PID;'
+          fi
+          exit 0
+        SH
+        fake_bin.join("ssh-agent").chmod(0o755)
+        fake_bin.join("ssh-add").write("#!/bin/sh\nexit 1\n")
+        fake_bin.join("ssh-add").chmod(0o755)
 
         env = {
           "HOME" => home,
+          "GITHUB_ENV" => Pathname(home).join("github-env").to_s,
+          "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
           "DOCKER_BUILD_SSH_KEY" => "test-private-key",
           "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
         }
@@ -997,6 +1030,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         env = {
           "HOME" => home,
+          "GITHUB_ENV" => Pathname(home).join("github-env").to_s,
           "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
           "DOCKER_BUILD_SSH_KEY" => "test-private-key",
           "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
@@ -1004,6 +1038,50 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(Open3.capture3(env, "bash", "-c", prepare_script).last).not_to be_success
         expect(known_hosts.read).to eq("original-host-key\n")
         expect(ssh_dir.join("cpflow_known_hosts_backup")).not_to exist
+      end
+    end
+
+    it "cleans SSH state if execution stops between preparation and build" do
+      action = YAML.safe_load(build_action_path.read)
+      steps = action.fetch("runs").fetch("steps")
+      prepare_script = steps.find { |step| step["name"] == "Prepare SSH agent for Docker build" }.fetch("run")
+      cleanup_script = steps.find { |step| step["name"] == "Clean up SSH build state" }.fetch("run")
+
+      Dir.mktmpdir("cpflow-ssh-between-steps") do |home|
+        ssh_dir = Pathname(home).join(".ssh")
+        ssh_dir.mkpath
+        known_hosts = ssh_dir.join("known_hosts")
+        known_hosts.write("original-host-key\n")
+        fake_bin = Pathname(home).join("bin")
+        fake_bin.mkpath
+        fake_bin.join("ssh-agent").write(<<~SH)
+          #!/bin/sh
+          if [ "${1:-}" = "-s" ]; then
+            echo 'SSH_AUTH_SOCK=/tmp/cpflow-test-agent.sock; export SSH_AUTH_SOCK;'
+            echo 'SSH_AGENT_PID=123; export SSH_AGENT_PID;'
+          fi
+          exit 0
+        SH
+        fake_bin.join("ssh-agent").chmod(0o755)
+        fake_bin.join("ssh-add").write("#!/bin/sh\ncat >/dev/null\n")
+        fake_bin.join("ssh-add").chmod(0o755)
+        github_env = Pathname(home).join("github-env")
+        prepare_env = {
+          "HOME" => home,
+          "GITHUB_ENV" => github_env.to_s,
+          "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
+          "DOCKER_BUILD_SSH_KEY" => "test-private-key",
+          "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
+        }
+
+        expect(Open3.capture3(prepare_env, "bash", "-c", prepare_script).last).to be_success
+        persisted_env = github_env.readlines(chomp: true).to_h { |line| line.split("=", 2) }
+        cleanup_env = { "HOME" => home, "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}", **persisted_env }
+        expect(Open3.capture3(cleanup_env, "bash", "-c", cleanup_script).last).to be_success
+
+        expect(known_hosts.read).to eq("original-host-key\n")
+        expect(ssh_dir.join("cpflow_known_hosts_backup")).not_to exist
+        expect(ssh_dir.join("cpflow_build_key")).not_to exist
       end
     end
 
