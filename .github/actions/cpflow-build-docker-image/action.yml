@@ -51,6 +51,45 @@ runs:
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
 
+        known_hosts_backup="${HOME}/.ssh/cpflow_known_hosts_backup"
+        if [[ -e "${known_hosts_backup}" ]]; then
+          echo "Refusing to replace SSH known_hosts: a prior cpflow backup exists at ${known_hosts_backup}." >&2
+          echo "If no build is currently running on this runner, restore or remove that backup, then retry." >&2
+          exit 1
+        fi
+
+        known_hosts_backup_ready=false
+        known_hosts_replaced=false
+        restore_known_hosts_on_prep_failure() {
+          status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            if [[ "${known_hosts_backup_ready}" == "true" ]]; then
+              mv -f -- "${known_hosts_backup}" "${HOME}/.ssh/known_hosts"
+            else
+              rm -f "${known_hosts_backup}"
+              if [[ "${known_hosts_replaced}" == "true" ]]; then
+                rm -f "${HOME}/.ssh/known_hosts"
+              fi
+            fi
+          fi
+          exit "${status}"
+        }
+        trap restore_known_hosts_on_prep_failure EXIT
+
+        if [[ -L "${HOME}/.ssh/known_hosts" ]]; then
+          echo "Refusing to replace symlinked SSH known_hosts." >&2
+          exit 1
+        fi
+        if [[ -e "${HOME}/.ssh/known_hosts" ]]; then
+          if [[ ! -f "${HOME}/.ssh/known_hosts" ]]; then
+            echo "Refusing to replace non-file SSH known_hosts." >&2
+            exit 1
+          fi
+          cp -p -- "${HOME}/.ssh/known_hosts" "${known_hosts_backup}"
+          known_hosts_backup_ready=true
+        fi
+
+        known_hosts_replaced=true
         if [[ -n "${DOCKER_BUILD_SSH_KNOWN_HOSTS}" ]]; then
           printf '%s\n' "${DOCKER_BUILD_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
         else
@@ -81,17 +120,23 @@ runs:
         docker_build_args=()
         ssh_agent_started=false
         build_ssh_prepped=false
+        if [[ -f "${HOME}/.ssh/cpflow_build_key" ]]; then
+          build_ssh_prepped=true
+        fi
 
         cleanup_build_ssh() {
           if [[ "${ssh_agent_started}" == "true" ]]; then
             ssh-agent -k >/dev/null || true
           fi
           rm -f "${HOME}/.ssh/cpflow_build_key"
-          # Only remove known_hosts if this action's prep step wrote it. On self-hosted
-          # or reused runners we must not touch a user-managed file we did not create,
-          # so the flag is set inside the same prep-detection branch below.
+          # Restore a pre-existing known_hosts file on reused runners. When there was
+          # no original file, remove only the file created by this action.
           if [[ "${build_ssh_prepped}" == "true" ]]; then
-            rm -f "${HOME}/.ssh/known_hosts"
+            if [[ -f "${HOME}/.ssh/cpflow_known_hosts_backup" ]]; then
+              mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"
+            else
+              rm -f "${HOME}/.ssh/known_hosts"
+            fi
           fi
         }
         trap cleanup_build_ssh EXIT
@@ -116,10 +161,7 @@ runs:
           done <<< "${DOCKER_BUILD_EXTRA_ARGS}"
         fi
 
-        if [[ -f "${HOME}/.ssh/cpflow_build_key" ]]; then
-          # Mark prep-step ownership so cleanup_build_ssh only removes known_hosts
-          # when this action wrote it (see trap above).
-          build_ssh_prepped=true
+        if [[ "${build_ssh_prepped}" == "true" ]]; then
           eval "$(ssh-agent -s)"
           ssh_agent_started=true
           ssh-add "${HOME}/.ssh/cpflow_build_key"

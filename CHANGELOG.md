@@ -14,6 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- **Preserved an existing SSH `known_hosts` file in the generated Docker-build action, including when setup fails before or after replacement.** The action now restores the original file on success and failure, removes only files it created, and rejects stale backup state rather than overwriting trusted host keys. [PR 477](https://github.com/shakacode/control-plane-flow/pull/477) by [Justin Gordon](https://github.com/justin808). Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 - **Made `update-github-actions` preserve downstream workflows by default and require explicit `--workflows` selection to add or replace them.** Ambiguous staging configuration and differing legacy validators fail before writes. Downstream checks can use the preserved `bin/test-cpflow-github-flow-custom` extension. SHA pins now require a reviewed `--version` label, and the migration guide documents generated action allowlists. Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 - **Fixed the generated `bin/pin-cpflow-github-ref` helper so `-h` and `--help` print usage and exit successfully before inspecting repository state.** Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 

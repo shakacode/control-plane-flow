@@ -132,21 +132,30 @@ production org, using production-only secrets and values.
 
 ## Version Locking
 
-Generated wrappers pin Control Plane Flow with a release tag, for example
-`__CPFLOW_GITHUB_ACTIONS_REF__`. Reusable review-app, staging, cleanup, and
-helper workflows pin the tag in their `uses:` ref. Production promotion pins
-the same tag in the `Checkout control-plane-flow actions` step so the
+Freshly generated wrappers start with a Control Plane Flow release tag, for
+example `__CPFLOW_GITHUB_ACTIONS_REF__`. Before review and merge, use the pin
+helper below to replace that tag with its immutable commit SHA and retain the
+reviewed tag in a readable comment. Reusable review-app, staging, cleanup, and
+helper workflows then use that SHA. Production promotion uses the same SHA and
+tag in the `Checkout control-plane-flow actions` step so the
 caller-owned job can keep `environment: production` and receive production
 environment secrets directly.
 
 Leave `CPFLOW_VERSION` unset so the workflow builds cpflow from the same
-checked-out upstream source. If you set `CPFLOW_VERSION`, it must match the
-release tag your wrappers are pinned to: a `CPFLOW_VERSION=__CPFLOW_MINOR_SERIES__` runtime
-override goes with a wrapper pinned to `uses: ...@v__CPFLOW_MINOR_SERIES__` (substitute the
-release you pinned above).
+checked-out upstream source. `CPFLOW_VERSION` is supported only while the
+wrapper itself uses an actual release-tag ref; it must match that tag. Keep it
+unset after replacing the wrapper ref with an immutable SHA because the
+checked-out source already determines the runtime version.
 
-After updating the `cpflow` gem in this repo, update the generated wrappers in
-the same PR:
+If an existing `bin/test-cpflow-github-flow` differs from cpflow's generated
+validator, first preserve its downstream checks in executable
+`bin/test-cpflow-github-flow-custom`, then remove or rename the old generated
+validator before retrying the update.
+
+After updating the `cpflow` gem in this repo, refresh the generated local
+actions and validation helpers in the same PR. The default command
+preserves every top-level workflow, including its refs, triggers, permissions, and
+downstream customizations:
 
 ```sh
 cpflow update-github-actions
@@ -160,12 +169,30 @@ bundle exec cpflow update-github-actions
 bin/test-cpflow-github-flow bundle exec cpflow
 ```
 
-Do not leave downstream apps pinned to a moving branch such as `main`. For a
-short-lived test of an unreleased upstream PR, pin to a full 40-character commit
-SHA and leave `CPFLOW_VERSION` unset:
+Replace workflow wrappers only after explicitly selecting and reviewing them:
 
 ```sh
-bin/pin-cpflow-github-ref <40-character-control-plane-flow-commit-sha>
+cpflow update-github-actions --workflows FILE...
+```
+
+Reapply required downstream customizations after a selected replacement, then
+pin and validate the complete flow.
+
+For a reviewed release, resolve its tag to the exact commit SHA, then pin and
+validate that immutable source:
+
+```sh
+bin/pin-cpflow-github-ref --version vX.Y.Z <40-character-control-plane-flow-commit-sha>
+bin/test-cpflow-github-flow
+```
+
+Do not leave downstream apps pinned to a moving branch such as `main`. For a
+short-lived test of an unreleased upstream PR, pin to a full 40-character commit
+SHA, use the upstream source's current in-progress version tag as the readable
+`--version` label, and leave `CPFLOW_VERSION` unset:
+
+```sh
+bin/pin-cpflow-github-ref --version vX.Y.Z <40-character-control-plane-flow-commit-sha>
 bin/test-cpflow-github-flow ruby /path/to/control-plane-flow/bin/cpflow
 ```
 
