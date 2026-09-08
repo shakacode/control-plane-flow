@@ -885,6 +885,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).not_to include("cpflow_build_key")
       expect(contents).to include('printf \'%s\n\' "${DOCKER_BUILD_SSH_KEY}" | ssh-add -')
       expect(cleanup_step.fetch("if")).to include("always()")
+      expect(contents).not_to include("GITHUB_ENV")
+      expect(cleanup_step.fetch("env")).to include(
+        "CPFLOW_BUILD_SSH_PREPPED" => "${{ steps.prepare-build-ssh.outputs.prepared }}"
+      )
     end
 
     it "pins the default SSH known_hosts entries without ssh-keyscan" do
@@ -941,15 +945,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
           prepare_env = {
             "HOME" => home,
-            "GITHUB_ENV" => Pathname(home).join("github-env").to_s,
+            "GITHUB_OUTPUT" => Pathname(home).join("github-output").to_s,
             "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
             "DOCKER_BUILD_SSH_KEY" => "test-private-key",
             "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
           }
           expect(Open3.capture3(prepare_env, "bash", "-c", prepare_script).last).to be_success
-          persisted_env = File.readlines(prepare_env.fetch("GITHUB_ENV"), chomp: true).to_h do |line|
+          step_outputs = File.readlines(prepare_env.fetch("GITHUB_OUTPUT"), chomp: true).to_h do |line|
             line.split("=", 2)
           end
+          persisted_env = {
+            "CPFLOW_BUILD_SSH_PREPPED" => step_outputs.fetch("prepared"),
+            "CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL" => step_outputs.fetch("known_hosts_had_original"),
+            "SSH_AUTH_SOCK" => step_outputs.fetch("ssh_auth_sock"),
+            "SSH_AGENT_PID" => step_outputs.fetch("ssh_agent_pid")
+          }
 
           build_env = {
             "HOME" => home,
@@ -997,7 +1007,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         env = {
           "HOME" => home,
-          "GITHUB_ENV" => Pathname(home).join("github-env").to_s,
+          "GITHUB_OUTPUT" => Pathname(home).join("github-output").to_s,
           "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
           "DOCKER_BUILD_SSH_KEY" => "test-private-key",
           "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
@@ -1030,7 +1040,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         env = {
           "HOME" => home,
-          "GITHUB_ENV" => Pathname(home).join("github-env").to_s,
+          "GITHUB_OUTPUT" => Pathname(home).join("github-output").to_s,
           "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
           "DOCKER_BUILD_SSH_KEY" => "test-private-key",
           "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
@@ -1065,23 +1075,61 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         fake_bin.join("ssh-agent").chmod(0o755)
         fake_bin.join("ssh-add").write("#!/bin/sh\ncat >/dev/null\n")
         fake_bin.join("ssh-add").chmod(0o755)
-        github_env = Pathname(home).join("github-env")
+        github_output = Pathname(home).join("github-output")
         prepare_env = {
           "HOME" => home,
-          "GITHUB_ENV" => github_env.to_s,
+          "GITHUB_OUTPUT" => github_output.to_s,
           "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}",
           "DOCKER_BUILD_SSH_KEY" => "test-private-key",
           "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
         }
 
         expect(Open3.capture3(prepare_env, "bash", "-c", prepare_script).last).to be_success
-        persisted_env = github_env.readlines(chomp: true).to_h { |line| line.split("=", 2) }
+        step_outputs = github_output.readlines(chomp: true).to_h { |line| line.split("=", 2) }
+        persisted_env = {
+          "CPFLOW_BUILD_SSH_PREPPED" => step_outputs.fetch("prepared"),
+          "CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL" => step_outputs.fetch("known_hosts_had_original"),
+          "SSH_AUTH_SOCK" => step_outputs.fetch("ssh_auth_sock"),
+          "SSH_AGENT_PID" => step_outputs.fetch("ssh_agent_pid")
+        }
         cleanup_env = { "HOME" => home, "PATH" => "#{fake_bin}:#{ENV.fetch('PATH')}", **persisted_env }
         expect(Open3.capture3(cleanup_env, "bash", "-c", cleanup_script).last).to be_success
 
         expect(known_hosts.read).to eq("original-host-key\n")
         expect(ssh_dir.join("cpflow_known_hosts_backup")).not_to exist
         expect(ssh_dir.join("cpflow_build_key")).not_to exist
+
+        known_hosts.write("later-user-managed-key\n")
+        expect(Open3.capture3({ "HOME" => home }, "bash", "-c", cleanup_script).last).to be_success
+        expect(known_hosts.read).to eq("later-user-managed-key\n")
+      end
+    end
+
+    it "does not claim or restore a stale SSH backup rejected during preparation" do
+      action = YAML.safe_load(build_action_path.read)
+      steps = action.fetch("runs").fetch("steps")
+      prepare_script = steps.find { |step| step["name"] == "Prepare SSH agent for Docker build" }.fetch("run")
+      cleanup_script = steps.find { |step| step["name"] == "Clean up SSH build state" }.fetch("run")
+
+      Dir.mktmpdir("cpflow-ssh-stale-backup") do |home|
+        ssh_dir = Pathname(home).join(".ssh")
+        ssh_dir.mkpath
+        known_hosts = ssh_dir.join("known_hosts")
+        backup = ssh_dir.join("cpflow_known_hosts_backup")
+        known_hosts.write("current-host-key\n")
+        backup.write("stale-host-key\n")
+        env = {
+          "HOME" => home,
+          "GITHUB_OUTPUT" => Pathname(home).join("github-output").to_s,
+          "DOCKER_BUILD_SSH_KEY" => "test-private-key",
+          "DOCKER_BUILD_SSH_KNOWN_HOSTS" => "replacement-host-key"
+        }
+
+        expect(Open3.capture3(env, "bash", "-c", prepare_script).last).not_to be_success
+        expect(Open3.capture3({ "HOME" => home }, "bash", "-c", cleanup_script).last).to be_success
+
+        expect(known_hosts.read).to eq("current-host-key\n")
+        expect(backup.read).to eq("stale-host-key\n")
       end
     end
 

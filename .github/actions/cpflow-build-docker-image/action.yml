@@ -35,6 +35,7 @@ runs:
     # in the main build step's environment. ACTIONS_STEP_DEBUG=true dumps env before any
     # command runs, so keeping the key out of env there avoids even admin-triggered exposure.
     - name: Prepare SSH agent for Docker build
+      id: prepare-build-ssh
       if: ${{ inputs.docker_build_ssh_key != '' }}
       shell: bash
       env:
@@ -108,11 +109,11 @@ runs:
         ssh_agent_started=true
         printf '%s\n' "${DOCKER_BUILD_SSH_KEY}" | ssh-add -
         {
-          echo "CPFLOW_BUILD_SSH_PREPPED=true"
-          echo "CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL=${known_hosts_backup_ready}"
-          echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
-          echo "SSH_AGENT_PID=${SSH_AGENT_PID}"
-        } >> "${GITHUB_ENV}"
+          echo "prepared=true"
+          echo "known_hosts_had_original=${known_hosts_backup_ready}"
+          echo "ssh_auth_sock=${SSH_AUTH_SOCK}"
+          echo "ssh_agent_pid=${SSH_AGENT_PID}"
+        } >> "${GITHUB_OUTPUT}"
 
     - name: Build Docker image
       shell: bash
@@ -122,6 +123,10 @@ runs:
         CONTROL_PLANE_ORG: ${{ inputs.org }}
         DOCKER_BUILD_EXTRA_ARGS: ${{ inputs.docker_build_extra_args }}
         PR_NUMBER: ${{ inputs.pr_number }}
+        CPFLOW_BUILD_SSH_PREPPED: ${{ steps.prepare-build-ssh.outputs.prepared }}
+        CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL: ${{ steps.prepare-build-ssh.outputs.known_hosts_had_original }}
+        SSH_AUTH_SOCK: ${{ steps.prepare-build-ssh.outputs.ssh_auth_sock }}
+        SSH_AGENT_PID: ${{ steps.prepare-build-ssh.outputs.ssh_agent_pid }}
         WORKING_DIRECTORY: ${{ inputs.working_directory }}
       run: |
         set -euo pipefail
@@ -177,15 +182,19 @@ runs:
     - name: Clean up SSH build state
       if: ${{ always() && inputs.docker_build_ssh_key != '' }}
       shell: bash
+      env:
+        CPFLOW_BUILD_SSH_PREPPED: ${{ steps.prepare-build-ssh.outputs.prepared }}
+        CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL: ${{ steps.prepare-build-ssh.outputs.known_hosts_had_original }}
+        SSH_AUTH_SOCK: ${{ steps.prepare-build-ssh.outputs.ssh_auth_sock }}
+        SSH_AGENT_PID: ${{ steps.prepare-build-ssh.outputs.ssh_agent_pid }}
       run: |
         set +e
 
         if [[ "${CPFLOW_BUILD_SSH_PREPPED:-false}" == "true" ]]; then
           ssh-agent -k >/dev/null || true
-        fi
-
-        if [[ -f "${HOME}/.ssh/cpflow_known_hosts_backup" ]]; then
-          mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"
-        elif [[ "${CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL:-}" == "false" ]]; then
-          rm -f "${HOME}/.ssh/known_hosts"
+          if [[ -f "${HOME}/.ssh/cpflow_known_hosts_backup" ]]; then
+            mv -f -- "${HOME}/.ssh/cpflow_known_hosts_backup" "${HOME}/.ssh/known_hosts"
+          elif [[ "${CPFLOW_KNOWN_HOSTS_HAD_ORIGINAL:-}" == "false" ]]; then
+            rm -f "${HOME}/.ssh/known_hosts"
+          fi
         fi
