@@ -797,11 +797,88 @@ bundle exec cpflow update-github-actions
 bin/test-cpflow-github-flow bundle exec cpflow
 ```
 
-`cpflow update-github-actions` regenerates the workflow wrappers, local
-composite actions, and helper files from the installed gem, pins the wrapper
-`uses:` refs to `v<gem-version>`, and preserves a single custom staging branch
-from the existing generated staging workflow. Pass `--staging-branch BRANCH`
-when changing or restoring a custom staging branch explicitly.
+`cpflow update-github-actions` refreshes local composite actions and helpers.
+It preserves every top-level workflow by default, including refs, triggers,
+permissions, and downstream deployment ownership. It does not create staging
+or production deployment workflows when another CI system owns those deploys.
+Select the wrappers you intend to replace explicitly; see
+`cpflow update-github-actions --help` for the current interface:
+
+```sh
+bundle exec cpflow update-github-actions --workflows \
+  cpflow-deploy-review-app.yml cpflow-delete-review-app.yml \
+  cpflow-cleanup-stale-review-apps.yml cpflow-help-command.yml \
+  cpflow-review-app-help.yml
+```
+
+Each selected wrapper is replaced in full with the installed gem's template
+and release ref. Review the diff and reapply downstream changes before
+committing. Unselected wrappers keep their refs: preservation is not evidence
+that old wrappers are compatible with new local actions. Migrate wrapper
+contracts and source pins together, then run the validator in the same PR.
+For a selected staging wrapper, a single existing push branch or the default
+main/master pair can be inferred. Missing, malformed, or ambiguous branch
+configuration requires an explicit `--staging-branch BRANCH`; that option also
+requires selecting `cpflow-deploy-staging.yml`.
+
+### Preserving downstream validation
+
+The generated `bin/test-cpflow-github-flow` runs baseline checks followed by
+an optional executable `bin/test-cpflow-github-flow-custom`. The extension runs
+from the repository root with the cpflow command argv forwarded unchanged
+(for example, `bundle`, `exec`, `cpflow`), and its nonzero exit fails validation.
+The generator never creates or overwrites the custom extension. Baseline
+production checks apply when the generated production workflow exists;
+downstream-owned production workflows belong in the custom checks.
+
+An existing validator that differs from the installed template blocks the
+entire update before any writes. This includes unmodified validators from
+older releases: the updater cannot safely distinguish them from custom code.
+For a legacy installation such as HiChee's 5.3-to-6.0 RC migration:
+
+1. Save the old validator in version control and compare it with its original
+   release. Extract the downstream checks into `bin/test-cpflow-github-flow-custom`
+   and make it executable. If it is entirely downstream-specific, rename it
+   directly. Remove any call back to the generated validator to avoid recursion.
+2. Remove or rename the old `bin/test-cpflow-github-flow` after preserving those
+   checks, then run the update command with the selected wrappers. No override
+   flag bypasses this check. Do not use `generate-github-actions --force` as a
+   migration shortcut: it intentionally replaces the full generated flow.
+3. Run the new validator. Confirm that the custom checks execute and that a
+   failing custom check still fails the command. Repeating the updater with the
+   same selected workflows should produce no further diff.
+
+### Migrating trusted action allowlists
+
+Repositories using a closed `trusted_actions` policy must review these exact
+repositories used by the complete generated output:
+
+```yaml
+trusted_actions:
+  - actions/checkout
+  - docker/setup-buildx-action
+  - ruby/setup-ruby
+  - shakacode/control-plane-flow
+```
+
+Merge the needed entries into your existing policy rather than replacing it.
+`ruby/setup-ruby` is used by the generated local setup action, including in
+review-app-only installations. `actions/checkout` and `docker/setup-buildx-action`
+are used directly by the generated production wrapper;
+`shakacode/control-plane-flow` supplies the reusable wrappers. Other existing
+downstream workflows may need additional entries. Upstream reusable workflows
+also use `actions/github-script`; reviewing that upstream implementation remains
+part of trusting `shakacode/control-plane-flow`.
+
+Allowlisting does not waive immutable pin requirements. For a policy requiring
+full SHAs, resolve and independently verify the chosen upstream release tag or
+test commit, then run `bin/pin-cpflow-github-ref --version <reviewed-version-tag>
+<full-sha>`. The helper writes that version/tag beside all cpflow SHA pins and
+updates obsolete same-line comments. The label is supplied by the caller; the
+helper does not contact GitHub or certify tag-to-SHA identity. For an unreleased
+test commit, use its source version tag as context and record the exact commit
+in the PR. Review the generated diff and run your repository's action security
+scanner after updating its allowlist.
 
 When keeping `cpflow` in an app Gemfile, leave a comment next to the gem entry
 so future dependency bumps include the wrapper update:
@@ -849,14 +926,14 @@ releasing it. Use an immutable commit SHA from the upstream PR branch:
 
    ```sh
    ruby /path/to/control-plane-flow/bin/cpflow update-github-actions
-   bin/pin-cpflow-github-ref <upstream-pr-sha>
+   bin/pin-cpflow-github-ref --version <reviewed-version-tag> <upstream-pr-sha>
    ```
 
    The update command copies the PR checkout's canonical composite actions into
    `.github/actions/cpflow-*`. The pin helper then updates every generated
    reusable-workflow `uses:` ref plus the production workflow's pinned
    `control-plane-flow` checkout and setup validation ref. It accepts release
-   tags and full commit SHAs by default, rejects branch names such as `main` or
+   tags and full commit SHAs (with a reviewed `--version` label), rejects branch names such as `main` or
    `feature/foo`, and requires `--allow-moving-ref` for short-lived local
    experiments that should not be committed.
 

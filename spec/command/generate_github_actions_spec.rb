@@ -242,6 +242,22 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     Dir.glob(playground.join(".github/**/*.yml"))
   end
 
+  def generated_tree_snapshot
+    Dir.glob([playground.join(".github/**/*"), playground.join("bin/**/*")], File::FNM_DOTMATCH)
+       .select { |path| File.file?(path) }.to_h do |path|
+      [path, File.binread(path)]
+    end
+  end
+
+  def with_stubbed_actionlint
+    Dir.mktmpdir("cpflow-actionlint") do |directory|
+      actionlint = Pathname(directory).join("actionlint")
+      actionlint.write("#!/bin/sh\nexit 0\n")
+      actionlint.chmod(0o755)
+      yield({ "PATH" => "#{directory}:#{ENV.fetch('PATH')}", "BASH_ENV" => "/dev/null", "ENV" => "/dev/null" })
+    end
+  end
+
   def shared_yaml_paths
     Dir.glob(Cpflow.root_path.join(".github/workflows/cpflow-*.yml").to_s) +
       Dir.glob(Cpflow.root_path.join(".github/actions/cpflow-*/*.yml").to_s)
@@ -439,7 +455,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("did not validate the Docker image")
     end
 
-    it "updates existing generated wrappers and local actions from the installed cpflow gem" do
+    it "explicitly updates selected wrappers and local actions from the installed cpflow gem" do
       old_ref = "v5.0.0"
       current_ref = "v#{Cpflow::VERSION}"
 
@@ -447,10 +463,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       generated_action_path("cpflow-setup-environment").write("name: Stale generated action\n")
 
       inside_dir(playground) do
-        result = run_cpflow_command("update-github-actions")
+        result = run_cpflow_command("update-github-actions", "--workflows", "cpflow-deploy-review-app.yml")
 
         expect(result[:status]).to eq(0)
-        expect(result[:stdout]).to include("Updated cpflow GitHub Actions wrappers for cpflow #{Cpflow::VERSION}.")
+        expect(result[:stdout]).to include("Updated cpflow GitHub Actions files for cpflow #{Cpflow::VERSION}.")
       end
 
       expect(review_app_workflow_path.read).to include(
@@ -471,7 +487,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(staging_workflow_path.read).to include('staging_app_branch_default: "develop"')
     end
 
-    it "treats a reversed default branch list as the default during update" do
+    it "preserves the existing default branch list during update" do
       staging_workflow_path.write(
         staging_workflow_path.read.gsub('branches: ["main", "master"]', 'branches: ["master", "main"]')
       )
@@ -483,11 +499,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(result[:stderr]).not_to include("multiple custom push branches")
       end
 
-      expect(staging_workflow_path.read).to include('branches: ["main", "master"]')
+      expect(staging_workflow_path.read).to include('branches: ["master", "main"]')
       expect(staging_workflow_path.read).to include('staging_app_branch_default: ""')
     end
 
-    it "regenerates wrappers without crashing when the staging workflow is empty" do
+    it "preserves an empty staging workflow instead of creating deployment triggers" do
       staging_workflow_path.write("")
 
       inside_dir(playground) do
@@ -496,7 +512,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(result[:status]).to eq(0)
       end
 
-      expect(staging_workflow_path.read).to include('branches: ["main", "master"]')
+      expect(staging_workflow_path.read).to eq("")
     end
 
     it "generates local helpers for pinning and validating cpflow workflow refs" do
@@ -529,6 +545,115 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       end
 
       expect(statuses).to all(be_success)
+    end
+
+    it "preserves HiChee deployment ownership and custom validation through a legacy migration" do
+      staging_workflow_path.delete
+      promote_workflow_path.delete
+      review_app_workflow_path.write(review_app_workflow_path.read.sub("on:\n", "on:\n  # downstream trigger policy\n"))
+      workflows = Dir[playground.join(".github/workflows/*")].to_h { |path| [path, File.read(path)] }
+      custom_checks = "#!/bin/bash\nprintf '%s\\n' \"$@\"\nexit 42\n"
+      test_cpflow_flow_path.write(custom_checks)
+      generated_action_path("cpflow-setup-environment").write("name: Legacy 5.3 action\n")
+
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+        expect(result[:status]).not_to eq(0)
+        expect(result[:stderr]).to include("No files were updated")
+      end
+      expect(generated_action_path("cpflow-setup-environment").read).to eq("name: Legacy 5.3 action\n")
+      expect(test_cpflow_flow_path.read).to eq(custom_checks)
+
+      custom_path = playground.join("bin/test-cpflow-github-flow-custom")
+      test_cpflow_flow_path.rename(custom_path)
+      inside_dir(playground) { run_cpflow_command!("update-github-actions") }
+      snapshot = generated_tree_snapshot
+      inside_dir(playground) { run_cpflow_command!("update-github-actions") }
+
+      expect(generated_tree_snapshot).to eq(snapshot)
+      expect(custom_path.read).to eq(custom_checks)
+      workflows.each { |path, contents| expect(File.read(path)).to eq(contents) }
+      expect(staging_workflow_path).not_to exist
+      expect(promote_workflow_path).not_to exist
+      expect(generated_action_path("cpflow-setup-environment").read).to eq(setup_action_path.read)
+
+      with_stubbed_actionlint do |env|
+        stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true",
+                                                "argument with spaces")
+
+        expect(status.exitstatus).to eq(42), "#{stdout}\n#{stderr}"
+        expect(stdout).to include("downstream cpflow GitHub flow checks\n/usr/bin/true\nargument with spaces\n")
+      end
+    end
+
+    it "rejects a nonexecutable custom extension" do
+      playground.join("bin/test-cpflow-github-flow-custom").write("#!/bin/bash\nexit 0\n")
+
+      with_stubbed_actionlint do |env|
+        _stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+        expect(status).not_to be_success
+        expect(stderr).to include("Custom validator must be an executable file")
+      end
+    end
+
+    it "adds only the explicitly selected staging workflow with the chosen branch" do
+      staging_workflow_path.delete
+      promote_workflow_path.delete
+
+      inside_dir(playground) do
+        run_cpflow_command!("update-github-actions", "--workflows", "cpflow-deploy-staging.yml", "--staging-branch",
+                            "develop")
+      end
+
+      expect(staging_workflow_path.read).to include('branches: ["develop"]')
+      expect(promote_workflow_path).not_to exist
+    end
+
+    it "rejects a missing workflow option value before modifying the installation" do
+      snapshot = generated_tree_snapshot
+
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions", "--workflows")
+        expect(result[:status]).not_to eq(0)
+      end
+
+      expect(generated_tree_snapshot).to eq(snapshot)
+    end
+
+    it "annotates every SHA pin, replaces stale comments, and is idempotent" do
+      sha = "a" * 40
+      stdout, stderr, status = Open3.capture3(pin_cpflow_ref_path.to_s, sha, "--version", "v6.0.0.rc.0")
+
+      expect(status).to be_success, "#{stdout}\n#{stderr}"
+      expect(review_app_workflow_path.read).to include("@#{sha} # v6.0.0.rc.0")
+      expect(promote_workflow_path.read).to include("ref: #{sha} # v6.0.0.rc.0")
+      expect(promote_workflow_path.read).to include("cpflow-promote-staging-to-production.yml@#{sha} # v6.0.0.rc.0")
+      snapshot = generated_tree_snapshot
+      expect(Open3.capture3(pin_cpflow_ref_path.to_s, "--version", "v6.0.0.rc.0", sha).last).to be_success
+      expect(generated_tree_snapshot).to eq(snapshot)
+
+      expect(Open3.capture3(pin_cpflow_ref_path.to_s, "--version", "v6.0.0.rc.1", "b" * 40).last).to be_success
+      expect(review_app_workflow_path.read).to include("@#{'b' * 40} # v6.0.0.rc.1")
+      expect(review_app_workflow_path.read).not_to include("v6.0.0.rc.0")
+    end
+
+    [["a" * 40], ["--version"], ["--version", "--allow-moving-ref", "main"], ["--unknown"], ["main"]].each do |args|
+      it "rejects invalid pin arguments #{args.inspect} without writing" do
+        snapshot = generated_tree_snapshot
+
+        _stdout, stderr, status = Open3.capture3(pin_cpflow_ref_path.to_s, *args)
+
+        expect(status).not_to be_success
+        expect(stderr).not_to be_empty
+        expect(generated_tree_snapshot).to eq(snapshot)
+      end
+    end
+
+    it "keeps tag and explicit moving-ref compatibility" do
+      expect(Open3.capture3(pin_cpflow_ref_path.to_s, "v6.0.0.rc.0").last).to be_success
+      expect(Open3.capture3(pin_cpflow_ref_path.to_s, "--allow-moving-ref", "feature/test").last).to be_success
+      expect(review_app_workflow_path.read).to include("@feature/test")
     end
 
     it "rejects a generated workflow whose referenced local action is missing" do
@@ -1846,7 +1971,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       generated_action_path("cpflow-setup-environment").write("name: Stale generated action\n")
     end
 
-    it "repairs the partial tree as the complete canonical generated file set" do
+    it "repairs local actions without opting into deployment workflows" do
       inside_dir(playground) do
         result = run_cpflow_command("update-github-actions")
 
@@ -1854,7 +1979,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       end
 
       expect(generated_action_path("cpflow-setup-environment").read).to eq(setup_action_path.read)
-      expect(review_app_workflow_path).to exist
+      expect(review_app_workflow_path).not_to exist
       expect(generated_delete_app_script_path).to be_executable
     end
   end

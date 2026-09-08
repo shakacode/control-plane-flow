@@ -588,25 +588,35 @@ cpflow terraform import
 
 ### `update-github-actions`
 
-Regenerates the cpflow workflow wrappers, local composite actions, and
-helper files from the currently installed cpflow gem. Use this after
-updating the cpflow gem so checked-in workflow wrappers move to the
-matching upstream release tag, for example `v6.0.0.rc.0`, and the
-generated action implementations move with them.
+Refreshes local composite actions and helper files from the installed gem.
+All top-level workflows are preserved by default, including their refs,
+triggers, permissions, and deployment ownership. Use --workflows FILE...
+to explicitly add or replace named generated workflows. Replacement resets
+each selected workflow to its template and matching v6.0.0.rc.0 ref;
+review and reapply any downstream customizations in the same PR.
 
-If the existing generated staging workflow uses a custom single staging
-branch, the command preserves it. Pass `--staging-branch BRANCH` to set or
-replace the generated staging branch explicitly.
+Selecting cpflow-deploy-staging.yml preserves a single existing push branch
+or the default main/master pair. Missing or ambiguous branches require
+--staging-branch BRANCH. This option requires selecting the staging workflow.
+
+A differing existing bin/test-cpflow-github-flow blocks all writes. Move
+downstream checks to executable bin/test-cpflow-github-flow-custom and
+remove or rename the old validator before updating. The generated validator
+invokes that extension after its baseline checks; the extension is never
+generated or overwritten. See docs/ci-automation.md for migration guidance.
 
 ```sh
-# After updating the cpflow gem, refresh every generated GitHub Actions file
+# Refresh actions/helpers while preserving downstream workflows
 cpflow update-github-actions
 
 # When running cpflow through Bundler
 bundle exec cpflow update-github-actions
 
-# Preserve or set a custom staging branch
-cpflow update-github-actions --staging-branch develop
+# Explicitly replace the review-app wrapper
+cpflow update-github-actions --workflows cpflow-deploy-review-app.yml
+
+# Explicitly add or replace staging deployment from develop
+cpflow update-github-actions --workflows cpflow-deploy-staging.yml --staging-branch develop
 ```
 
 ### `version`

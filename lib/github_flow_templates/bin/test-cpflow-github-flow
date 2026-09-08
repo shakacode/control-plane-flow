@@ -142,60 +142,62 @@ Dir[".github/workflows/cpflow-*.yml"].sort.each do |path|
 end
 
 promote_path = ".github/workflows/cpflow-promote-staging-to-production.yml"
-promote_doc = YAML.load_file(promote_path, aliases: true)
-promote_job = promote_doc.fetch("jobs", {})["promote-to-production"]
+if File.exist?(promote_path)
+  promote_doc = YAML.load_file(promote_path, aliases: true)
+  promote_job = promote_doc.fetch("jobs", {})["promote-to-production"]
 
-unless promote_job
-  abort "#{promote_path}:promote-to-production job is missing"
+  unless promote_job
+    abort "#{promote_path}:promote-to-production job is missing"
+  end
+
+  if promote_job.key?("uses")
+    abort "#{promote_path}:promote-to-production must run as a normal caller-repo job, not a reusable workflow, so GitHub can expose production environment secrets"
+  end
+
+  unless promote_job["environment"].to_s == "production"
+    abort "#{promote_path}:promote-to-production must declare environment: production"
+  end
+
+  checkout_step = Array(promote_job["steps"]).find { |step| step["name"] == "Checkout control-plane-flow actions" }
+
+  unless checkout_step
+    abort "#{promote_path}:promote-to-production must include a Checkout control-plane-flow actions step"
+  end
+
+  unless checkout_step["uses"] == EXPECTED_CPFLOW_CHECKOUT_ACTION
+    abort "#{promote_path}:promote-to-production must use #{EXPECTED_CPFLOW_CHECKOUT_ACTION} for the Checkout control-plane-flow actions step"
+  end
+
+  checkout_with = checkout_step.fetch("with", {})
+  checkout_repository = checkout_with["repository"]
+  checkout_ref = checkout_with["ref"]
+
+  unless checkout_repository == EXPECTED_CPFLOW_CHECKOUT_REPOSITORY
+    abort "#{promote_path}:promote-to-production must check out #{EXPECTED_CPFLOW_CHECKOUT_REPOSITORY}"
+  end
+
+  if checkout_ref.to_s.strip.empty?
+    abort "#{promote_path}:promote-to-production must pin the Checkout control-plane-flow actions step"
+  end
+
+  refs[checkout_ref] << "#{promote_path}:promote-to-production"
+
+  setup_step = Array(promote_job["steps"]).find { |step| step["name"] == "Setup production environment" }
+
+  unless setup_step
+    abort "#{promote_path}:promote-to-production must include a Setup production environment step"
+  end
+
+  setup_ref = setup_step.fetch("with", {})["control_plane_flow_ref"]
+  setup_match = setup_ref.to_s.match(PROMOTE_WORKFLOW)
+
+  unless setup_match
+    abort "#{promote_path}:promote-to-production must pass a pinned production control_plane_flow_ref to setup, " \
+          "for example #{EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT}"
+  end
+
+  refs[setup_match[1]] << "#{promote_path}:promote-to-production setup"
 end
-
-if promote_job.key?("uses")
-  abort "#{promote_path}:promote-to-production must run as a normal caller-repo job, not a reusable workflow, so GitHub can expose production environment secrets"
-end
-
-unless promote_job["environment"].to_s == "production"
-  abort "#{promote_path}:promote-to-production must declare environment: production"
-end
-
-checkout_step = Array(promote_job["steps"]).find { |step| step["name"] == "Checkout control-plane-flow actions" }
-
-unless checkout_step
-  abort "#{promote_path}:promote-to-production must include a Checkout control-plane-flow actions step"
-end
-
-unless checkout_step["uses"] == EXPECTED_CPFLOW_CHECKOUT_ACTION
-  abort "#{promote_path}:promote-to-production must use #{EXPECTED_CPFLOW_CHECKOUT_ACTION} for the Checkout control-plane-flow actions step"
-end
-
-checkout_with = checkout_step.fetch("with", {})
-checkout_repository = checkout_with["repository"]
-checkout_ref = checkout_with["ref"]
-
-unless checkout_repository == EXPECTED_CPFLOW_CHECKOUT_REPOSITORY
-  abort "#{promote_path}:promote-to-production must check out #{EXPECTED_CPFLOW_CHECKOUT_REPOSITORY}"
-end
-
-if checkout_ref.to_s.strip.empty?
-  abort "#{promote_path}:promote-to-production must pin the Checkout control-plane-flow actions step"
-end
-
-refs[checkout_ref] << "#{promote_path}:promote-to-production"
-
-setup_step = Array(promote_job["steps"]).find { |step| step["name"] == "Setup production environment" }
-
-unless setup_step
-  abort "#{promote_path}:promote-to-production must include a Setup production environment step"
-end
-
-setup_ref = setup_step.fetch("with", {})["control_plane_flow_ref"]
-setup_match = setup_ref.to_s.match(PROMOTE_WORKFLOW)
-
-unless setup_match
-  abort "#{promote_path}:promote-to-production must pass a pinned production control_plane_flow_ref to setup, " \
-        "for example #{EXPECTED_PROMOTE_WORKFLOW_REF_FORMAT}"
-end
-
-refs[setup_match[1]] << "#{promote_path}:promote-to-production setup"
 
 if refs.empty?
   puts "no upstream cpflow reusable workflow refs found"
@@ -210,7 +212,21 @@ end
 RUBY
 
 echo "==> actionlint"
-actionlint \
-  -ignore "SC2129" \
-  -ignore 'property "workflow_(ref|sha|repository|file_path)" is not defined in object type' \
-  .github/workflows/cpflow-*.yml
+shopt -s nullglob
+cpflow_workflows=(.github/workflows/cpflow-*.yml)
+if [[ ${#cpflow_workflows[@]} -gt 0 ]]; then
+  actionlint \
+    -ignore "SC2129" \
+    -ignore 'property "workflow_(ref|sha|repository|file_path)" is not defined in object type' \
+    "${cpflow_workflows[@]}"
+fi
+
+custom_validator="bin/test-cpflow-github-flow-custom"
+if [[ -e "$custom_validator" || -L "$custom_validator" ]]; then
+  if [[ ! -f "$custom_validator" || ! -x "$custom_validator" ]]; then
+    echo "Custom validator must be an executable file: $custom_validator" >&2
+    exit 1
+  fi
+  echo "==> downstream cpflow GitHub flow checks"
+  "$ROOT/$custom_validator" "${cpflow_cmd[@]}"
+fi

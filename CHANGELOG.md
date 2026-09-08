@@ -14,6 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- **Made `update-github-actions` preserve downstream workflows by default and require explicit `--workflows` selection to add or replace them.** Ambiguous staging configuration and differing legacy validators fail before writes. Downstream checks can use the preserved `bin/test-cpflow-github-flow-custom` extension. SHA pins now require a reviewed `--version` label, and the migration guide documents generated action allowlists. Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 - **Fixed the generated `bin/pin-cpflow-github-ref` helper so `-h` and `--help` print usage and exit successfully before inspecting repository state.** Fixes [issue 473](https://github.com/shakacode/control-plane-flow/issues/473).
 
 ## [6.0.0.rc.0] - 2026-09-06
