@@ -1419,6 +1419,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(help_md).to include("preserves every top-level workflow")
       expect(help_md).to include("update-github-actions --workflows FILE...")
       expect(help_md).to include("pin-cpflow-github-ref --version vX.Y.Z")
+      expect(help_md).to include("For a reviewed release, resolve its tag to the exact commit SHA")
       expect(help_md).to include("Freshly generated wrappers start with a Control Plane Flow release tag")
       expect(help_md).to include("replace that tag with its immutable commit SHA")
       expect(help_md).not_to include("pin the tag in their `uses:` ref")

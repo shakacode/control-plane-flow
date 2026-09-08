@@ -176,6 +176,14 @@ pin and validate the complete flow. A differing legacy validator must first
 move its downstream checks to executable
 `bin/test-cpflow-github-flow-custom`.
 
+For a reviewed release, resolve its tag to the exact commit SHA, then pin and
+validate that immutable source:
+
+```sh
+bin/pin-cpflow-github-ref --version vX.Y.Z <40-character-control-plane-flow-commit-sha>
+bin/test-cpflow-github-flow
+```
+
 Do not leave downstream apps pinned to a moving branch such as `main`. For a
 short-lived test of an unreleased upstream PR, pin to a full 40-character commit
 SHA and leave `CPFLOW_VERSION` unset:
