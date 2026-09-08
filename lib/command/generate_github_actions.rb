@@ -12,6 +12,7 @@ module Command
     include GeneratorHelpers
 
     argument :staging_branch, type: :string, required: false
+    class_option :workflows, type: :array
 
     def copy_files
       relative_paths = generated_files
@@ -51,7 +52,12 @@ module Command
     def generated_files
       # Keep file discovery centralized on the command class so existence checks and
       # Thor's template copy list cannot drift.
-      GenerateGithubActions.generated_files
+      paths = GenerateGithubActions.generated_files
+      return paths unless options.key?("workflows")
+
+      paths.reject do |path|
+        path.start_with?(".github/workflows/") && !options["workflows"].include?(File.basename(path))
+      end
     end
 
     def staging_branch_filter
