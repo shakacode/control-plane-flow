@@ -132,18 +132,21 @@ production org, using production-only secrets and values.
 
 ## Version Locking
 
-Generated wrappers pin Control Plane Flow with a release tag, for example
-`__CPFLOW_GITHUB_ACTIONS_REF__`. Reusable review-app, staging, cleanup, and
-helper workflows pin the tag in their `uses:` ref. Production promotion pins
-the same tag in the `Checkout control-plane-flow actions` step so the
+Freshly generated wrappers start with a Control Plane Flow release tag, for
+example `__CPFLOW_GITHUB_ACTIONS_REF__`. Before review and merge, use the pin
+helper below to replace that tag with its immutable commit SHA and retain the
+reviewed tag in a readable comment. Reusable review-app, staging, cleanup, and
+helper workflows then use that SHA. Production promotion uses the same SHA and
+tag in the `Checkout control-plane-flow actions` step so the
 caller-owned job can keep `environment: production` and receive production
 environment secrets directly.
 
 Leave `CPFLOW_VERSION` unset so the workflow builds cpflow from the same
 checked-out upstream source. If you set `CPFLOW_VERSION`, it must match the
 release tag your wrappers are pinned to: a `CPFLOW_VERSION=__CPFLOW_MINOR_SERIES__` runtime
-override goes with a wrapper pinned to `uses: ...@v__CPFLOW_MINOR_SERIES__` (substitute the
-release you pinned above).
+override must select the same release as the wrapper source, whether the
+wrapper still uses its initial release tag or an immutable SHA annotated with
+that tag (substitute the release you pinned above).
 
 After updating the `cpflow` gem in this repo, refresh the generated local
 actions and validation helpers in the same PR. The default command
