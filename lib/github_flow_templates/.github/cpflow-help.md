@@ -145,8 +145,10 @@ release tag your wrappers are pinned to: a `CPFLOW_VERSION=__CPFLOW_MINOR_SERIES
 override goes with a wrapper pinned to `uses: ...@v__CPFLOW_MINOR_SERIES__` (substitute the
 release you pinned above).
 
-After updating the `cpflow` gem in this repo, update the generated wrappers in
-the same PR:
+After updating the `cpflow` gem in this repo, refresh the generated local
+actions and validation helpers in the same PR. The default command
+preserves every top-level workflow, including its refs, triggers, permissions, and
+downstream customizations:
 
 ```sh
 cpflow update-github-actions
@@ -160,12 +162,23 @@ bundle exec cpflow update-github-actions
 bin/test-cpflow-github-flow bundle exec cpflow
 ```
 
+Replace workflow wrappers only after explicitly selecting and reviewing them:
+
+```sh
+cpflow update-github-actions --workflows FILE...
+```
+
+Reapply required downstream customizations after a selected replacement, then
+pin and validate the complete flow. A differing legacy validator must first
+move its downstream checks to executable
+`bin/test-cpflow-github-flow-custom`.
+
 Do not leave downstream apps pinned to a moving branch such as `main`. For a
 short-lived test of an unreleased upstream PR, pin to a full 40-character commit
 SHA and leave `CPFLOW_VERSION` unset:
 
 ```sh
-bin/pin-cpflow-github-ref <40-character-control-plane-flow-commit-sha>
+bin/pin-cpflow-github-ref --version vX.Y.Z <40-character-control-plane-flow-commit-sha>
 bin/test-cpflow-github-flow ruby /path/to/control-plane-flow/bin/cpflow
 ```
 
