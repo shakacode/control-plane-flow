@@ -11,22 +11,31 @@ wait_for_services()
     return 1
   fi
 
-  if ! command -v pg_isready >/dev/null 2>&1; then
-    echo "ERROR: pg_isready is required; install postgresql-client." >&2
+  if ! command -v ruby >/dev/null 2>&1; then
+    echo "ERROR: Ruby and the pg gem are required for PostgreSQL readiness." >&2
     return 1
   fi
 
   # A TCP connection (including an empty proxy reply) does not prove PostgreSQL
-  # is accepting connections. pg_isready also works before db:prepare creates
-  # the application's database. Bound each probe and the overall retry count.
+  # is accepting connections. The app's pg gem uses the same libpq ping API as
+  # pg_isready, including before db:prepare creates the database. Read the URL
+  # from the existing environment so its credentials never enter process argv.
   attempt=1
   while [ "$attempt" -le 60 ]; do
-    pg_isready -q -t 3 -d "$DATABASE_URL" >/dev/null 2>&1
+    ruby -e '
+      begin
+        require "bundler/setup"
+        require "pg"
+        exit PG::Connection.ping(ENV.fetch("DATABASE_URL"), connect_timeout: 3)
+      rescue LoadError, StandardError
+        exit 3
+      end
+    ' >/dev/null 2>&1
     status=$?
     case "$status" in
       0) echo " - PostgreSQL is accepting connections"; return 0 ;;
       1|2) ;;
-      *) echo "ERROR: PostgreSQL readiness probe failed; check DATABASE_URL and pg_isready." >&2; return 1 ;;
+      *) echo "ERROR: PostgreSQL readiness probe failed; check DATABASE_URL and the Ruby pg gem." >&2; return 1 ;;
     esac
     if [ "$attempt" -eq 60 ]; then
       break
