@@ -486,8 +486,11 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     job = workflow.fetch("jobs").fetch("rspec")
     steps = job.fetch("steps")
     install_step = steps.find { |step| step["name"] == "Install Control Plane tools" }
+    setup_step = steps.find { |step| step["name"] == "Setup Control Plane tools" }
+    test_step = steps.find { |step| step["name"] == "Run tests" }
 
     expect(job.fetch("env", {})).not_to have_key("CPLN_TOKEN_CI")
+    expect(job.fetch("env")).to include("HAS_CPLN_TOKEN" => "${{ secrets.CPLN_TOKEN != '' }}")
     expect(install_step.fetch("run")).to include("sudo npm install -g @controlplane/cli@3.11.0")
 
     token_step_names = steps.filter_map do |step|
@@ -496,6 +499,13 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     expect(token_step_names).to contain_exactly("Setup Control Plane tools", "Run tests")
     expect(steps.filter { |step| token_step_names.include?(step["name"]) }).to(
       all(include("env" => include("CPLN_TOKEN_CI" => "${{ secrets.CPLN_TOKEN }}")))
+    )
+    expect(setup_step).to include(
+      "if" => "${{ env.HAS_CPLN_TOKEN == 'true' }}",
+      "env" => include("CPLN_ORG" => "${{ vars.CPLN_ORG }}")
+    )
+    expect(test_step.fetch("env")).to include(
+      "CPLN_ORG" => "${{ env.HAS_CPLN_TOKEN == 'true' && vars.CPLN_ORG || '' }}"
     )
   end
 
