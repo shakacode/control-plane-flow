@@ -27,8 +27,8 @@ jobs:
   rspec:
     runs-on: ${{ inputs.os_version }}
     env:
+      HAS_CPLN_TOKEN: ${{ secrets.CPLN_TOKEN != '' }}
       RAILS_ENV: test
-      CPLN_ORG: ${{ vars.CPLN_ORG }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,7 +46,9 @@ jobs:
           sudo npm install -g @controlplane/cli@3.11.0
           cpln --version
       - name: Setup Control Plane tools
+        if: ${{ env.HAS_CPLN_TOKEN == 'true' }}
         env:
+          CPLN_ORG: ${{ vars.CPLN_ORG }}
           # Keep the _CI suffix so tests that switch profiles do not use this token's profile.
           CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
         run: |
@@ -54,6 +56,7 @@ jobs:
           cpln image docker-login
       - name: Run tests
         env:
+          CPLN_ORG: ${{ env.HAS_CPLN_TOKEN == 'true' && vars.CPLN_ORG || '' }}
           CPLN_TOKEN_CI: ${{ secrets.CPLN_TOKEN }}
           RSPEC_SPEC_PATHS: ${{ inputs.spec_paths }}
           RSPEC_TEST_TAG: ${{ inputs.test_tag }}
@@ -61,12 +64,38 @@ jobs:
           set -euo pipefail
 
           rspec_args=(--format documentation)
-          if [[ -n "${RSPEC_TEST_TAG}" ]]; then
-            rspec_args+=(--tag "${RSPEC_TEST_TAG}")
-          fi
-          if [[ -n "${RSPEC_SPEC_PATHS}" ]]; then
-            read -r -a requested_paths <<< "${RSPEC_SPEC_PATHS}"
-            rspec_args+=("${requested_paths[@]}")
+          if [[ "${HAS_CPLN_TOKEN}" != "true" ]]; then
+            rspec_args+=(
+              spec/cpflow_spec.rb
+              spec/github_actions_dependency_policy_spec.rb
+              spec/github_workflows_spec.rb
+              spec/patches
+              spec/support_specs
+              spec/core/controlplane_api_direct_spec.rb
+              spec/core/controlplane_api_spec.rb
+              spec/core/doctor_service_spec.rb
+              spec/core/github_flow_readiness/checks_spec.rb
+              spec/core/github_flow_readiness_service_spec.rb
+              spec/core/helpers_spec.rb
+              spec/core/repo_introspection_spec.rb
+              spec/core/shell_spec.rb
+              spec/rakelib/create_release_spec.rb
+              spec/command/no_command_spec.rb
+              spec/command/staging_branch_validation_spec.rb
+              spec/command/test_spec.rb
+              spec/command/update_github_actions_spec.rb
+              spec/command/version_spec.rb
+              spec/command/deploy_image_unit_spec.rb
+              spec/command/promote_app_from_upstream_unit_spec.rb
+            )
+          else
+            if [[ -n "${RSPEC_TEST_TAG}" ]]; then
+              rspec_args+=(--tag "${RSPEC_TEST_TAG}")
+            fi
+            if [[ -n "${RSPEC_SPEC_PATHS}" ]]; then
+              read -r -a requested_paths <<< "${RSPEC_SPEC_PATHS}"
+              rspec_args+=("${requested_paths[@]}")
+            fi
           fi
 
           bundle exec rspec "${rspec_args[@]}"
