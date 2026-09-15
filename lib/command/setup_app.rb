@@ -144,11 +144,12 @@ module Command
 
     def verify_generated_review_policy!(policy)
       expected_target = policy_targets_secret?(policy, config.secrets)
+      owned_policy = policy.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
       no_extra_selectors = %w[target targetQuery gvc].all? { |key| policy[key].nil? }
       own_bindings = Array(policy["bindings"]).all? do |binding|
         Array(binding["principalLinks"]) == [config.identity_link]
       end
-      return if expected_target && no_extra_selectors && own_bindings
+      return if expected_target && owned_policy && no_extra_selectors && own_bindings
 
       raise "Existing review app secret policy has an unexpected target or binding."
     end
@@ -167,7 +168,8 @@ module Command
         "kind" => "policy",
         "name" => config.secrets_policy,
         "targetKind" => "secret",
-        "targetLinks" => ["//secret/#{config.secrets}"]
+        "targetLinks" => ["//secret/#{config.secrets}"],
+        "tags" => { ::Config::GENERATED_REVIEW_APP_TAG => config.app }
       }
     end
 

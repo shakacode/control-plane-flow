@@ -142,7 +142,8 @@ describe Command::SetupApp do
 
       it "refuses an existing policy that targets another secret" do
         allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
-          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"] }
+          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
         )
 
         expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
@@ -152,6 +153,7 @@ describe Command::SetupApp do
       it "refuses an existing policy bound to another principal" do
         allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
           { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
             "bindings" => [{ "principalLinks" => ["/org/test-org/gvc/other/identity/other"] }] }
         )
 
@@ -161,6 +163,7 @@ describe Command::SetupApp do
       it "refuses an existing policy with an additional target selector" do
         allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
           { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
             "targetQuery" => { "spec" => { "match" => "all" } } }
         )
 
@@ -170,6 +173,7 @@ describe Command::SetupApp do
       it "reuses an exact-target policy bound only to this app identity" do
         allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
           { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
             "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }] }
         )
 
@@ -180,11 +184,26 @@ describe Command::SetupApp do
 
       it "rechecks policy scope immediately before binding the app identity" do
         allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
-          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"] }
+          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
         )
 
         expect { command.send(:bind_identity_to_policy) }.to raise_error(/unexpected target or binding/)
         expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+
+      it "refuses an unmarked policy that otherwise targets the app dictionary" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "tags" => {} }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "marks a newly generated policy with this app's identity" do
+        expect(command.send(:build_policy_hash).fetch("tags")).to eq(
+          Config::GENERATED_REVIEW_APP_TAG => config.app
+        )
       end
     end
 

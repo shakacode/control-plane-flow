@@ -159,7 +159,13 @@ module Command
     end
 
     def disposable_review_secret_policy?(policy, secret_name)
-      policy_targets_secret?(policy, secret_name) && Array(policy["bindings"]).empty?
+      generated_review_secret_policy?(policy, secret_name) && Array(policy["bindings"]).empty?
+    end
+
+    def generated_review_secret_policy?(policy, secret_name)
+      policy_targets_secret?(policy, secret_name) &&
+        policy.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app &&
+        %w[target targetQuery gvc].all? { |key| policy[key].nil? }
     end
 
     def delete_workload(workload)
@@ -227,7 +233,7 @@ module Command
       return unless secret && generated_review_secret?(secret, secret_name)
 
       policy = cp.fetch_policy(policy_name)
-      return unless policy && policy_targets_secret?(policy, secret_name)
+      return unless policy && generated_review_secret_policy?(policy, secret_name)
 
       policy
     end

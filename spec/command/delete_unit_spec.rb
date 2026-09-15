@@ -316,6 +316,7 @@ describe Command::Delete do
       allow(cp).to receive(:fetch_policy).with("shared-review-policy").and_return(nil)
       allow(cp).to receive(:fetch_policy).with("demo-review-pr-97-secrets-policy").and_return(
         { "targetKind" => "secret", "targetLinks" => ["//secret/demo-review-pr-97-secrets"],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
           "bindings" => [
             { "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }
           ] }
@@ -345,7 +346,8 @@ describe Command::Delete do
       allow(cp).to receive(:fetch_gvc).and_return(nil)
       allow(command).to receive(:confirm_delete).with(config.app).and_return(true)
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
-        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [] }
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
       )
 
       command.send(:delete_whole_app)
@@ -356,7 +358,8 @@ describe Command::Delete do
 
     it "deletes only the PR-specific dictionary after an empty exact-target policy" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
-        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [] }
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
       )
 
       command.send(:delete_generated_review_secret_resources)
@@ -367,7 +370,8 @@ describe Command::Delete do
 
     it "keeps the policy available for retry if dictionary deletion fails" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
-        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [] }
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
       )
       allow(cp).to receive(:delete_secret).with(config.secrets).and_raise("transient delete failure")
 
@@ -377,13 +381,38 @@ describe Command::Delete do
 
     it "preserves resources if another binding remains" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
-        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [{}] }
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [{}],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
       )
 
       command.send(:delete_generated_review_secret_resources)
 
       expect(cp).not_to have_received(:delete_policy)
       expect(cp).not_to have_received(:delete_secret)
+    end
+
+    it "preserves an unmarked policy after its dictionary is already gone" do
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(nil)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "bindings" => [], "tags" => {} }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).not_to have_received(:delete_policy)
+    end
+
+    it "removes a marked policy after its dictionary was already removed" do
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(nil)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "bindings" => [], "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).to have_received(:delete_policy).with(config.secrets_policy)
     end
   end
 
