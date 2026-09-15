@@ -239,6 +239,28 @@ class Config # rubocop:disable Metrics/ClassLength
     end
   end
 
+  def validate_generated_review_secret_settings!
+    apps.each do |app_name, app_options|
+      keys = app_options[:generated_review_secret_keys]
+      next if keys.nil?
+
+      validate_generated_review_secret_entry_scope!(app_name, app_options)
+      validate_generated_review_secret_keys!(keys)
+    end
+  end
+
+  def validate_generated_review_secret_entry_scope!(app_name, app_options)
+    unless app_options[:match_if_app_name_starts_with]
+      raise "generated_review_secret_keys for '#{app_name}' requires a dynamically matched review app."
+    end
+    return unless app_options[:secrets_name] || app_options[:secrets_policy_name]
+
+    raise "generated_review_secret_keys for '#{app_name}' cannot be combined with " \
+          "secrets_name or secrets_policy_name."
+  end
+
+  private :validate_generated_review_secret_entry_scope!
+
   private
 
   def ensure_current_config!

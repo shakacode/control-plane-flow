@@ -33,7 +33,10 @@ describe DoctorService do
 
     context "with a passing config validation" do
       let(:config) do
-        instance_double(Config, apps: { "app-one": {}, "app-two": {} }, validate_deploy_orders!: nil)
+        instance_double(
+          Config, apps: { "app-one": {}, "app-two": {} }, validate_deploy_orders!: nil,
+                  validate_generated_review_secret_settings!: nil
+        )
       end
 
       it "reports the validation as passing" do
@@ -57,7 +60,7 @@ describe DoctorService do
             app: { match_if_app_name_starts_with: true },
             "app-staging": {}
           },
-          validate_deploy_orders!: nil
+          validate_deploy_orders!: nil, validate_generated_review_secret_settings!: nil
         )
       end
 
@@ -79,6 +82,22 @@ describe DoctorService do
 
         expect(progress.string).to match(/\[FAIL\].*config/)
         expect(progress.string).to include("ERROR: Invalid deploy order")
+      end
+    end
+
+    context "when generated review secret settings are invalid in another app" do
+      let(:config) do
+        instance_double(Config, apps: { "app-one": {}, review: {} }, validate_deploy_orders!: nil)
+      end
+
+      it "fails config validation before selecting that review app for deployment" do
+        allow(config).to receive(:validate_generated_review_secret_settings!)
+          .and_raise(RuntimeError, "generated_review_secret_keys must contain 1-8 unique uppercase environment names.")
+
+        expect_validations_to_fail(["config"])
+
+        expect(progress.string).to include("[FAIL] config")
+        expect(progress.string).to include("generated_review_secret_keys")
       end
     end
   end

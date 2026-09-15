@@ -53,6 +53,19 @@ describe Config do
     end
   end
 
+  describe "#validate_generated_review_secret_settings!" do
+    it "validates keys in every app entry before a specific review app is selected" do
+      config = described_class.allocate
+      allow(config).to receive(:apps).and_return(
+        { ordinary: {}, review: { match_if_app_name_starts_with: true,
+                                  generated_review_secret_keys: %w[secret_key_base] } }
+      )
+
+      expect { config.validate_generated_review_secret_settings! }
+        .to raise_error(/unique uppercase environment names/)
+    end
+  end
+
   describe "#shared_secret_grants" do
     def build_config(current)
       instance = described_class.allocate

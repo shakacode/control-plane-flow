@@ -37,6 +37,7 @@ class DoctorService # rubocop:disable Metrics/ClassLength
   def validate_config
     check_for_app_names_contained_in_others
     check_deploy_orders
+    check_generated_review_secret_settings
   end
 
   def validate_templates
@@ -62,6 +63,12 @@ class DoctorService # rubocop:disable Metrics/ClassLength
 
   def check_deploy_orders
     config.validate_deploy_orders!
+  rescue RuntimeError => e
+    raise ValidationError, Shell.color("ERROR: #{e.message}", :red)
+  end
+
+  def check_generated_review_secret_settings
+    config.validate_generated_review_secret_settings!
   rescue RuntimeError => e
     raise ValidationError, Shell.color("ERROR: #{e.message}", :red)
   end
