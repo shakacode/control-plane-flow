@@ -121,14 +121,33 @@ module Command
       return if config.generated_review_secret_keys.empty?
 
       policy = cp.fetch_policy(config.secrets_policy)
-      return if policy.nil?
+      secret = cp.fetch_secret(config.secrets)
+      return delete_generated_review_secret_without_policy(secret) if policy.nil?
 
+      delete_generated_review_secret_with_policy(policy, secret)
+    end
+
+    def delete_generated_review_secret_without_policy(secret)
+      return if secret.nil?
+      return warn_unexpected_review_secret_policy unless generated_review_secret?(secret)
+
+      step("Deleting orphaned disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
+    end
+
+    def delete_generated_review_secret_with_policy(policy, secret)
       return warn_unexpected_review_secret_policy unless disposable_review_secret_policy?(policy)
 
-      if cp.fetch_secret(config.secrets)
+      if secret
+        return warn_unexpected_review_secret_policy unless generated_review_secret?(secret)
+
         step("Deleting disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
       end
       step("Deleting disposable review app secret policy") { cp.delete_policy(config.secrets_policy) }
+    end
+
+    def generated_review_secret?(secret)
+      secret["name"] == config.secrets && secret["type"] == "dictionary" &&
+        secret.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
     end
 
     def warn_unexpected_review_secret_policy

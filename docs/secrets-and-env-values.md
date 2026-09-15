@@ -31,9 +31,11 @@ not combine it with custom `secrets_name` or `secrets_policy_name`. Templates
 that use `{{APP_SECRETS}}` automatically point at the PR-specific dictionary.
 `cpflow delete` and delete-mode stale cleanup remove that dictionary and policy
 after the app is deleted, provided the policy still targets the dictionary and
-has no other bindings. If a deletion stops after removing the GVC, rerun
+has no other bindings. Generated dictionaries carry an app marker; if a prior
+attempt removed the policy first, cleanup can use that marker to remove only the
+matching disposable dictionary. If a deletion stops after removing the GVC, rerun
 `cpflow delete` with the same app name to finish secret cleanup. Unexpected
-grants leave those resources for inspection.
+grants or unmarked secrets leave those resources for inspection.
 This generates credentials only; external licenses, database accounts, and
 provider tokens still require their own review-only provisioning.
 

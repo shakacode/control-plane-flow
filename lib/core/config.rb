@@ -10,6 +10,7 @@ class Config # rubocop:disable Metrics/ClassLength
   include Helpers
 
   CONFIG_FILE_LOCATION = ".controlplane/controlplane.yml"
+  GENERATED_REVIEW_APP_TAG = "cpflow-generated-review-app"
   REQUIRED_SHARED_SECRET_GRANT_KEYS = %i[name secret_name policy_name].freeze
   SHARED_SECRET_RESOURCE_NAME_KEYS = %i[secret_name policy_name].freeze
   CONTROL_PLANE_RESOURCE_NAME_REGEX = /\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/

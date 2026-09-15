@@ -122,10 +122,11 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     api_json("/org/#{org}/secret/#{secret}", method: :get)
   end
 
-  def create_sensitive_secret(org:, secret:, data:)
+  def create_sensitive_secret(org:, secret:, app:, data:)
     api_json(
       "/org/#{org}/secret", method: :post,
-                            body: { kind: "secret", name: secret, type: "dictionary", data: data },
+                            body: { name: secret, type: "dictionary", data: data,
+                                    tags: { Config::GENERATED_REVIEW_APP_TAG => app } },
                             request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
     )
   end

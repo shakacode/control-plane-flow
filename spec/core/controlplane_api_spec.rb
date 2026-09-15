@@ -284,11 +284,13 @@ describe ControlplaneApi do
       data = { "SECRET_KEY_BASE" => "generated" }
       response = stub_api_call(
         "/org/my-org/secret", method: :post,
-                              body: { kind: "secret", name: "my-review-secret", type: "dictionary", data: data },
+                              body: { name: "my-review-secret", type: "dictionary", data: data,
+                                      tags: { Config::GENERATED_REVIEW_APP_TAG => "my-review" } },
                               request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
       )
 
-      expect(api.create_sensitive_secret(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
+      expect(api.create_sensitive_secret(org: "my-org", secret: "my-review-secret", app: "my-review", data: data))
+        .to eq(response)
     end
 
     it "patches only supplied dictionary keys using the sensitive non-retrying request policy" do

@@ -439,7 +439,7 @@ class Controlplane # rubocop:disable Metrics/ClassLength
   end
 
   def create_sensitive_secret(secret, data)
-    api.create_sensitive_secret(org: org, secret: secret, data: data)
+    api.create_sensitive_secret(org: org, secret: secret, app: gvc, data: data)
   end
 
   def patch_sensitive_secret_data(secret, data)

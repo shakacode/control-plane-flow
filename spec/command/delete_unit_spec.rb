@@ -273,9 +273,33 @@ describe Command::Delete do
     before do
       allow(command).to receive(:cp).and_return(cp)
       allow(command).to receive(:step).and_yield
-      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+        { "name" => config.secrets, "type" => "dictionary",
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+      )
       allow(cp).to receive(:delete_policy)
       allow(cp).to receive(:delete_secret)
+    end
+
+    it "removes a marked dictionary after its policy was already removed" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).to have_received(:delete_secret).with(config.secrets)
+      expect(cp).not_to have_received(:delete_policy)
+    end
+
+    it "preserves an unmarked dictionary when its policy is absent" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+        { "name" => config.secrets, "type" => "dictionary", "tags" => {} }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).not_to have_received(:delete_secret)
+      expect(cp).not_to have_received(:delete_policy)
     end
 
     it "can finish secret cleanup after a prior run already removed the GVC" do
