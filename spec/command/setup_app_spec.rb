@@ -53,7 +53,8 @@ describe Command::SetupApp do
     describe "generated review app credentials" do
       let(:config) do
         instance_double(
-          Config, secrets: "demo-review-pr-97-secrets", secrets_policy: "demo-review-pr-97-secrets-policy",
+          Config, app: "demo-review-pr-97", secrets: "demo-review-pr-97-secrets",
+                  secrets_policy: "demo-review-pr-97-secrets-policy",
                   generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
         )
       end
@@ -81,7 +82,10 @@ describe Command::SetupApp do
       end
 
       it "fills only a missing field and preserves existing values" do
-        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
         allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(
           { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep" } }
         )
@@ -96,7 +100,10 @@ describe Command::SetupApp do
       end
 
       it "does not rotate populated credentials on refresh" do
-        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
         allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(
           { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "a", "RENDERER_PASSWORD" => "b" } }
         )
@@ -107,10 +114,24 @@ describe Command::SetupApp do
       end
 
       it "fails closed when the existing dictionary cannot be revealed" do
-        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
         allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(nil)
 
         expect { command.send(:create_secret_if_not_exists) }.to raise_error(/Cannot safely inspect/)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "refuses to reveal or patch a dictionary owned by another app" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary", "tags" => {} }
+        )
+        allow(cp).to receive(:reveal_secret)
+
+        expect { command.send(:create_secret_if_not_exists) }.to raise_error(/not owned by this app/)
+        expect(cp).not_to have_received(:reveal_secret)
         expect(cp).not_to have_received(:patch_sensitive_secret_data)
       end
     end

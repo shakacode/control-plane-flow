@@ -14,7 +14,7 @@ module Command
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
       - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
       - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
-      - Removes the per-app dictionary and policy for opt-in generated review credentials only when the policy targets that dictionary and has no remaining bindings
+      - Removes a marked per-app dictionary and exact-target unbound policy for generated review credentials, including after the opt-in is removed from a dynamically matched review-app entry
       - Will ask for explicit user confirmation
       - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -67,7 +67,7 @@ module Command
 
     def handle_missing_app
       progress.puts("App '#{config.app}' does not exist.")
-      return if config.generated_review_secret_keys.empty?
+      return unless config.disposable_review_secret_resource_names
       return unless confirm_delete(config.app)
 
       delete_generated_review_secret_resources
@@ -118,35 +118,38 @@ module Command
     end
 
     def delete_generated_review_secret_resources
-      return if config.generated_review_secret_keys.empty?
+      names = config.disposable_review_secret_resource_names
+      return unless names
 
-      policy = cp.fetch_policy(config.secrets_policy)
-      secret = cp.fetch_secret(config.secrets)
-      return delete_generated_review_secret_without_policy(secret) if policy.nil?
+      secret_name, policy_name = names
 
-      delete_generated_review_secret_with_policy(policy, secret)
+      policy = cp.fetch_policy(policy_name)
+      secret = cp.fetch_secret(secret_name)
+      return delete_generated_review_secret_without_policy(secret, secret_name) if policy.nil?
+
+      delete_generated_review_secret_with_policy(policy, secret, secret_name, policy_name)
     end
 
-    def delete_generated_review_secret_without_policy(secret)
+    def delete_generated_review_secret_without_policy(secret, secret_name)
       return if secret.nil?
-      return warn_unexpected_review_secret_policy unless generated_review_secret?(secret)
+      return warn_unexpected_review_secret_policy unless generated_review_secret?(secret, secret_name)
 
-      step("Deleting orphaned disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
+      step("Deleting orphaned disposable review app secret dictionary") { cp.delete_secret(secret_name) }
     end
 
-    def delete_generated_review_secret_with_policy(policy, secret)
-      return warn_unexpected_review_secret_policy unless disposable_review_secret_policy?(policy)
+    def delete_generated_review_secret_with_policy(policy, secret, secret_name, policy_name)
+      return warn_unexpected_review_secret_policy unless disposable_review_secret_policy?(policy, secret_name)
 
       if secret
-        return warn_unexpected_review_secret_policy unless generated_review_secret?(secret)
+        return warn_unexpected_review_secret_policy unless generated_review_secret?(secret, secret_name)
 
-        step("Deleting disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
+        step("Deleting disposable review app secret dictionary") { cp.delete_secret(secret_name) }
       end
-      step("Deleting disposable review app secret policy") { cp.delete_policy(config.secrets_policy) }
+      step("Deleting disposable review app secret policy") { cp.delete_policy(policy_name) }
     end
 
-    def generated_review_secret?(secret)
-      secret["name"] == config.secrets && secret["type"] == "dictionary" &&
+    def generated_review_secret?(secret, secret_name)
+      secret["name"] == secret_name && secret["type"] == "dictionary" &&
         secret.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
     end
 
@@ -155,8 +158,8 @@ module Command
                     "leaving secret resources for inspection.")
     end
 
-    def disposable_review_secret_policy?(policy)
-      policy_targets_secret?(policy, config.secrets) && Array(policy["bindings"]).empty?
+    def disposable_review_secret_policy?(policy, secret_name)
+      policy_targets_secret?(policy, secret_name) && Array(policy["bindings"]).empty?
     end
 
     def delete_workload(workload)
@@ -196,6 +199,7 @@ module Command
 
       [
         app_secret_policy_unbind,
+        disposable_review_secret_policy_unbind,
         *shared_secret_policy_unbinds
       ].compact
     end
@@ -205,6 +209,27 @@ module Command
         config.secrets_policy,
         "Unbinding identity from policy for app '#{config.app}'"
       )
+    end
+
+    def disposable_review_secret_policy_unbind
+      names = config.disposable_review_secret_resource_names
+      return unless names && names.last != config.secrets_policy
+
+      secret_name, policy_name = names
+      policy = verified_disposable_review_secret_policy(secret_name, policy_name)
+      return unless policy
+
+      policy_unbind_for(policy_name, "Unbinding identity from disposable review app policy '#{policy_name}'", policy)
+    end
+
+    def verified_disposable_review_secret_policy(secret_name, policy_name)
+      secret = cp.fetch_secret(secret_name)
+      return unless secret && generated_review_secret?(secret, secret_name)
+
+      policy = cp.fetch_policy(policy_name)
+      return unless policy && policy_targets_secret?(policy, secret_name)
+
+      policy
     end
 
     def shared_secret_policy_unbinds
@@ -246,8 +271,8 @@ module Command
       )
     end
 
-    def policy_unbind_for(policy_name, message)
-      policy = cp.fetch_policy(policy_name)
+    def policy_unbind_for(policy_name, message, policy = nil)
+      policy ||= cp.fetch_policy(policy_name)
       return if policy.nil?
 
       permissions = identity_policy_permissions(policy)

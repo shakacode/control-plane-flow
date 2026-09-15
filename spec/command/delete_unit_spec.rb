@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
+require "tmpdir"
 
 describe Command::Delete do
   describe "#unbind_identity_from_policy" do
@@ -13,6 +15,7 @@ describe Command::Delete do
         identity: "test-review-123-identity",
         identity_link: identity_link,
         secrets_policy: "test-review-secrets-policy",
+        disposable_review_secret_resource_names: nil,
         shared_secret_grants: [
           {
             name: "database",
@@ -192,6 +195,7 @@ describe Command::Delete do
         identity_link: identity_link,
         secrets_policy: "test-review-secrets-policy",
         generated_review_secret_keys: [],
+        disposable_review_secret_resource_names: nil,
         options: { skip_pre_deletion_hook: false },
         shared_secret_grants: [
           {
@@ -264,6 +268,8 @@ describe Command::Delete do
       instance_double(
         Config, app: "demo-review-pr-97", org: "test-org",
                 secrets: "demo-review-pr-97-secrets", secrets_policy: "demo-review-pr-97-secrets-policy",
+                disposable_review_secret_resource_names:
+                  %w[demo-review-pr-97-secrets demo-review-pr-97-secrets-policy],
                 generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
       )
     end
@@ -288,6 +294,39 @@ describe Command::Delete do
 
       expect(cp).to have_received(:delete_secret).with(config.secrets)
       expect(cp).not_to have_received(:delete_policy)
+    end
+
+    it "removes marked resources after the generated-key opt-in is removed" do
+      allow(config).to receive(:generated_review_secret_keys).and_return([])
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).to have_received(:delete_secret).with(config.secrets)
+    end
+
+    it "unbinds the old per-app policy before GVC deletion after opt-in removal" do
+      allow(config).to receive_messages(
+        generated_review_secret_keys: [], secrets_policy: "shared-review-policy",
+        identity: "demo-review-pr-97-identity",
+        identity_link: "/org/test-org/gvc/demo-review-pr-97/identity/demo-review-pr-97-identity",
+        shared_secret_grants: []
+      )
+      allow(cp).to receive(:fetch_identity).with(config.identity).and_return({ "name" => config.identity })
+      allow(cp).to receive(:fetch_policy).with("shared-review-policy").and_return(nil)
+      allow(cp).to receive(:fetch_policy).with("demo-review-pr-97-secrets-policy").and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/demo-review-pr-97-secrets"],
+          "bindings" => [
+            { "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }
+          ] }
+      )
+      allow(cp).to receive(:unbind_identity_from_policy)
+
+      command.send(:unbind_identity_from_policy, command.send(:secret_policy_unbinds))
+
+      expect(cp).to have_received(:unbind_identity_from_policy).with(
+        config.identity_link, "demo-review-pr-97-secrets-policy", permission: "reveal"
+      )
     end
 
     it "preserves an unmarked dictionary when its policy is absent" do
@@ -345,6 +384,36 @@ describe Command::Delete do
 
       expect(cp).not_to have_received(:delete_policy)
       expect(cp).not_to have_received(:delete_secret)
+    end
+  end
+
+  describe "#delete_whole_app through the generated action" do
+    it "runs cpflow delete when the GVC is already absent so marked resources can be reconciled" do
+      Dir.mktmpdir do |dir|
+        cpflow = File.join(dir, "cpflow")
+        calls = File.join(dir, "calls")
+        File.write(cpflow, <<~SH)
+          #!/bin/bash
+          printf '%s\\n' "$*" >> "$CALLS_FILE"
+          if [[ "$1" == exists ]]; then
+            exit 3
+          fi
+        SH
+        File.chmod(0o755, cpflow)
+
+        env = {
+          "APP_NAME" => "demo-review-pr-97", "CPLN_ORG" => "test-org",
+          "REVIEW_APP_PREFIX" => "demo-review", "CALLS_FILE" => calls,
+          "PATH" => "#{dir}:#{ENV.fetch('PATH')}", "BASH_ENV" => nil
+        }
+        script = Cpflow.root_path.join(".github/actions/cpflow-delete-control-plane-app/delete-app.sh").to_s
+        _stdout, stderr, status = Open3.capture3(env, "bash", script)
+
+        expect(status).to be_success, stderr
+        expect(File.readlines(calls, chomp: true)).to eq(
+          ["exists -a demo-review-pr-97 --org test-org", "delete -a demo-review-pr-97 --org test-org --yes"]
+        )
+      end
     end
   end
 end

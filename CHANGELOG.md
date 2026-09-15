@@ -14,7 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
-- Review apps can opt in to generated disposable credentials. Each PR app gets its own secret dictionary and policy; setup fills only missing keys, and app deletion removes the resources after checking their bindings and target.
+- Review apps can opt in to generated disposable credentials. Each PR app gets its own tagged secret dictionary and policy; setup fills only missing keys after checking ownership, and app deletion removes the resources after checking their bindings and target, including after partial deletion or opt-in removal.
 
 ## [6.0.0] - 2026-09-08
 

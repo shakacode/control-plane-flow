@@ -73,14 +73,24 @@ module Command
     end
 
     def create_secret_if_not_exists
-      return existing_secret_if_any if cp.fetch_secret(config.secrets)
+      secret = cp.fetch_secret(config.secrets)
+      return existing_secret_if_any(secret) if secret
 
       step("Creating secret '#{config.secrets}'") { create_new_secret }
     end
 
-    def existing_secret_if_any
+    def existing_secret_if_any(secret)
+      if config.generated_review_secret_keys.any? && !generated_review_secret_owned_by_app?(secret)
+        raise "Existing review app secret dictionary is not owned by this app."
+      end
+
       progress.puts("Secret '#{config.secrets}' already exists. Skipping creation...")
       fill_missing_generated_review_secrets
+    end
+
+    def generated_review_secret_owned_by_app?(secret)
+      secret.is_a?(Hash) && secret["name"] == config.secrets && secret["type"] == "dictionary" &&
+        secret.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
     end
 
     def create_new_secret

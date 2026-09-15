@@ -24,9 +24,11 @@ apps:
 ```
 
 `cpflow setup-app` then creates a separate `APP_NAME-secrets` dictionary and
-policy for each PR app, fills each configured key with a random 256-bit hex
-value, and never prints the values. `--refresh-templates` fills missing keys
-without rotating existing values. Keep this setting off persistent apps and do
+policy for each PR app, tags the dictionary with the exact app name, fills each
+configured key with a random 256-bit hex value, and never prints the values.
+`--refresh-templates` fills missing keys without rotating existing values.
+Setup refuses to reuse a dictionary without the exact app tag. Keep this
+setting off persistent apps and do
 not combine it with custom `secrets_name` or `secrets_policy_name`. Templates
 that use `{{APP_SECRETS}}` automatically point at the PR-specific dictionary.
 `cpflow delete` and delete-mode stale cleanup remove that dictionary and policy
@@ -34,8 +36,11 @@ after the app is deleted, provided the policy still targets the dictionary and
 has no other bindings. Generated dictionaries carry an app marker; if a prior
 attempt removed the policy first, cleanup can use that marker to remove only the
 matching disposable dictionary. If a deletion stops after removing the GVC, rerun
-`cpflow delete` with the same app name to finish secret cleanup. Unexpected
-grants or unmarked secrets leave those resources for inspection.
+`cpflow delete` with the same app name to finish secret cleanup. The generated
+delete action calls that same recovery path when the GVC is already absent.
+Cleanup still checks the app-specific names and tag if the key-generation option
+was later removed. Unexpected grants or unmarked secrets leave those resources
+for inspection.
 This generates credentials only; external licenses, database accounts, and
 provider tokens still require their own review-only provisioning.
 

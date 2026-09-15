@@ -75,6 +75,19 @@ class Config # rubocop:disable Metrics/ClassLength
     end
   end
 
+  # Cleanup must still find marked per-app resources after the opt-in is removed
+  # from the current configuration.
+  def disposable_review_secret_resource_names
+    return nil unless current&.dig(:match_if_app_name_starts_with) && app.to_s != app_prefix.to_s
+    return nil unless app.match?(CONTROL_PLANE_RESOURCE_NAME_REGEX)
+
+    secret = "#{app}-secrets"
+    policy = "#{secret}-policy"
+    return nil unless policy.length <= 64
+
+    [secret, policy]
+  end
+
   def validate_generated_review_secret_scope!
     dynamic_review_app = current[:match_if_app_name_starts_with] && app.to_s != app_prefix.to_s
     raise "generated_review_secret_keys is only allowed for a dynamically named review app." unless dynamic_review_app

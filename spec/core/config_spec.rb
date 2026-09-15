@@ -19,6 +19,18 @@ describe Config do
       expect(config.generated_review_secret_keys).to eq(%w[SECRET_KEY_BASE RENDERER_PASSWORD])
       expect(config.secrets).to eq("demo-review-pr-97-secrets")
       expect(config.secrets_policy).to eq("demo-review-pr-97-secrets-policy")
+      expect(config.disposable_review_secret_resource_names).to eq(
+        %w[demo-review-pr-97-secrets demo-review-pr-97-secrets-policy]
+      )
+    end
+
+    it "keeps the cleanup resource identity after the opt-in is removed" do
+      config = review_config({})
+
+      expect(config.generated_review_secret_keys).to eq([])
+      expect(config.disposable_review_secret_resource_names).to eq(
+        %w[demo-review-pr-97-secrets demo-review-pr-97-secrets-policy]
+      )
     end
 
     it "rejects a shared dictionary override" do

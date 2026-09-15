@@ -135,7 +135,7 @@ cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --
 - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
 - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
 - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
-- Removes the per-app dictionary and policy for opt-in generated review credentials only when the policy targets that dictionary and has no remaining bindings
+- Removes a marked per-app dictionary and exact-target unbound policy for generated review credentials, including after the opt-in is removed from a dynamically matched review-app entry
 - Will ask for explicit user confirmation
 - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
