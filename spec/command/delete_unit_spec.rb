@@ -331,6 +331,28 @@ describe Command::Delete do
       )
     end
 
+    it "unbinds the marked old policy after its dictionary was already removed" do
+      allow(config).to receive_messages(
+        generated_review_secret_keys: [], secrets_policy: "shared-review-policy",
+        identity: "demo-review-pr-97-identity", shared_secret_grants: []
+      )
+      allow(cp).to receive(:fetch_identity).with(config.identity).and_return({ "name" => config.identity })
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(nil)
+      allow(cp).to receive(:fetch_policy).with("shared-review-policy").and_return(nil)
+      allow(cp).to receive(:fetch_policy).with("demo-review-pr-97-secrets-policy").and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/demo-review-pr-97-secrets"],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+          "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }] }
+      )
+      allow(cp).to receive(:unbind_identity_from_policy)
+
+      command.send(:unbind_identity_from_policy, command.send(:secret_policy_unbinds))
+
+      expect(cp).to have_received(:unbind_identity_from_policy).with(
+        config.identity_link, "demo-review-pr-97-secrets-policy", permission: "reveal"
+      )
+    end
+
     it "preserves an unmarked dictionary when its policy is absent" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
       allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(

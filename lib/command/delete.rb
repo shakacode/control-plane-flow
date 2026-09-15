@@ -290,10 +290,11 @@ module Command
 
     def verified_disposable_review_secret_policy(secret_name, policy_name)
       secret = cp.fetch_secret(secret_name)
-      return unless secret && generated_review_secret?(secret, secret_name)
+      return if secret && !generated_review_secret?(secret, secret_name)
 
       policy = cp.fetch_policy(policy_name)
-      return unless policy && generated_review_secret_policy?(policy, secret_name)
+      return unless policy && generated_review_secret_policy?(policy, secret_name) &&
+                    only_app_identity_bindings?(policy)
 
       policy
     end
