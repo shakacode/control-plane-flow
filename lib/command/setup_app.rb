@@ -100,7 +100,7 @@ module Command
 
     def generated_review_secret_owned_by_app?(secret)
       secret.is_a?(Hash) && secret["name"] == config.secrets && secret["type"] == "dictionary" &&
-        secret.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
+        generated_review_app_tag(secret) == config.app
     end
 
     def create_new_secret
@@ -154,7 +154,7 @@ module Command
 
     def verify_generated_review_policy!(policy)
       expected_target = policy_targets_secret?(policy, config.secrets)
-      owned_policy = policy.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
+      owned_policy = generated_review_app_tag(policy) == config.app
       no_extra_selectors = %w[target targetQuery gvc].all? { |key| policy[key].nil? }
       own_bindings = Array(policy["bindings"]).all? do |binding|
         Array(binding["principalLinks"]) == [config.identity_link]

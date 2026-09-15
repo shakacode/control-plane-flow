@@ -344,7 +344,7 @@ describe Command::Delete do
 
     it "can finish secret cleanup after a prior run already removed the GVC" do
       allow(cp).to receive(:fetch_gvc).and_return(nil)
-      allow(command).to receive(:confirm_delete).with(config.app).and_return(true)
+      allow(command).to receive(:confirm_delete).with("disposable secrets for app #{config.app}").and_return(true)
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
         { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [],
           "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
@@ -354,6 +354,34 @@ describe Command::Delete do
 
       expect(cp).to have_received(:delete_policy).with(config.secrets_policy)
       expect(cp).to have_received(:delete_secret).with(config.secrets)
+    end
+
+    it "does not prompt for a missing plain review app with no disposable resources" do
+      allow(config).to receive(:generated_review_secret_keys).and_return([])
+      allow(cp).to receive(:fetch_gvc).and_return(nil)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(nil)
+      allow(command).to receive(:confirm_delete)
+
+      command.send(:delete_whole_app)
+
+      expect(command).not_to have_received(:confirm_delete)
+      expect(cp).not_to have_received(:delete_secret)
+      expect(cp).not_to have_received(:delete_policy)
+    end
+
+    it "reports unsafe retained resources instead of claiming missing-app cleanup succeeded" do
+      allow(cp).to receive(:fetch_gvc).and_return(nil)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app }, "bindings" => [{}] }
+      )
+      allow(command).to receive(:confirm_delete)
+
+      expect { command.send(:delete_whole_app) }.to raise_error(/leaving them for inspection/)
+      expect(command).not_to have_received(:confirm_delete)
+      expect(cp).not_to have_received(:delete_secret)
+      expect(cp).not_to have_received(:delete_policy)
     end
 
     it "deletes only the PR-specific dictionary after an empty exact-target policy" do
@@ -401,6 +429,17 @@ describe Command::Delete do
       command.send(:delete_generated_review_secret_resources)
 
       expect(cp).not_to have_received(:delete_policy)
+    end
+
+    it "preserves a resource whose provider tags field is explicitly null" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+        { "name" => config.secrets, "type" => "dictionary", "tags" => nil }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).not_to have_received(:delete_secret)
     end
 
     it "removes a marked policy after its dictionary was already removed" do

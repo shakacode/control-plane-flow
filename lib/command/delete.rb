@@ -67,10 +67,34 @@ module Command
 
     def handle_missing_app
       progress.puts("App '#{config.app}' does not exist.")
-      return unless config.disposable_review_secret_resource_names
-      return unless confirm_delete(config.app)
+      cleanup_state = disposable_review_secret_cleanup_state
+      return if cleanup_state == :none
+      if cleanup_state == :unsafe
+        raise "Review app secret resources have unexpected ownership, grants, or target; leaving them for inspection."
+      end
+      return unless confirm_delete("disposable secrets for app #{config.app}")
 
       delete_generated_review_secret_resources
+    end
+
+    def disposable_review_secret_cleanup_state
+      names = config.disposable_review_secret_resource_names
+      return :none unless names
+
+      secret_name, policy_name = names
+      policy = cp.fetch_policy(policy_name)
+      secret = cp.fetch_secret(secret_name)
+      return :none if policy.nil? && secret.nil?
+      return :safe if safe_disposable_review_secret_resources?(policy, secret, secret_name)
+
+      :unsafe
+    end
+
+    def safe_disposable_review_secret_resources?(policy, secret, secret_name)
+      return generated_review_secret?(secret, secret_name) if policy.nil?
+
+      disposable_review_secret_policy?(policy, secret_name) &&
+        (secret.nil? || generated_review_secret?(secret, secret_name))
     end
 
     def delete_app_resources
@@ -150,7 +174,7 @@ module Command
 
     def generated_review_secret?(secret, secret_name)
       secret["name"] == secret_name && secret["type"] == "dictionary" &&
-        secret.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app
+        generated_review_app_tag(secret) == config.app
     end
 
     def warn_unexpected_review_secret_policy
@@ -164,7 +188,7 @@ module Command
 
     def generated_review_secret_policy?(policy, secret_name)
       policy_targets_secret?(policy, secret_name) &&
-        policy.fetch("tags", {})[::Config::GENERATED_REVIEW_APP_TAG] == config.app &&
+        generated_review_app_tag(policy) == config.app &&
         %w[target targetQuery gvc].all? { |key| policy[key].nil? }
     end
 

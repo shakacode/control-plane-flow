@@ -710,6 +710,13 @@ module Command
         secret_policy_target_links(secret_name).include?(target_links.first)
     end
 
+    def generated_review_app_tag(resource)
+      tags = resource["tags"]
+      return nil unless tags.is_a?(Hash)
+
+      tags[::Config::GENERATED_REVIEW_APP_TAG]
+    end
+
     def secret_policy_target_links(secret_name)
       [
         "//secret/#{secret_name}",
