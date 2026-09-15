@@ -65,7 +65,7 @@ describe Command::SetupApp do
         allow(command).to receive(:step) { |_message, &block| block.call }
         allow(cp).to receive(:fetch_secret).with(config.secrets)
         allow(cp).to receive(:apply_hash)
-        allow(cp).to receive(:replace_sensitive_secret_data)
+        allow(cp).to receive(:patch_sensitive_secret_data)
       end
 
       it "creates both fields without using the CLI template path" do
@@ -86,13 +86,12 @@ describe Command::SetupApp do
           { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep" } }
         )
         allow(SecureRandom).to receive(:hex).with(32).and_return("c" * 64)
-        allow(cp).to receive(:replace_sensitive_secret_data).and_return(true)
+        allow(cp).to receive(:patch_sensitive_secret_data).and_return(true)
 
         command.send(:create_secret_if_not_exists)
 
-        expect(cp).to have_received(:replace_sensitive_secret_data).with(
-          config.secrets,
-          { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep", "RENDERER_PASSWORD" => "c" * 64 }
+        expect(cp).to have_received(:patch_sensitive_secret_data).with(
+          config.secrets, { "RENDERER_PASSWORD" => "c" * 64 }
         )
       end
 
@@ -104,7 +103,7 @@ describe Command::SetupApp do
 
         command.send(:create_secret_if_not_exists)
 
-        expect(cp).not_to have_received(:replace_sensitive_secret_data)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
       end
 
       it "fails closed when the existing dictionary cannot be revealed" do
@@ -112,7 +111,7 @@ describe Command::SetupApp do
         allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(nil)
 
         expect { command.send(:create_secret_if_not_exists) }.to raise_error(/Cannot safely inspect/)
-        expect(cp).not_to have_received(:replace_sensitive_secret_data)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
       end
     end
 

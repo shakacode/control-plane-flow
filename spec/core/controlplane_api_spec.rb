@@ -291,15 +291,15 @@ describe ControlplaneApi do
       expect(api.create_sensitive_secret(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
     end
 
-    it "replaces dictionary data using the sensitive non-retrying request policy" do
-      data = { "SECRET_KEY_BASE" => "existing", "RENDERER_PASSWORD" => "generated" }
+    it "patches only supplied dictionary keys using the sensitive non-retrying request policy" do
+      data = { "RENDERER_PASSWORD" => "generated" }
       response = stub_api_call(
         "/org/my-org/secret/my-review-secret", method: :patch,
-                                               body: { "$replace/data" => data },
+                                               body: { data: data },
                                                request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
       )
 
-      expect(api.replace_sensitive_secret_data(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
+      expect(api.patch_sensitive_secret_data(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
     end
   end
 

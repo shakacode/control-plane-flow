@@ -101,7 +101,7 @@ module Command
       return if missing_keys.empty?
 
       step("Adding missing generated review app secret fields") do
-        cp.replace_sensitive_secret_data(config.secrets, data.merge(generated_review_secret_data(missing_keys)))
+        cp.patch_sensitive_secret_data(config.secrets, generated_review_secret_data(missing_keys))
       end
     end
 

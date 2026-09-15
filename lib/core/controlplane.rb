@@ -442,8 +442,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.create_sensitive_secret(org: org, secret: secret, data: data)
   end
 
-  def replace_sensitive_secret_data(secret, data)
-    api.replace_sensitive_secret_data(org: org, secret: secret, data: data)
+  def patch_sensitive_secret_data(secret, data)
+    api.patch_sensitive_secret_data(org: org, secret: secret, data: data)
   end
 
   def delete_secret(secret)

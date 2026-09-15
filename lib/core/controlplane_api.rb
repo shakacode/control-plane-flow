@@ -130,10 +130,10 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     )
   end
 
-  def replace_sensitive_secret_data(org:, secret:, data:)
+  def patch_sensitive_secret_data(org:, secret:, data:)
     api_json(
       "/org/#{org}/secret/#{secret}", method: :patch,
-                                      body: { "$replace/data" => data },
+                                      body: { data: data },
                                       request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
     )
   end

@@ -302,6 +302,16 @@ describe Command::Delete do
       expect(cp).to have_received(:delete_secret).with(config.secrets)
     end
 
+    it "keeps the policy available for retry if dictionary deletion fails" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [] }
+      )
+      allow(cp).to receive(:delete_secret).with(config.secrets).and_raise("transient delete failure")
+
+      expect { command.send(:delete_generated_review_secret_resources) }.to raise_error(/transient delete failure/)
+      expect(cp).not_to have_received(:delete_policy)
+    end
+
     it "preserves resources if another binding remains" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
         { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [{}] }

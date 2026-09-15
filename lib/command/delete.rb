@@ -125,10 +125,10 @@ module Command
 
       return warn_unexpected_review_secret_policy unless disposable_review_secret_policy?(policy)
 
+      if cp.fetch_secret(config.secrets)
+        step("Deleting disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
+      end
       step("Deleting disposable review app secret policy") { cp.delete_policy(config.secrets_policy) }
-      return unless cp.fetch_secret(config.secrets)
-
-      step("Deleting disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
     end
 
     def warn_unexpected_review_secret_policy
