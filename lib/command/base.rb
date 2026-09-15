@@ -483,12 +483,12 @@ module Command
       }
     end
 
-    def self.skip_existing_secret_resources_option(required: false)
+    def self.skip_existing_secret_option(required: false)
       {
-        name: :skip_existing_secret_resources,
+        name: :skip_existing_secret,
         params: {
-          desc: "Skips existing secret resources while applying templates",
-          type: :boolean,
+          desc: "Skips one named existing secret while applying templates",
+          type: :string,
           required: required
         }
       }

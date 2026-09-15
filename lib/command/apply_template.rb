@@ -11,7 +11,7 @@ module Command
       skip_confirm_option,
       add_app_identity_option,
       preserve_existing_runtime_option,
-      skip_existing_secret_resources_option
+      skip_existing_secret_option
     ].freeze
     DESCRIPTION = "Applies application-specific configs from templates"
     LONG_DESCRIPTION = <<~DESC
@@ -20,7 +20,7 @@ module Command
       - Picks templates from the `.controlplane/templates` directory
       - Templates are ordinary Control Plane templates but with variable preprocessing
       - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
-      - Use `--skip-existing-secret-resources` to skip existing secret templates without changing workload image handling
+      - Use `--skip-existing-secret NAME` to skip one named existing secret template without changing workload image handling
       - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
       **Preprocessed template variables:**
@@ -81,7 +81,13 @@ module Command
 
     def filter_existing_resources(templates)
       return preserve_existing_runtime(templates) if config.options[:preserve_existing_runtime]
-      return skip_existing_secret_resources(templates) if config.options[:skip_existing_secret_resources]
+
+      secret_name = config.options[:skip_existing_secret]
+      if secret_name
+        raise "--skip-existing-secret requires a secret name." if secret_name.empty?
+
+        return skip_existing_secret_resources(templates, only_name: secret_name)
+      end
 
       templates
     end
@@ -168,9 +174,10 @@ module Command
       end
     end
 
-    def skip_existing_secret_resources(templates)
+    def skip_existing_secret_resources(templates, only_name: nil)
       templates.filter_map do |template|
-        if template["kind"] == "secret" && cp.fetch_secret(template["name"])
+        if template["kind"] == "secret" && (only_name.nil? || template["name"] == only_name) &&
+           cp.fetch_secret(template["name"])
           report_skipped(template)
           next
         end

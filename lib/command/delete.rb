@@ -156,16 +156,16 @@ module Command
 
     def delete_generated_review_secret_without_policy(secret, secret_name)
       return if secret.nil?
-      return warn_unexpected_review_secret_policy unless generated_review_secret?(secret, secret_name)
+      return warn_unexpected_review_secret_resources unless generated_review_secret?(secret, secret_name)
 
       step("Deleting orphaned disposable review app secret dictionary") { cp.delete_secret(secret_name) }
     end
 
     def delete_generated_review_secret_with_policy(policy, secret, secret_name, policy_name)
-      return warn_unexpected_review_secret_policy unless disposable_review_secret_policy?(policy, secret_name)
+      return warn_unexpected_review_secret_resources unless disposable_review_secret_policy?(policy, secret_name)
 
       if secret
-        return warn_unexpected_review_secret_policy unless generated_review_secret?(secret, secret_name)
+        return warn_unexpected_review_secret_resources unless generated_review_secret?(secret, secret_name)
 
         step("Deleting disposable review app secret dictionary") { cp.delete_secret(secret_name) }
       end
@@ -177,8 +177,8 @@ module Command
         generated_review_app_tag(secret) == config.app
     end
 
-    def warn_unexpected_review_secret_policy
-      progress.puts("Review app secret policy has unexpected grants or target; " \
+    def warn_unexpected_review_secret_resources
+      progress.puts("Review app secret resources have unexpected ownership, grants, or target; " \
                     "leaving secret resources for inspection.")
     end
 

@@ -18,6 +18,31 @@ describe Command::ApplyTemplate do
       expect(command.send(:skip_existing_secret_resources, [secret, workload])).to eq([workload])
       expect(command).to have_received(:report_skipped).with(secret)
     end
+
+    it "keeps another pre-existing secret template when only the generated dictionary is skipped" do
+      allow(command).to receive(:cp).and_return(cp)
+      allow(command).to receive(:report_skipped)
+      allow(cp).to receive(:fetch_secret).with("demo-review-pr-97-secrets").and_return({ "type" => "dictionary" })
+      generated = { "kind" => "secret", "name" => "demo-review-pr-97-secrets" }
+      unrelated = { "kind" => "secret", "name" => "postgres-credentials" }
+
+      result = command.send(:skip_existing_secret_resources, [generated, unrelated],
+                            only_name: "demo-review-pr-97-secrets")
+
+      expect(result).to eq([unrelated])
+      expect(command).to have_received(:report_skipped).with(generated)
+      expect(cp).not_to have_received(:fetch_secret).with("postgres-credentials")
+    end
+
+    it "refuses a missing secret name before applying templates" do
+      allow(config).to receive(:options).and_return(skip_existing_secret: "")
+      allow(command).to receive(:cp).and_return(cp)
+      allow(cp).to receive(:fetch_secret)
+
+      expect { command.send(:filter_existing_resources, [{ "kind" => "secret", "name" => "postgres-credentials" }]) }
+        .to raise_error(/requires a secret name/)
+      expect(cp).not_to have_received(:fetch_secret)
+    end
   end
 
   context "when any template does not exist" do

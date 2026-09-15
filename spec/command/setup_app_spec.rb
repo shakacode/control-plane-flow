@@ -246,7 +246,7 @@ describe Command::SetupApp do
 
         expect(command).to have_received(:run_cpflow_command).with(
           "apply-template", "app", "rails", "-a", config.app,
-          "--add-app-identity", "--skip-existing-secret-resources"
+          "--add-app-identity", "--skip-existing-secret", config.secrets
         )
       end
     end

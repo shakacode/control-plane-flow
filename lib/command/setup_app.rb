@@ -52,7 +52,9 @@ module Command
       args.push("--add-app-identity") unless skip_secrets_setup
       args.push("--yes") if refresh_templates
       args.push("--preserve-existing-runtime") if refresh_templates
-      args.push("--skip-existing-secret-resources") if !refresh_templates && config.generated_review_secret_keys.any?
+      if !refresh_templates && config.generated_review_secret_keys.any?
+        args.push("--skip-existing-secret", config.secrets)
+      end
       run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
 
       bind_identity_to_policy unless skip_secrets_setup
