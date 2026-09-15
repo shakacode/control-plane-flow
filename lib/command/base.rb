@@ -483,11 +483,22 @@ module Command
       }
     end
 
-    def self.skip_existing_secret_option(required: false)
+    def self.skip_secret_template_option(required: false)
       {
-        name: :skip_existing_secret,
+        name: :skip_secret_template,
         params: {
-          desc: "Skips one named existing secret while applying templates",
+          desc: "Skips one named secret template while applying templates",
+          type: :string,
+          required: required
+        }
+      }
+    end
+
+    def self.skip_policy_template_option(required: false)
+      {
+        name: :skip_policy_template,
+        params: {
+          desc: "Skips one named policy template while applying templates",
           type: :string,
           required: required
         }

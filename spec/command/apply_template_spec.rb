@@ -20,28 +20,51 @@ describe Command::ApplyTemplate do
     end
 
     it "keeps another pre-existing secret template when only the generated dictionary is skipped" do
+      allow(config).to receive(:options).and_return(skip_secret_template: "demo-review-pr-97-secrets")
       allow(command).to receive(:cp).and_return(cp)
       allow(command).to receive(:report_skipped)
-      allow(cp).to receive(:fetch_secret).with("demo-review-pr-97-secrets").and_return({ "type" => "dictionary" })
+      allow(cp).to receive(:fetch_secret)
       generated = { "kind" => "secret", "name" => "demo-review-pr-97-secrets" }
       unrelated = { "kind" => "secret", "name" => "postgres-credentials" }
 
-      result = command.send(:skip_existing_secret_resources, [generated, unrelated],
-                            only_name: "demo-review-pr-97-secrets")
+      result = command.send(:filter_existing_resources, [generated, unrelated])
 
       expect(result).to eq([unrelated])
       expect(command).to have_received(:report_skipped).with(generated)
-      expect(cp).not_to have_received(:fetch_secret).with("postgres-credentials")
+      expect(cp).not_to have_received(:fetch_secret)
     end
 
     it "refuses a missing secret name before applying templates" do
-      allow(config).to receive(:options).and_return(skip_existing_secret: "")
+      allow(config).to receive(:options).and_return(skip_secret_template: "")
       allow(command).to receive(:cp).and_return(cp)
       allow(cp).to receive(:fetch_secret)
 
       expect { command.send(:filter_existing_resources, [{ "kind" => "secret", "name" => "postgres-credentials" }]) }
         .to raise_error(/requires a secret name/)
       expect(cp).not_to have_received(:fetch_secret)
+    end
+
+    it "skips only the generated policy and keeps unrelated policies eligible" do
+      allow(config).to receive(:options).and_return(skip_policy_template: "demo-review-pr-97-secrets-policy")
+      allow(command).to receive(:cp).and_return(cp)
+      allow(command).to receive(:report_skipped)
+      allow(cp).to receive(:fetch_policy)
+      generated = { "kind" => "policy", "name" => "demo-review-pr-97-secrets-policy" }
+      unrelated = { "kind" => "policy", "name" => "postgres-policy" }
+
+      expect(command.send(:filter_existing_resources, [generated, unrelated])).to eq([unrelated])
+      expect(command).to have_received(:report_skipped).with(generated)
+      expect(cp).not_to have_received(:fetch_policy)
+    end
+
+    it "refuses an empty policy name before template application" do
+      allow(config).to receive(:options).and_return(skip_policy_template: "")
+      allow(command).to receive(:cp).and_return(cp)
+      allow(cp).to receive(:fetch_policy)
+
+      expect { command.send(:filter_existing_resources, [{ "kind" => "policy", "name" => "other" }]) }
+        .to raise_error(/requires a policy name/)
+      expect(cp).not_to have_received(:fetch_policy)
     end
   end
 

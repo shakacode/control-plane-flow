@@ -246,7 +246,28 @@ describe Command::SetupApp do
 
         expect(command).to have_received(:run_cpflow_command).with(
           "apply-template", "app", "rails", "-a", config.app,
-          "--add-app-identity", "--skip-existing-secret", config.secrets
+          "--add-app-identity", "--skip-policy-template", config.secrets_policy,
+          "--skip-secret-template", config.secrets
+        )
+      end
+
+      it "preserves the generated policy during an existing app template refresh" do
+        allow(config).to receive_messages(
+          options: { refresh_templates: true }, current: { skip_secrets_setup: false }, shared_secret_grants: []
+        )
+        allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
+        allow(cp).to receive(:fetch_gvc).and_return({ "name" => config.app })
+        allow(command).to receive_messages(
+          resolve_shared_secret_policy_grants: [], create_secret_and_policy_if_not_exist: true,
+          run_cpflow_command: true, bind_identity_to_policy: true,
+          bind_shared_secret_policy_grants: true
+        )
+
+        command.call
+
+        expect(command).to have_received(:run_cpflow_command).with(
+          "apply-template", "app", "rails", "-a", config.app, "--add-app-identity", "--yes",
+          "--preserve-existing-runtime", "--skip-policy-template", config.secrets_policy
         )
       end
     end

@@ -11,7 +11,8 @@ module Command
       skip_confirm_option,
       add_app_identity_option,
       preserve_existing_runtime_option,
-      skip_existing_secret_option
+      skip_secret_template_option,
+      skip_policy_template_option
     ].freeze
     DESCRIPTION = "Applies application-specific configs from templates"
     LONG_DESCRIPTION = <<~DESC
@@ -20,7 +21,7 @@ module Command
       - Picks templates from the `.controlplane/templates` directory
       - Templates are ordinary Control Plane templates but with variable preprocessing
       - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
-      - Use `--skip-existing-secret NAME` to skip one named existing secret template without changing workload image handling
+      - Use `--skip-secret-template NAME` and `--skip-policy-template NAME` to skip exact named templates without changing workload image handling
       - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
       **Preprocessed template variables:**
@@ -80,16 +81,24 @@ module Command
     private
 
     def filter_existing_resources(templates)
-      return preserve_existing_runtime(templates) if config.options[:preserve_existing_runtime]
+      templates = preserve_existing_runtime(templates) if config.options[:preserve_existing_runtime]
+      templates = skip_named_template(templates, :skip_secret_template, "secret")
+      skip_named_template(templates, :skip_policy_template, "policy")
+    end
 
-      secret_name = config.options[:skip_existing_secret]
-      if secret_name
-        raise "--skip-existing-secret requires a secret name." if secret_name.empty?
+    def skip_named_template(templates, option, kind)
+      name = config.options[option]
+      return templates unless name
+      raise "--#{option.to_s.tr('_', '-')} requires a #{kind} name." if name.empty?
 
-        return skip_existing_secret_resources(templates, only_name: secret_name)
+      templates.filter_map do |template|
+        if template["kind"] == kind && template["name"] == name
+          report_skipped(template)
+          next
+        end
+
+        template
       end
-
-      templates
     end
 
     def template_kind(template)
@@ -174,10 +183,9 @@ module Command
       end
     end
 
-    def skip_existing_secret_resources(templates, only_name: nil)
+    def skip_existing_secret_resources(templates)
       templates.filter_map do |template|
-        if template["kind"] == "secret" && (only_name.nil? || template["name"] == only_name) &&
-           cp.fetch_secret(template["name"])
+        if template["kind"] == "secret" && cp.fetch_secret(template["name"])
           report_skipped(template)
           next
         end
@@ -333,7 +341,7 @@ module Command
       return unless @skipped_templates.any?
 
       skipped = @skipped_templates.map { |template| "  - [#{template_kind(template)}] #{template['name']}" }.join("\n")
-      progress.puts("\n#{Shell.color('Skipped templates (already exist):', :blue)}\n#{skipped}")
+      progress.puts("\n#{Shell.color('Skipped templates:', :blue)}\n#{skipped}")
     end
   end
 end

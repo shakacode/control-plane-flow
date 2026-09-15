@@ -27,8 +27,9 @@ apps:
 policy for each PR app, tags both resources with the exact app name, fills each
 configured key with a random 256-bit hex value, and never prints the values.
 `--refresh-templates` fills missing keys without rotating existing values.
-Initial template application also skips the already-created generated dictionary,
-so a secret template cannot replace its disposable values.
+Initial template application skips templates named for the generated dictionary
+and policy, so templates cannot replace its values or broaden its access.
+Refresh also skips the generated policy template.
 Setup refuses to reuse a dictionary without the exact app tag or a policy that
 targets another secret or binds another principal; it rechecks the policy
 immediately before granting the app identity. Keep this
@@ -36,7 +37,7 @@ setting off persistent apps and do
 not combine it with custom `secrets_name` or `secrets_policy_name`. Templates
 that use `{{APP_SECRETS}}` automatically point at the PR-specific dictionary.
 `cpflow delete` and delete-mode stale cleanup remove that dictionary and policy
-after the app is deleted, provided the policy still targets the dictionary and
+before removing the app, provided the policy still targets the dictionary and
 has no other bindings. Generated dictionaries carry an app marker; if a prior
 attempt removed the policy first, cleanup can use that marker to remove only the
 matching disposable dictionary. An unmarked policy is also left for inspection
