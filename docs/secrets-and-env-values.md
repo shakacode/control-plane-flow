@@ -27,6 +27,8 @@ apps:
 policy for each PR app, tags both resources with the exact app name, fills each
 configured key with a random 256-bit hex value, and never prints the values.
 `--refresh-templates` fills missing keys without rotating existing values.
+Initial template application also skips the already-created generated dictionary,
+so a secret template cannot replace its disposable values.
 Setup refuses to reuse a dictionary without the exact app tag or a policy that
 targets another secret or binds another principal; it rechecks the policy
 immediately before granting the app identity. Keep this

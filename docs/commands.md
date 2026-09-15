@@ -30,6 +30,7 @@ cpflow ai-github-flow-prompt
 - Picks templates from the `.controlplane/templates` directory
 - Templates are ordinary Control Plane templates but with variable preprocessing
 - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
+- Use `--skip-existing-secret-resources` to skip existing secret templates without changing workload image handling
 - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
 **Preprocessed template variables:**
@@ -559,7 +560,7 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
   using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
 - Creates identity for secrets if it does not exist
-- For dynamically named review apps with `generated_review_secret_keys`, creates a per-app dictionary and fills missing disposable keys without printing or rotating values
+- For dynamically named review apps with `generated_review_secret_keys`, checks an existing policy before writing credentials, creates a per-app dictionary, skips its secret template during initial setup, and fills missing disposable keys without printing or rotating values
 - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
 - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
   or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file

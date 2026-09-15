@@ -483,6 +483,17 @@ module Command
       }
     end
 
+    def self.skip_existing_secret_resources_option(required: false)
+      {
+        name: :skip_existing_secret_resources,
+        params: {
+          desc: "Skips existing secret resources while applying templates",
+          type: :boolean,
+          required: required
+        }
+      }
+    end
+
     def self.skip_pre_deletion_hook_option(required: false)
       {
         name: :skip_pre_deletion_hook,

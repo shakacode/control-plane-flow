@@ -18,7 +18,7 @@ module Command
       - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
         using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
-      - For dynamically named review apps with `generated_review_secret_keys`, creates a per-app dictionary and fills missing disposable keys without printing or rotating values
+      - For dynamically named review apps with `generated_review_secret_keys`, checks an existing policy before writing credentials, creates a per-app dictionary, skips its secret template during initial setup, and fills missing disposable keys without printing or rotating values
       - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
       - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
         or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
@@ -50,7 +50,9 @@ module Command
 
       args = []
       args.push("--add-app-identity") unless skip_secrets_setup
-      args.push("--yes", "--preserve-existing-runtime") if refresh_templates
+      args.push("--yes") if refresh_templates
+      args.push("--preserve-existing-runtime") if refresh_templates
+      args.push("--skip-existing-secret-resources") if !refresh_templates && config.generated_review_secret_keys.any?
       run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
 
       bind_identity_to_policy unless skip_secrets_setup
@@ -66,10 +68,18 @@ module Command
     end
 
     def create_secret_and_policy_if_not_exist
+      validate_existing_generated_review_policy_before_secret!
       create_secret_if_not_exists
       create_policy_if_not_exists
 
       progress.puts
+    end
+
+    def validate_existing_generated_review_policy_before_secret!
+      return if config.generated_review_secret_keys.empty?
+
+      policy = cp.fetch_policy(config.secrets_policy)
+      verify_generated_review_policy!(policy) if policy
     end
 
     def create_secret_if_not_exists

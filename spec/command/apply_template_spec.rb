@@ -3,6 +3,23 @@
 require "spec_helper"
 
 describe Command::ApplyTemplate do
+  describe "#skip_existing_secret_resources for a new review app" do
+    let(:config) { instance_double(Config, app: "demo-review-pr-97", org: "test-org") }
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+
+    it "skips an existing generated dictionary without trying to preserve absent workload images" do
+      allow(command).to receive(:cp).and_return(cp)
+      allow(command).to receive(:report_skipped)
+      allow(cp).to receive(:fetch_secret).with("demo-review-pr-97-secrets").and_return({ "type" => "dictionary" })
+      secret = { "kind" => "secret", "name" => "demo-review-pr-97-secrets" }
+      workload = { "kind" => "workload", "name" => "rails" }
+
+      expect(command.send(:skip_existing_secret_resources, [secret, workload])).to eq([workload])
+      expect(command).to have_received(:report_skipped).with(secret)
+    end
+  end
+
   context "when any template does not exist" do
     let!(:app) { dummy_test_app }
 

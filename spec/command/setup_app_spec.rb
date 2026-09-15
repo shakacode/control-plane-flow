@@ -72,6 +72,7 @@ describe Command::SetupApp do
         allow(cp).to receive(:patch_sensitive_secret_data)
         allow(cp).to receive(:fetch_policy)
         allow(cp).to receive(:bind_identity_to_policy)
+        allow(cp).to receive(:create_sensitive_secret)
       end
 
       it "creates both fields without using the CLI template path" do
@@ -203,6 +204,37 @@ describe Command::SetupApp do
       it "marks a newly generated policy with this app's identity" do
         expect(command.send(:build_policy_hash).fetch("tags")).to eq(
           Config::GENERATED_REVIEW_APP_TAG => config.app
+        )
+      end
+
+      it "rejects a foreign policy before writing generated credentials" do
+        allow(command).to receive(:create_secret_and_policy_if_not_exist).and_call_original
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "bindings" => [{ "principalLinks" => ["/org/test-org/gvc/other/identity/other"] }] }
+        )
+
+        expect { command.send(:create_secret_and_policy_if_not_exist) }.to raise_error(/unexpected target or binding/)
+        expect(cp).not_to have_received(:create_sensitive_secret)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "preserves the generated dictionary during initial template application" do
+        allow(config).to receive_messages(options: {}, current: { skip_secrets_setup: false }, shared_secret_grants: [])
+        allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
+        allow(cp).to receive(:fetch_gvc).and_return(nil)
+        allow(command).to receive_messages(
+          resolve_shared_secret_policy_grants: [], create_secret_and_policy_if_not_exist: true,
+          run_cpflow_command: true, bind_identity_to_policy: true,
+          bind_shared_secret_policy_grants: true, run_post_creation_hook: true
+        )
+
+        command.call
+
+        expect(command).to have_received(:run_cpflow_command).with(
+          "apply-template", "app", "rails", "-a", config.app,
+          "--add-app-identity", "--skip-existing-secret-resources"
         )
       end
     end
