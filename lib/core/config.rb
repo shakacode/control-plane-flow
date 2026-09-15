@@ -52,11 +52,43 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def secrets
+    return "#{app}-secrets" if generated_review_secret_keys.any?
+
     current&.dig(:secrets_name) || "#{app_prefix}-secrets"
   end
 
   def secrets_policy
     current&.dig(:secrets_policy_name) || "#{secrets}-policy"
+  end
+
+  def generated_review_secret_keys
+    keys = current&.dig(:generated_review_secret_keys)
+    return [] if keys.nil?
+
+    validate_generated_review_secret_scope!
+    validate_generated_review_secret_keys!(keys)
+
+    keys
+  end
+
+  def validate_generated_review_secret_scope!
+    dynamic_review_app = current[:match_if_app_name_starts_with] && app.to_s != app_prefix.to_s
+    raise "generated_review_secret_keys is only allowed for a dynamically named review app." unless dynamic_review_app
+
+    unless "#{app}-secrets-policy".length <= 64 && app.match?(CONTROL_PLANE_RESOURCE_NAME_REGEX)
+      raise "Review app name is too long or invalid for a per-app secret policy."
+    end
+    return unless current[:secrets_name] || current[:secrets_policy_name]
+
+    raise "generated_review_secret_keys cannot be combined with secrets_name or secrets_policy_name."
+  end
+
+  def validate_generated_review_secret_keys!(keys)
+    valid_size = keys.is_a?(Array) && keys.size.between?(1, 8)
+    valid_names = valid_size && keys.all? { |key| key.is_a?(String) && key.match?(/\A[A-Z][A-Z0-9_]*\z/) }
+    return if valid_names && keys.uniq == keys
+
+    raise "generated_review_secret_keys must contain 1-8 unique uppercase environment names."
   end
 
   def shared_secret_grants

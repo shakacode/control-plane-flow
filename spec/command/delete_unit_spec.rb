@@ -191,6 +191,7 @@ describe Command::Delete do
         identity: "test-review-123-identity",
         identity_link: identity_link,
         secrets_policy: "test-review-secrets-policy",
+        generated_review_secret_keys: [],
         options: { skip_pre_deletion_hook: false },
         shared_secret_grants: [
           {
@@ -255,6 +256,61 @@ describe Command::Delete do
           [:unbind, "shared-database-secrets-policy", "reveal"]
         ]
       )
+    end
+  end
+
+  describe "disposable review app secret cleanup" do
+    let(:config) do
+      instance_double(
+        Config, app: "demo-review-pr-97", org: "test-org",
+                secrets: "demo-review-pr-97-secrets", secrets_policy: "demo-review-pr-97-secrets-policy",
+                generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
+      )
+    end
+    let(:cp) { instance_double(Controlplane) }
+    let(:command) { described_class.new(config) }
+
+    before do
+      allow(command).to receive(:cp).and_return(cp)
+      allow(command).to receive(:step).and_yield
+      allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+      allow(cp).to receive(:delete_policy)
+      allow(cp).to receive(:delete_secret)
+    end
+
+    it "can finish secret cleanup after a prior run already removed the GVC" do
+      allow(cp).to receive(:fetch_gvc).and_return(nil)
+      allow(command).to receive(:confirm_delete).with(config.app).and_return(true)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [] }
+      )
+
+      command.send(:delete_whole_app)
+
+      expect(cp).to have_received(:delete_policy).with(config.secrets_policy)
+      expect(cp).to have_received(:delete_secret).with(config.secrets)
+    end
+
+    it "deletes only the PR-specific dictionary after an empty exact-target policy" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [] }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).to have_received(:delete_policy).with(config.secrets_policy)
+      expect(cp).to have_received(:delete_secret).with(config.secrets)
+    end
+
+    it "preserves resources if another binding remains" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [{}] }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).not_to have_received(:delete_policy)
+      expect(cp).not_to have_received(:delete_secret)
     end
   end
 end

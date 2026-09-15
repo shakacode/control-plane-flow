@@ -14,6 +14,7 @@ module Command
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
       - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
       - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
+      - Removes the per-app dictionary and policy for opt-in generated review credentials only when the policy targets that dictionary and has no remaining bindings
       - Will ask for explicit user confirmation
       - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -50,7 +51,7 @@ module Command
     end
 
     def delete_whole_app
-      return progress.puts("App '#{config.app}' does not exist.") if cp.fetch_gvc.nil?
+      return handle_missing_app if cp.fetch_gvc.nil?
 
       check_volumesets
       check_images
@@ -61,9 +62,22 @@ module Command
       policy_unbinds = secret_policy_unbinds
       run_pre_deletion_hook unless config.options[:skip_pre_deletion_hook]
       unbind_identity_from_policy(policy_unbinds)
+      delete_app_resources
+    end
+
+    def handle_missing_app
+      progress.puts("App '#{config.app}' does not exist.")
+      return if config.generated_review_secret_keys.empty?
+      return unless confirm_delete(config.app)
+
+      delete_generated_review_secret_resources
+    end
+
+    def delete_app_resources
       delete_volumesets
       delete_gvc
       delete_images
+      delete_generated_review_secret_resources
     end
 
     def check_volumesets
@@ -101,6 +115,32 @@ module Command
       step("Deleting app '#{config.app}'") do
         cp.gvc_delete
       end
+    end
+
+    def delete_generated_review_secret_resources
+      return if config.generated_review_secret_keys.empty?
+
+      policy = cp.fetch_policy(config.secrets_policy)
+      return if policy.nil?
+
+      return warn_unexpected_review_secret_policy unless disposable_review_secret_policy?(policy)
+
+      step("Deleting disposable review app secret policy") { cp.delete_policy(config.secrets_policy) }
+      return unless cp.fetch_secret(config.secrets)
+
+      step("Deleting disposable review app secret dictionary") { cp.delete_secret(config.secrets) }
+    end
+
+    def warn_unexpected_review_secret_policy
+      progress.puts("Review app secret policy has unexpected grants or target; " \
+                    "leaving secret resources for inspection.")
+    end
+
+    def disposable_review_secret_policy?(policy)
+      expected_links = ["//secret/#{config.secrets}", "/org/#{config.org}/secret/#{config.secrets}"]
+      target_links = Array(policy["targetLinks"])
+      policy["targetKind"] == "secret" && target_links.one? && expected_links.include?(target_links.first) &&
+        Array(policy["bindings"]).empty?
     end
 
     def delete_workload(workload)

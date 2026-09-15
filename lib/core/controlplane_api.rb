@@ -122,6 +122,22 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     api_json("/org/#{org}/secret/#{secret}", method: :get)
   end
 
+  def create_sensitive_secret(org:, secret:, data:)
+    api_json(
+      "/org/#{org}/secret", method: :post,
+                            body: { kind: "secret", name: secret, type: "dictionary", data: data },
+                            request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
+    )
+  end
+
+  def replace_sensitive_secret_data(org:, secret:, data:)
+    api_json(
+      "/org/#{org}/secret/#{secret}", method: :patch,
+                                      body: { "$replace/data" => data },
+                                      request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
+    )
+  end
+
   def reveal_secret(org:, secret:)
     api_json(
       "/org/#{org}/secret/#{secret}/-reveal",

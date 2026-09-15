@@ -4,15 +4,8 @@ require "spec_helper"
 
 describe Command::SetupApp do
   describe "#call" do
-    let(:shared_secret_grants) do
-      [
-        {
-          name: "database",
-          secret_name: "shared-database-secrets",
-          policy_name: "shared-database-secrets-policy"
-        }
-      ]
-    end
+    let(:command) { described_class.new(config) }
+    let(:cp) { instance_double(Controlplane) }
     let(:config) do
       instance_double(
         Config,
@@ -27,8 +20,15 @@ describe Command::SetupApp do
         shared_secret_grants: shared_secret_grants
       )
     end
-    let(:cp) { instance_double(Controlplane) }
-    let(:command) { described_class.new(config) }
+    let(:shared_secret_grants) do
+      [
+        {
+          name: "database",
+          secret_name: "shared-database-secrets",
+          policy_name: "shared-database-secrets-policy"
+        }
+      ]
+    end
 
     before do
       allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
@@ -48,6 +48,72 @@ describe Command::SetupApp do
       allow(command).to receive_messages(cp: cp)
       allow(command).to receive(:create_secret_and_policy_if_not_exist)
       allow(command).to receive(:run_cpflow_command)
+    end
+
+    describe "generated review app credentials" do
+      let(:config) do
+        instance_double(
+          Config, secrets: "demo-review-pr-97-secrets", secrets_policy: "demo-review-pr-97-secrets-policy",
+                  generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
+        )
+      end
+      let(:cp) { instance_double(Controlplane) }
+      let(:command) { described_class.new(config) }
+
+      before do
+        allow(command).to receive(:cp).and_return(cp)
+        allow(command).to receive(:step) { |_message, &block| block.call }
+        allow(cp).to receive(:fetch_secret).with(config.secrets)
+        allow(cp).to receive(:apply_hash)
+        allow(cp).to receive(:replace_sensitive_secret_data)
+      end
+
+      it "creates both fields without using the CLI template path" do
+        allow(SecureRandom).to receive(:hex).with(32).and_return("a" * 64, "b" * 64)
+        allow(cp).to receive(:create_sensitive_secret).and_return(true)
+
+        command.send(:create_secret_if_not_exists)
+
+        expect(cp).to have_received(:create_sensitive_secret).with(
+          config.secrets, { "SECRET_KEY_BASE" => "a" * 64, "RENDERER_PASSWORD" => "b" * 64 }
+        )
+        expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "fills only a missing field and preserves existing values" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+        allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(
+          { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep" } }
+        )
+        allow(SecureRandom).to receive(:hex).with(32).and_return("c" * 64)
+        allow(cp).to receive(:replace_sensitive_secret_data).and_return(true)
+
+        command.send(:create_secret_if_not_exists)
+
+        expect(cp).to have_received(:replace_sensitive_secret_data).with(
+          config.secrets,
+          { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep", "RENDERER_PASSWORD" => "c" * 64 }
+        )
+      end
+
+      it "does not rotate populated credentials on refresh" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+        allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(
+          { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "a", "RENDERER_PASSWORD" => "b" } }
+        )
+
+        command.send(:create_secret_if_not_exists)
+
+        expect(cp).not_to have_received(:replace_sensitive_secret_data)
+      end
+
+      it "fails closed when the existing dictionary cannot be revealed" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return({ "type" => "dictionary" })
+        allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(nil)
+
+        expect { command.send(:create_secret_if_not_exists) }.to raise_error(/Cannot safely inspect/)
+        expect(cp).not_to have_received(:replace_sensitive_secret_data)
+      end
     end
 
     it "binds the app identity to configured shared secret policies" do

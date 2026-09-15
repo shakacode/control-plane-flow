@@ -18,6 +18,7 @@ module Command
       - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
         using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
+      - For dynamically named review apps with `generated_review_secret_keys`, creates a per-app dictionary and fills missing disposable keys without printing or rotating values
       - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
       - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
         or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
@@ -72,13 +73,51 @@ module Command
     end
 
     def create_secret_if_not_exists
-      if cp.fetch_secret(config.secrets)
-        progress.puts("Secret '#{config.secrets}' already exists. Skipping creation...")
+      return existing_secret_if_any if cp.fetch_secret(config.secrets)
+
+      step("Creating secret '#{config.secrets}'") { create_new_secret }
+    end
+
+    def existing_secret_if_any
+      progress.puts("Secret '#{config.secrets}' already exists. Skipping creation...")
+      fill_missing_generated_review_secrets
+    end
+
+    def create_new_secret
+      if config.generated_review_secret_keys.any?
+        cp.create_sensitive_secret(config.secrets, generated_review_secret_data)
       else
-        step("Creating secret '#{config.secrets}'") do
-          cp.apply_hash(build_secret_hash)
-        end
+        cp.apply_hash(build_secret_hash)
       end
+    end
+
+    def fill_missing_generated_review_secrets
+      keys = config.generated_review_secret_keys
+      return if keys.empty?
+
+      data = revealed_review_secret_data
+
+      missing_keys = keys.reject { |key| data[key].is_a?(String) && !data[key].empty? }
+      return if missing_keys.empty?
+
+      step("Adding missing generated review app secret fields") do
+        cp.replace_sensitive_secret_data(config.secrets, data.merge(generated_review_secret_data(missing_keys)))
+      end
+    end
+
+    def revealed_review_secret_data
+      revealed = cp.reveal_secret(config.secrets)
+      raise "Cannot safely inspect existing review app secret dictionary." unless revealed.is_a?(Hash)
+      raise "Existing review app secret is not a dictionary." unless revealed["type"] == "dictionary"
+
+      data = revealed["data"]
+      raise "Cannot safely inspect existing review app secret dictionary." unless data.is_a?(Hash)
+
+      data
+    end
+
+    def generated_review_secret_data(keys = config.generated_review_secret_keys)
+      keys.to_h { |key| [key, SecureRandom.hex(32)] }
     end
 
     def create_policy_if_not_exists

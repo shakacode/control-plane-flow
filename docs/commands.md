@@ -135,6 +135,7 @@ cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --
 - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
 - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
 - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
+- Removes the per-app dictionary and policy for opt-in generated review credentials only when the policy targets that dictionary and has no remaining bindings
 - Will ask for explicit user confirmation
 - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -558,6 +559,7 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
   using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
 - Creates identity for secrets if it does not exist
+- For dynamically named review apps with `generated_review_secret_keys`, creates a per-app dictionary and fills missing disposable keys without printing or rotating values
 - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
 - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
   or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file

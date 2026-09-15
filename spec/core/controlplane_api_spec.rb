@@ -279,6 +279,30 @@ describe ControlplaneApi do
     end
   end
 
+  describe "review app secret mutations" do
+    it "uses the sensitive non-retrying request policy for creation" do
+      data = { "SECRET_KEY_BASE" => "generated" }
+      response = stub_api_call(
+        "/org/my-org/secret", method: :post,
+                              body: { kind: "secret", name: "my-review-secret", type: "dictionary", data: data },
+                              request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
+      )
+
+      expect(api.create_sensitive_secret(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
+    end
+
+    it "replaces dictionary data using the sensitive non-retrying request policy" do
+      data = { "SECRET_KEY_BASE" => "existing", "RENDERER_PASSWORD" => "generated" }
+      response = stub_api_call(
+        "/org/my-org/secret/my-review-secret", method: :patch,
+                                               body: { "$replace/data" => data },
+                                               request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
+      )
+
+      expect(api.replace_sensitive_secret_data(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
+    end
+  end
+
   describe "#reveal_secret" do
     it "reveals a single secret" do
       response = stub_api_call(

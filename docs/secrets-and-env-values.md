@@ -11,6 +11,32 @@ set these values directly at the GVC or workload levels, so none of these ENV va
 
 ## Review app secrets
 
+For same-repository review apps that need only disposable credentials, opt in on
+the dynamically matched review-app entry in `.controlplane/controlplane.yml`:
+
+```yaml
+apps:
+  my-app-review:
+    match_if_app_name_starts_with: true
+    generated_review_secret_keys:
+      - SECRET_KEY_BASE
+      - RENDERER_PASSWORD
+```
+
+`cpflow setup-app` then creates a separate `APP_NAME-secrets` dictionary and
+policy for each PR app, fills each configured key with a random 256-bit hex
+value, and never prints the values. `--refresh-templates` fills missing keys
+without rotating existing values. Keep this setting off persistent apps and do
+not combine it with custom `secrets_name` or `secrets_policy_name`. Templates
+that use `{{APP_SECRETS}}` automatically point at the PR-specific dictionary.
+`cpflow delete` and delete-mode stale cleanup remove that dictionary and policy
+after the app is deleted, provided the policy still targets the dictionary and
+has no other bindings. If a deletion stops after removing the GVC, rerun
+`cpflow delete` with the same app name to finish secret cleanup. Unexpected
+grants leave those resources for inspection.
+This generates credentials only; external licenses, database accounts, and
+provider tokens still require their own review-only provisioning.
+
 Review apps run application code from pull requests. For repositories with external contributors, do not put sensitive
 production or long-lived staging secrets in review apps. A secret reference such as `cpln://secret/...` protects the
 value while it is stored in Control Plane configuration, but the value becomes readable by application code after it is

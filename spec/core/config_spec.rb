@@ -3,6 +3,44 @@
 require "spec_helper"
 
 describe Config do
+  describe "#generated_review_secret_keys" do
+    def review_config(values)
+      instance = described_class.allocate
+      allow(instance).to receive_messages(
+        current: { name: :demo_review, match_if_app_name_starts_with: true }.merge(values),
+        app: "demo-review-pr-97", app_prefix: "demo_review"
+      )
+      instance
+    end
+
+    it "uses a per-PR dictionary and policy when disposable keys are configured" do
+      config = review_config(generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD])
+
+      expect(config.generated_review_secret_keys).to eq(%w[SECRET_KEY_BASE RENDERER_PASSWORD])
+      expect(config.secrets).to eq("demo-review-pr-97-secrets")
+      expect(config.secrets_policy).to eq("demo-review-pr-97-secrets-policy")
+    end
+
+    it "rejects a shared dictionary override" do
+      config = review_config(generated_review_secret_keys: %w[SECRET_KEY_BASE], secrets_name: "shared-secrets")
+
+      expect { config.secrets }.to raise_error(/cannot be combined/)
+    end
+
+    it "rejects persistent app configuration" do
+      config = review_config(generated_review_secret_keys: %w[SECRET_KEY_BASE])
+      allow(config).to receive(:app).and_return("demo_review")
+
+      expect { config.generated_review_secret_keys }.to raise_error(/dynamically named review app/)
+    end
+
+    it "rejects duplicate or invalid names" do
+      config = review_config(generated_review_secret_keys: %w[SECRET_KEY_BASE SECRET_KEY_BASE])
+
+      expect { config.generated_review_secret_keys }.to raise_error(/unique uppercase environment names/)
+    end
+  end
+
   describe "#shared_secret_grants" do
     def build_config(current)
       instance = described_class.allocate

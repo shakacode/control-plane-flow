@@ -75,6 +75,11 @@ class ControlplaneApiDirect # rubocop:disable Metrics/ClassLength
     retry_transient: false,
     timeout: BEST_EFFORT_TIMEOUT_SECONDS
   )
+  SENSITIVE_MUTATION_REQUEST_POLICY = RequestPolicy.new(
+    sensitive: true,
+    retry_transient: false,
+    timeout: 30
+  )
 
   # Thread-safe API token cache. A single instance is shared process-wide by
   # default (see `default_token_provider`) so each `ControlplaneApiDirect.new`
