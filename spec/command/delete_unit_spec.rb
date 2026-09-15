@@ -453,6 +453,33 @@ describe Command::Delete do
       expect(cp).not_to have_received(:delete_policy)
     end
 
+    it "deletes a marked policy with an empty permission entry for its own identity" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => [] }],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+      )
+
+      command.send(:delete_generated_review_secret_resources)
+
+      expect(cp).to have_received(:delete_policy).with(config.secrets_policy)
+      expect(cp).to have_received(:delete_secret).with(config.secrets)
+    end
+
+    it "rejects an empty permission entry for a foreign identity" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "bindings" => [{ "principalLinks" => ["//gvc/foreign/identity/foreign"], "permissions" => [] }],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+      )
+
+      expect { command.send(:delete_generated_review_secret_resources) }
+        .to raise_error(/leaving secret resources for inspection/)
+
+      expect(cp).not_to have_received(:delete_policy)
+      expect(cp).not_to have_received(:delete_secret)
+    end
+
     it "leaves the GVC discoverable for stale-app retry when disposable dictionary deletion fails" do
       allow(command).to receive(:delete_volumesets)
       allow(command).to receive(:delete_gvc)

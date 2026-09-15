@@ -94,7 +94,7 @@ module Command
       return generated_review_secret?(secret, secret_name) ? :safe : :unsafe if policy.nil?
       return :unsafe unless generated_review_secret_policy?(policy, secret_name)
       return :unsafe unless generated_review_secret_or_absent?(secret, secret_name)
-      return :safe if Array(policy["bindings"]).empty?
+      return :safe if unbound_review_policy?(policy)
 
       only_app_identity_bindings?(policy) ? :own_binding : :unsafe
     end
@@ -110,12 +110,19 @@ module Command
       end
     end
 
+    def unbound_review_policy?(policy)
+      Array(policy["bindings"]).all? do |binding|
+        Array(binding["principalLinks"]) == [config.identity_link] && binding["permissions"] == []
+      end
+    end
+
     def unbind_missing_app_disposable_policy!
       secret_name, policy_name = config.disposable_review_secret_resource_names
       policy = cp.fetch_policy(policy_name)
       return if policy.nil?
 
-      unless generated_review_secret_policy?(policy, secret_name) && only_app_identity_bindings?(policy)
+      unless generated_review_secret_policy?(policy, secret_name) &&
+             (unbound_review_policy?(policy) || only_app_identity_bindings?(policy))
         refuse_unsafe_review_secret_resources!
       end
 
@@ -219,7 +226,7 @@ module Command
     end
 
     def disposable_review_secret_policy?(policy, secret_name)
-      generated_review_secret_policy?(policy, secret_name) && Array(policy["bindings"]).empty?
+      generated_review_secret_policy?(policy, secret_name) && unbound_review_policy?(policy)
     end
 
     def generated_review_secret_policy?(policy, secret_name)
@@ -294,7 +301,7 @@ module Command
 
       policy = cp.fetch_policy(policy_name)
       return unless policy && generated_review_secret_policy?(policy, secret_name) &&
-                    only_app_identity_bindings?(policy)
+                    (unbound_review_policy?(policy) || only_app_identity_bindings?(policy))
 
       policy
     end
