@@ -688,15 +688,18 @@ module Command
     end
 
     def shared_secret_policy_targets_secret?(grant, policy)
+      policy_targets_secret?(policy, grant.fetch(:secret_name))
+    end
+
+    def policy_targets_secret?(policy, secret_name)
       target_links = Array(policy["targetLinks"])
 
       policy["targetKind"] == "secret" &&
         target_links.one? &&
-        shared_secret_policy_target_links(grant).include?(target_links.first)
+        secret_policy_target_links(secret_name).include?(target_links.first)
     end
 
-    def shared_secret_policy_target_links(grant)
-      secret_name = grant.fetch(:secret_name)
+    def secret_policy_target_links(secret_name)
       [
         "//secret/#{secret_name}",
         "/org/#{config.org}/secret/#{secret_name}"

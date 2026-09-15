@@ -62,13 +62,16 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def generated_review_secret_keys
-    keys = current&.dig(:generated_review_secret_keys)
-    return [] if keys.nil?
-
-    validate_generated_review_secret_scope!
-    validate_generated_review_secret_keys!(keys)
-
-    keys
+    @generated_review_secret_keys ||= begin
+      keys = current&.dig(:generated_review_secret_keys)
+      if keys.nil?
+        []
+      else
+        validate_generated_review_secret_scope!
+        validate_generated_review_secret_keys!(keys)
+        keys
+      end
+    end
   end
 
   def validate_generated_review_secret_scope!
@@ -90,6 +93,8 @@ class Config # rubocop:disable Metrics/ClassLength
 
     raise "generated_review_secret_keys must contain 1-8 unique uppercase environment names."
   end
+
+  private :validate_generated_review_secret_scope!, :validate_generated_review_secret_keys!
 
   def shared_secret_grants
     @shared_secret_grants ||= normalize_shared_secret_grants(current&.dig(:shared_secret_grants))

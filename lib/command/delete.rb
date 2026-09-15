@@ -137,10 +137,7 @@ module Command
     end
 
     def disposable_review_secret_policy?(policy)
-      expected_links = ["//secret/#{config.secrets}", "/org/#{config.org}/secret/#{config.secrets}"]
-      target_links = Array(policy["targetLinks"])
-      policy["targetKind"] == "secret" && target_links.one? && expected_links.include?(target_links.first) &&
-        Array(policy["bindings"]).empty?
+      policy_targets_secret?(policy, config.secrets) && Array(policy["bindings"]).empty?
     end
 
     def delete_workload(workload)
