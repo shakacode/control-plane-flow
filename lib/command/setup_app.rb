@@ -131,13 +131,26 @@ module Command
     end
 
     def create_policy_if_not_exists
-      if cp.fetch_policy(config.secrets_policy)
+      policy = cp.fetch_policy(config.secrets_policy)
+      if policy
+        verify_generated_review_policy!(policy) if config.generated_review_secret_keys.any?
         progress.puts("Policy '#{config.secrets_policy}' already exists. Skipping creation...")
       else
         step("Creating policy '#{config.secrets_policy}'") do
           cp.apply_hash(build_policy_hash)
         end
       end
+    end
+
+    def verify_generated_review_policy!(policy)
+      expected_target = policy_targets_secret?(policy, config.secrets)
+      no_extra_selectors = %w[target targetQuery gvc].all? { |key| policy[key].nil? }
+      own_bindings = Array(policy["bindings"]).all? do |binding|
+        Array(binding["principalLinks"]) == [config.identity_link]
+      end
+      return if expected_target && no_extra_selectors && own_bindings
+
+      raise "Existing review app secret policy has an unexpected target or binding."
     end
 
     def build_secret_hash
@@ -160,6 +173,13 @@ module Command
 
     def bind_identity_to_policy
       progress.puts
+
+      if config.generated_review_secret_keys.any?
+        policy = cp.fetch_policy(config.secrets_policy)
+        raise "Cannot safely inspect review app secret policy before binding." unless policy.is_a?(Hash)
+
+        verify_generated_review_policy!(policy)
+      end
 
       step("Binding identity '#{config.identity}' to policy '#{config.secrets_policy}'") do
         cp.bind_identity_to_policy(config.identity_link, config.secrets_policy)

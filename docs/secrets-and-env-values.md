@@ -27,7 +27,9 @@ apps:
 policy for each PR app, tags the dictionary with the exact app name, fills each
 configured key with a random 256-bit hex value, and never prints the values.
 `--refresh-templates` fills missing keys without rotating existing values.
-Setup refuses to reuse a dictionary without the exact app tag. Keep this
+Setup refuses to reuse a dictionary without the exact app tag or a policy that
+targets another secret or binds another principal; it rechecks the policy
+immediately before granting the app identity. Keep this
 setting off persistent apps and do
 not combine it with custom `secrets_name` or `secrets_policy_name`. Templates
 that use `{{APP_SECRETS}}` automatically point at the PR-specific dictionary.

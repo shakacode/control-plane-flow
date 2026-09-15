@@ -15,6 +15,7 @@ describe Command::SetupApp do
         identity_link: "/org/test-org/gvc/test-review-123/identity/test-review-123-identity",
         secrets: "test-review-secrets",
         secrets_policy: "test-review-secrets-policy",
+        generated_review_secret_keys: [],
         options: {},
         current: { skip_secrets_setup: false },
         shared_secret_grants: shared_secret_grants
@@ -53,7 +54,9 @@ describe Command::SetupApp do
     describe "generated review app credentials" do
       let(:config) do
         instance_double(
-          Config, app: "demo-review-pr-97", secrets: "demo-review-pr-97-secrets",
+          Config, app: "demo-review-pr-97", org: "test-org", identity: "demo-review-pr-97-identity",
+                  identity_link: "/org/test-org/gvc/demo-review-pr-97/identity/demo-review-pr-97-identity",
+                  secrets: "demo-review-pr-97-secrets",
                   secrets_policy: "demo-review-pr-97-secrets-policy",
                   generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
         )
@@ -67,6 +70,8 @@ describe Command::SetupApp do
         allow(cp).to receive(:fetch_secret).with(config.secrets)
         allow(cp).to receive(:apply_hash)
         allow(cp).to receive(:patch_sensitive_secret_data)
+        allow(cp).to receive(:fetch_policy)
+        allow(cp).to receive(:bind_identity_to_policy)
       end
 
       it "creates both fields without using the CLI template path" do
@@ -133,6 +138,53 @@ describe Command::SetupApp do
         expect { command.send(:create_secret_if_not_exists) }.to raise_error(/not owned by this app/)
         expect(cp).not_to have_received(:reveal_secret)
         expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "refuses an existing policy that targets another secret" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"] }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+        expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "refuses an existing policy bound to another principal" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "bindings" => [{ "principalLinks" => ["/org/test-org/gvc/other/identity/other"] }] }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "refuses an existing policy with an additional target selector" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "targetQuery" => { "spec" => { "match" => "all" } } }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "reuses an exact-target policy bound only to this app identity" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }] }
+        )
+
+        command.send(:create_policy_if_not_exists)
+
+        expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "rechecks policy scope immediately before binding the app identity" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"] }
+        )
+
+        expect { command.send(:bind_identity_to_policy) }.to raise_error(/unexpected target or binding/)
+        expect(cp).not_to have_received(:bind_identity_to_policy)
       end
     end
 
