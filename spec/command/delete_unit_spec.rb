@@ -407,6 +407,17 @@ describe Command::Delete do
       expect(cp).not_to have_received(:delete_policy)
     end
 
+    it "leaves the GVC discoverable for stale-app retry when disposable dictionary deletion fails" do
+      allow(command).to receive(:delete_volumesets)
+      allow(command).to receive(:delete_gvc)
+      allow(command).to receive(:delete_images)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+      allow(cp).to receive(:delete_secret).with(config.secrets).and_raise("transient delete failure")
+
+      expect { command.send(:delete_app_resources) }.to raise_error(/transient delete failure/)
+      expect(command).not_to have_received(:delete_gvc)
+    end
+
     it "preserves resources if another binding remains" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
         { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [{}],

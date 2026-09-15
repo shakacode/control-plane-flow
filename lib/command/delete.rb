@@ -99,9 +99,11 @@ module Command
 
     def delete_app_resources
       delete_volumesets
+      # Keep the GVC discoverable by stale-app cleanup if disposable resource deletion fails.
+      # The app identity has already been unbound from its secret policy.
+      delete_generated_review_secret_resources
       delete_gvc
       delete_images
-      delete_generated_review_secret_resources
     end
 
     def check_volumesets
