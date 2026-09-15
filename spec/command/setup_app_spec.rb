@@ -51,6 +51,18 @@ describe Command::SetupApp do
       allow(command).to receive(:run_cpflow_command)
     end
 
+    it "does not mark an ordinary app secret policy as disposable" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+      allow(cp).to receive(:apply_hash)
+      allow(command).to receive(:step) { |_message, &block| block.call }
+
+      command.send(:create_policy_if_not_exists)
+
+      expect(cp).to have_received(:apply_hash).with(
+        satisfy { |policy| policy["kind"] == "policy" && !policy.key?("tags") }
+      )
+    end
+
     describe "generated review app credentials" do
       let(:config) do
         instance_double(

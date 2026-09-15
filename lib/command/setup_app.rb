@@ -174,13 +174,14 @@ module Command
     end
 
     def build_policy_hash
-      {
+      policy = {
         "kind" => "policy",
         "name" => config.secrets_policy,
         "targetKind" => "secret",
-        "targetLinks" => ["//secret/#{config.secrets}"],
-        "tags" => { ::Config::GENERATED_REVIEW_APP_TAG => config.app }
+        "targetLinks" => ["//secret/#{config.secrets}"]
       }
+      policy["tags"] = { ::Config::GENERATED_REVIEW_APP_TAG => config.app } if config.generated_review_secret_keys.any?
+      policy
     end
 
     def bind_identity_to_policy
