@@ -56,7 +56,7 @@ module Command
         args.push("--skip-policy-template", config.secrets_policy)
         args.push("--skip-secret-template", config.secrets) unless refresh_templates
       end
-      run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
+      run_cpflow_command("apply-template", "-a", config.app, *args, *templates)
 
       bind_identity_to_policy unless skip_secrets_setup
       bind_shared_secret_policy_grants(shared_secret_policy_grant_pairs) unless skip_secrets_setup
@@ -101,11 +101,6 @@ module Command
       fill_missing_generated_review_secrets
     end
 
-    def generated_review_secret_owned_by_app?(secret)
-      secret.is_a?(Hash) && secret["name"] == config.secrets && secret["type"] == "dictionary" &&
-        generated_review_app_tag(secret) == config.app
-    end
-
     def create_new_secret
       if config.generated_review_secret_keys.any?
         cp.create_sensitive_secret(config.secrets, generated_review_secret_data)
@@ -129,7 +124,11 @@ module Command
     end
 
     def revealed_review_secret_data
-      revealed = cp.reveal_secret(config.secrets)
+      revealed = begin
+        cp.reveal_secret(config.secrets, required: true)
+      rescue StandardError
+        raise "Cannot safely inspect existing review app secret dictionary.", cause: nil
+      end
       raise "Cannot safely inspect existing review app secret dictionary." unless revealed.is_a?(Hash)
       raise "Existing review app secret is not a dictionary." unless revealed["type"] == "dictionary"
 
@@ -159,9 +158,7 @@ module Command
       expected_target = policy_targets_secret?(policy, config.secrets)
       owned_policy = generated_review_app_tag(policy) == config.app
       no_extra_selectors = %w[target targetQuery gvc].all? { |key| policy[key].nil? }
-      own_bindings = Array(policy["bindings"]).all? do |binding|
-        Array(binding["principalLinks"]) == [config.identity_link]
-      end
+      own_bindings = generated_review_policy_binding_state(policy) != :unsafe
       return if expected_target && owned_policy && no_extra_selectors && own_bindings
 
       raise "Existing review app secret policy has an unexpected target or binding."

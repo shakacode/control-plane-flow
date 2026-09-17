@@ -434,8 +434,8 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.fetch_secret(org: org, secret: secret)
   end
 
-  def reveal_secret(secret)
-    api.reveal_secret(org: org, secret: secret)
+  def reveal_secret(secret, required: false)
+    api.reveal_secret(org: org, secret: secret, required: required)
   end
 
   def create_sensitive_secret(secret, data)

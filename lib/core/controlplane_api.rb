@@ -125,7 +125,7 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
   def create_sensitive_secret(org:, secret:, app:, data:)
     api_json(
       "/org/#{org}/secret", method: :post,
-                            body: { name: secret, type: "dictionary", data: data,
+                            body: { kind: "secret", name: secret, type: "dictionary", data: data,
                                     tags: { Config::GENERATED_REVIEW_APP_TAG => app } },
                             request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
     )
@@ -139,11 +139,16 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     )
   end
 
-  def reveal_secret(org:, secret:)
+  def reveal_secret(org:, secret:, required: false)
+    request_policy = if required
+                       ControlplaneApiDirect::REQUIRED_SENSITIVE_READ_REQUEST_POLICY
+                     else
+                       ControlplaneApiDirect::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+                     end
     api_json(
       "/org/#{org}/secret/#{secret}/-reveal",
       method: :get,
-      request_policy: ControlplaneApiDirect::BEST_EFFORT_SENSITIVE_REQUEST_POLICY
+      request_policy: request_policy
     )
   end
 

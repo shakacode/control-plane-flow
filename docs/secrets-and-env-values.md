@@ -41,7 +41,7 @@ before removing the app, provided the policy still targets the dictionary and
 has no other bindings. Generated dictionaries carry an app marker; if a prior
 attempt removed the policy first, cleanup can use that marker to remove only the
 matching disposable dictionary. An unmarked policy is also left for inspection
-if its dictionary is already gone. If a deletion stops after removing the GVC, rerun
+if its dictionary is already gone. If the GVC was removed separately before disposable credential cleanup finished, rerun
 `cpflow delete` with the same app name to finish secret cleanup. The generated
 delete action calls that same recovery path when the GVC is already absent.
 Cleanup still checks the app-specific names and tag if the key-generation option

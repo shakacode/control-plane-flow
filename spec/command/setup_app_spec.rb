@@ -104,7 +104,7 @@ describe Command::SetupApp do
           { "name" => config.secrets, "type" => "dictionary",
             "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
         )
-        allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(
           { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep" } }
         )
         allow(SecureRandom).to receive(:hex).with(32).and_return("c" * 64)
@@ -122,7 +122,7 @@ describe Command::SetupApp do
           { "name" => config.secrets, "type" => "dictionary",
             "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
         )
-        allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(
           { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "a", "RENDERER_PASSWORD" => "b" } }
         )
 
@@ -136,7 +136,7 @@ describe Command::SetupApp do
           { "name" => config.secrets, "type" => "dictionary",
             "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
         )
-        allow(cp).to receive(:reveal_secret).with(config.secrets).and_return(nil)
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(nil)
 
         expect { command.send(:create_secret_if_not_exists) }.to raise_error(/Cannot safely inspect/)
         expect(cp).not_to have_received(:patch_sensitive_secret_data)
@@ -150,6 +150,32 @@ describe Command::SetupApp do
 
         expect { command.send(:create_secret_if_not_exists) }.to raise_error(/not owned by this app/)
         expect(cp).not_to have_received(:reveal_secret)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "turns a required reveal transport failure into a safe command error" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_raise(Net::ReadTimeout)
+
+        expect { command.send(:create_secret_if_not_exists) }
+          .to raise_error(RuntimeError, "Cannot safely inspect existing review app secret dictionary.")
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "keeps the non-dictionary validation error distinct from transport failures" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(
+          { "type" => "opaque", "data" => "not-a-dictionary" }
+        )
+
+        expect { command.send(:create_secret_if_not_exists) }
+          .to raise_error(RuntimeError, "Existing review app secret is not a dictionary.")
         expect(cp).not_to have_received(:patch_sensitive_secret_data)
       end
 
@@ -193,6 +219,16 @@ describe Command::SetupApp do
         command.send(:create_policy_if_not_exists)
 
         expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "refuses an own-identity policy with broader permissions" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[edit reveal] }] }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
       end
 
       it "rechecks policy scope immediately before binding the app identity" do
@@ -245,9 +281,9 @@ describe Command::SetupApp do
         command.call
 
         expect(command).to have_received(:run_cpflow_command).with(
-          "apply-template", "app", "rails", "-a", config.app,
-          "--add-app-identity", "--skip-policy-template", config.secrets_policy,
-          "--skip-secret-template", config.secrets
+          "apply-template", "-a", config.app, "--add-app-identity",
+          "--skip-policy-template", config.secrets_policy, "--skip-secret-template", config.secrets,
+          "app", "rails"
         )
       end
 
@@ -266,8 +302,8 @@ describe Command::SetupApp do
         command.call
 
         expect(command).to have_received(:run_cpflow_command).with(
-          "apply-template", "app", "rails", "-a", config.app, "--add-app-identity", "--yes",
-          "--preserve-existing-runtime", "--skip-policy-template", config.secrets_policy
+          "apply-template", "-a", config.app, "--add-app-identity", "--yes",
+          "--preserve-existing-runtime", "--skip-policy-template", config.secrets_policy, "app", "rails"
         )
       end
     end
@@ -288,7 +324,7 @@ describe Command::SetupApp do
       command.call
 
       expect(command).to have_received(:run_cpflow_command)
-        .with("apply-template", "app", "rails", "-a", config.app, "--add-app-identity")
+        .with("apply-template", "-a", config.app, "--add-app-identity", "app", "rails")
       expect(command).to have_received(:run_post_creation_hook)
     end
 
@@ -304,8 +340,8 @@ describe Command::SetupApp do
 
         expect(command).to have_received(:run_cpflow_command)
           .with(
-            "apply-template", "app", "rails", "-a", config.app,
-            "--add-app-identity", "--yes", "--preserve-existing-runtime"
+            "apply-template", "-a", config.app, "--add-app-identity", "--yes", "--preserve-existing-runtime",
+            "app", "rails"
           )
         expect(cp).to have_received(:bind_identity_to_policy)
           .with(config.identity_link, "test-review-secrets-policy")

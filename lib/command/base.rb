@@ -728,6 +728,27 @@ module Command
       tags[::Config::GENERATED_REVIEW_APP_TAG]
     end
 
+    def generated_review_secret_owned_by_app?(secret, secret_name = config.secrets)
+      secret.is_a?(Hash) && secret["name"] == secret_name && secret["type"] == "dictionary" &&
+        generated_review_app_tag(secret) == config.app
+    end
+
+    def generated_review_policy_binding_state(policy)
+      bindings = Array(policy["bindings"])
+      return :unbound if bindings.empty?
+      return :unsafe unless generated_review_policy_bindings_for_app?(bindings)
+
+      case bindings.map { |binding| binding["permissions"] }.uniq
+      when [[]] then :unbound
+      when [["reveal"]] then :bound
+      else :unsafe
+      end
+    end
+
+    def generated_review_policy_bindings_for_app?(bindings)
+      bindings.all? { |binding| Array(binding["principalLinks"]) == [config.identity_link] }
+    end
+
     def secret_policy_target_links(secret_name)
       [
         "//secret/#{secret_name}",

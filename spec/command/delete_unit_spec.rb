@@ -267,11 +267,13 @@ describe Command::Delete do
     let(:config) do
       instance_double(
         Config, app: "demo-review-pr-97", org: "test-org",
+                identity: "demo-review-pr-97-identity",
                 identity_link: "/org/test-org/gvc/demo-review-pr-97/identity/demo-review-pr-97-identity",
                 secrets: "demo-review-pr-97-secrets", secrets_policy: "demo-review-pr-97-secrets-policy",
                 disposable_review_secret_resource_names:
                   %w[demo-review-pr-97-secrets demo-review-pr-97-secrets-policy],
-                generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
+                generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD],
+                shared_secret_grants: []
       )
     end
     let(:cp) { instance_double(Controlplane) }
@@ -328,6 +330,23 @@ describe Command::Delete do
 
       expect(cp).to have_received(:unbind_identity_from_policy).with(
         config.identity_link, "demo-review-pr-97-secrets-policy", permission: "reveal"
+      )
+    end
+
+    it "unbinds a verified disposable policy when the live GVC identity is missing" do
+      bound_policy = {
+        "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+        "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+        "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }]
+      }
+      allow(cp).to receive(:fetch_identity).with(config.identity).and_return(nil)
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(bound_policy)
+      allow(cp).to receive(:unbind_identity_from_policy)
+
+      command.send(:unbind_identity_from_policy, command.send(:secret_policy_unbinds))
+
+      expect(cp).to have_received(:unbind_identity_from_policy).with(
+        config.identity_link, config.secrets_policy, permission: "reveal"
       )
     end
 
@@ -430,6 +449,26 @@ describe Command::Delete do
       expect(cp).not_to have_received(:delete_policy)
     end
 
+    it "rejects unsafe disposable resources before deleting live app data" do
+      allow(cp).to receive(:fetch_gvc).and_return({ "name" => config.app })
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+          "bindings" => [{ "principalLinks" => ["/org/test-org/gvc/foreign/identity/foreign"],
+                           "permissions" => %w[reveal] }] }
+      )
+      allow(command).to receive(:check_volumesets)
+      allow(command).to receive(:check_images)
+      allow(command).to receive(:run_pre_deletion_hook)
+      allow(command).to receive(:delete_volumesets)
+
+      expect { command.send(:delete_whole_app) }.to raise_error(/leaving them for inspection/)
+      expect(command).not_to have_received(:check_volumesets)
+      expect(command).not_to have_received(:check_images)
+      expect(command).not_to have_received(:run_pre_deletion_hook)
+      expect(command).not_to have_received(:delete_volumesets)
+    end
+
     it "deletes only the PR-specific dictionary after an empty exact-target policy" do
       allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
         { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "bindings" => [],
@@ -476,6 +515,19 @@ describe Command::Delete do
       expect { command.send(:delete_generated_review_secret_resources) }
         .to raise_error(/leaving secret resources for inspection/)
 
+      expect(cp).not_to have_received(:delete_policy)
+      expect(cp).not_to have_received(:delete_secret)
+    end
+
+    it "rejects broader permissions even when they belong to the app identity" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+        { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+          "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[edit reveal] }],
+          "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+      )
+
+      expect { command.send(:delete_generated_review_secret_resources) }
+        .to raise_error(/leaving secret resources for inspection/)
       expect(cp).not_to have_received(:delete_policy)
       expect(cp).not_to have_received(:delete_secret)
     end

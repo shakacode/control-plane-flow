@@ -346,6 +346,21 @@ describe ControlplaneApiDirect do
       expect(described_instance.call("/org/my-org/gvc", method: :delete)).to be(true)
     end
 
+    it "parses a 201 response for a created resource" do
+      allow(http_connection).to receive(:request).and_return(
+        http_response(Net::HTTPCreated, 201, body: '{"name":"created-secret"}')
+      )
+
+      expect(described_instance.call("/org/my-org/secret", method: :post))
+        .to eq("name" => "created-secret")
+    end
+
+    it "returns true for a 201 response with an empty body" do
+      allow(http_connection).to receive(:request).and_return(http_response(Net::HTTPCreated, 201, body: ""))
+
+      expect(described_instance.call("/org/my-org/secret", method: :post)).to be(true)
+    end
+
     it "returns nil for a 404 response without retrying" do
       allow(http_connection).to receive(:request).and_return(http_response(Net::HTTPNotFound, 404))
 

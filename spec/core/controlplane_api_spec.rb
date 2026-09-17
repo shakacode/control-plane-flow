@@ -284,7 +284,7 @@ describe ControlplaneApi do
       data = { "SECRET_KEY_BASE" => "generated" }
       response = stub_api_call(
         "/org/my-org/secret", method: :post,
-                              body: { name: "my-review-secret", type: "dictionary", data: data,
+                              body: { kind: "secret", name: "my-review-secret", type: "dictionary", data: data,
                                       tags: { Config::GENERATED_REVIEW_APP_TAG => "my-review" } },
                               request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
       )
@@ -314,6 +314,16 @@ describe ControlplaneApi do
       )
 
       expect(api.reveal_secret(org: "my-org", secret: "my-secret")).to eq(response)
+    end
+
+    it "uses the retrying sensitive read policy when the reveal is required" do
+      response = stub_api_call(
+        "/org/my-org/secret/my-secret/-reveal",
+        method: :get,
+        request_policy: ControlplaneApiDirect::REQUIRED_SENSITIVE_READ_REQUEST_POLICY
+      )
+
+      expect(api.reveal_secret(org: "my-org", secret: "my-secret", required: true)).to eq(response)
     end
   end
 
