@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hardened generated Rails deployment scaffolding and production promotion.** New scaffolds omit repository secrets and local databases from Docker contexts, remove temporary native build tools, avoid retaining asset-precompile secrets, and keep SQLite data volumes from hiding image migrations. Production promotion now requires a full staging commit SHA, targets the GitHub release at that commit, and only attempts rollback after deployment starts.
+
 ## [6.0.0] - 2026-09-08
 
 ### Breaking Changes

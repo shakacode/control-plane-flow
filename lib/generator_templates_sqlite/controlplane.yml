@@ -1,7 +1,8 @@
 # Keys beginning with "cpln_" correspond to your settings in Control Plane.
 #
 # Generated baseline for a Rails app that uses SQLite in production. This setup
-# keeps `/app/db` and `/app/storage` on persistent volumes.
+# keeps SQLite data under `/app/data` and Active Storage under `/app/storage`
+# on persistent volumes without hiding migrations shipped in `/app/db`.
 
 allow_org_override_by_env: true
 allow_app_override_by_env: true

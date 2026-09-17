@@ -24,6 +24,10 @@ def dockerfile_path
   CONTROLPLANE_CONFIG_DIR_PATH.join("Dockerfile")
 end
 
+def dockerignore_path
+  GENERATOR_PLAYGROUND_PATH.join(".dockerignore")
+end
+
 def app_template_path
   CONTROLPLANE_CONFIG_DIR_PATH.join("templates/app.yml")
 end
@@ -67,6 +71,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         expect(controlplane_config_file_path).to exist
         expect(dockerfile_path).to exist
+        expect(dockerignore_path).to exist
         expect(entrypoint_path).to exist
         expect(release_script_path).to exist
         expect(entrypoint_path).to be_executable
@@ -109,7 +114,8 @@ describe Command::Generate, :enable_validations, :without_config_file do
              /usr/local/lib/node_modules/corepack/dist/corepack\.js[ ]&&[ ]\\\n\s+
              node[ ]--version[ ]&&[ ]npm[ ]--version[ ]&&[ ]corepack[ ]--version}x
         )
-        expect(dockerfile_content).not_to include("RUN apt-get update")
+        expect(dockerfile_content).to include("apt-get install --no-install-recommends -y build-essential")
+        expect(dockerfile_content).to include("apt-get purge -y --auto-remove build-essential")
         expect(dockerfile_content).to include("bundle config set with 'production'")
         expect(dockerfile_content).not_to include("bundle config set with 'staging production'")
         expect(dockerfile_content).to include("exec corepack yarn \"$@\"")
@@ -126,6 +132,10 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(dockerfile_content).to include("yarn install --immutable || yarn install --frozen-lockfile")
         expect(dockerfile_content).to include("corepack pnpm install --frozen-lockfile")
         expect(dockerfile_content).to include("npm ci")
+        expect(dockerfile_content).not_to include("ENV SECRET_KEY_BASE=NOT_USED_NON_BLANK")
+        expect(dockerfile_content).to include("RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK rails assets:precompile")
+        expect(dockerignore_path.read).to include("config/master.key")
+        expect(dockerignore_path.read).to include(".git")
         expect(dockerfile_content).not_to include("react_on_rails:generate_packs")
         expect(app_template_content).to include('name: "{{APP_NAME}}"')
         expect(app_template_content).to include('"{{APP_LOCATION_LINK}}"')
@@ -263,15 +273,17 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(postgres_template_path).not_to exist
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
-        expect(app_template_path.read).not_to include("DATABASE_URL")
         expect(app_template_path.read).to include('name: "{{APP_NAME}}"')
         expect(app_template_path.read).to include('"{{APP_LOCATION_LINK}}"')
         expect(app_template_path.read).to include('"cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE"')
         expect(rails_template_path.read).to include('image: "{{APP_IMAGE_LINK}}"')
         expect(rails_template_path.read).to include('identityLink: "{{APP_IDENTITY_LINK}}"')
+        expect(app_template_path.read).to include("sqlite3:/app/data/production.sqlite3")
+        expect(rails_template_path.read).to include("path: /app/data")
+        expect(rails_template_path.read).not_to include("path: /app/db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-storage")
-        expect(release_script_path.read).to include("mkdir -p db storage")
+        expect(release_script_path.read).to include("mkdir -p data storage")
       end
     end
   end
@@ -446,10 +458,14 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         dockerfile_content = dockerfile_path.read
 
-        expect(dockerfile_content).to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(dockerfile_content).to include(
+          "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+        )
         expect(
-          dockerfile_content.index("RUN bundle exec rake react_on_rails:generate_packs")
-        ).to be < dockerfile_content.index("RUN rails assets:precompile")
+          dockerfile_content.index(
+            "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+          )
+        ).to be < dockerfile_content.index("rails assets:precompile")
       end
     end
   end
@@ -473,7 +489,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         dockerfile_content = dockerfile_path.read
 
-        expect(dockerfile_content).not_to include("RUN rake react_on_rails:generate_packs")
+        expect(dockerfile_content).not_to include("rake react_on_rails:generate_packs")
         expect(dockerfile_content).not_to include("USER root")
       end
     end
@@ -495,10 +511,14 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         dockerfile_content = dockerfile_path.read
 
-        expect(dockerfile_content).to include("RUN bundle exec rake react_on_rails:generate_packs\n")
+        expect(dockerfile_content).to include(
+          "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs\n"
+        )
         expect(
-          dockerfile_content.index("RUN bundle exec rake react_on_rails:generate_packs")
-        ).to be < dockerfile_content.index("RUN rails assets:precompile")
+          dockerfile_content.index(
+            "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+          )
+        ).to be < dockerfile_content.index("rails assets:precompile")
       end
     end
   end
@@ -517,7 +537,9 @@ describe Command::Generate, :enable_validations, :without_config_file do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Cpflow::Cli.start([described_class::NAME])
 
-        expect(dockerfile_path.read).to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(dockerfile_path.read).to include(
+          "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+        )
       end
     end
   end
@@ -536,7 +558,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Cpflow::Cli.start([described_class::NAME])
 
-        expect(dockerfile_path.read).not_to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(dockerfile_path.read).not_to include("bundle exec rake react_on_rails:generate_packs")
       end
     end
   end
@@ -555,6 +577,18 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         expect(controlplane_config_file_path).not_to exist
       end
+    end
+  end
+
+  context "when a root .dockerignore already exists" do
+    it "preserves the project-specific file" do
+      dockerignore_path.write("custom-entry\n")
+
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+      end
+
+      expect(dockerignore_path.read).to eq("custom-entry\n")
     end
   end
 end

@@ -38,6 +38,7 @@ module Command
     def copy_files
       generated_paths = copy_template_files("generator_templates", base_template_files)
       generated_paths += copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
+      copy_dockerignore unless File.exist?(".dockerignore")
       substitute_template_variables(generated_paths)
       make_shell_scripts_executable(generated_paths)
     end
@@ -62,6 +63,14 @@ module Command
         verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
       )
       destination_path
+    end
+
+    def copy_dockerignore
+      copy_file(
+        File.join("generator_templates", ".dockerignore"),
+        ".dockerignore",
+        verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
+      )
     end
 
     def base_template_files
@@ -99,7 +108,7 @@ module Command
       return "" if stripped.empty?
       return "" unless single_line_asset_precompile_hook?(stripped)
 
-      "RUN #{stripped}\n\n"
+      "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK #{stripped}\n\n"
     end
 
     def single_line_asset_precompile_hook?(command)
@@ -169,7 +178,7 @@ module Command
       - infers the app prefix from the current directory and wires staging, review, and production entries
       - infers the Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`
       - preserves repo-defined asset precompile hooks, including React on Rails auto bundle generation
-      - detects SQLite in `config/database.yml` and generates persistent `db` and `storage` volume templates instead of the default Postgres workload
+      - detects SQLite in `config/database.yml` and generates persistent `/app/data` and `/app/storage` volume templates without hiding image migrations under `/app/db`
     DESC
     EXAMPLES = <<~EX
       ```sh

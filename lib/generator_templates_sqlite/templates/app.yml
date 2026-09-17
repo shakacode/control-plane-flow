@@ -8,6 +8,8 @@ spec:
       value: "true"
     - name: RAILS_SERVE_STATIC_FILES
       value: "true"
+    - name: DATABASE_URL
+      value: "sqlite3:/app/data/production.sqlite3"
     - name: SECRET_KEY_BASE
       value: "cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE"
   staticPlacement:

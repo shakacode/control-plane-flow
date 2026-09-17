@@ -38,9 +38,13 @@ RUN printf '%s\n' '#!/bin/sh' 'exec corepack yarn "$@"' > /usr/bin/yarn && \
 # install ruby gems
 COPY Gemfile* ./
 
-RUN bundle config set without 'development test' && \
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential && \
+    bundle config set without 'development test' && \
     bundle config set with 'production' && \
-    bundle install --jobs=3 --retry=3
+    bundle install --jobs=3 --retry=3 && \
+    apt-get purge -y --auto-remove build-essential && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 COPY . ./
 
@@ -75,11 +79,11 @@ RUN if [ -f package.json ]; then \
 
 ENV RAILS_ENV=production
 
-# compiling assets requires any value for ENV of SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=NOT_USED_NON_BLANK
+# Asset compilation requires a non-blank secret, but the placeholder must not
+# remain in the final image environment.
 
 __ASSET_PRECOMPILE_HOOK_RUN__
-RUN rails assets:precompile
+RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK rails assets:precompile
 
 # add entrypoint
 COPY .controlplane/entrypoint.sh ./

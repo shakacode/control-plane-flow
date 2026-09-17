@@ -1817,10 +1817,12 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         'release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"'
       )
       expect(contents).to include("workflow-level concurrency group keeps production promotion copy")
+      expect(contents).to include("id: deploy-production")
       expect(contents).to include(
-        "failure() && steps.capture-current.outputs.rollback_state != '' && " \
-        "steps.capture-current.outputs.rollback_state != '{}'"
+        "(steps.deploy-production.outcome == 'success' || steps.deploy-production.outcome == 'failure')"
       )
+      expect(contents).to include("steps.capture-current.outputs.rollback_state != ''")
+      expect(contents).to include("steps.capture-current.outputs.rollback_state != '{}'")
     end
 
     it "does not persist checkout credentials in the production promotion job" do
@@ -1867,10 +1869,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('staging_commit=""')
       expect(contents).to include('if [[ "${staging_tag}" == *_* ]]; then')
       expect(contents).to include('staging_commit="${staging_tag##*_}"')
+      expect(contents).to include("does not include the commit suffix required for a traceable production release")
+      expect(contents).to include('[[ "${staging_commit}" =~ ^[0-9a-f]{40}$ ]]')
+      expect(contents).to include('echo "staging_commit=${staging_commit}" >> "$GITHUB_OUTPUT"')
       expect(contents).to include("workflow-level concurrency group serializes this sequence")
       expect(contents).to include("top-level concurrency group: cpflow-promote-staging-to-production")
-      expect(contents).to include("Staging image '${staging_image}' did not include a '_<commit>' suffix")
-      expect(wrapper).to include("Staging image '${staging_image}' did not include a '_<commit>' suffix")
+      expect(wrapper).to include("does not include the commit suffix required for a traceable production release")
+      expect(wrapper).to include('[[ "${staging_commit}" =~ ^[0-9a-f]{40}$ ]]')
       expect(wrapper).to include("top-level concurrency group: cpflow-promote-staging-to-production")
       expect(contents).to include('--prop "name~${PRODUCTION_APP_NAME}:" --max 0')
       expect(contents).to include("Could not determine the next production image number")
@@ -1896,6 +1901,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         "\"${production_image_ref}\" \"${source_image_ref}\""
       )
       expect(contents).to include('echo "image=${production_image}" >> "$GITHUB_OUTPUT"')
+      expect(wrapper).to include('--target "${STAGING_COMMIT}"')
       expect(contents).to include("COPIED_IMAGE: ${{ steps.copy-image.outputs.image }}")
       expect(contents).to include('deployed_image="${COPIED_IMAGE}"')
       expect(contents).to include('deployed_image="${PREVIOUS_IMAGE}"')

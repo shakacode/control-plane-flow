@@ -58,6 +58,7 @@ jobs:
     outputs:
       staging_app_name: ${{ steps.release-context.outputs.staging_app_name }}
       production_app_name: ${{ steps.release-context.outputs.production_app_name }}
+      staging_commit: ${{ steps.copy-image.outputs.staging_commit }}
 
     steps:
       - name: Checkout repository
@@ -491,7 +492,12 @@ jobs:
           if [[ "${staging_tag}" == *_* ]]; then
             staging_commit="${staging_tag##*_}"
           else
-            echo "::warning::Staging image '${staging_image}' did not include a '_<commit>' suffix; production image tag will omit the commit suffix."
+            echo "::error::Staging image '${staging_image}' does not include the commit suffix required for a traceable production release."
+            exit 1
+          fi
+          if ! [[ "${staging_commit}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Staging image '${staging_image}' has an invalid commit suffix; expected a full lowercase Git commit SHA."
+            exit 1
           fi
 
           # The workflow-level concurrency group serializes this sequence so two
@@ -566,8 +572,10 @@ jobs:
           fi
 
           echo "image=${production_image}" >> "$GITHUB_OUTPUT"
+          echo "staging_commit=${staging_commit}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy image to production
+        id: deploy-production
         env:
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
           CPLN_ORG_PRODUCTION: ${{ steps.cpln-orgs.outputs.production }}
@@ -599,7 +607,11 @@ jobs:
           accepted_statuses: ${{ env.HEALTH_CHECK_ACCEPTED_STATUSES }}
 
       - name: Roll back on failure
-        if: failure() && steps.capture-current.outcome == 'success'
+        if: >-
+          failure() &&
+          (steps.deploy-production.outcome == 'success' || steps.deploy-production.outcome == 'failure') &&
+          steps.capture-current.outputs.rollback_state != '' &&
+          steps.capture-current.outputs.rollback_state != '{}'
         env:
           ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
@@ -661,7 +673,11 @@ jobs:
           fi
 
       - name: Wait for rollback readiness
-        if: failure() && steps.capture-current.outcome == 'success'
+        if: >-
+          failure() &&
+          (steps.deploy-production.outcome == 'success' || steps.deploy-production.outcome == 'failure') &&
+          steps.capture-current.outputs.rollback_state != '' &&
+          steps.capture-current.outputs.rollback_state != '{}'
         env:
           ROLLBACK_STATE: ${{ steps.capture-current.outputs.rollback_state }}
           PRODUCTION_APP_NAME: ${{ vars.PRODUCTION_APP_NAME }}
@@ -770,6 +786,7 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           STAGING_APP_NAME: ${{ needs.promote-to-production.outputs.staging_app_name }}
           PRODUCTION_APP_NAME: ${{ needs.promote-to-production.outputs.production_app_name }}
+          STAGING_COMMIT: ${{ needs.promote-to-production.outputs.staging_commit }}
         shell: bash
         run: |
           set -euo pipefail
@@ -779,5 +796,6 @@ jobs:
           release_tag="production-${release_date}-${timestamp}-${GITHUB_RUN_ID}"
 
           gh release create "${release_tag}" \
+            --target "${STAGING_COMMIT}" \
             --title "Production Release ${release_date} ${timestamp}" \
             --notes "Promoted ${STAGING_APP_NAME} to ${PRODUCTION_APP_NAME} on ${release_date} at ${timestamp}."
