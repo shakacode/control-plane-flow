@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "yaml"
+require "uri"
 
 module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   DEFAULT_APP_PREFIX = "my-app"
@@ -153,7 +154,8 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   def self.sqlite_database_path(config)
     url = config["url"]
     if url.is_a?(String) && sqlite_database_url?(url)
-      return url.sub(/\Asqlite3?:/i, "").sub(%r{\A//(?=/)}, "").split("?", 2).first
+      encoded_path = url.sub(/\Asqlite3?:/i, "").sub(%r{\A//(?=/)}, "").split("?", 2).first
+      return URI::RFC2396_Parser.new.unescape(encoded_path)
     end
 
     database = config["database"]

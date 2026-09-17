@@ -74,5 +74,24 @@ RSpec.describe RepoIntrospection do
         )
       end
     end
+
+    it "decodes percent-encoded SQLite URL paths like Active Record" do
+      Dir.mktmpdir("cpflow-repo-introspection") do |root|
+        config_dir = File.join(root, "config")
+        FileUtils.mkdir_p(config_dir)
+        File.write(
+          File.join(config_dir, "database.yml"),
+          <<~YAML
+            production:
+              adapter: sqlite3
+              url: sqlite3:db/production%20data.sqlite3?pool=5
+          YAML
+        )
+
+        expect(described_class.sqlite_database_paths_in_production(root)).to eq(
+          ["db/production data.sqlite3"]
+        )
+      end
+    end
   end
 end
