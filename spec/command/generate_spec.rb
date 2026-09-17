@@ -278,7 +278,10 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(app_template_path.read).to include('"cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE"')
         expect(rails_template_path.read).to include('image: "{{APP_IMAGE_LINK}}"')
         expect(rails_template_path.read).to include('identityLink: "{{APP_IDENTITY_LINK}}"')
-        expect(app_template_path.read).to include("sqlite3:/app/data/production.sqlite3")
+        expect(app_template_path.read).not_to include("DATABASE_URL")
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3"
+        )
         expect(rails_template_path.read).to include("path: /app/data")
         expect(rails_template_path.read).not_to include("path: /app/db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-db")
@@ -381,6 +384,14 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(postgres_template_path).not_to exist
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3"
+        )
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
+          "/app/data/db/production_cache.sqlite3"
+        )
+        expect(entrypoint_path.read).not_to include("production_queue.sqlite3")
       end
     end
   end
@@ -409,6 +420,13 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(postgres_template_path).not_to exist
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3"
+        )
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
+          "/app/data/db/production_cache.sqlite3"
+        )
       end
     end
   end

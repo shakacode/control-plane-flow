@@ -2,6 +2,8 @@
 set -e
 # Runs before the main command
 
+__SQLITE_DATABASE_SETUP__
+
 is_rails_server_command() {
   if [ "${1:-}" = "env" ]; then
     shift

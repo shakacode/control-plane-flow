@@ -2,7 +2,7 @@
 
 require "yaml"
 
-module RepoIntrospection
+module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   DEFAULT_APP_PREFIX = "my-app"
   RUBY_VERSION_DIRECTIVE_PATTERN = /^\s*ruby\s+['"\d]/
   RUBY_VERSION_DIRECTIVE_PREFIX = /^\s*ruby\s+/
@@ -87,6 +87,22 @@ module RepoIntrospection
     sqlite_database_config?(production)
   end
 
+  # Returns literal SQLite database paths from the production configuration.
+  # Dynamic ERB values are intentionally omitted because the generator cannot
+  # safely redirect a path that is only known at runtime.
+  def self.sqlite_database_paths_in_production(root)
+    path = File.join(root, "config/database.yml")
+    return [] unless File.file?(path)
+
+    parsed = safe_load_database_yml(File.read(path))
+    production = parsed.is_a?(Hash) ? parsed["production"] : nil
+    return [] unless production.is_a?(Hash) && sqlite_database_config?(production)
+
+    database_connection_configs(production).filter_map do |config|
+      sqlite_database_path(config)
+    end.uniq
+  end
+
   # Determines whether a database config hash uses SQLite. Handles both
   # the single-database shape (top-level `adapter`/`url`) and Rails 6.1+ multi-database
   # shape where each connection sits one level deeper (`primary:`, `cache:`, etc.).
@@ -126,6 +142,26 @@ module RepoIntrospection
 
   def self.database_connection_config?(config)
     config.is_a?(Hash) && (config.key?("adapter") || config.key?("url"))
+  end
+
+  def self.database_connection_configs(config)
+    return [config] unless direct_sqlite_database_config?(config).nil?
+
+    config.values.select { |value| database_connection_config?(value) }
+  end
+
+  def self.sqlite_database_path(config)
+    database = config["database"]
+    return database.strip if literal_database_path?(database)
+
+    url = config["url"]
+    return unless url.is_a?(String) && sqlite_database_url?(url)
+
+    url.sub(/\Asqlite3?:/i, "").sub(%r{\A//(?=/)}, "").split("?", 2).first
+  end
+
+  def self.literal_database_path?(value)
+    value.is_a?(String) && !value.strip.empty? && value != "__erb__"
   end
 
   def self.safe_load_database_yml(raw_contents)

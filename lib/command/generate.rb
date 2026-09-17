@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "yaml"
+require "pathname"
+require "shellwords"
 
 require_relative "generator_helpers"
 require_relative "../core/repo_introspection"
@@ -34,6 +36,18 @@ module Command
     # `.tool-versions`, or the `Gemfile`. Keep this on a supported release line
     # (https://www.ruby-lang.org/en/downloads/branches/).
     DEFAULT_RUBY_VERSION = "3.3"
+    SQLITE_DATABASE_PREPARE_FUNCTION = <<~SH
+      prepare_sqlite_database() {
+        source_path="$1"
+        persistent_path="$2"
+        mkdir -p "$(dirname "${source_path}")" "$(dirname "${persistent_path}")"
+        if [ -e "${source_path}" ] && [ ! -L "${source_path}" ] && [ ! -e "${persistent_path}" ]; then
+          mv "${source_path}" "${persistent_path}"
+        fi
+        rm -f "${source_path}"
+        ln -s "${persistent_path}" "${source_path}"
+      }
+    SH
 
     def copy_files
       generated_paths = copy_template_files("generator_templates", base_template_files)
@@ -81,7 +95,8 @@ module Command
       {
         "__APP_PREFIX__" => inferred_app_prefix,
         "__RUBY_VERSION__" => inferred_ruby_version,
-        "__ASSET_PRECOMPILE_HOOK_RUN__" => asset_precompile_hook_run
+        "__ASSET_PRECOMPILE_HOOK_RUN__" => asset_precompile_hook_run,
+        "__SQLITE_DATABASE_SETUP__" => sqlite_database_setup
       }
     end
 
@@ -120,6 +135,38 @@ module Command
 
     def sqlite_database_in_production?
       RepoIntrospection.sqlite_database_in_production?(Dir.pwd)
+    end
+
+    def sqlite_database_setup
+      redirects = sqlite_database_redirects
+      return "" if redirects.empty?
+
+      setup_calls = redirects.map do |source, target|
+        "prepare_sqlite_database #{Shellwords.shellescape(source)} #{Shellwords.shellescape(target)}"
+      end
+      "#{SQLITE_DATABASE_PREPARE_FUNCTION}\n#{setup_calls.join("\n")}\n"
+    end
+
+    def sqlite_database_redirects
+      return [] unless sqlite_project?
+
+      RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).filter_map do |database_path|
+        source = absolute_app_database_path(database_path)
+        next if persistent_sqlite_path?(source)
+
+        relative = source.delete_prefix("/")
+        [source, File.join("/app/data", relative.delete_prefix("app/"))]
+      end
+    end
+
+    def absolute_app_database_path(database_path)
+      path = Pathname.new(database_path)
+      (path.absolute? ? path : Pathname.new("/app").join(path)).cleanpath.to_s
+    end
+
+    def persistent_sqlite_path?(path)
+      path == "/app/data" || path.start_with?("/app/data/") ||
+        path == "/app/storage" || path.start_with?("/app/storage/")
     end
 
     def normalized_asset_precompile_hook_command

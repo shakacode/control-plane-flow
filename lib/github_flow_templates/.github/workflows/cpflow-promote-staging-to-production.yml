@@ -482,11 +482,10 @@ jobs:
             exit 1
           fi
 
+          staging_image_without_digest="${staging_image%%@*}"
           staging_tag=""
-          if [[ "${staging_image}" == *@* ]]; then
-            staging_tag="${staging_image##*@}"
-          elif [[ "${staging_image}" == *:* ]]; then
-            staging_tag="${staging_image##*:}"
+          if [[ "${staging_image_without_digest}" == *:* ]]; then
+            staging_tag="${staging_image_without_digest##*:}"
           fi
           staging_commit=""
           if [[ "${staging_tag}" == *_* ]]; then
