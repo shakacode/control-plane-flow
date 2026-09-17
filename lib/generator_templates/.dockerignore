@@ -11,5 +11,6 @@ storage/*
 tmp/*
 vendor/bundle
 config/master.key
+config/credentials/*.key
 db/*.sqlite3
 db/*.sqlite3-*

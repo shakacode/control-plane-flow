@@ -72,6 +72,8 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(controlplane_config_file_path).to exist
         expect(dockerfile_path).to exist
         expect(dockerignore_path).to exist
+        expect(dockerignore_path.read).to include("config/master.key")
+        expect(dockerignore_path.read).to include("config/credentials/*.key")
         expect(entrypoint_path).to exist
         expect(release_script_path).to exist
         expect(entrypoint_path).to be_executable
