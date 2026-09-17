@@ -1861,7 +1861,9 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include('staging_image="${STAGING_IMAGE}"')
       expect(contents).to include("STAGING_IMAGE is not set or is empty")
       expect(contents).to include('staging_image_without_digest="${staging_image%%@*}"')
-      expect(contents).to include('CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image}"')
+      expect(contents).to include(
+        'CPLN_TOKEN="${CPLN_TOKEN_STAGING}" cpln image get "${staging_image_without_digest}"'
+      )
       expect(contents).to include('if [[ "${staging_image_without_digest}" == *:* ]]; then')
       expect(contents).to include('staging_tag="${staging_image_without_digest##*:}"')
       expect(contents).to include('staging_commit=""')

@@ -123,7 +123,7 @@ module Command
       return "" if stripped.empty?
       return "" unless single_line_asset_precompile_hook?(stripped)
 
-      "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK #{stripped}\n\n"
+      "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && #{stripped}\n\n"
     end
 
     def single_line_asset_precompile_hook?(command)

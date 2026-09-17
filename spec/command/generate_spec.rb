@@ -477,11 +477,13 @@ describe Command::Generate, :enable_validations, :without_config_file do
         dockerfile_content = dockerfile_path.read
 
         expect(dockerfile_content).to include(
-          "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "bundle exec rake react_on_rails:generate_packs"
         )
         expect(
           dockerfile_content.index(
-            "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+            "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+            "bundle exec rake react_on_rails:generate_packs"
           )
         ).to be < dockerfile_content.index("rails assets:precompile")
       end
@@ -513,6 +515,27 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when shakapacker config defines a chained precompile hook" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/shakapacker.yml").write(<<~YAML)
+        default: &default
+          precompile_hook: "yarn build && bin/rails react_on_rails:generate_packs"
+      YAML
+    end
+
+    it "exports the placeholder secret for the entire hook chain" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(dockerfile_path.read).to include(
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "yarn build && bin/rails react_on_rails:generate_packs"
+        )
+      end
+    end
+  end
+
   context "when shakapacker config defines a folded single-command precompile hook" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
@@ -530,11 +553,13 @@ describe Command::Generate, :enable_validations, :without_config_file do
         dockerfile_content = dockerfile_path.read
 
         expect(dockerfile_content).to include(
-          "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs\n"
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "bundle exec rake react_on_rails:generate_packs\n"
         )
         expect(
           dockerfile_content.index(
-            "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+            "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+            "bundle exec rake react_on_rails:generate_packs"
           )
         ).to be < dockerfile_content.index("rails assets:precompile")
       end
@@ -556,7 +581,8 @@ describe Command::Generate, :enable_validations, :without_config_file do
         Cpflow::Cli.start([described_class::NAME])
 
         expect(dockerfile_path.read).to include(
-          "RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK bundle exec rake react_on_rails:generate_packs"
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "bundle exec rake react_on_rails:generate_packs"
         )
       end
     end
