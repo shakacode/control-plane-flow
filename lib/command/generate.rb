@@ -40,7 +40,11 @@ module Command
       prepare_sqlite_database() {
         source_path="$1"
         persistent_path="$2"
+        legacy_path="${3:-}"
         mkdir -p "$(dirname "${source_path}")" "$(dirname "${persistent_path}")"
+        if [ -n "${legacy_path}" ] && [ -e "${legacy_path}" ] && [ ! -e "${persistent_path}" ]; then
+          mv "${legacy_path}" "${persistent_path}"
+        fi
         if [ -e "${source_path}" ] && [ ! -L "${source_path}" ] && [ ! -e "${persistent_path}" ]; then
           mv "${source_path}" "${persistent_path}"
         fi
@@ -141,8 +145,9 @@ module Command
       redirects = sqlite_database_redirects
       return "" if redirects.empty?
 
-      setup_calls = redirects.map do |source, target|
-        "prepare_sqlite_database #{Shellwords.shellescape(source)} #{Shellwords.shellescape(target)}"
+      setup_calls = redirects.map do |source, target, legacy|
+        arguments = [source, target, legacy].compact.map { |path| Shellwords.shellescape(path) }
+        "prepare_sqlite_database #{arguments.join(' ')}"
       end
       "#{SQLITE_DATABASE_PREPARE_FUNCTION}\n#{setup_calls.join("\n")}\n"
     end
@@ -155,8 +160,15 @@ module Command
         next if persistent_sqlite_path?(source)
 
         relative = source.delete_prefix("/")
-        [source, File.join("/app/data", relative.delete_prefix("app/"))]
+        target = File.join("/app/data", relative.delete_prefix("app/"))
+        [source, target, legacy_sqlite_database_path(source)]
       end
+    end
+
+    def legacy_sqlite_database_path(source)
+      return unless source.start_with?("/app/db/")
+
+      File.join("/app/data", source.delete_prefix("/app/db/"))
     end
 
     def absolute_app_database_path(database_path)

@@ -93,5 +93,24 @@ RSpec.describe RepoIntrospection do
         )
       end
     end
+
+    it "uses the path rather than the authority in a SQLite URL" do
+      Dir.mktmpdir("cpflow-repo-introspection") do |root|
+        config_dir = File.join(root, "config")
+        FileUtils.mkdir_p(config_dir)
+        File.write(
+          File.join(config_dir, "database.yml"),
+          <<~YAML
+            production:
+              adapter: sqlite3
+              url: sqlite3://host/db/production.sqlite3
+          YAML
+        )
+
+        expect(described_class.sqlite_database_paths_in_production(root)).to eq(
+          ["/db/production.sqlite3"]
+        )
+      end
+    end
   end
 end

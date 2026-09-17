@@ -282,13 +282,39 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(rails_template_path.read).to include('identityLink: "{{APP_IDENTITY_LINK}}"')
         expect(app_template_path.read).not_to include("DATABASE_URL")
         expect(entrypoint_path.read).to include(
-          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3"
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3 " \
+          "/app/data/production.sqlite3"
         )
         expect(rails_template_path.read).to include("path: /app/data")
         expect(rails_template_path.read).not_to include("path: /app/db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-storage")
         expect(release_script_path.read).to include("mkdir -p data storage")
+      end
+    end
+
+    it "migrates a database from the legacy volume root before using the image seed" do
+      Dir.mktmpdir("cpflow-sqlite-migration") do |root|
+        source = Pathname.new(root).join("app/db/production.sqlite3")
+        target = Pathname.new(root).join("app/data/db/production.sqlite3")
+        legacy = Pathname.new(root).join("app/data/production.sqlite3")
+        FileUtils.mkdir_p(source.dirname)
+        FileUtils.mkdir_p(legacy.dirname)
+        source.write("image seed")
+        legacy.write("legacy database")
+        arguments = [source, target, legacy].map { |path| Shellwords.shellescape(path.to_s) }
+        script = <<~SH
+          #{Command::Generator::SQLITE_DATABASE_PREPARE_FUNCTION}
+          prepare_sqlite_database #{arguments.join(' ')}
+        SH
+
+        _stdout, stderr, status = Open3.capture3("/bin/sh", stdin_data: script)
+
+        expect(status).to be_success, stderr
+        expect(target.read).to eq("legacy database")
+        expect(source).to be_symlink
+        expect(source.read).to eq("legacy database")
+        expect(legacy).not_to exist
       end
     end
   end
@@ -387,11 +413,12 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
         expect(entrypoint_path.read).to include(
-          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3"
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3 " \
+          "/app/data/production.sqlite3"
         )
         expect(entrypoint_path.read).to include(
           "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
-          "/app/data/db/production_cache.sqlite3"
+          "/app/data/db/production_cache.sqlite3 /app/data/production_cache.sqlite3"
         )
         expect(entrypoint_path.read).not_to include("production_queue.sqlite3")
       end
@@ -423,11 +450,12 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
         expect(entrypoint_path.read).to include(
-          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3"
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3 " \
+          "/app/data/production.sqlite3"
         )
         expect(entrypoint_path.read).to include(
           "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
-          "/app/data/db/production_cache.sqlite3"
+          "/app/data/db/production_cache.sqlite3 /app/data/production_cache.sqlite3"
         )
       end
     end

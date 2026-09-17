@@ -153,13 +153,19 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
 
   def self.sqlite_database_path(config)
     url = config["url"]
-    if url.is_a?(String) && sqlite_database_url?(url)
-      encoded_path = url.sub(/\Asqlite3?:/i, "").sub(%r{\A//(?=/)}, "").split("?", 2).first
-      return URI::RFC2396_Parser.new.unescape(encoded_path)
-    end
+    return sqlite_database_path_from_url(url) if url.is_a?(String) && sqlite_database_url?(url)
 
     database = config["database"]
     database.strip if literal_database_path?(database)
+  end
+
+  def self.sqlite_database_path_from_url(url)
+    parser = URI::RFC2396_Parser.new
+    uri = parser.parse(url.strip)
+    encoded_path = uri.opaque ? uri.opaque.split("?", 2).first : uri.path
+    parser.unescape(encoded_path) if literal_database_path?(encoded_path)
+  rescue URI::InvalidURIError
+    nil
   end
 
   def self.literal_database_path?(value)
