@@ -18,13 +18,14 @@ module Command
       - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
         using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
       - Creates identity for secrets if it does not exist
+      - For dynamically named review apps with `generated_review_secret_keys`, checks an existing policy before writing credentials, creates a per-app dictionary, skips its secret template during initial setup, and fills missing disposable keys without printing or rotating values
       - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
       - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
         or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
       - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
-      - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret resources entirely, repairing secrets access bindings, and skipping the post-creation hook
+      - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret templates (but filling missing opt-in generated review keys), repairing secrets access bindings, and skipping the post-creation hook
     DESC
     VALIDATIONS = %w[config templates].freeze
 
@@ -49,8 +50,13 @@ module Command
 
       args = []
       args.push("--add-app-identity") unless skip_secrets_setup
-      args.push("--yes", "--preserve-existing-runtime") if refresh_templates
-      run_cpflow_command("apply-template", *templates, "-a", config.app, *args)
+      args.push("--yes") if refresh_templates
+      args.push("--preserve-existing-runtime") if refresh_templates
+      if !skip_secrets_setup && config.generated_review_secret_keys.any?
+        args.push("--skip-policy-template", config.secrets_policy)
+        args.push("--skip-secret-template", config.secrets) unless refresh_templates
+      end
+      run_cpflow_command("apply-template", "-a", config.app, *args, *templates)
 
       bind_identity_to_policy unless skip_secrets_setup
       bind_shared_secret_policy_grants(shared_secret_policy_grant_pairs) unless skip_secrets_setup
@@ -65,30 +71,97 @@ module Command
     end
 
     def create_secret_and_policy_if_not_exist
+      validate_existing_generated_review_policy_before_secret!
       create_secret_if_not_exists
       create_policy_if_not_exists
 
       progress.puts
     end
 
+    def validate_existing_generated_review_policy_before_secret!
+      return if config.generated_review_secret_keys.empty?
+
+      policy = cp.fetch_policy(config.secrets_policy)
+      verify_generated_review_policy!(policy) if policy
+    end
+
     def create_secret_if_not_exists
-      if cp.fetch_secret(config.secrets)
-        progress.puts("Secret '#{config.secrets}' already exists. Skipping creation...")
+      secret = cp.fetch_secret(config.secrets)
+      return existing_secret_if_any(secret) if secret
+
+      step("Creating secret '#{config.secrets}'") { create_new_secret }
+    end
+
+    def existing_secret_if_any(secret)
+      if config.generated_review_secret_keys.any? && !generated_review_secret_owned_by_app?(secret)
+        raise "Existing review app secret dictionary is not owned by this app."
+      end
+
+      progress.puts("Secret '#{config.secrets}' already exists. Skipping creation...")
+      fill_missing_generated_review_secrets
+    end
+
+    def create_new_secret
+      if config.generated_review_secret_keys.any?
+        cp.create_sensitive_secret(config.secrets, generated_review_secret_data)
       else
-        step("Creating secret '#{config.secrets}'") do
-          cp.apply_hash(build_secret_hash)
-        end
+        cp.apply_hash(build_secret_hash)
       end
     end
 
+    def fill_missing_generated_review_secrets
+      keys = config.generated_review_secret_keys
+      return if keys.empty?
+
+      data = revealed_review_secret_data
+
+      missing_keys = keys.reject { |key| data[key].is_a?(String) && !data[key].empty? }
+      return if missing_keys.empty?
+
+      step("Adding missing generated review app secret fields") do
+        cp.patch_sensitive_secret_data(config.secrets, generated_review_secret_data(missing_keys))
+      end
+    end
+
+    def revealed_review_secret_data
+      revealed = begin
+        cp.reveal_secret(config.secrets, required: true)
+      rescue StandardError
+        raise "Cannot safely inspect existing review app secret dictionary.", cause: nil
+      end
+      raise "Cannot safely inspect existing review app secret dictionary." unless revealed.is_a?(Hash)
+      raise "Existing review app secret is not a dictionary." unless revealed["type"] == "dictionary"
+
+      data = revealed["data"]
+      raise "Cannot safely inspect existing review app secret dictionary." unless data.is_a?(Hash)
+
+      data
+    end
+
+    def generated_review_secret_data(keys = config.generated_review_secret_keys)
+      keys.to_h { |key| [key, SecureRandom.hex(32)] }
+    end
+
     def create_policy_if_not_exists
-      if cp.fetch_policy(config.secrets_policy)
+      policy = cp.fetch_policy(config.secrets_policy)
+      if policy
+        verify_generated_review_policy!(policy) if config.generated_review_secret_keys.any?
         progress.puts("Policy '#{config.secrets_policy}' already exists. Skipping creation...")
       else
         step("Creating policy '#{config.secrets_policy}'") do
           cp.apply_hash(build_policy_hash)
         end
       end
+    end
+
+    def verify_generated_review_policy!(policy)
+      expected_target = policy_targets_secret?(policy, config.secrets)
+      owned_policy = generated_review_app_tag(policy) == config.app
+      no_extra_selectors = %w[target targetQuery gvc].all? { |key| policy[key].nil? }
+      own_bindings = generated_review_policy_binding_state(policy) != :unsafe
+      return if expected_target && owned_policy && no_extra_selectors && own_bindings
+
+      raise "Existing review app secret policy has an unexpected target or binding."
     end
 
     def build_secret_hash
@@ -101,16 +174,25 @@ module Command
     end
 
     def build_policy_hash
-      {
+      policy = {
         "kind" => "policy",
         "name" => config.secrets_policy,
         "targetKind" => "secret",
         "targetLinks" => ["//secret/#{config.secrets}"]
       }
+      policy["tags"] = { ::Config::GENERATED_REVIEW_APP_TAG => config.app } if config.generated_review_secret_keys.any?
+      policy
     end
 
     def bind_identity_to_policy
       progress.puts
+
+      if config.generated_review_secret_keys.any?
+        policy = cp.fetch_policy(config.secrets_policy)
+        raise "Cannot safely inspect review app secret policy before binding." unless policy.is_a?(Hash)
+
+        verify_generated_review_policy!(policy)
+      end
 
       step("Binding identity '#{config.identity}' to policy '#{config.secrets_policy}'") do
         cp.bind_identity_to_policy(config.identity_link, config.secrets_policy)
