@@ -282,7 +282,7 @@ describe Command::SetupApp do
 
         expect(command).to have_received(:run_cpflow_command).with(
           "apply-template", "-a", config.app, "--add-app-identity",
-          "--skip-policy-template", config.secrets_policy, "--skip-secret-template", config.secrets,
+          "--exclude-policy-template", config.secrets_policy, "--exclude-secret-template", config.secrets,
           "app", "rails"
         )
       end
@@ -303,7 +303,7 @@ describe Command::SetupApp do
 
         expect(command).to have_received(:run_cpflow_command).with(
           "apply-template", "-a", config.app, "--add-app-identity", "--yes",
-          "--preserve-existing-runtime", "--skip-policy-template", config.secrets_policy, "app", "rails"
+          "--preserve-existing-runtime", "--exclude-policy-template", config.secrets_policy, "app", "rails"
         )
       end
     end
