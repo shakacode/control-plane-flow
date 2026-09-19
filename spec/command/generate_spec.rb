@@ -293,7 +293,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
       end
     end
 
-    it "migrates a database from the legacy volume root before using the image seed" do
+    it "uses a database at the legacy volume root with its sidecars intact" do
       Dir.mktmpdir("cpflow-sqlite-migration") do |root|
         source = Pathname.new(root).join("app/db/production.sqlite3")
         target = Pathname.new(root).join("app/data/db/production.sqlite3")
@@ -302,6 +302,9 @@ describe Command::Generate, :enable_validations, :without_config_file do
         FileUtils.mkdir_p(legacy.dirname)
         source.write("image seed")
         legacy.write("legacy database")
+        legacy.sub_ext(".sqlite3-wal").write("wal")
+        legacy.sub_ext(".sqlite3-shm").write("shm")
+        legacy.sub_ext(".sqlite3-journal").write("journal")
         arguments = [source, target, legacy].map { |path| Shellwords.shellescape(path.to_s) }
         script = <<~SH
           #{Command::Generator::SQLITE_DATABASE_PREPARE_FUNCTION}
@@ -311,10 +314,13 @@ describe Command::Generate, :enable_validations, :without_config_file do
         _stdout, stderr, status = Open3.capture3("/bin/sh", stdin_data: script)
 
         expect(status).to be_success, stderr
-        expect(target.read).to eq("legacy database")
+        expect(target).not_to exist
         expect(source).to be_symlink
         expect(source.read).to eq("legacy database")
-        expect(legacy).not_to exist
+        expect(legacy.read).to eq("legacy database")
+        expect(legacy.sub_ext(".sqlite3-wal").read).to eq("wal")
+        expect(legacy.sub_ext(".sqlite3-shm").read).to eq("shm")
+        expect(legacy.sub_ext(".sqlite3-journal").read).to eq("journal")
       end
     end
   end
@@ -694,14 +700,26 @@ describe Command::Generate, :enable_validations, :without_config_file do
   end
 
   context "when a root .dockerignore already exists" do
-    it "preserves the project-specific file" do
+    it "preserves project-specific entries and adds production database exclusions" do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: data/archive/production.sqlite3
+      YAML
       dockerignore_path.write("custom-entry\n")
 
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Cpflow::Cli.start([described_class::NAME])
       end
 
-      expect(dockerignore_path.read).to eq("custom-entry\n")
+      expect(dockerignore_path.read).to eq(<<~IGNORE)
+        custom-entry
+        /data/archive/production.sqlite3
+        /data/archive/production.sqlite3-wal
+        /data/archive/production.sqlite3-shm
+        /data/archive/production.sqlite3-journal
+      IGNORE
     end
   end
 end

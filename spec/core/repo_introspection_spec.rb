@@ -168,5 +168,22 @@ RSpec.describe RepoIntrospection do
         expect(described_class.unresolved_sqlite_database_paths_in_production?(root)).to be(false)
       end
     end
+
+    it "detects paths containing embedded ERB output" do
+      Dir.mktmpdir("cpflow-repo-introspection") do |root|
+        config_dir = File.join(root, "config")
+        FileUtils.mkdir_p(config_dir)
+        File.write(
+          File.join(config_dir, "database.yml"),
+          <<~YAML
+            production:
+              adapter: sqlite3
+              database: db/<%= Rails.env %>.sqlite3
+          YAML
+        )
+
+        expect(described_class.unresolved_sqlite_database_paths_in_production?(root)).to be(true)
+      end
+    end
   end
 end

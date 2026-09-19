@@ -41,10 +41,10 @@ module Command
         source_path="$1"
         persistent_path="$2"
         legacy_path="${3:-}"
-        mkdir -p "$(dirname "${source_path}")" "$(dirname "${persistent_path}")"
         if [ -n "${legacy_path}" ] && [ -e "${legacy_path}" ] && [ ! -e "${persistent_path}" ]; then
-          mv "${legacy_path}" "${persistent_path}"
+          persistent_path="${legacy_path}"
         fi
+        mkdir -p "$(dirname "${source_path}")" "$(dirname "${persistent_path}")"
         if [ -e "${source_path}" ] && [ ! -L "${source_path}" ] && [ ! -e "${persistent_path}" ]; then
           mv "${source_path}" "${persistent_path}"
         fi
@@ -58,6 +58,7 @@ module Command
       generated_paths = copy_template_files("generator_templates", base_template_files)
       generated_paths += copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
       copy_dockerignore unless File.exist?(".dockerignore")
+      append_sqlite_database_ignores if sqlite_project?
       substitute_template_variables(generated_paths)
       make_shell_scripts_executable(generated_paths)
     end
@@ -90,6 +91,41 @@ module Command
         ".dockerignore",
         verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
       )
+    end
+
+    def append_sqlite_database_ignores
+      entries = sqlite_database_ignore_entries
+      contents = File.read(".dockerignore")
+      existing_lines = contents.lines(chomp: true)
+      additions = entries - existing_lines
+      return if additions.empty?
+
+      File.open(".dockerignore", "a") do |file|
+        file.write("\n") unless contents.empty? || contents.end_with?("\n")
+        file.puts(additions)
+      end
+    end
+
+    def sqlite_database_ignore_entries
+      RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).flat_map do |database_path|
+        relative = docker_context_database_path(database_path)
+        next [] unless relative
+
+        base = "/#{relative}"
+        [base, "#{base}-wal", "#{base}-shm", "#{base}-journal"]
+      end.uniq
+    end
+
+    def docker_context_database_path(database_path)
+      path = Pathname.new(database_path).cleanpath
+      if path.absolute?
+        return unless path.to_s.start_with?("/app/")
+
+        return path.to_s.delete_prefix("/app/")
+      end
+
+      normalized = path.to_s
+      normalized unless normalized == "." || normalized.start_with?("../")
     end
 
     def base_template_files

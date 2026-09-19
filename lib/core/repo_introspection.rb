@@ -201,7 +201,7 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   end
 
   def self.literal_database_path?(value)
-    value.is_a?(String) && !value.strip.empty? && value != "__erb__"
+    value.is_a?(String) && !value.strip.empty? && !value.include?("__erb__")
   end
 
   def self.safe_load_database_yml(raw_contents)
