@@ -125,7 +125,10 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
     production = parsed.is_a?(Hash) ? parsed["production"] : nil
     return false unless production.is_a?(Hash)
 
-    database_connection_configs(production).any? { |config| config["url"] == "__erb__" }
+    database_connection_configs(production).any? do |config|
+      url = config["url"]
+      url.is_a?(String) && url.include?("__erb__") && !sqlite_database_url?(url)
+    end
   end
 
   # Determines whether a database config hash uses SQLite. Handles both

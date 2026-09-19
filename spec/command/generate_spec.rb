@@ -469,6 +469,24 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(controlplane_config_file_path).not_to exist
       end
     end
+
+    it "rejects a legacy fallback that aliases an already-persistent database" do
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: sqlite3
+            database: db/shared.sqlite3
+          cache:
+            adapter: sqlite3
+            database: data/shared.sqlite3
+      YAML
+
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /resolve to the same persistent target/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
   end
 
   context "when production uses in-memory sqlite3" do

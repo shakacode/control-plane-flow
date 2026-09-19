@@ -240,17 +240,26 @@ module Command
     end
 
     def validate_sqlite_persistence_targets!
-      paths_by_target = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).group_by do |database_path|
-        source = absolute_app_database_path(database_path)
-        persistent_sqlite_path?(source) ? source : persistent_sqlite_target(source)
-      end
-      collision = paths_by_target.find { |_target, paths| paths.size > 1 }
+      collision = sqlite_database_paths_by_persistence_target.find { |_target, paths| paths.uniq.size > 1 }
       return unless collision
 
-      target, paths = collision
+      target = collision.first
+      paths = collision.last.uniq
       raise Cpflow::Error,
             "Production SQLite database paths #{paths.map(&:inspect).join(' and ')} resolve to the same persistent " \
             "target #{target.inspect}; use distinct paths before generating the scaffold."
+    end
+
+    def sqlite_database_paths_by_persistence_target
+      paths_by_target = Hash.new { |hash, key| hash[key] = [] }
+      RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).each do |database_path|
+        source = absolute_app_database_path(database_path)
+        target = persistent_sqlite_path?(source) ? source : persistent_sqlite_target(source)
+        [target, legacy_sqlite_database_path(source)].compact.each do |claimed_path|
+          paths_by_target[claimed_path] << database_path
+        end
+      end
+      paths_by_target
     end
 
     def persistent_sqlite_target(source)
