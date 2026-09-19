@@ -221,8 +221,18 @@ module Command
 
     def validate_sqlite_database_locations!
       database_paths = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd)
+      validate_sqlite_paths_without_control_characters!(database_paths)
       validate_sqlite_paths_under_app!(database_paths)
       validate_sqlite_paths_below_mount_roots!(database_paths)
+    end
+
+    def validate_sqlite_paths_without_control_characters!(database_paths)
+      unsafe_path = database_paths.find { |database_path| database_path.match?(/[[:cntrl:]]/) }
+      return unless unsafe_path
+
+      raise Cpflow::Error,
+            "Production SQLite database paths cannot contain control characters; update config/database.yml " \
+            "before generating the scaffold."
     end
 
     def validate_sqlite_paths_under_app!(database_paths)
@@ -310,10 +320,20 @@ module Command
         source = absolute_app_database_path(database_path)
         target = persistent_sqlite_path?(source) ? source : persistent_sqlite_target(source)
         [target, legacy_sqlite_database_path(source)].compact.each do |claimed_path|
-          paths_by_target[claimed_path] << database_path
+          claim_sqlite_database_paths(paths_by_target, claimed_path, database_path)
         end
       end
       paths_by_target
+    end
+
+    def claim_sqlite_database_paths(paths_by_target, claimed_path, database_path)
+      sqlite_database_owned_paths(claimed_path).each do |owned_path|
+        paths_by_target[owned_path] << database_path
+      end
+    end
+
+    def sqlite_database_owned_paths(database_path)
+      [database_path, "#{database_path}-wal", "#{database_path}-shm", "#{database_path}-journal"]
     end
 
     def persistent_sqlite_target(source)

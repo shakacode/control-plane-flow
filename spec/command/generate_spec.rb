@@ -531,6 +531,48 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when a production SQLite path collides with another database's sidecar" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: sqlite3
+            database: data/main.sqlite3
+          cache:
+            adapter: sqlite3
+            database: data/main.sqlite3-wal
+      YAML
+    end
+
+    it "rejects the data-corruption collision" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /resolve to the same persistent target/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
+  context "when a production SQLite path contains control characters" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: "db/foo\\n!config/master.key"
+      YAML
+    end
+
+    it "rejects the path before writing dockerignore rules" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /cannot contain control characters/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
   context "when production uses in-memory sqlite3" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
