@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- Review apps can opt in to generated disposable credentials. Each PR app gets its own tagged secret dictionary and policy; setup fills only missing keys after checking both resource markers and policy scope, and app deletion removes the resources after checking their bindings and target, including after partial deletion or opt-in removal. Cleanup probes the deterministic per-app resource names for every dynamically matched review app so removed opt-ins can still be reconciled; a provider read failure, unexpected grant, or unmarked name collision now fails the delete step for inspection instead of silently succeeding.
+
 ### Fixed
 
 - **Hardened generated Rails deployment scaffolding and production promotion.** New scaffolds omit repository secrets, Rails credential keys, and local databases from Docker contexts, remove temporary native build tools, avoid retaining asset-precompile secrets, persist every detected production SQLite database without hiding image migrations, and support digest-pinned staging images during promotion. Production promotion now requires a full staging commit SHA, targets the GitHub release at that commit, and only attempts rollback after deployment starts.

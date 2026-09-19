@@ -4,15 +4,8 @@ require "spec_helper"
 
 describe Command::SetupApp do
   describe "#call" do
-    let(:shared_secret_grants) do
-      [
-        {
-          name: "database",
-          secret_name: "shared-database-secrets",
-          policy_name: "shared-database-secrets-policy"
-        }
-      ]
-    end
+    let(:command) { described_class.new(config) }
+    let(:cp) { instance_double(Controlplane) }
     let(:config) do
       instance_double(
         Config,
@@ -22,13 +15,21 @@ describe Command::SetupApp do
         identity_link: "/org/test-org/gvc/test-review-123/identity/test-review-123-identity",
         secrets: "test-review-secrets",
         secrets_policy: "test-review-secrets-policy",
+        generated_review_secret_keys: [],
         options: {},
         current: { skip_secrets_setup: false },
         shared_secret_grants: shared_secret_grants
       )
     end
-    let(:cp) { instance_double(Controlplane) }
-    let(:command) { described_class.new(config) }
+    let(:shared_secret_grants) do
+      [
+        {
+          name: "database",
+          secret_name: "shared-database-secrets",
+          policy_name: "shared-database-secrets-policy"
+        }
+      ]
+    end
 
     before do
       allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
@@ -50,6 +51,263 @@ describe Command::SetupApp do
       allow(command).to receive(:run_cpflow_command)
     end
 
+    it "does not mark an ordinary app secret policy as disposable" do
+      allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(nil)
+      allow(cp).to receive(:apply_hash)
+      allow(command).to receive(:step) { |_message, &block| block.call }
+
+      command.send(:create_policy_if_not_exists)
+
+      expect(cp).to have_received(:apply_hash).with(
+        satisfy { |policy| policy["kind"] == "policy" && !policy.key?("tags") }
+      )
+    end
+
+    describe "generated review app credentials" do
+      let(:config) do
+        instance_double(
+          Config, app: "demo-review-pr-97", org: "test-org", identity: "demo-review-pr-97-identity",
+                  identity_link: "/org/test-org/gvc/demo-review-pr-97/identity/demo-review-pr-97-identity",
+                  secrets: "demo-review-pr-97-secrets",
+                  secrets_policy: "demo-review-pr-97-secrets-policy",
+                  generated_review_secret_keys: %w[SECRET_KEY_BASE RENDERER_PASSWORD]
+        )
+      end
+      let(:cp) { instance_double(Controlplane) }
+      let(:command) { described_class.new(config) }
+
+      before do
+        allow(command).to receive(:cp).and_return(cp)
+        allow(command).to receive(:step) { |_message, &block| block.call }
+        allow(cp).to receive(:fetch_secret).with(config.secrets)
+        allow(cp).to receive(:apply_hash)
+        allow(cp).to receive(:patch_sensitive_secret_data)
+        allow(cp).to receive(:fetch_policy)
+        allow(cp).to receive(:bind_identity_to_policy)
+        allow(cp).to receive(:create_sensitive_secret)
+      end
+
+      it "creates both fields without using the CLI template path" do
+        allow(SecureRandom).to receive(:hex).with(32).and_return("a" * 64, "b" * 64)
+        allow(cp).to receive(:create_sensitive_secret).and_return(true)
+
+        command.send(:create_secret_if_not_exists)
+
+        expect(cp).to have_received(:create_sensitive_secret).with(
+          config.secrets, { "SECRET_KEY_BASE" => "a" * 64, "RENDERER_PASSWORD" => "b" * 64 }
+        )
+        expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "fills only a missing field and preserves existing values" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(
+          { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "existing", "OTHER" => "keep" } }
+        )
+        allow(SecureRandom).to receive(:hex).with(32).and_return("c" * 64)
+        allow(cp).to receive(:patch_sensitive_secret_data).and_return(true)
+
+        command.send(:create_secret_if_not_exists)
+
+        expect(cp).to have_received(:patch_sensitive_secret_data).with(
+          config.secrets, { "RENDERER_PASSWORD" => "c" * 64 }
+        )
+      end
+
+      it "does not rotate populated credentials on refresh" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(
+          { "type" => "dictionary", "data" => { "SECRET_KEY_BASE" => "a", "RENDERER_PASSWORD" => "b" } }
+        )
+
+        command.send(:create_secret_if_not_exists)
+
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "fails closed when the existing dictionary cannot be revealed" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(nil)
+
+        expect { command.send(:create_secret_if_not_exists) }.to raise_error(/Cannot safely inspect/)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "refuses to reveal or patch a dictionary owned by another app" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary", "tags" => {} }
+        )
+        allow(cp).to receive(:reveal_secret)
+
+        expect { command.send(:create_secret_if_not_exists) }.to raise_error(/not owned by this app/)
+        expect(cp).not_to have_received(:reveal_secret)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "turns a required reveal transport failure into a safe command error" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_raise(Net::ReadTimeout)
+
+        expect { command.send(:create_secret_if_not_exists) }
+          .to raise_error(RuntimeError, "Cannot safely inspect existing review app secret dictionary.")
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "keeps the non-dictionary validation error distinct from transport failures" do
+        allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(
+          { "name" => config.secrets, "type" => "dictionary",
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+        allow(cp).to receive(:reveal_secret).with(config.secrets, required: true).and_return(
+          { "type" => "opaque", "data" => "not-a-dictionary" }
+        )
+
+        expect { command.send(:create_secret_if_not_exists) }
+          .to raise_error(RuntimeError, "Existing review app secret is not a dictionary.")
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "refuses an existing policy that targets another secret" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+        expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "refuses an existing policy bound to another principal" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "bindings" => [{ "principalLinks" => ["/org/test-org/gvc/other/identity/other"] }] }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "refuses an existing policy with an additional target selector" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "targetQuery" => { "spec" => { "match" => "all" } } }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "reuses an exact-target policy bound only to this app identity" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[reveal] }] }
+        )
+
+        command.send(:create_policy_if_not_exists)
+
+        expect(cp).not_to have_received(:apply_hash)
+      end
+
+      it "refuses an own-identity policy with broader permissions" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "bindings" => [{ "principalLinks" => [config.identity_link], "permissions" => %w[edit reveal] }] }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "rechecks policy scope immediately before binding the app identity" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/foreign"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app } }
+        )
+
+        expect { command.send(:bind_identity_to_policy) }.to raise_error(/unexpected target or binding/)
+        expect(cp).not_to have_received(:bind_identity_to_policy)
+      end
+
+      it "refuses an unmarked policy that otherwise targets the app dictionary" do
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"], "tags" => {} }
+        )
+
+        expect { command.send(:create_policy_if_not_exists) }.to raise_error(/unexpected target or binding/)
+      end
+
+      it "marks a newly generated policy with this app's identity" do
+        expect(command.send(:build_policy_hash).fetch("tags")).to eq(
+          Config::GENERATED_REVIEW_APP_TAG => config.app
+        )
+      end
+
+      it "rejects a foreign policy before writing generated credentials" do
+        allow(command).to receive(:create_secret_and_policy_if_not_exist).and_call_original
+        allow(cp).to receive(:fetch_policy).with(config.secrets_policy).and_return(
+          { "targetKind" => "secret", "targetLinks" => ["//secret/#{config.secrets}"],
+            "tags" => { Config::GENERATED_REVIEW_APP_TAG => config.app },
+            "bindings" => [{ "principalLinks" => ["/org/test-org/gvc/other/identity/other"] }] }
+        )
+
+        expect { command.send(:create_secret_and_policy_if_not_exist) }.to raise_error(/unexpected target or binding/)
+        expect(cp).not_to have_received(:create_sensitive_secret)
+        expect(cp).not_to have_received(:patch_sensitive_secret_data)
+      end
+
+      it "preserves the generated dictionary during initial template application" do
+        allow(config).to receive_messages(options: {}, current: { skip_secrets_setup: false }, shared_secret_grants: [])
+        allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
+        allow(cp).to receive(:fetch_gvc).and_return(nil)
+        allow(command).to receive_messages(
+          resolve_shared_secret_policy_grants: [], create_secret_and_policy_if_not_exist: true,
+          run_cpflow_command: true, bind_identity_to_policy: true,
+          bind_shared_secret_policy_grants: true, run_post_creation_hook: true
+        )
+
+        command.call
+
+        expect(command).to have_received(:run_cpflow_command).with(
+          "apply-template", "-a", config.app, "--add-app-identity",
+          "--skip-policy-template", config.secrets_policy, "--skip-secret-template", config.secrets,
+          "app", "rails"
+        )
+      end
+
+      it "preserves the generated policy during an existing app template refresh" do
+        allow(config).to receive_messages(
+          options: { refresh_templates: true }, current: { skip_secrets_setup: false }, shared_secret_grants: []
+        )
+        allow(config).to receive(:[]).with(:setup_app_templates).and_return(%w[app rails])
+        allow(cp).to receive(:fetch_gvc).and_return({ "name" => config.app })
+        allow(command).to receive_messages(
+          resolve_shared_secret_policy_grants: [], create_secret_and_policy_if_not_exist: true,
+          run_cpflow_command: true, bind_identity_to_policy: true,
+          bind_shared_secret_policy_grants: true
+        )
+
+        command.call
+
+        expect(command).to have_received(:run_cpflow_command).with(
+          "apply-template", "-a", config.app, "--add-app-identity", "--yes",
+          "--preserve-existing-runtime", "--skip-policy-template", config.secrets_policy, "app", "rails"
+        )
+      end
+    end
+
     it "binds the app identity to configured shared secret policies" do
       command.call
 
@@ -66,7 +324,7 @@ describe Command::SetupApp do
       command.call
 
       expect(command).to have_received(:run_cpflow_command)
-        .with("apply-template", "app", "rails", "-a", config.app, "--add-app-identity")
+        .with("apply-template", "-a", config.app, "--add-app-identity", "app", "rails")
       expect(command).to have_received(:run_post_creation_hook)
     end
 
@@ -82,8 +340,8 @@ describe Command::SetupApp do
 
         expect(command).to have_received(:run_cpflow_command)
           .with(
-            "apply-template", "app", "rails", "-a", config.app,
-            "--add-app-identity", "--yes", "--preserve-existing-runtime"
+            "apply-template", "-a", config.app, "--add-app-identity", "--yes", "--preserve-existing-runtime",
+            "app", "rails"
           )
         expect(cp).to have_received(:bind_identity_to_policy)
           .with(config.identity_link, "test-review-secrets-policy")

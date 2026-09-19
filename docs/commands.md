@@ -30,6 +30,7 @@ cpflow ai-github-flow-prompt
 - Picks templates from the `.controlplane/templates` directory
 - Templates are ordinary Control Plane templates but with variable preprocessing
 - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
+- Use `--skip-secret-template NAME` and `--skip-policy-template NAME` to skip exact named templates without changing workload image handling
 - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
 **Preprocessed template variables:**
@@ -135,6 +136,7 @@ cpflow copy-image-from-upstream -a $APP_NAME --upstream-token $UPSTREAM_TOKEN --
 - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
 - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
 - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
+- Removes a marked per-app dictionary and exact-target unbound policy for generated review credentials, including after the opt-in is removed from a dynamically matched review-app entry
 - Will ask for explicit user confirmation
 - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -558,13 +560,14 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - Configures app to have org-level secrets with default name `"{APP_PREFIX}-secrets"`
   using org-level policy with default name `"{APP_PREFIX}-secrets-policy"` (names can be customized, see docs)
 - Creates identity for secrets if it does not exist
+- For dynamically named review apps with `generated_review_secret_keys`, checks an existing policy before writing credentials, creates a per-app dictionary, skips its secret template during initial setup, and fills missing disposable keys without printing or rotating values
 - Binds the app identity to any configured `shared_secret_grants` policies as part of the secrets setup flow; skipped when `--skip-secrets-setup` or `--skip-secret-access-binding` is provided, or `skip_secrets_setup` is set
 - Use `--skip-secrets-setup` to prevent the automatic setup of secrets,
   or set it through `skip_secrets_setup` in the `.controlplane/controlplane.yml` file
 - Runs a post-creation hook after the app is created if `hooks.post_creation` is specified in the `.controlplane/controlplane.yml` file
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
-- Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret resources entirely, repairing secrets access bindings, and skipping the post-creation hook
+- Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret templates (but filling missing opt-in generated review keys), repairing secrets access bindings, and skipping the post-creation hook
 
 ```sh
 cpflow setup-app -a $APP_NAME

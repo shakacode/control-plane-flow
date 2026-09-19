@@ -95,6 +95,14 @@ describe Cpflow do
     end
   end
 
+  it "parses explicit string options whose names begin with skip" do
+    option = Cpflow::Cli.commands.fetch("apply_template").options.fetch(:skip_policy_template)
+    parser = Thor::Options.new(skip_policy_template: option)
+
+    expect(parser.parse(%w[--skip-policy-template generated-policy]))
+      .to include("skip_policy_template" => "generated-policy")
+  end
+
   it "handles subcommands correctly" do
     result = run_cpflow_command("--help")
 

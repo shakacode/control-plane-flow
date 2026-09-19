@@ -29,6 +29,9 @@ case "$exists_status" in
       printf '%s\n' "$exists_output"
     fi
     echo "⚠️ Application does not exist: $APP_NAME"
+    echo "🧹 Checking for disposable review app resources: $APP_NAME"
+    cpflow delete -a "$APP_NAME" --org "$CPLN_ORG" --yes
+    echo "✅ Finished disposable review app cleanup: $APP_NAME"
     exit 0
     ;;
   *)

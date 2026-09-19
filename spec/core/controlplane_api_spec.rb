@@ -279,6 +279,32 @@ describe ControlplaneApi do
     end
   end
 
+  describe "review app secret mutations" do
+    it "uses the sensitive non-retrying request policy for creation" do
+      data = { "SECRET_KEY_BASE" => "generated" }
+      response = stub_api_call(
+        "/org/my-org/secret", method: :post,
+                              body: { kind: "secret", name: "my-review-secret", type: "dictionary", data: data,
+                                      tags: { Config::GENERATED_REVIEW_APP_TAG => "my-review" } },
+                              request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
+      )
+
+      expect(api.create_sensitive_secret(org: "my-org", secret: "my-review-secret", app: "my-review", data: data))
+        .to eq(response)
+    end
+
+    it "patches only supplied dictionary keys using the sensitive non-retrying request policy" do
+      data = { "RENDERER_PASSWORD" => "generated" }
+      response = stub_api_call(
+        "/org/my-org/secret/my-review-secret", method: :patch,
+                                               body: { data: data },
+                                               request_policy: ControlplaneApiDirect::SENSITIVE_MUTATION_REQUEST_POLICY
+      )
+
+      expect(api.patch_sensitive_secret_data(org: "my-org", secret: "my-review-secret", data: data)).to eq(response)
+    end
+  end
+
   describe "#reveal_secret" do
     it "reveals a single secret" do
       response = stub_api_call(
@@ -288,6 +314,16 @@ describe ControlplaneApi do
       )
 
       expect(api.reveal_secret(org: "my-org", secret: "my-secret")).to eq(response)
+    end
+
+    it "uses the retrying sensitive read policy when the reveal is required" do
+      response = stub_api_call(
+        "/org/my-org/secret/my-secret/-reveal",
+        method: :get,
+        request_policy: ControlplaneApiDirect::REQUIRED_SENSITIVE_READ_REQUEST_POLICY
+      )
+
+      expect(api.reveal_secret(org: "my-org", secret: "my-secret", required: true)).to eq(response)
     end
   end
 

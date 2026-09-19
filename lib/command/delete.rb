@@ -14,6 +14,7 @@ module Command
       - Deletes the whole app (GVC with all workloads, all volumesets and all images) or a specific workload
       - Also unbinds the app from the secrets policy and any configured `shared_secret_grants` policies, as long as both the identity and each policy exist (and are bound)
       - For the app-specific secrets policy, removes every permission held by the app identity; for `shared_secret_grants`, removes only `reveal`
+      - Removes a marked per-app dictionary and exact-target unbound policy for generated review credentials, including after the opt-in is removed from a dynamically matched review-app entry
       - Will ask for explicit user confirmation
       - Runs a pre-deletion hook before the app is deleted if `hooks.pre_deletion` is specified in the `.controlplane/controlplane.yml` file
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
@@ -50,8 +51,9 @@ module Command
     end
 
     def delete_whole_app
-      return progress.puts("App '#{config.app}' does not exist.") if cp.fetch_gvc.nil?
+      return handle_missing_app if cp.fetch_gvc.nil?
 
+      validate_disposable_review_secret_resources!
       check_volumesets
       check_images
       return unless confirm_delete(config.app)
@@ -61,7 +63,87 @@ module Command
       policy_unbinds = secret_policy_unbinds
       run_pre_deletion_hook unless config.options[:skip_pre_deletion_hook]
       unbind_identity_from_policy(policy_unbinds)
+      delete_app_resources
+    end
+
+    def handle_missing_app
+      progress.puts("App '#{config.app}' does not exist.")
+      cleanup_state = validate_disposable_review_secret_resources!
+      return if cleanup_state == :none
+      return unless confirm_delete("disposable secrets for app #{config.app}")
+
+      unbind_missing_app_disposable_policy! if cleanup_state == :own_binding
+      delete_generated_review_secret_resources
+    end
+
+    def validate_disposable_review_secret_resources!
+      cleanup_state = disposable_review_secret_cleanup_state
+      if cleanup_state == :unsafe
+        raise "Review app secret resources have unexpected ownership, grants, or target; leaving them for inspection."
+      end
+
+      cleanup_state
+    end
+
+    def disposable_review_secret_cleanup_state
+      names = config.disposable_review_secret_resource_names
+      return :none unless names
+
+      secret_name, policy_name = names
+      policy = cp.fetch_policy(policy_name)
+      secret = cp.fetch_secret(secret_name)
+      return :none if policy.nil? && secret.nil?
+
+      classify_disposable_review_secret_resources(policy, secret, secret_name)
+    end
+
+    def classify_disposable_review_secret_resources(policy, secret, secret_name)
+      return generated_review_secret_owned_by_app?(secret, secret_name) ? :safe : :unsafe if policy.nil?
+      return :unsafe unless generated_review_secret_policy?(policy, secret_name)
+      return :unsafe unless generated_review_secret_or_absent?(secret, secret_name)
+      return :safe if unbound_review_policy?(policy)
+
+      only_app_identity_bindings?(policy) ? :own_binding : :unsafe
+    end
+
+    def generated_review_secret_or_absent?(secret, secret_name)
+      secret.nil? || generated_review_secret_owned_by_app?(secret, secret_name)
+    end
+
+    def only_app_identity_bindings?(policy)
+      generated_review_policy_binding_state(policy) == :bound
+    end
+
+    def unbound_review_policy?(policy)
+      generated_review_policy_binding_state(policy) == :unbound
+    end
+
+    def unbind_missing_app_disposable_policy!
+      secret_name, policy_name = config.disposable_review_secret_resource_names
+      policy = cp.fetch_policy(policy_name)
+      return if policy.nil?
+
+      unless generated_review_secret_policy?(policy, secret_name) &&
+             (unbound_review_policy?(policy) || only_app_identity_bindings?(policy))
+        refuse_unsafe_review_secret_resources!
+      end
+
+      remove_missing_app_policy_bindings(policy, policy_name)
+    end
+
+    def remove_missing_app_policy_bindings(policy, policy_name)
+      identity_policy_permissions(policy).each do |permission|
+        step("Unbinding deleted app identity from disposable review app policy") do
+          cp.unbind_identity_from_policy(config.identity_link, policy_name, permission: permission)
+        end
+      end
+    end
+
+    def delete_app_resources
       delete_volumesets
+      # Keep the GVC discoverable by stale-app cleanup if disposable resource deletion fails.
+      # The app identity has already been unbound from its secret policy.
+      delete_generated_review_secret_resources
       delete_gvc
       delete_images
     end
@@ -103,6 +185,53 @@ module Command
       end
     end
 
+    def delete_generated_review_secret_resources
+      names = config.disposable_review_secret_resource_names
+      return unless names
+
+      secret_name, policy_name = names
+
+      policy = cp.fetch_policy(policy_name)
+      secret = cp.fetch_secret(secret_name)
+      return delete_generated_review_secret_without_policy(secret, secret_name) if policy.nil?
+
+      delete_generated_review_secret_with_policy(policy, secret, secret_name, policy_name)
+    end
+
+    def delete_generated_review_secret_without_policy(secret, secret_name)
+      return if secret.nil?
+
+      refuse_unsafe_review_secret_resources! unless generated_review_secret_owned_by_app?(secret, secret_name)
+
+      step("Deleting orphaned disposable review app secret dictionary") { cp.delete_secret(secret_name) }
+    end
+
+    def delete_generated_review_secret_with_policy(policy, secret, secret_name, policy_name)
+      refuse_unsafe_review_secret_resources! unless disposable_review_secret_policy?(policy, secret_name)
+
+      if secret
+        refuse_unsafe_review_secret_resources! unless generated_review_secret_owned_by_app?(secret, secret_name)
+
+        step("Deleting disposable review app secret dictionary") { cp.delete_secret(secret_name) }
+      end
+      step("Deleting disposable review app secret policy") { cp.delete_policy(policy_name) }
+    end
+
+    def refuse_unsafe_review_secret_resources!
+      raise "Review app secret resources have unexpected ownership, grants, or target; " \
+            "leaving secret resources for inspection."
+    end
+
+    def disposable_review_secret_policy?(policy, secret_name)
+      generated_review_secret_policy?(policy, secret_name) && unbound_review_policy?(policy)
+    end
+
+    def generated_review_secret_policy?(policy, secret_name)
+      policy_targets_secret?(policy, secret_name) &&
+        generated_review_app_tag(policy) == config.app &&
+        %w[target targetQuery gvc].all? { |key| policy[key].nil? }
+    end
+
     def delete_workload(workload)
       step("Deleting workload '#{workload}' from app '#{config.app}'") do
         cp.delete_workload(workload)
@@ -136,10 +265,13 @@ module Command
     end
 
     def secret_policy_unbinds
-      return [] if cp.fetch_identity(config.identity).nil?
+      unless cp.fetch_identity(config.identity)
+        return [disposable_review_secret_policy_unbind(include_current: true)].compact
+      end
 
       [
         app_secret_policy_unbind,
+        disposable_review_secret_policy_unbind,
         *shared_secret_policy_unbinds
       ].compact
     end
@@ -149,6 +281,28 @@ module Command
         config.secrets_policy,
         "Unbinding identity from policy for app '#{config.app}'"
       )
+    end
+
+    def disposable_review_secret_policy_unbind(include_current: false)
+      names = config.disposable_review_secret_resource_names
+      return unless names && (include_current || names.last != config.secrets_policy)
+
+      secret_name, policy_name = names
+      policy = verified_disposable_review_secret_policy(secret_name, policy_name)
+      return unless policy
+
+      policy_unbind_for(policy_name, "Unbinding identity from disposable review app policy '#{policy_name}'", policy)
+    end
+
+    def verified_disposable_review_secret_policy(secret_name, policy_name)
+      secret = cp.fetch_secret(secret_name)
+      return if secret && !generated_review_secret_owned_by_app?(secret, secret_name)
+
+      policy = cp.fetch_policy(policy_name)
+      return unless policy && generated_review_secret_policy?(policy, secret_name) &&
+                    (unbound_review_policy?(policy) || only_app_identity_bindings?(policy))
+
+      policy
     end
 
     def shared_secret_policy_unbinds
@@ -190,8 +344,8 @@ module Command
       )
     end
 
-    def policy_unbind_for(policy_name, message)
-      policy = cp.fetch_policy(policy_name)
+    def policy_unbind_for(policy_name, message, policy = nil)
+      policy ||= cp.fetch_policy(policy_name)
       return if policy.nil?
 
       permissions = identity_policy_permissions(policy)

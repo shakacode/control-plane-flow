@@ -10,6 +10,7 @@ class Config # rubocop:disable Metrics/ClassLength
   include Helpers
 
   CONFIG_FILE_LOCATION = ".controlplane/controlplane.yml"
+  GENERATED_REVIEW_APP_TAG = "cpflow-generated-review-app"
   REQUIRED_SHARED_SECRET_GRANT_KEYS = %i[name secret_name policy_name].freeze
   SHARED_SECRET_RESOURCE_NAME_KEYS = %i[secret_name policy_name].freeze
   CONTROL_PLANE_RESOURCE_NAME_REGEX = /\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/
@@ -52,12 +53,62 @@ class Config # rubocop:disable Metrics/ClassLength
   end
 
   def secrets
+    return "#{app}-secrets" if generated_review_secret_keys.any?
+
     current&.dig(:secrets_name) || "#{app_prefix}-secrets"
   end
 
   def secrets_policy
     current&.dig(:secrets_policy_name) || "#{secrets}-policy"
   end
+
+  def generated_review_secret_keys
+    @generated_review_secret_keys ||= begin
+      keys = current&.dig(:generated_review_secret_keys)
+      if keys.nil?
+        []
+      else
+        validate_generated_review_secret_scope!
+        validate_generated_review_secret_keys!(keys)
+        keys
+      end
+    end
+  end
+
+  # Cleanup must still find marked per-app resources after the opt-in is removed
+  # from the current configuration.
+  def disposable_review_secret_resource_names
+    return nil unless current&.dig(:match_if_app_name_starts_with) && app.to_s != app_prefix.to_s
+    return nil unless app.match?(CONTROL_PLANE_RESOURCE_NAME_REGEX)
+
+    secret = "#{app}-secrets"
+    policy = "#{secret}-policy"
+    return nil unless policy.length <= 64
+
+    [secret, policy]
+  end
+
+  def validate_generated_review_secret_scope!
+    dynamic_review_app = current[:match_if_app_name_starts_with] && app.to_s != app_prefix.to_s
+    raise "generated_review_secret_keys is only allowed for a dynamically named review app." unless dynamic_review_app
+
+    unless "#{app}-secrets-policy".length <= 64 && app.match?(CONTROL_PLANE_RESOURCE_NAME_REGEX)
+      raise "Review app name is too long or invalid for a per-app secret policy."
+    end
+    return unless current[:secrets_name] || current[:secrets_policy_name]
+
+    raise "generated_review_secret_keys cannot be combined with secrets_name or secrets_policy_name."
+  end
+
+  def validate_generated_review_secret_keys!(keys)
+    valid_size = keys.is_a?(Array) && keys.size.between?(1, 8)
+    valid_names = valid_size && keys.all? { |key| key.is_a?(String) && key.match?(/\A[A-Z][A-Z0-9_]*\z/) }
+    return if valid_names && keys.uniq == keys
+
+    raise "generated_review_secret_keys must contain 1-8 unique uppercase environment names."
+  end
+
+  private :validate_generated_review_secret_scope!, :validate_generated_review_secret_keys!
 
   def shared_secret_grants
     @shared_secret_grants ||= normalize_shared_secret_grants(current&.dig(:shared_secret_grants))
@@ -187,6 +238,28 @@ class Config # rubocop:disable Metrics/ClassLength
       )
     end
   end
+
+  def validate_generated_review_secret_settings!
+    apps.each do |app_name, app_options|
+      keys = app_options[:generated_review_secret_keys]
+      next if keys.nil?
+
+      validate_generated_review_secret_entry_scope!(app_name, app_options)
+      validate_generated_review_secret_keys!(keys)
+    end
+  end
+
+  def validate_generated_review_secret_entry_scope!(app_name, app_options)
+    unless app_options[:match_if_app_name_starts_with]
+      raise "generated_review_secret_keys for '#{app_name}' requires a dynamically matched review app."
+    end
+    return unless app_options[:secrets_name] || app_options[:secrets_policy_name]
+
+    raise "generated_review_secret_keys for '#{app_name}' cannot be combined with " \
+          "secrets_name or secrets_policy_name."
+  end
+
+  private :validate_generated_review_secret_entry_scope!
 
   private
 
