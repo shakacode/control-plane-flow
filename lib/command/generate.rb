@@ -54,6 +54,7 @@ module Command
     SH
 
     def copy_files
+      validate_sqlite_database_paths!
       generated_paths = copy_template_files("generator_templates", base_template_files)
       generated_paths += copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
       copy_dockerignore unless File.exist?(".dockerignore")
@@ -139,6 +140,15 @@ module Command
 
     def sqlite_database_in_production?
       RepoIntrospection.sqlite_database_in_production?(Dir.pwd)
+    end
+
+    def validate_sqlite_database_paths!
+      return unless sqlite_project?
+      return unless RepoIntrospection.unresolved_sqlite_database_paths_in_production?(Dir.pwd)
+
+      raise Cpflow::Error,
+            "Production SQLite database paths must be literal file paths in config/database.yml; " \
+            "runtime ERB paths cannot be persisted safely by the generated scaffold."
     end
 
     def sqlite_database_setup

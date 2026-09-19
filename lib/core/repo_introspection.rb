@@ -104,6 +104,19 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
     end.uniq
   end
 
+  def self.unresolved_sqlite_database_paths_in_production?(root)
+    path = File.join(root, "config/database.yml")
+    return false unless File.file?(path)
+
+    parsed = safe_load_database_yml(File.read(path))
+    production = parsed.is_a?(Hash) ? parsed["production"] : nil
+    return false unless production.is_a?(Hash) && sqlite_database_config?(production)
+
+    database_connection_configs(production).any? do |config|
+      sqlite_database_path(config).nil? && !sqlite_in_memory_database_config?(config)
+    end
+  end
+
   # Determines whether a database config hash uses SQLite. Handles both
   # the single-database shape (top-level `adapter`/`url`) and Rails 6.1+ multi-database
   # shape where each connection sits one level deeper (`primary:`, `cache:`, etc.).
@@ -152,6 +165,8 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   end
 
   def self.sqlite_database_path(config)
+    return if sqlite_in_memory_database_config?(config)
+
     url = config["url"]
     return sqlite_database_path_from_url(url) if url.is_a?(String) && sqlite_database_url?(url)
 
@@ -166,6 +181,23 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
     parser.unescape(encoded_path) if literal_database_path?(encoded_path)
   rescue URI::InvalidURIError
     nil
+  end
+
+  def self.sqlite_in_memory_database_config?(config)
+    value = config["url"] || config["database"]
+    return false unless value.is_a?(String)
+
+    identifier = value.strip.sub(/\Asqlite3?:/i, "")
+    encoded_path, query = identifier.split("?", 2)
+    path = URI::RFC2396_Parser.new.unescape(encoded_path)
+    path == ":memory:" || path == "file::memory:" || memory_mode_query?(query)
+  end
+
+  def self.memory_mode_query?(query)
+    query.to_s.split("&").any? do |pair|
+      key, value = pair.split("=", 2)
+      key.casecmp?("mode") && value&.casecmp?("memory")
+    end
   end
 
   def self.literal_database_path?(value)

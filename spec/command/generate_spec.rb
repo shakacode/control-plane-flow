@@ -319,6 +319,45 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when the production SQLite path is dynamic" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: <%= ENV.fetch("SQLITE_PATH") %>
+      YAML
+    end
+
+    it "fails before generating a scaffold that cannot persist the database" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /must be literal file paths/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
+  context "when production uses in-memory sqlite3" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: ":memory:"
+      YAML
+    end
+
+    it "preserves in-memory semantics without a filesystem redirect" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(entrypoint_path.read).not_to include("prepare_sqlite_database ")
+        expect(rails_template_path.read).to include("path: /app/data")
+      end
+    end
+  end
+
   context "when only non-production environments use sqlite3" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
