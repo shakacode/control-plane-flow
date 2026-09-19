@@ -448,6 +448,29 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when production SQLite paths collide after persistence redirection" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: sqlite3
+            database: db/cache.sqlite3
+          cache:
+            adapter: sqlite3
+            database: data/db/cache.sqlite3
+      YAML
+    end
+
+    it "rejects the paths before aliasing distinct database connections" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /resolve to the same persistent target/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
   context "when production uses in-memory sqlite3" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
@@ -821,6 +844,17 @@ describe Command::Generate, :enable_validations, :without_config_file do
       expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-wal\n")
       expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-shm\n")
       expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-journal\n")
+    end
+
+    it "re-appends the environment exception after a newly added exclusion" do
+      dockerignore_path.write("!.env.example\ncustom-entry\n")
+
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+      end
+
+      lines = dockerignore_path.readlines(chomp: true)
+      expect(lines.rindex("!.env.example")).to be > lines.rindex(".env*")
     end
   end
 end

@@ -94,17 +94,30 @@ module Command
     end
 
     def append_dockerignore_entries
-      entries = File.readlines(File.join(self.class.source_root, "generator_templates", ".dockerignore"), chomp: true)
-      entries += sqlite_database_ignore_entries if sqlite_project?
       contents = File.read(".dockerignore")
       existing_lines = contents.lines(chomp: true)
-      additions = entries - existing_lines
+      additions = dockerignore_additions(existing_lines)
       return if additions.empty?
 
       File.open(".dockerignore", "a") do |file|
         file.write("\n") unless contents.empty? || contents.end_with?("\n")
         file.puts(additions)
       end
+    end
+
+    def dockerignore_additions(existing_lines)
+      entries = File.readlines(File.join(self.class.source_root, "generator_templates", ".dockerignore"), chomp: true)
+      entries += sqlite_database_ignore_entries if sqlite_project?
+      env_entries = [".env*", "!.env.example"]
+      additions = (entries - env_entries) - existing_lines
+      additions += env_entries unless dockerignore_env_exception_preserved?(existing_lines)
+      additions
+    end
+
+    def dockerignore_env_exception_preserved?(lines)
+      exclusion_index = lines.rindex(".env*")
+      exception_index = lines.rindex("!.env.example")
+      exclusion_index && exception_index && exception_index > exclusion_index
     end
 
     def sqlite_database_ignore_entries
@@ -183,6 +196,7 @@ module Command
       return unless sqlite_project?
 
       validate_sqlite_database_locations!
+      validate_sqlite_persistence_targets!
       return unless RepoIntrospection.unresolved_sqlite_database_paths_in_production?(Dir.pwd)
 
       raise Cpflow::Error,
@@ -220,10 +234,28 @@ module Command
         source = absolute_app_database_path(database_path)
         next if persistent_sqlite_path?(source)
 
-        relative = source.delete_prefix("/")
-        target = File.join("/app/data", relative.delete_prefix("app/"))
+        target = persistent_sqlite_target(source)
         [source, target, legacy_sqlite_database_path(source)]
       end
+    end
+
+    def validate_sqlite_persistence_targets!
+      paths_by_target = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).group_by do |database_path|
+        source = absolute_app_database_path(database_path)
+        persistent_sqlite_path?(source) ? source : persistent_sqlite_target(source)
+      end
+      collision = paths_by_target.find { |_target, paths| paths.size > 1 }
+      return unless collision
+
+      target, paths = collision
+      raise Cpflow::Error,
+            "Production SQLite database paths #{paths.map(&:inspect).join(' and ')} resolve to the same persistent " \
+            "target #{target.inspect}; use distinct paths before generating the scaffold."
+    end
+
+    def persistent_sqlite_target(source)
+      relative = source.delete_prefix("/")
+      File.join("/app/data", relative.delete_prefix("app/"))
     end
 
     def legacy_sqlite_database_path(source)
