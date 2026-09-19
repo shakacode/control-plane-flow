@@ -149,6 +149,25 @@ RSpec.describe RepoIntrospection do
       end
     end
 
+    it "does not fall back to database when a runtime URL takes precedence" do
+      Dir.mktmpdir("cpflow-repo-introspection") do |root|
+        config_dir = File.join(root, "config")
+        FileUtils.mkdir_p(config_dir)
+        File.write(
+          File.join(config_dir, "database.yml"),
+          <<~YAML
+            production:
+              adapter: sqlite3
+              database: db/fallback.sqlite3
+              url: <%= ENV.fetch("DATABASE_URL") %>
+          YAML
+        )
+
+        expect(described_class.sqlite_database_paths_in_production(root)).to be_empty
+        expect(described_class.unresolved_sqlite_database_paths_in_production?(root)).to be(true)
+      end
+    end
+
     it "decodes percent-encoded SQLite URL paths like Active Record" do
       Dir.mktmpdir("cpflow-repo-introspection") do |root|
         config_dir = File.join(root, "config")

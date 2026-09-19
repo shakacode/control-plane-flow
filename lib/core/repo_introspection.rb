@@ -190,7 +190,11 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
     return if sqlite_in_memory_database_config?(config)
 
     url = config["url"]
-    return sqlite_database_path_from_url(url) if url.is_a?(String) && sqlite_database_url?(url)
+    if url.is_a?(String) && !url.strip.empty?
+      return sqlite_database_path_from_url(url) if sqlite_database_url?(url)
+
+      return
+    end
 
     database = config["database"]
     database.strip if literal_database_path?(database)

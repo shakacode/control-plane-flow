@@ -125,9 +125,13 @@ module Command
         relative = docker_context_database_path(database_path)
         next [] unless relative
 
-        base = "/#{relative}"
+        base = "/#{escape_dockerignore_path(relative)}"
         [base, "#{base}-wal", "#{base}-shm", "#{base}-journal"]
       end.uniq
+    end
+
+    def escape_dockerignore_path(path)
+      path.gsub(/[\\*?\[\]]/) { |character| "\\#{character}" }
     end
 
     def docker_context_database_path(database_path)
@@ -240,7 +244,13 @@ module Command
     end
 
     def validate_sqlite_persistence_targets!
-      collision = sqlite_database_paths_by_persistence_target.find { |_target, paths| paths.uniq.size > 1 }
+      paths_by_target = sqlite_database_paths_by_persistence_target
+      validate_exact_sqlite_target_collisions!(paths_by_target)
+      validate_ancestor_sqlite_target_collisions!(paths_by_target.keys)
+    end
+
+    def validate_exact_sqlite_target_collisions!(paths_by_target)
+      collision = paths_by_target.find { |_target, paths| paths.uniq.size > 1 }
       return unless collision
 
       target = collision.first
@@ -248,6 +258,22 @@ module Command
       raise Cpflow::Error,
             "Production SQLite database paths #{paths.map(&:inspect).join(' and ')} resolve to the same persistent " \
             "target #{target.inspect}; use distinct paths before generating the scaffold."
+    end
+
+    def validate_ancestor_sqlite_target_collisions!(targets)
+      collision = targets.combination(2).find do |first, second|
+        sqlite_path_ancestor?(first, second) || sqlite_path_ancestor?(second, first)
+      end
+      return unless collision
+
+      first, second = collision
+      raise Cpflow::Error,
+            "Production SQLite persistence targets #{first.inspect} and #{second.inspect} overlap; " \
+            "a database file cannot contain another database path."
+    end
+
+    def sqlite_path_ancestor?(ancestor, descendant)
+      descendant.start_with?("#{ancestor}/")
     end
 
     def sqlite_database_paths_by_persistence_target

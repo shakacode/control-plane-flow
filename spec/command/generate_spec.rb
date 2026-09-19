@@ -489,6 +489,29 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when a production SQLite target is an ancestor of another target" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: sqlite3
+            database: db/cache.sqlite3
+          cache:
+            adapter: sqlite3
+            database: data/db/cache.sqlite3/queue.sqlite3
+      YAML
+    end
+
+    it "rejects the file-versus-directory conflict" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /persistence targets .* overlap/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
   context "when production uses in-memory sqlite3" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
@@ -862,6 +885,21 @@ describe Command::Generate, :enable_validations, :without_config_file do
       expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-wal\n")
       expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-shm\n")
       expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-journal\n")
+    end
+
+    it "escapes pattern metacharacters in production database exclusions" do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: db/prod[1]*?.sqlite3
+      YAML
+
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+      end
+
+      expect(dockerignore_path.read).to include('/db/prod\[1\]\*\?.sqlite3')
     end
 
     it "re-appends the environment exception after a newly added exclusion" do
