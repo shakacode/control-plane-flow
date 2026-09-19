@@ -401,10 +401,27 @@ describe Command::Generate, :enable_validations, :without_config_file do
           cache:
             adapter: sqlite3
             database: /app/db/production.sqlite3
+          queue:
+            adapter: sqlite3
+            database: ../data/production_queue.sqlite3
       YAML
     end
 
     it "rejects the path before colliding persistent targets" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, %r{must resolve under /app})
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+
+    it "rejects relative traversal outside /app" do
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: ../data/production.sqlite3
+      YAML
+
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         expect { Cpflow::Cli.start([described_class::NAME]) }
           .to raise_error(Cpflow::Error, %r{must resolve under /app})

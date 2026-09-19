@@ -192,8 +192,8 @@ module Command
 
     def validate_sqlite_database_locations!
       unsupported_path = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).find do |database_path|
-        path = Pathname.new(database_path).cleanpath.to_s
-        path.start_with?("/") && path != "/app" && !path.start_with?("/app/")
+        path = absolute_app_database_path(database_path)
+        path != "/app" && !path.start_with?("/app/")
       end
       return unless unsupported_path
 
