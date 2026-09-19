@@ -43,6 +43,7 @@ RSpec.describe RepoIntrospection do
 
         expect(described_class.sqlite_database_in_production?(root)).to be(true)
         expect(described_class.unresolved_sqlite_database_paths_in_production?(root)).to be(true)
+        expect(described_class.dynamic_database_url_in_production?(root)).to be(true)
       end
     end
 
@@ -60,6 +61,7 @@ RSpec.describe RepoIntrospection do
 
         expect(described_class.sqlite_database_in_production?(root)).to be(true)
         expect(described_class.unresolved_sqlite_database_paths_in_production?(root)).to be(true)
+        expect(described_class.dynamic_database_url_in_production?(root)).to be(false)
       end
     end
   end

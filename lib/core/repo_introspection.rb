@@ -117,6 +117,17 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
     end
   end
 
+  def self.dynamic_database_url_in_production?(root)
+    path = File.join(root, "config/database.yml")
+    return false unless File.file?(path)
+
+    parsed = safe_load_database_yml(File.read(path))
+    production = parsed.is_a?(Hash) ? parsed["production"] : nil
+    return false unless production.is_a?(Hash)
+
+    database_connection_configs(production).any? { |config| config["url"] == "__erb__" }
+  end
+
   # Determines whether a database config hash uses SQLite. Handles both
   # the single-database shape (top-level `adapter`/`url`) and Rails 6.1+ multi-database
   # shape where each connection sits one level deeper (`primary:`, `cache:`, etc.).

@@ -105,6 +105,7 @@ module GithubFlowReadiness
     class SqliteProduction < Base
       def call
         return unless service.sqlite_database_in_production?
+        return if service.dynamic_database_url_in_production?
 
         info_result(
           "Production database config uses SQLite. `cpflow generate` will scaffold " \
