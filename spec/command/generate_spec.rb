@@ -489,6 +489,25 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when a production SQLite file equals a volume mount root" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: data
+      YAML
+    end
+
+    it "rejects the directory path" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /resolves to a volume mount directory/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
   context "when a production SQLite target is an ancestor of another target" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
@@ -911,6 +930,28 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
       lines = dockerignore_path.readlines(chomp: true)
       expect(lines.rindex("!.env.example")).to be > lines.rindex(".env*")
+    end
+
+    it "reasserts secret exclusions after existing negations" do
+      dockerignore_path.write(<<~IGNORE)
+        config/master.key
+        config/credentials/*.key
+        .env*
+        !.env.example
+        !config/master.key
+        !config/credentials/production.key
+        !.env.production
+      IGNORE
+
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+      end
+
+      lines = dockerignore_path.readlines(chomp: true)
+      expect(lines.rindex("config/master.key")).to be > lines.rindex("!config/master.key")
+      expect(lines.rindex("config/credentials/*.key")).to be > lines.rindex("!config/credentials/production.key")
+      expect(lines.rindex(".env*")).to be > lines.rindex("!.env.production")
+      expect(lines.last).to eq("!.env.example")
     end
   end
 end

@@ -1818,9 +1818,10 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       )
       expect(contents).to include("workflow-level concurrency group keeps production promotion copy")
       expect(contents).to include("id: deploy-production")
-      expect(contents).to include(
-        "(steps.deploy-production.outcome == 'success' || steps.deploy-production.outcome == 'failure')"
-      )
+      expect(contents).to include('export CPFLOW_DEPLOYMENT_STARTED_FILE="${deployment_marker_dir}/started"')
+      expect(contents).to include('echo "deployment_started=true" >> "${GITHUB_OUTPUT}"')
+      expect(contents).to include("steps.deploy-production.outputs.deployment_started == 'true'")
+      expect(contents).not_to include("steps.deploy-production.outcome == 'failure'")
       expect(contents).to include("steps.capture-current.outputs.rollback_state != ''")
       expect(contents).to include("steps.capture-current.outputs.rollback_state != '{}'")
     end

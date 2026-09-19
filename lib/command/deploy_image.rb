@@ -145,6 +145,7 @@ module Command
 
     def update_workload_image_ref(workload, container, image)
       attempts = 0
+      mark_deployment_started
 
       loop do
         attempts += 1
@@ -156,6 +157,11 @@ module Command
 
         wait_before_workload_image_update_retry
       end
+    end
+
+    def mark_deployment_started
+      marker_path = ENV.fetch("CPFLOW_DEPLOYMENT_STARTED_FILE", "")
+      File.write(marker_path, "started\n") unless marker_path.empty?
     end
 
     def workload_image_update_limit(output)

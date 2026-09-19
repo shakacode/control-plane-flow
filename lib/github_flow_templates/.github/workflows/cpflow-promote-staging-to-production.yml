@@ -583,6 +583,16 @@ jobs:
         run: |
           set -euo pipefail
 
+          deployment_marker_dir="$(mktemp -d)"
+          export CPFLOW_DEPLOYMENT_STARTED_FILE="${deployment_marker_dir}/started"
+          record_deployment_state() {
+            if [[ -f "${CPFLOW_DEPLOYMENT_STARTED_FILE}" ]]; then
+              echo "deployment_started=true" >> "${GITHUB_OUTPUT}"
+            fi
+            rm -rf "${deployment_marker_dir}"
+          }
+          trap record_deployment_state EXIT
+
           deploy_args=(-a "${PRODUCTION_APP_NAME}")
           if [[ -n "${RELEASE_PHASE_FLAG}" ]]; then
             deploy_args+=("${RELEASE_PHASE_FLAG}")
@@ -608,7 +618,7 @@ jobs:
       - name: Roll back on failure
         if: >-
           failure() &&
-          (steps.deploy-production.outcome == 'success' || steps.deploy-production.outcome == 'failure') &&
+          steps.deploy-production.outputs.deployment_started == 'true' &&
           steps.capture-current.outputs.rollback_state != '' &&
           steps.capture-current.outputs.rollback_state != '{}'
         env:
@@ -674,7 +684,7 @@ jobs:
       - name: Wait for rollback readiness
         if: >-
           failure() &&
-          (steps.deploy-production.outcome == 'success' || steps.deploy-production.outcome == 'failure') &&
+          steps.deploy-production.outputs.deployment_started == 'true' &&
           steps.capture-current.outputs.rollback_state != '' &&
           steps.capture-current.outputs.rollback_state != '{}'
         env:

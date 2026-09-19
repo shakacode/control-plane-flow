@@ -107,17 +107,28 @@ module Command
 
     def dockerignore_additions(existing_lines)
       entries = File.readlines(File.join(self.class.source_root, "generator_templates", ".dockerignore"), chomp: true)
-      entries += sqlite_database_ignore_entries if sqlite_project?
+      sqlite_entries = sqlite_project? ? sqlite_database_ignore_entries : []
+      entries += sqlite_entries
       env_entries = [".env*", "!.env.example"]
-      additions = (entries - env_entries) - existing_lines
+      mandatory_exclusions = ["config/master.key", "config/credentials/*.key", *sqlite_entries]
+      ordinary_entries = entries - env_entries - mandatory_exclusions
+      additions = ordinary_entries - existing_lines
+      additions += mandatory_exclusions.reject { |entry| dockerignore_exclusion_effective?(existing_lines, entry) }
       additions += env_entries unless dockerignore_env_exception_preserved?(existing_lines)
       additions
+    end
+
+    def dockerignore_exclusion_effective?(lines, exclusion)
+      exclusion_index = lines.rindex(exclusion)
+      exclusion_index && lines[(exclusion_index + 1)..].none? { |line| line.start_with?("!") }
     end
 
     def dockerignore_env_exception_preserved?(lines)
       exclusion_index = lines.rindex(".env*")
       exception_index = lines.rindex("!.env.example")
-      exclusion_index && exception_index && exception_index > exclusion_index
+      return false unless exclusion_index && exception_index && exception_index > exclusion_index
+
+      lines[(exception_index + 1)..].none? { |line| line.start_with?("!") }
     end
 
     def sqlite_database_ignore_entries
@@ -209,7 +220,13 @@ module Command
     end
 
     def validate_sqlite_database_locations!
-      unsupported_path = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).find do |database_path|
+      database_paths = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd)
+      validate_sqlite_paths_under_app!(database_paths)
+      validate_sqlite_paths_below_mount_roots!(database_paths)
+    end
+
+    def validate_sqlite_paths_under_app!(database_paths)
+      unsupported_path = database_paths.find do |database_path|
         path = absolute_app_database_path(database_path)
         path != "/app" && !path.start_with?("/app/")
       end
@@ -218,6 +235,17 @@ module Command
       raise Cpflow::Error,
             "Production SQLite database path #{unsupported_path.inspect} must resolve under /app so the generated " \
             "scaffold can persist it safely."
+    end
+
+    def validate_sqlite_paths_below_mount_roots!(database_paths)
+      mount_root_path = database_paths.find do |database_path|
+        ["/app/data", "/app/storage"].include?(absolute_app_database_path(database_path))
+      end
+      return unless mount_root_path
+
+      raise Cpflow::Error,
+            "Production SQLite database path #{mount_root_path.inspect} resolves to a volume mount directory; " \
+            "use a file path beneath data/ or storage/."
     end
 
     def sqlite_database_setup
