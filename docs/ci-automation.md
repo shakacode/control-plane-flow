@@ -77,7 +77,7 @@ The second command writes namespaced files so they can coexist with an app's exi
 Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's
 `Gemfile`, preserves repo-defined frontend precompile hooks such as Shakapacker
 `precompile_hook` commands or React on Rails auto bundle generation, and
-switches to persistent SQLite `db` and `storage` templates when
+switches to persistent SQLite data and Active Storage templates when
 `config/database.yml` shows SQLite in production.
 
 `cpflow github-flow-readiness` checks public RubyGems and npm registry metadata
@@ -1038,7 +1038,7 @@ In practice, porting the flow into a demo app usually follows five phases.
 
 4. Update `.controlplane/controlplane.yml` with staging, review, and production entries.
 5. Confirm that the generated Dockerfile picked a Ruby base image compatible with the app's declared Ruby requirement.
-6. For SQLite-backed apps, confirm that the generated scaffold switched to persistent `db` and `storage` volumes, mounted them into the main workload, and added a release script that runs `rails db:prepare`.
+6. For SQLite-backed apps, confirm that the generated scaffold redirects every production database file into persistent `/app/data` (or keeps it under persistent `/app/storage`) without hiding image migrations under `/app/db`, mounts Active Storage at `/app/storage`, and adds a release script that runs `rails db:prepare`.
 
 **Adapt for the app's runtime:**
 
@@ -1082,7 +1082,7 @@ Expand that prompt with app-specific requirements before editing files:
 - make sure the generated Dockerfile uses a Ruby base image compatible with the app's declared Ruby requirement
 - preserve repo-defined frontend precompile hooks, such as Shakapacker `precompile_hook` commands or React on Rails `config.auto_load_bundle = true`
 - keep Node available in the final image if Rails or SSR depends on ExecJS, Yarn, or `pnpm` after the main `npm install` layer
-- if `config/database.yml` shows SQLite in production, confirm that `cpflow generate` emitted persistent `db` and `storage` volumes plus a `rails db:prepare` release script; otherwise keep the default Postgres workload
+- if `config/database.yml` shows SQLite in production, confirm that `cpflow generate` redirected every production database path into persistent `/app/data` or `/app/storage`, emitted both volumes without mounting over `/app/db`, and added a `rails db:prepare` release script; otherwise keep the default Postgres workload
 - inspect the production Dockerfile and package sources for private GitHub dependencies, and wire `DOCKER_BUILD_SSH_KEY` plus `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the build uses `RUN --mount=type=ssh` against non-GitHub hosts
 - add extra `app_workloads` and template files for any runtime sidecars, workers, or renderer processes
 - make sure any sidecar process exposed to sibling workloads binds to `0.0.0.0` instead of container-local `localhost`

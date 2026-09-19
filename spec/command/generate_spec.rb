@@ -24,6 +24,10 @@ def dockerfile_path
   CONTROLPLANE_CONFIG_DIR_PATH.join("Dockerfile")
 end
 
+def dockerignore_path
+  GENERATOR_PLAYGROUND_PATH.join(".dockerignore")
+end
+
 def app_template_path
   CONTROLPLANE_CONFIG_DIR_PATH.join("templates/app.yml")
 end
@@ -67,6 +71,9 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         expect(controlplane_config_file_path).to exist
         expect(dockerfile_path).to exist
+        expect(dockerignore_path).to exist
+        expect(dockerignore_path.read).to include("config/master.key")
+        expect(dockerignore_path.read).to include("config/credentials/*.key")
         expect(entrypoint_path).to exist
         expect(release_script_path).to exist
         expect(entrypoint_path).to be_executable
@@ -109,7 +116,8 @@ describe Command::Generate, :enable_validations, :without_config_file do
              /usr/local/lib/node_modules/corepack/dist/corepack\.js[ ]&&[ ]\\\n\s+
              node[ ]--version[ ]&&[ ]npm[ ]--version[ ]&&[ ]corepack[ ]--version}x
         )
-        expect(dockerfile_content).not_to include("RUN apt-get update")
+        expect(dockerfile_content).to include("apt-get install --no-install-recommends -y build-essential")
+        expect(dockerfile_content).to include("apt-get purge -y --auto-remove build-essential")
         expect(dockerfile_content).to include("bundle config set with 'production'")
         expect(dockerfile_content).not_to include("bundle config set with 'staging production'")
         expect(dockerfile_content).to include("exec corepack yarn \"$@\"")
@@ -126,6 +134,10 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(dockerfile_content).to include("yarn install --immutable || yarn install --frozen-lockfile")
         expect(dockerfile_content).to include("corepack pnpm install --frozen-lockfile")
         expect(dockerfile_content).to include("npm ci")
+        expect(dockerfile_content).not_to include("ENV SECRET_KEY_BASE=NOT_USED_NON_BLANK")
+        expect(dockerfile_content).to include("RUN SECRET_KEY_BASE=NOT_USED_NON_BLANK rails assets:precompile")
+        expect(dockerignore_path.read).to include("config/master.key")
+        expect(dockerignore_path.read).to include(".git")
         expect(dockerfile_content).not_to include("react_on_rails:generate_packs")
         expect(app_template_content).to include('name: "{{APP_NAME}}"')
         expect(app_template_content).to include('"{{APP_LOCATION_LINK}}"')
@@ -263,15 +275,91 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(postgres_template_path).not_to exist
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
-        expect(app_template_path.read).not_to include("DATABASE_URL")
         expect(app_template_path.read).to include('name: "{{APP_NAME}}"')
         expect(app_template_path.read).to include('"{{APP_LOCATION_LINK}}"')
         expect(app_template_path.read).to include('"cpln://secret/{{APP_SECRETS}}.SECRET_KEY_BASE"')
         expect(rails_template_path.read).to include('image: "{{APP_IMAGE_LINK}}"')
         expect(rails_template_path.read).to include('identityLink: "{{APP_IDENTITY_LINK}}"')
+        expect(app_template_path.read).not_to include("DATABASE_URL")
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3 " \
+          "/app/data/production.sqlite3"
+        )
+        expect(rails_template_path.read).to include("path: /app/data")
+        expect(rails_template_path.read).not_to include("path: /app/db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-db")
         expect(rails_template_path.read).to include("uri: cpln://volumeset/app-storage")
-        expect(release_script_path.read).to include("mkdir -p db storage")
+        expect(release_script_path.read).to include("mkdir -p data storage")
+      end
+    end
+
+    it "uses a database at the legacy volume root with its sidecars intact" do
+      Dir.mktmpdir("cpflow-sqlite-migration") do |root|
+        source = Pathname.new(root).join("app/db/production.sqlite3")
+        target = Pathname.new(root).join("app/data/db/production.sqlite3")
+        legacy = Pathname.new(root).join("app/data/production.sqlite3")
+        FileUtils.mkdir_p(source.dirname)
+        FileUtils.mkdir_p(legacy.dirname)
+        source.write("image seed")
+        legacy.write("legacy database")
+        legacy.sub_ext(".sqlite3-wal").write("wal")
+        legacy.sub_ext(".sqlite3-shm").write("shm")
+        legacy.sub_ext(".sqlite3-journal").write("journal")
+        arguments = [source, target, legacy].map { |path| Shellwords.shellescape(path.to_s) }
+        script = <<~SH
+          #{Command::Generator::SQLITE_DATABASE_PREPARE_FUNCTION}
+          prepare_sqlite_database #{arguments.join(' ')}
+        SH
+
+        _stdout, stderr, status = Open3.capture3("/bin/sh", stdin_data: script)
+
+        expect(status).to be_success, stderr
+        expect(target).not_to exist
+        expect(source).to be_symlink
+        expect(source.read).to eq("legacy database")
+        expect(legacy.read).to eq("legacy database")
+        expect(legacy.sub_ext(".sqlite3-wal").read).to eq("wal")
+        expect(legacy.sub_ext(".sqlite3-shm").read).to eq("shm")
+        expect(legacy.sub_ext(".sqlite3-journal").read).to eq("journal")
+      end
+    end
+  end
+
+  context "when the production SQLite path is dynamic" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: <%= ENV.fetch("SQLITE_PATH") %>
+      YAML
+    end
+
+    it "fails before generating a scaffold that cannot persist the database" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /must be literal file paths/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
+  context "when production uses in-memory sqlite3" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: ":memory:"
+      YAML
+    end
+
+    it "preserves in-memory semantics without a filesystem redirect" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(entrypoint_path.read).not_to include("prepare_sqlite_database ")
+        expect(rails_template_path.read).to include("path: /app/data")
       end
     end
   end
@@ -369,6 +457,15 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(postgres_template_path).not_to exist
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3 " \
+          "/app/data/production.sqlite3"
+        )
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
+          "/app/data/db/production_cache.sqlite3 /app/data/production_cache.sqlite3"
+        )
+        expect(entrypoint_path.read).not_to include("production_queue.sqlite3")
       end
     end
   end
@@ -397,6 +494,14 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(postgres_template_path).not_to exist
         expect(db_template_path).to exist
         expect(storage_template_path).to exist
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production.sqlite3 /app/data/db/production.sqlite3 " \
+          "/app/data/production.sqlite3"
+        )
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
+          "/app/data/db/production_cache.sqlite3 /app/data/production_cache.sqlite3"
+        )
       end
     end
   end
@@ -446,10 +551,16 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         dockerfile_content = dockerfile_path.read
 
-        expect(dockerfile_content).to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(dockerfile_content).to include(
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "bundle exec rake react_on_rails:generate_packs"
+        )
         expect(
-          dockerfile_content.index("RUN bundle exec rake react_on_rails:generate_packs")
-        ).to be < dockerfile_content.index("RUN rails assets:precompile")
+          dockerfile_content.index(
+            "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+            "bundle exec rake react_on_rails:generate_packs"
+          )
+        ).to be < dockerfile_content.index("rails assets:precompile")
       end
     end
   end
@@ -473,8 +584,29 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         dockerfile_content = dockerfile_path.read
 
-        expect(dockerfile_content).not_to include("RUN rake react_on_rails:generate_packs")
+        expect(dockerfile_content).not_to include("rake react_on_rails:generate_packs")
         expect(dockerfile_content).not_to include("USER root")
+      end
+    end
+  end
+
+  context "when shakapacker config defines a chained precompile hook" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/shakapacker.yml").write(<<~YAML)
+        default: &default
+          precompile_hook: "yarn build && bin/rails react_on_rails:generate_packs"
+      YAML
+    end
+
+    it "exports the placeholder secret for the entire hook chain" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+
+        expect(dockerfile_path.read).to include(
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "yarn build && bin/rails react_on_rails:generate_packs"
+        )
       end
     end
   end
@@ -495,10 +627,16 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         dockerfile_content = dockerfile_path.read
 
-        expect(dockerfile_content).to include("RUN bundle exec rake react_on_rails:generate_packs\n")
+        expect(dockerfile_content).to include(
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "bundle exec rake react_on_rails:generate_packs\n"
+        )
         expect(
-          dockerfile_content.index("RUN bundle exec rake react_on_rails:generate_packs")
-        ).to be < dockerfile_content.index("RUN rails assets:precompile")
+          dockerfile_content.index(
+            "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+            "bundle exec rake react_on_rails:generate_packs"
+          )
+        ).to be < dockerfile_content.index("rails assets:precompile")
       end
     end
   end
@@ -517,7 +655,10 @@ describe Command::Generate, :enable_validations, :without_config_file do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Cpflow::Cli.start([described_class::NAME])
 
-        expect(dockerfile_path.read).to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(dockerfile_path.read).to include(
+          "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && " \
+          "bundle exec rake react_on_rails:generate_packs"
+        )
       end
     end
   end
@@ -536,7 +677,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         Cpflow::Cli.start([described_class::NAME])
 
-        expect(dockerfile_path.read).not_to include("RUN bundle exec rake react_on_rails:generate_packs")
+        expect(dockerfile_path.read).not_to include("bundle exec rake react_on_rails:generate_packs")
       end
     end
   end
@@ -555,6 +696,30 @@ describe Command::Generate, :enable_validations, :without_config_file do
 
         expect(controlplane_config_file_path).not_to exist
       end
+    end
+  end
+
+  context "when a root .dockerignore already exists" do
+    it "preserves project-specific entries and adds production database exclusions" do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          database: data/archive/production.sqlite3
+      YAML
+      dockerignore_path.write("custom-entry\n")
+
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        Cpflow::Cli.start([described_class::NAME])
+      end
+
+      expect(dockerignore_path.read).to eq(<<~IGNORE)
+        custom-entry
+        /data/archive/production.sqlite3
+        /data/archive/production.sqlite3-wal
+        /data/archive/production.sqlite3-shm
+        /data/archive/production.sqlite3-journal
+      IGNORE
     end
   end
 end

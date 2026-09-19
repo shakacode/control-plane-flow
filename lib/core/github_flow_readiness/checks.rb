@@ -108,7 +108,7 @@ module GithubFlowReadiness
 
         info_result(
           "Production database config uses SQLite. `cpflow generate` will scaffold " \
-          "persistent `db` and `storage` volumes."
+          "persistent SQLite data and Active Storage volumes."
         )
       end
     end

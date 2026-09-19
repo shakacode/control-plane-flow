@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "yaml"
+require "pathname"
+require "shellwords"
 
 require_relative "generator_helpers"
 require_relative "../core/repo_introspection"
@@ -34,10 +36,29 @@ module Command
     # `.tool-versions`, or the `Gemfile`. Keep this on a supported release line
     # (https://www.ruby-lang.org/en/downloads/branches/).
     DEFAULT_RUBY_VERSION = "3.3"
+    SQLITE_DATABASE_PREPARE_FUNCTION = <<~SH
+      prepare_sqlite_database() {
+        source_path="$1"
+        persistent_path="$2"
+        legacy_path="${3:-}"
+        if [ -n "${legacy_path}" ] && [ -e "${legacy_path}" ] && [ ! -e "${persistent_path}" ]; then
+          persistent_path="${legacy_path}"
+        fi
+        mkdir -p "$(dirname "${source_path}")" "$(dirname "${persistent_path}")"
+        if [ -e "${source_path}" ] && [ ! -L "${source_path}" ] && [ ! -e "${persistent_path}" ]; then
+          mv "${source_path}" "${persistent_path}"
+        fi
+        rm -f "${source_path}"
+        ln -s "${persistent_path}" "${source_path}"
+      }
+    SH
 
     def copy_files
+      validate_sqlite_database_paths!
       generated_paths = copy_template_files("generator_templates", base_template_files)
       generated_paths += copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
+      copy_dockerignore unless File.exist?(".dockerignore")
+      append_sqlite_database_ignores if sqlite_project?
       substitute_template_variables(generated_paths)
       make_shell_scripts_executable(generated_paths)
     end
@@ -64,6 +85,49 @@ module Command
       destination_path
     end
 
+    def copy_dockerignore
+      copy_file(
+        File.join("generator_templates", ".dockerignore"),
+        ".dockerignore",
+        verbose: ENV.fetch("HIDE_COMMAND_OUTPUT", nil) != "true"
+      )
+    end
+
+    def append_sqlite_database_ignores
+      entries = sqlite_database_ignore_entries
+      contents = File.read(".dockerignore")
+      existing_lines = contents.lines(chomp: true)
+      additions = entries - existing_lines
+      return if additions.empty?
+
+      File.open(".dockerignore", "a") do |file|
+        file.write("\n") unless contents.empty? || contents.end_with?("\n")
+        file.puts(additions)
+      end
+    end
+
+    def sqlite_database_ignore_entries
+      RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).flat_map do |database_path|
+        relative = docker_context_database_path(database_path)
+        next [] unless relative
+
+        base = "/#{relative}"
+        [base, "#{base}-wal", "#{base}-shm", "#{base}-journal"]
+      end.uniq
+    end
+
+    def docker_context_database_path(database_path)
+      path = Pathname.new(database_path).cleanpath
+      if path.absolute?
+        return unless path.to_s.start_with?("/app/")
+
+        return path.to_s.delete_prefix("/app/")
+      end
+
+      normalized = path.to_s
+      normalized unless normalized == "." || normalized.start_with?("../")
+    end
+
     def base_template_files
       COMMON_TEMPLATE_FILES + (sqlite_project? ? [] : POSTGRES_TEMPLATE_FILES)
     end
@@ -72,7 +136,8 @@ module Command
       {
         "__APP_PREFIX__" => inferred_app_prefix,
         "__RUBY_VERSION__" => inferred_ruby_version,
-        "__ASSET_PRECOMPILE_HOOK_RUN__" => asset_precompile_hook_run
+        "__ASSET_PRECOMPILE_HOOK_RUN__" => asset_precompile_hook_run,
+        "__SQLITE_DATABASE_SETUP__" => sqlite_database_setup
       }
     end
 
@@ -99,7 +164,7 @@ module Command
       return "" if stripped.empty?
       return "" unless single_line_asset_precompile_hook?(stripped)
 
-      "RUN #{stripped}\n\n"
+      "RUN export SECRET_KEY_BASE=NOT_USED_NON_BLANK && #{stripped}\n\n"
     end
 
     def single_line_asset_precompile_hook?(command)
@@ -111,6 +176,55 @@ module Command
 
     def sqlite_database_in_production?
       RepoIntrospection.sqlite_database_in_production?(Dir.pwd)
+    end
+
+    def validate_sqlite_database_paths!
+      return unless sqlite_project?
+      return unless RepoIntrospection.unresolved_sqlite_database_paths_in_production?(Dir.pwd)
+
+      raise Cpflow::Error,
+            "Production SQLite database paths must be literal file paths in config/database.yml; " \
+            "runtime ERB paths cannot be persisted safely by the generated scaffold."
+    end
+
+    def sqlite_database_setup
+      redirects = sqlite_database_redirects
+      return "" if redirects.empty?
+
+      setup_calls = redirects.map do |source, target, legacy|
+        arguments = [source, target, legacy].compact.map { |path| Shellwords.shellescape(path) }
+        "prepare_sqlite_database #{arguments.join(' ')}"
+      end
+      "#{SQLITE_DATABASE_PREPARE_FUNCTION}\n#{setup_calls.join("\n")}\n"
+    end
+
+    def sqlite_database_redirects
+      return [] unless sqlite_project?
+
+      RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).filter_map do |database_path|
+        source = absolute_app_database_path(database_path)
+        next if persistent_sqlite_path?(source)
+
+        relative = source.delete_prefix("/")
+        target = File.join("/app/data", relative.delete_prefix("app/"))
+        [source, target, legacy_sqlite_database_path(source)]
+      end
+    end
+
+    def legacy_sqlite_database_path(source)
+      return unless source.start_with?("/app/db/")
+
+      File.join("/app/data", source.delete_prefix("/app/db/"))
+    end
+
+    def absolute_app_database_path(database_path)
+      path = Pathname.new(database_path)
+      (path.absolute? ? path : Pathname.new("/app").join(path)).cleanpath.to_s
+    end
+
+    def persistent_sqlite_path?(path)
+      path == "/app/data" || path.start_with?("/app/data/") ||
+        path == "/app/storage" || path.start_with?("/app/storage/")
     end
 
     def normalized_asset_precompile_hook_command
@@ -169,7 +283,7 @@ module Command
       - infers the app prefix from the current directory and wires staging, review, and production entries
       - infers the Docker base Ruby version from `.ruby-version`, `.tool-versions`, or the app's `Gemfile`
       - preserves repo-defined asset precompile hooks, including React on Rails auto bundle generation
-      - detects SQLite in `config/database.yml` and generates persistent `db` and `storage` volume templates instead of the default Postgres workload
+      - detects SQLite in `config/database.yml` and generates persistent `/app/data` and `/app/storage` volume templates without hiding image migrations under `/app/db`
     DESC
     EXAMPLES = <<~EX
       ```sh
