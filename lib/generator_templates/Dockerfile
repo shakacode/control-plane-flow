@@ -44,7 +44,7 @@ RUN apt-get update -qq && \
     bundle config set with 'production' && \
     bundle install --jobs=3 --retry=3 && \
     apt-get purge -y --auto-remove build-essential && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 COPY . ./
 

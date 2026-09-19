@@ -323,6 +323,33 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(legacy.sub_ext(".sqlite3-journal").read).to eq("journal")
       end
     end
+
+    it "does not overwrite a persistent database when seed setup runs concurrently" do
+      Dir.mktmpdir("cpflow-sqlite-race") do |root|
+        first_source = Pathname.new(root).join("first/production.sqlite3")
+        second_source = Pathname.new(root).join("second/production.sqlite3")
+        target = Pathname.new(root).join("data/production.sqlite3")
+        FileUtils.mkdir_p(first_source.dirname)
+        FileUtils.mkdir_p(second_source.dirname)
+        first_source.write("first seed")
+        second_source.write("second seed")
+        first_arguments = [first_source, target].map { |path| Shellwords.shellescape(path.to_s) }
+        second_arguments = [second_source, target].map { |path| Shellwords.shellescape(path.to_s) }
+        script = <<~SH
+          #{Command::Generator::SQLITE_DATABASE_PREPARE_FUNCTION}
+          prepare_sqlite_database #{first_arguments.join(' ')} &
+          prepare_sqlite_database #{second_arguments.join(' ')} &
+          wait
+        SH
+
+        _stdout, stderr, status = Open3.capture3("/bin/sh", stdin_data: script)
+
+        expect(status).to be_success, stderr
+        expect(["first seed", "second seed"].include?(target.read)).to be(true)
+        expect(first_source).to be_symlink
+        expect(second_source).to be_symlink
+      end
+    end
   end
 
   context "when the production SQLite path is dynamic" do
@@ -339,6 +366,48 @@ describe Command::Generate, :enable_validations, :without_config_file do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
         expect { Cpflow::Cli.start([described_class::NAME]) }
           .to raise_error(Cpflow::Error, /must be literal file paths/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
+  context "when a dynamic URL is paired with a SQLite adapter" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          adapter: sqlite3
+          url: <%= ENV.fetch("DATABASE_URL") %>
+      YAML
+    end
+
+    it "fails instead of generating a Postgres scaffold" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /must be literal file paths/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
+  context "when a production SQLite path is outside /app" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          primary:
+            adapter: sqlite3
+            database: /db/production.sqlite3
+          cache:
+            adapter: sqlite3
+            database: /app/db/production.sqlite3
+      YAML
+    end
+
+    it "rejects the path before colliding persistent targets" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, %r{must resolve under /app})
         expect(controlplane_config_file_path).not_to exist
       end
     end
@@ -398,7 +467,7 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
-  context "when production uses DATABASE_URL over a sqlite3 default" do
+  context "when production uses a dynamic URL with an inherited sqlite3 adapter" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
       GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
@@ -413,20 +482,11 @@ describe Command::Generate, :enable_validations, :without_config_file do
       YAML
     end
 
-    it "keeps the postgres-backed templates" do
+    it "fails instead of guessing a different runtime adapter" do
       inside_dir(GENERATOR_PLAYGROUND_PATH) do
-        Cpflow::Cli.start([described_class::NAME])
-
-        controlplane_content = controlplane_config_file_path.read
-
-        expect(controlplane_content).to include("- postgres")
-        expect(controlplane_content).not_to include("- db")
-        expect(controlplane_content).not_to include("- storage")
-        expect(postgres_template_path).to exist
-        expect(db_template_path).not_to exist
-        expect(storage_template_path).not_to exist
-        expect(app_template_path.read).to include("DATABASE_URL")
-        expect(release_script_path.read).not_to include("mkdir -p db storage")
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /must be literal file paths/)
+        expect(controlplane_config_file_path).not_to exist
       end
     end
   end
@@ -713,13 +773,13 @@ describe Command::Generate, :enable_validations, :without_config_file do
         Cpflow::Cli.start([described_class::NAME])
       end
 
-      expect(dockerignore_path.read).to eq(<<~IGNORE)
-        custom-entry
-        /data/archive/production.sqlite3
-        /data/archive/production.sqlite3-wal
-        /data/archive/production.sqlite3-shm
-        /data/archive/production.sqlite3-journal
-      IGNORE
+      expect(dockerignore_path.read).to include("custom-entry\n")
+      expect(dockerignore_path.read).to include("config/master.key\n")
+      expect(dockerignore_path.read).to include("config/credentials/*.key\n")
+      expect(dockerignore_path.read).to include("/data/archive/production.sqlite3\n")
+      expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-wal\n")
+      expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-shm\n")
+      expect(dockerignore_path.read).to include("/data/archive/production.sqlite3-journal\n")
     end
   end
 end

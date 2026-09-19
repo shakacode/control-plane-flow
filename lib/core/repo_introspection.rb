@@ -136,7 +136,11 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   # rubocop:disable Style/ReturnNilInPredicateMethodDefinition -- ternary nil/true/false is load-bearing for the caller
   def self.direct_sqlite_database_config?(config)
     url = config["url"]
-    return sqlite_database_url?(url) if url.is_a?(String) && !url.strip.empty?
+    if url.is_a?(String) && !url.strip.empty?
+      return sqlite_adapter_in_hash?(config) if url.include?("__erb__")
+
+      return sqlite_database_url?(url)
+    end
 
     return sqlite_adapter_in_hash?(config) if config["adapter"].is_a?(String)
 

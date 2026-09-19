@@ -46,7 +46,7 @@ module Command
         fi
         mkdir -p "$(dirname "${source_path}")" "$(dirname "${persistent_path}")"
         if [ -e "${source_path}" ] && [ ! -L "${source_path}" ] && [ ! -e "${persistent_path}" ]; then
-          mv "${source_path}" "${persistent_path}"
+          mv -n "${source_path}" "${persistent_path}"
         fi
         rm -f "${source_path}"
         ln -s "${persistent_path}" "${source_path}"
@@ -58,7 +58,7 @@ module Command
       generated_paths = copy_template_files("generator_templates", base_template_files)
       generated_paths += copy_template_files("generator_templates_sqlite", SQLITE_TEMPLATE_FILES) if sqlite_project?
       copy_dockerignore unless File.exist?(".dockerignore")
-      append_sqlite_database_ignores if sqlite_project?
+      append_dockerignore_entries
       substitute_template_variables(generated_paths)
       make_shell_scripts_executable(generated_paths)
     end
@@ -93,8 +93,9 @@ module Command
       )
     end
 
-    def append_sqlite_database_ignores
-      entries = sqlite_database_ignore_entries
+    def append_dockerignore_entries
+      entries = File.readlines(File.join(self.class.source_root, "generator_templates", ".dockerignore"), chomp: true)
+      entries += sqlite_database_ignore_entries if sqlite_project?
       contents = File.read(".dockerignore")
       existing_lines = contents.lines(chomp: true)
       additions = entries - existing_lines
@@ -180,11 +181,25 @@ module Command
 
     def validate_sqlite_database_paths!
       return unless sqlite_project?
+
+      validate_sqlite_database_locations!
       return unless RepoIntrospection.unresolved_sqlite_database_paths_in_production?(Dir.pwd)
 
       raise Cpflow::Error,
             "Production SQLite database paths must be literal file paths in config/database.yml; " \
             "runtime ERB paths cannot be persisted safely by the generated scaffold."
+    end
+
+    def validate_sqlite_database_locations!
+      unsupported_path = RepoIntrospection.sqlite_database_paths_in_production(Dir.pwd).find do |database_path|
+        path = Pathname.new(database_path).cleanpath.to_s
+        path.start_with?("/") && path != "/app" && !path.start_with?("/app/")
+      end
+      return unless unsupported_path
+
+      raise Cpflow::Error,
+            "Production SQLite database path #{unsupported_path.inspect} must resolve under /app so the generated " \
+            "scaffold can persist it safely."
     end
 
     def sqlite_database_setup

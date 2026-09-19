@@ -27,6 +27,24 @@ RSpec.describe RepoIntrospection do
         expect(described_class.sqlite_database_in_production?(root)).to be(true)
       end
     end
+
+    it "keeps a dynamic URL with an explicit SQLite adapter in the SQLite path" do
+      Dir.mktmpdir("cpflow-repo-introspection") do |root|
+        config_dir = File.join(root, "config")
+        FileUtils.mkdir_p(config_dir)
+        File.write(
+          File.join(config_dir, "database.yml"),
+          <<~YAML
+            production:
+              adapter: sqlite3
+              url: <%= ENV.fetch("DATABASE_URL") %>
+          YAML
+        )
+
+        expect(described_class.sqlite_database_in_production?(root)).to be(true)
+        expect(described_class.unresolved_sqlite_database_paths_in_production?(root)).to be(true)
+      end
+    end
   end
 
   describe ".sqlite_database_paths_in_production" do
