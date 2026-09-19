@@ -11,6 +11,45 @@ set these values directly at the GVC or workload levels, so none of these ENV va
 
 ## Review app secrets
 
+For same-repository review apps that need only disposable credentials, opt in on
+the dynamically matched review-app entry in `.controlplane/controlplane.yml`:
+
+```yaml
+apps:
+  my-app-review:
+    match_if_app_name_starts_with: true
+    generated_review_secret_keys:
+      - SECRET_KEY_BASE
+      - RENDERER_PASSWORD
+```
+
+`cpflow setup-app` then creates a separate `APP_NAME-secrets` dictionary and
+policy for each PR app, tags both resources with the exact app name, fills each
+configured key with a random 256-bit hex value, and never prints the values.
+`--refresh-templates` fills missing keys without rotating existing values.
+Initial template application skips templates named for the generated dictionary
+and policy, so templates cannot replace its values or broaden its access.
+Refresh also skips the generated policy template.
+Setup refuses to reuse a dictionary without the exact app tag or a policy that
+targets another secret or binds another principal; it rechecks the policy
+immediately before granting the app identity. Keep this
+setting off persistent apps and do
+not combine it with custom `secrets_name` or `secrets_policy_name`. Templates
+that use `{{APP_SECRETS}}` automatically point at the PR-specific dictionary.
+`cpflow delete` and delete-mode stale cleanup remove that dictionary and policy
+before removing the app, provided the policy still targets the dictionary and
+has no other bindings. Generated dictionaries carry an app marker; if a prior
+attempt removed the policy first, cleanup can use that marker to remove only the
+matching disposable dictionary. An unmarked policy is also left for inspection
+if its dictionary is already gone. If the GVC was removed separately before disposable credential cleanup finished, rerun
+`cpflow delete` with the same app name to finish secret cleanup. The generated
+delete action calls that same recovery path when the GVC is already absent.
+Cleanup still checks the app-specific names and tag if the key-generation option
+was later removed. Unexpected grants or unmarked secrets leave those resources
+for inspection.
+This generates credentials only; external licenses, database accounts, and
+provider tokens still require their own review-only provisioning.
+
 Review apps run application code from pull requests. For repositories with external contributors, do not put sensitive
 production or long-lived staging secrets in review apps. A secret reference such as `cpln://secret/...` protects the
 value while it is stored in Control Plane configuration, but the value becomes readable by application code after it is

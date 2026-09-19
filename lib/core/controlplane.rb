@@ -434,8 +434,20 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.fetch_secret(org: org, secret: secret)
   end
 
-  def reveal_secret(secret)
-    api.reveal_secret(org: org, secret: secret)
+  def reveal_secret(secret, required: false)
+    api.reveal_secret(org: org, secret: secret, required: required)
+  end
+
+  def create_sensitive_secret(secret, data)
+    api.create_sensitive_secret(org: org, secret: secret, app: gvc, data: data)
+  end
+
+  def patch_sensitive_secret_data(secret, data)
+    api.patch_sensitive_secret_data(org: org, secret: secret, data: data)
+  end
+
+  def delete_secret(secret)
+    api.delete_secret(org: org, secret: secret)
   end
 
   # identities
@@ -448,6 +460,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def fetch_policy(policy)
     api.fetch_policy(org: org, policy: policy)
+  end
+
+  def delete_policy(policy)
+    api.delete_policy(org: org, policy: policy)
   end
 
   def bind_identity_to_policy(identity_link, policy)
