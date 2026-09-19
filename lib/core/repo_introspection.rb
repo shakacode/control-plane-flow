@@ -197,9 +197,17 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
     parser = URI::RFC2396_Parser.new
     uri = parser.parse(url.strip)
     encoded_path = uri.opaque ? uri.opaque.split("?", 2).first : uri.path
+    encoded_path = sqlite_file_uri_path(encoded_path, parser)
     parser.unescape(encoded_path) if literal_database_path?(encoded_path)
   rescue URI::InvalidURIError
     nil
+  end
+
+  def self.sqlite_file_uri_path(path, parser)
+    return path unless path&.downcase&.start_with?("file:")
+
+    uri = parser.parse(path)
+    uri.opaque || uri.path
   end
 
   def self.sqlite_in_memory_database_config?(config)

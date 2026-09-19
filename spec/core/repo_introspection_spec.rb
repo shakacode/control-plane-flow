@@ -151,6 +151,25 @@ RSpec.describe RepoIntrospection do
       end
     end
 
+    it "normalizes SQLite file URIs to their filesystem paths" do
+      Dir.mktmpdir("cpflow-repo-introspection") do |root|
+        config_dir = File.join(root, "config")
+        FileUtils.mkdir_p(config_dir)
+        File.write(
+          File.join(config_dir, "database.yml"),
+          <<~YAML
+            production:
+              adapter: sqlite3
+              url: sqlite3:file:/app/db/production%20data.sqlite3?mode=rwc
+          YAML
+        )
+
+        expect(described_class.sqlite_database_paths_in_production(root)).to eq(
+          ["/app/db/production data.sqlite3"]
+        )
+      end
+    end
+
     it "uses the path rather than the authority in a SQLite URL" do
       Dir.mktmpdir("cpflow-repo-introspection") do |root|
         config_dir = File.join(root, "config")

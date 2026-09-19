@@ -574,6 +574,8 @@ describe Command::Generate, :enable_validations, :without_config_file do
             url: sqlite3:db/production.sqlite3
           cache:
             url: sqlite3:db/production_cache.sqlite3
+          queue:
+            url: sqlite3:file:/app/db/production_queue.sqlite3?mode=rwc
       YAML
     end
 
@@ -596,6 +598,10 @@ describe Command::Generate, :enable_validations, :without_config_file do
         expect(entrypoint_path.read).to include(
           "prepare_sqlite_database /app/db/production_cache.sqlite3 " \
           "/app/data/db/production_cache.sqlite3 /app/data/production_cache.sqlite3"
+        )
+        expect(entrypoint_path.read).to include(
+          "prepare_sqlite_database /app/db/production_queue.sqlite3 " \
+          "/app/data/db/production_queue.sqlite3 /app/data/production_queue.sqlite3"
         )
       end
     end
