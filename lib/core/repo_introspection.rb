@@ -137,7 +137,11 @@ module RepoIntrospection # rubocop:disable Metrics/ModuleLength
   def self.direct_sqlite_database_config?(config)
     url = config["url"]
     if url.is_a?(String) && !url.strip.empty?
-      return sqlite_adapter_in_hash?(config) if url.include?("__erb__")
+      if url.include?("__erb__")
+        return true if sqlite_database_url?(url)
+
+        return sqlite_adapter_in_hash?(config)
+      end
 
       return sqlite_database_url?(url)
     end

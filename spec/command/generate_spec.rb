@@ -390,6 +390,24 @@ describe Command::Generate, :enable_validations, :without_config_file do
     end
   end
 
+  context "when a dynamic URL has a literal SQLite scheme" do
+    before do
+      FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
+      GENERATOR_PLAYGROUND_PATH.join("config/database.yml").write(<<~YAML)
+        production:
+          url: sqlite3:<%= ENV.fetch("SQLITE_PATH") %>
+      YAML
+    end
+
+    it "fails instead of generating a Postgres scaffold" do
+      inside_dir(GENERATOR_PLAYGROUND_PATH) do
+        expect { Cpflow::Cli.start([described_class::NAME]) }
+          .to raise_error(Cpflow::Error, /must be literal file paths/)
+        expect(controlplane_config_file_path).not_to exist
+      end
+    end
+  end
+
   context "when a production SQLite path is outside /app" do
     before do
       FileUtils.mkdir_p(GENERATOR_PLAYGROUND_PATH.join("config"))
