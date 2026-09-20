@@ -1,0 +1,12 @@
+---
+# External GitHub Actions repositories reviewed for use by this repository.
+# Keep this list synchronized with the workflow dependency policy spec.
+trusted_actions:
+  - actions/checkout
+  - actions/create-github-app-token
+  - actions/github-script
+  - actions/upload-artifact
+  - anthropics/claude-code-action
+  - docker/setup-buildx-action
+  - peter-evans/repository-dispatch
+  - ruby/setup-ruby
