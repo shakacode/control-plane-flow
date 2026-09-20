@@ -131,12 +131,24 @@ describe GithubFlowReadiness::Checks do
     end
 
     it "returns an info result when production uses SQLite" do
-      allow(service).to receive(:sqlite_database_in_production?).and_return(true)
+      allow(service).to receive_messages(
+        sqlite_database_in_production?: true,
+        dynamic_database_url_in_production?: false
+      )
 
       result = described_class.new(service).call
 
       expect(result.status).to eq(:info)
       expect(result.message).to include("Production database config uses SQLite.")
+    end
+
+    it "returns nothing when a dynamic URL makes the runtime adapter unknown" do
+      allow(service).to receive_messages(
+        sqlite_database_in_production?: true,
+        dynamic_database_url_in_production?: true
+      )
+
+      expect(described_class.new(service).call).to be_nil
     end
   end
 

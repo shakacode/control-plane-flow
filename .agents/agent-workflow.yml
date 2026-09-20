@@ -1,33 +1,33 @@
-# Non-command agent-workflow configuration for portable shared skills.
-# This file is the canonical source for the non-command policy values below.
-# AGENTS.md directs portable skills here; it does not duplicate or override them.
-# Commands live as scripts in .agents/bin/ (see .agents/bin/README.md).
+---
+version: 1
 base_branch: main
-merge_submission:
-  mode: direct
-changelog: "CHANGELOG.md — Keep-a-Changelog; user-visible changes only"
-follow_up_prefix: "Follow-up:"
-review_gate: "AI reviewers are advisory unless they confirm a blocker; merge gate is the full `gh pr checks` list green (not --required) + all threads resolved + mergeable clean"
-approval_exempt: "at batch closeout, auto-merge ready low-risk PRs that pass the merge gate; keep high-risk (CI/workflow, build-config, dependency or runtime bumps, broad refactors, release) maintainer-gated"
-coordination_backend: "private shakacode/agent-coordination (claims/heartbeats namespaced by full repo name)"
-benchmark_labels: n/a
-merge_ledger: n/a
-ci_parity_environment: "n/a — reproduce CI-only failures from the matching job in .github/workflows/**"
-release_qa_runbook: ".agents/workflows/ai-rollout-e2e-test.md — use after publishing a cpflow gem that changes GitHub Actions, AI rollout prompts, readiness checks, generator output, or React on Rails deployment behavior"
-hosted_ci_trigger: "n/a — CI runs on every PR"
-ci_change_detector: n/a
-
-# Consumed by the portable untrusted-contributor-intake skill. These values must
-# be read from the trusted base ref, never from contributor-controlled PR content.
-untrusted_contributor_intake:
-  trusted_github_host: github.com
-  trusted_github_scheme: https
-  trusted_github_repo: shakacode/control-plane-flow
-repo_prefix: CPF
-
-# External actions already used by this repository and reviewed for the closed
-# allowlist enforced by the GitHub Actions security scanner. Every use still
-# requires an immutable commit SHA and a same-line release-version comment.
+commands:
+  setup: .agents/bin/setup
+  validate: .agents/bin/validate
+  test: .agents/bin/test
+review:
+  required: none
+  # Local reviewer preference; independent from hosted review workflows.
+  reviewers:
+    - provider: anthropic
+      model_family: claude
+    - provider: openai
+      model_family: codex
+merge:
+  preference: ask
+  method: squash
+  release: explicit_approval
+protection:
+  required_checks:
+    - Check Links
+    - Command Docs
+  direct_push: false
+  force_push: false
+  branch_deletion: false
+branches:
+  name: "{login}-{host}/{issue}-{description}"
+recovery:
+  workspace_path: false
 trusted_actions:
   - actions/checkout
   - actions/create-github-app-token
