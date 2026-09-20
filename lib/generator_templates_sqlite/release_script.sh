@@ -12,7 +12,7 @@ error_exit() {
 
 log "Running release_script.sh per controlplane.yml"
 
-mkdir -p db storage
+mkdir -p data storage
 
 if [ -x ./bin/rails ]; then
   log "Run DB migrations"

@@ -105,6 +105,10 @@ class GithubFlowReadinessService # rubocop:disable Metrics/ClassLength
     RepoIntrospection.sqlite_database_in_production?(root_path.to_s)
   end
 
+  def dynamic_database_url_in_production?
+    RepoIntrospection.dynamic_database_url_in_production?(root_path.to_s)
+  end
+
   def parsed_package_json
     return @parsed_package_json if instance_variable_defined?(:@parsed_package_json)
 

@@ -321,6 +321,54 @@ describe Command::DeployImage do
       end
     end
 
+    context "when a deployment-start marker is requested" do
+      let(:run_release_phase) { true }
+
+      before do
+        allow(config).to receive(:[]).with(:release_script).and_return("bundle exec rails db:migrate")
+        allow(command).to receive(:run_release_script)
+      end
+
+      def with_deployment_marker(marker)
+        previous_marker = ENV.fetch("CPFLOW_DEPLOYMENT_STARTED_FILE", nil)
+        ENV["CPFLOW_DEPLOYMENT_STARTED_FILE"] = marker
+        yield
+      ensure
+        if previous_marker
+          ENV["CPFLOW_DEPLOYMENT_STARTED_FILE"] = previous_marker
+        else
+          ENV.delete("CPFLOW_DEPLOYMENT_STARTED_FILE")
+        end
+      end
+
+      it "writes the marker immediately before updating a workload" do
+        Dir.mktmpdir("cpflow-deployment-marker") do |directory|
+          marker = File.join(directory, "started")
+
+          with_deployment_marker(marker) do
+            command.call
+          end
+
+          expect(File.read(marker)).to eq("started\n")
+          expect(cp).to have_received(:workload_set_image_ref)
+        end
+      end
+
+      it "does not write the marker when the release phase fails" do
+        allow(command).to receive(:run_release_script).and_raise("release phase failed")
+
+        Dir.mktmpdir("cpflow-deployment-marker") do |directory|
+          marker = File.join(directory, "started")
+
+          with_deployment_marker(marker) do
+            expect { command.call }.to raise_error("release phase failed")
+          end
+
+          expect(File).not_to exist(marker)
+        end
+      end
+    end
+
     context "when release phase config is invalid" do
       let(:run_release_phase) { true }
 
