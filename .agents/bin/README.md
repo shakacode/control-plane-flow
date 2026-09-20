@@ -1,9 +1,8 @@
 # Agent Workflow Scripts
 
-Standard entry points that portable agent-workflow skills call, so a skill can
-run `.agents/bin/<name>` in any repo without knowing this repo's specific
-commands. Each script is a thin, repo-owned wrapper. A script that is **absent**
-means that capability is n/a here.
+Thin, repo-owned command wrappers. Shaka's typed contract uses `setup`,
+`validate`, and `test`; the remaining scripts are additional repository helpers.
+A script that is **absent** means that capability is n/a here.
 
 | Script | Purpose | This repo runs |
 | --- | --- | --- |
@@ -25,7 +24,7 @@ update that array and its inventory regression test; use a `.sh` or `.bash`
 suffix for automatic inclusion. Declared paths must remain tracked and readable.
 Unlisted extensionless files and non-shell files are outside this check.
 
-Canonical non-command policy, including the release-QA runbook reference, lives
-in [`../agent-workflow.yml`](../agent-workflow.yml). [`../../AGENTS.md`](../../AGENTS.md)
-is the thin discovery pointer for portable shared skills and does not duplicate
-or override that policy.
+Canonical typed Shaka policy lives in
+[`../agent-workflow.yml`](../agent-workflow.yml). Additional agent-binding repository policy,
+including the release-QA runbook reference, lives in
+[`../../AGENTS.md`](../../AGENTS.md).
