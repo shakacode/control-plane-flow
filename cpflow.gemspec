@@ -23,7 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "dotenv",   "~> 3.1"
   spec.add_dependency "jwt",      "~> 3.1"
   spec.add_dependency "psych",    "~> 5.2"
-  # Review lib/patches/thor.rb whenever widening this constraint; it patches private parser internals.
   spec.add_dependency "thor",     "~> 1.3"
 
   spec.files = `git ls-files -z`.split("\x0").reject do |file|

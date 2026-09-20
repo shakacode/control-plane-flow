@@ -20,7 +20,7 @@ describe Command::ApplyTemplate do
     end
 
     it "keeps another pre-existing secret template when only the generated dictionary is skipped" do
-      allow(config).to receive(:options).and_return(skip_secret_template: "demo-review-pr-97-secrets")
+      allow(config).to receive(:options).and_return(exclude_secret_template: "demo-review-pr-97-secrets")
       allow(command).to receive(:cp).and_return(cp)
       allow(command).to receive(:report_skipped)
       allow(cp).to receive(:fetch_secret)
@@ -35,7 +35,7 @@ describe Command::ApplyTemplate do
     end
 
     it "refuses a missing secret name before applying templates" do
-      allow(config).to receive(:options).and_return(skip_secret_template: "")
+      allow(config).to receive(:options).and_return(exclude_secret_template: "")
       allow(command).to receive(:cp).and_return(cp)
       allow(cp).to receive(:fetch_secret)
 
@@ -45,7 +45,7 @@ describe Command::ApplyTemplate do
     end
 
     it "skips only the generated policy and keeps unrelated policies eligible" do
-      allow(config).to receive(:options).and_return(skip_policy_template: "demo-review-pr-97-secrets-policy")
+      allow(config).to receive(:options).and_return(exclude_policy_template: "demo-review-pr-97-secrets-policy")
       allow(command).to receive(:cp).and_return(cp)
       allow(command).to receive(:report_skipped)
       allow(cp).to receive(:fetch_policy)
@@ -58,7 +58,7 @@ describe Command::ApplyTemplate do
     end
 
     it "refuses an empty policy name before template application" do
-      allow(config).to receive(:options).and_return(skip_policy_template: "")
+      allow(config).to receive(:options).and_return(exclude_policy_template: "")
       allow(command).to receive(:cp).and_return(cp)
       allow(cp).to receive(:fetch_policy)
 

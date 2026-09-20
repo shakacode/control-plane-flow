@@ -11,8 +11,8 @@ module Command
       skip_confirm_option,
       add_app_identity_option,
       preserve_existing_runtime_option,
-      skip_secret_template_option,
-      skip_policy_template_option
+      exclude_secret_template_option,
+      exclude_policy_template_option
     ].freeze
     DESCRIPTION = "Applies application-specific configs from templates"
     LONG_DESCRIPTION = <<~DESC
@@ -21,7 +21,7 @@ module Command
       - Picks templates from the `.controlplane/templates` directory
       - Templates are ordinary Control Plane templates but with variable preprocessing
       - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
-      - Use `--skip-secret-template NAME` and `--skip-policy-template NAME` to skip exact named templates without changing workload image handling
+      - Use `--exclude-secret-template NAME` and `--exclude-policy-template NAME` to exclude exact named templates without changing workload image handling
       - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
       **Preprocessed template variables:**
@@ -82,11 +82,11 @@ module Command
 
     def filter_existing_resources(templates)
       templates = preserve_existing_runtime(templates) if config.options[:preserve_existing_runtime]
-      templates = skip_named_template(templates, :skip_secret_template, "secret")
-      skip_named_template(templates, :skip_policy_template, "policy")
+      templates = exclude_named_template(templates, :exclude_secret_template, "secret")
+      exclude_named_template(templates, :exclude_policy_template, "policy")
     end
 
-    def skip_named_template(templates, option, kind)
+    def exclude_named_template(templates, option, kind)
       name = config.options[option]
       return templates unless name
       raise "--#{option.to_s.tr('_', '-')} requires a #{kind} name." if name.empty?

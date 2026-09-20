@@ -1,21 +1,6 @@
 # frozen_string_literal: true
 
 class Thor
-  # Verified against Thor 1.5.0. The parser regression in spec/cpflow_spec.rb
-  # guards the private @switches/no_or_skip? contract used here.
-  module ExplicitStringSkipOption
-    private
-
-    def no_or_skip?(switch)
-      option = @switches&.[](switch)
-      return false if option&.string?
-
-      super
-    end
-  end
-
-  Options.prepend(ExplicitStringSkipOption)
-
   # Fix for https://github.com/erikhuda/thor/issues/398
   # Copied from https://github.com/rails/thor/issues/398#issuecomment-622988390
   module Shell

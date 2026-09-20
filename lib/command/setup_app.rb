@@ -53,8 +53,8 @@ module Command
       args.push("--yes") if refresh_templates
       args.push("--preserve-existing-runtime") if refresh_templates
       if !skip_secrets_setup && config.generated_review_secret_keys.any?
-        args.push("--skip-policy-template", config.secrets_policy)
-        args.push("--skip-secret-template", config.secrets) unless refresh_templates
+        args.push("--exclude-policy-template", config.secrets_policy)
+        args.push("--exclude-secret-template", config.secrets) unless refresh_templates
       end
       run_cpflow_command("apply-template", "-a", config.app, *args, *templates)
 

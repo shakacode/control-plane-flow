@@ -30,7 +30,7 @@ cpflow ai-github-flow-prompt
 - Picks templates from the `.controlplane/templates` directory
 - Templates are ordinary Control Plane templates but with variable preprocessing
 - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
-- Use `--skip-secret-template NAME` and `--skip-policy-template NAME` to skip exact named templates without changing workload image handling
+- Use `--exclude-secret-template NAME` and `--exclude-policy-template NAME` to exclude exact named templates without changing workload image handling
 - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
 
 **Preprocessed template variables:**

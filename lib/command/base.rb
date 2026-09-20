@@ -483,22 +483,22 @@ module Command
       }
     end
 
-    def self.skip_secret_template_option(required: false)
+    def self.exclude_secret_template_option(required: false)
       {
-        name: :skip_secret_template,
+        name: :exclude_secret_template,
         params: {
-          desc: "Skips one named secret template while applying templates",
+          desc: "Excludes one named secret template while applying templates",
           type: :string,
           required: required
         }
       }
     end
 
-    def self.skip_policy_template_option(required: false)
+    def self.exclude_policy_template_option(required: false)
       {
-        name: :skip_policy_template,
+        name: :exclude_policy_template,
         params: {
-          desc: "Skips one named policy template while applying templates",
+          desc: "Excludes one named policy template while applying templates",
           type: :string,
           required: required
         }
