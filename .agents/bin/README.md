@@ -25,6 +25,6 @@ suffix for automatic inclusion. Declared paths must remain tracked and readable.
 Unlisted extensionless files and non-shell files are outside this check.
 
 Canonical typed Shaka policy lives in
-[`../agent-workflow.yml`](../agent-workflow.yml). Additional agent-binding repository policy,
-including the release-QA runbook reference, lives in
-[`../../AGENTS.md`](../../AGENTS.md).
+[`../agent-workflow.yml`](../agent-workflow.yml). The GitHub Actions dependency allowlist lives in
+[`../trusted-actions.yml`](../trusted-actions.yml). Additional agent-binding repository policy,
+including the release-QA runbook reference, lives in [`../../AGENTS.md`](../../AGENTS.md).

@@ -40,7 +40,7 @@ overcommit --install
 Every repository-based external `uses:` entry under `.github/workflows/` or `.github/actions/` must use an immutable,
 lowercase 40-character commit SHA followed by the exact release tag in a same-line comment. Do not use moving
 major-version tags or branch names. New action repositories also require explicit review before they are added to
-`trusted_actions` in `.agents/agent-workflow.yml`. Docker actions must use an exact `sha256:` image digest; manually
+`trusted_actions` in `.agents/trusted-actions.yml`. Docker actions must use an exact `sha256:` image digest; manually
 review the registry, image, and digest because Docker references are outside the repository allowlist.
 Generated downstream calls to Control Plane Flow's cross-repository reusable workflows are the deliberate exception:
 they use an exact `vX.Y.Z` release tag so the workflow source stays aligned with the released `cpflow` gem.

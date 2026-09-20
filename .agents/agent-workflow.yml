@@ -1,10 +1,6 @@
 ---
 version: 1
 base_branch: main
-commands:
-  setup: .agents/bin/setup
-  validate: .agents/bin/validate
-  test: .agents/bin/test
 review:
   required: none
   # Local reviewer preference; independent from hosted review workflows.
@@ -15,25 +11,7 @@ review:
       model_family: codex
 merge:
   preference: ask
-  method: squash
-  release: explicit_approval
-protection:
-  required_checks:
-    - Check Links
-    - Command Docs
-  direct_push: false
-  force_push: false
-  branch_deletion: false
 branches:
   name: "{login}-{host}/{issue}-{description}"
 recovery:
   workspace_path: false
-trusted_actions:
-  - actions/checkout
-  - actions/create-github-app-token
-  - actions/github-script
-  - actions/upload-artifact
-  - anthropics/claude-code-action
-  - docker/setup-buildx-action
-  - peter-evans/repository-dispatch
-  - ruby/setup-ruby

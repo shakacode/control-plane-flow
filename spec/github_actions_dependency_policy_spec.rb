@@ -470,14 +470,14 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       "Docker actions must use a sha256 digest:\n#{violations.join("\n")}"
     )
 
-    workflow_config = YAML.safe_load_file(File.expand_path("../.agents/agent-workflow.yml", __dir__), aliases: false)
+    action_policy = YAML.safe_load_file(File.expand_path("../.agents/trusted-actions.yml", __dir__), aliases: false)
     external_repositories = action_files.flat_map do |path|
       external_action_references(path).filter_map do |reference|
         reference[:trusted_repository] if reference[:kind] == :repository
       end
     end.uniq.sort
 
-    expect(workflow_config.fetch("trusted_actions").sort).to eq(external_repositories)
+    expect(action_policy.fetch("trusted_actions").sort).to eq(external_repositories)
   end
 
   it "pins the RSpec Control Plane CLI and scopes its token to the consuming steps" do
