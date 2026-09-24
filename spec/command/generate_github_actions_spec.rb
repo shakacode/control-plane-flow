@@ -660,10 +660,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       current = promote_workflow_path.read
       promote_workflow_path.write(current.sub(/environment:\n      name: production\n      url: .*\n/,
                                               "environment: production\n"))
-      expect(Open3.capture3(test_cpflow_flow_path.to_s, "true").last).to be_success
+      with_stubbed_actionlint do |env|
+        stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true")
+        expect(status).to be_success, "#{stdout}\n#{stderr}"
+      end
 
       promote_workflow_path.write(current.sub("name: production", "name: staging"))
-      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "true")
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
       expect(status).not_to be_success
       expect("#{stdout}\n#{stderr}").to include("must declare environment: production")
     end
