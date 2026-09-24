@@ -60,7 +60,10 @@ jobs:
     # GitHub uses secrets from this protected Environment for jobs that declare
     # it, so CPLN_TOKEN_PRODUCTION should be configured only there. The caller
     # wrapper intentionally passes only CPLN_TOKEN_STAGING.
-    environment: ${{ inputs.production_environment }}
+    # The URL gives the deployment a "View deployment" link on GitHub.
+    environment:
+      name: ${{ inputs.production_environment }}
+      url: ${{ steps.health-check.outputs.endpoint }}
     timeout-minutes: 45
     outputs:
       staging_commit: ${{ steps.copy-image.outputs.staging_commit }}
