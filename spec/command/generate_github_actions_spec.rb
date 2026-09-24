@@ -1754,7 +1754,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
                                 "cpflow-promote-staging-to-production.yml"
 
       expect(wrapper).to include("This normal caller-repo job declares the protected production Environment")
-      expect(wrapper).to include("environment: production")
+      expect(wrapper).to include("environment:\n      name: production\n")
       expect(wrapper).to include("HEALTH_CHECK_RETRIES: ${{ vars.HEALTH_CHECK_RETRIES || '24' }}")
       expect(wrapper).to include("COPY_IMAGE_RETRIES: ${{ vars.COPY_IMAGE_RETRIES || '3' }}")
       expect(wrapper).to include("COPY_IMAGE_RETRY_INTERVAL: ${{ vars.COPY_IMAGE_RETRY_INTERVAL || '20' }}")
@@ -1771,7 +1771,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("contents: read")
       expect(contents).to include("production_environment:")
       expect(contents).to include("default: production")
-      expect(contents).to include("environment: ${{ inputs.production_environment }}")
+      expect(contents).to include("name: ${{ inputs.production_environment }}")
       expect(contents).to include("Validate production token")
       expect(contents).to include("CPLN_TOKEN_PRODUCTION is not set")
       expect(contents).to include("Normalize Control Plane org names")

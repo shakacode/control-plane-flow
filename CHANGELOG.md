@@ -18,6 +18,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- Production promotion now reports the healthy production endpoint as its GitHub deployment URL, so GitHub shows a "View deployment" link for it. Existing generated workflows that declare `environment: production` as a plain string still pass `bin/test-cpflow-github-flow`; regenerate to get the link.
 - **Hardened generated Rails deployment scaffolding and production promotion.** New scaffolds omit repository secrets, Rails credential keys, and local databases from Docker contexts, remove temporary native build tools, avoid retaining asset-precompile secrets, persist every detected production SQLite database without hiding image migrations, and support digest-pinned staging images during promotion. Production promotion now requires a full staging commit SHA, targets the GitHub release at that commit, and only attempts rollback after deployment starts.
 
 ## [6.0.0] - 2026-09-08
