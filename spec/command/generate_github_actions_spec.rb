@@ -656,6 +656,18 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_app_workflow_path.read).to include("@feature/test")
     end
 
+    it "accepts the older string form of the production environment and rejects another name" do
+      current = promote_workflow_path.read
+      promote_workflow_path.write(current.sub(/environment:\n      name: production\n      url: .*\n/,
+                                              "environment: production\n"))
+      expect(Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true").last).to be_success
+
+      promote_workflow_path.write(current.sub("name: production", "name: staging"))
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+      expect(status).not_to be_success
+      expect("#{stdout}\n#{stderr}").to include("must declare environment: production")
+    end
+
     it "rejects a generated workflow whose referenced local action is missing" do
       setup_action = generated_action_path("cpflow-setup-environment")
       FileUtils.mv(setup_action, setup_action.dirname.join("action.yml.missing"))
