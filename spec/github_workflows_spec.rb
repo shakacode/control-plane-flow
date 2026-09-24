@@ -1218,4 +1218,25 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
       )
     end
   end
+
+  describe "Promote staging to production workflows" do
+    # GitHub shows a deployment link only when the job environment reports a URL.
+    {
+      "reusable" => [".github/workflows/cpflow-promote-staging-to-production.yml",
+                     "${{ inputs.production_environment }}"],
+      "generated" => ["lib/github_flow_templates/.github/workflows/cpflow-promote-staging-to-production.yml",
+                      "production"]
+    }.each do |kind, (path, environment_name)|
+      it "reports the healthy production endpoint as the #{kind} deployment URL" do
+        job = YAML.safe_load_file(File.expand_path("../#{path}", __dir__), aliases: true)
+                  .fetch("jobs").fetch("promote-to-production")
+
+        expect(job.fetch("environment")).to eq(
+          "name" => environment_name,
+          "url" => "${{ steps.health-check.outputs.endpoint }}"
+        )
+        expect(job.fetch("steps").map { |step| step["id"] }).to include("health-check")
+      end
+    end
+  end
 end

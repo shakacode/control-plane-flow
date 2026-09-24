@@ -53,7 +53,10 @@ jobs:
     # directly, so GitHub exposes environment secrets in this job after the
     # environment gate. Do not move production promotion back behind a
     # cross-repo reusable workflow; environment secrets are not available there.
-    environment: production
+    # The URL gives the deployment a "View deployment" link on GitHub.
+    environment:
+      name: production
+      url: ${{ steps.health-check.outputs.endpoint }}
     timeout-minutes: 45
     outputs:
       staging_app_name: ${{ steps.release-context.outputs.staging_app_name }}

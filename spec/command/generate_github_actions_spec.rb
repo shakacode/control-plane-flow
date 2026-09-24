@@ -656,6 +656,21 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(review_app_workflow_path.read).to include("@feature/test")
     end
 
+    it "accepts the older string form of the production environment and rejects another name" do
+      current = promote_workflow_path.read
+      promote_workflow_path.write(current.sub(/environment:\n      name: production\n      url: .*\n/,
+                                              "environment: production\n"))
+      with_stubbed_actionlint do |env|
+        stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true")
+        expect(status).to be_success, "#{stdout}\n#{stderr}"
+      end
+
+      promote_workflow_path.write(current.sub("name: production", "name: staging"))
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+      expect(status).not_to be_success
+      expect("#{stdout}\n#{stderr}").to include("must declare environment: production")
+    end
+
     it "rejects a generated workflow whose referenced local action is missing" do
       setup_action = generated_action_path("cpflow-setup-environment")
       FileUtils.mv(setup_action, setup_action.dirname.join("action.yml.missing"))
@@ -1754,7 +1769,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
                                 "cpflow-promote-staging-to-production.yml"
 
       expect(wrapper).to include("This normal caller-repo job declares the protected production Environment")
-      expect(wrapper).to include("environment: production")
+      expect(wrapper).to include("environment:\n      name: production\n")
       expect(wrapper).to include("HEALTH_CHECK_RETRIES: ${{ vars.HEALTH_CHECK_RETRIES || '24' }}")
       expect(wrapper).to include("COPY_IMAGE_RETRIES: ${{ vars.COPY_IMAGE_RETRIES || '3' }}")
       expect(wrapper).to include("COPY_IMAGE_RETRY_INTERVAL: ${{ vars.COPY_IMAGE_RETRY_INTERVAL || '20' }}")
@@ -1771,7 +1786,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("contents: read")
       expect(contents).to include("production_environment:")
       expect(contents).to include("default: production")
-      expect(contents).to include("environment: ${{ inputs.production_environment }}")
+      expect(contents).to include("name: ${{ inputs.production_environment }}")
       expect(contents).to include("Validate production token")
       expect(contents).to include("CPLN_TOKEN_PRODUCTION is not set")
       expect(contents).to include("Normalize Control Plane org names")

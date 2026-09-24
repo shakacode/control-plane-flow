@@ -154,7 +154,10 @@ if File.exist?(promote_path)
     abort "#{promote_path}:promote-to-production must run as a normal caller-repo job, not a reusable workflow, so GitHub can expose production environment secrets"
   end
 
-  unless promote_job["environment"].to_s == "production"
+  # Older generated workflows use the string form; current ones add a deployment URL.
+  promote_environment = promote_job["environment"]
+  promote_environment = promote_environment["name"] if promote_environment.is_a?(Hash)
+  unless promote_environment.to_s == "production"
     abort "#{promote_path}:promote-to-production must declare environment: production"
   end
 
