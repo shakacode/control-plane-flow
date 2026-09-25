@@ -7,6 +7,7 @@ Canonical agent instructions for `cpflow` (Control Plane Flow).
 The Shaka skill resolves this repo's commands and typed policy through:
 - **Commands** — run the fixed `.agents/bin/setup`, `.agents/bin/validate`, and `.agents/bin/test` entry points; see `.agents/bin/README.md` for additional repository helpers.
 - **Policy / config** — `.agents/agent-workflow.yml`.
+- `.agents/shaka.md` records the exact Shaka package SemVer; it is version metadata, not policy authority.
 
 ## Workflow Policy Discovery
 
