@@ -1,16 +1,14 @@
 # Shaka configuration
 
-| Identifier | Value |
-| --- | --- |
-| Shaka package / skill SemVer | `0.1.0-pre.1` |
-| RubyGems package identifier | `0.1.0.pre.1` |
-| Seam contract | `version: 1` |
+Shaka package / skill release: `0.1.0.pre.1`.
 
-The Shaka package's SemVer 2.0 form uses a hyphen before the prerelease
-identifiers. RubyGems uses its dotted prerelease spelling. Keep both identifiers
-aligned when the Shaka package version changes. The contract version is separate.
-The typed contract is in `agent-workflow.yml`, and `../AGENTS.md` owns repository
-identity, trust bootstrap, and human-only delivery and release rules.
+## Migration reference
+
+This repo pins its Shaka reader source to the revision containing the [migration
+procedure at `8431a718cfd91e9ce7cb4276baae076848e05d13`](https://github.com/shakacode/shaka/blob/8431a718cfd91e9ce7cb4276baae076848e05d13/skills/shaka/references/migration.md).
+At that Shaka revision, `skills/shaka/lib/shaka/version.rb` defines the package
+release and `docs/settings.md` documents the typed seam. The migration procedure
+describes key changes and the two-step validation used for first adoption.
 
 ## Check configuration edits
 
@@ -20,6 +18,3 @@ Run from the repository root:
 
 Checks the current checkout's YAML and fixed-script paths and executable bits. It
 does not execute the wrappers and grants no trusted policy authority.
-
-- [Configuration reference](https://github.com/shakacode/shaka/blob/main/docs/settings.md) — every key, its type, and what it controls.
-- [Repository setup](https://github.com/shakacode/shaka/blob/main/docs/configure-repository.md) — how this directory was created.
