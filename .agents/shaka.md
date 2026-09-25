@@ -2,13 +2,15 @@
 
 | Identifier | Value |
 | --- | --- |
-| Package / skill SemVer | `0.1.0.pre.1` |
+| Package / skill version (RubyGems) | `0.1.0.pre.1` |
+| SemVer 2.0 form | `0.1.0-pre.1` |
 | Seam contract | `version: 1` |
 
-The package SemVer and contract version are separate identifiers. This file records
-the adopted package / skill SemVer; update it when that version changes. The typed
-contract is in `agent-workflow.yml`, and `../AGENTS.md` owns repository identity,
-trust bootstrap, and human-only delivery and release rules.
+The RubyGems package version uses RubyGems prerelease syntax; its SemVer 2.0 form
+uses a hyphen before the prerelease identifiers. Keep both package identifiers
+aligned when the Shaka package version changes. The contract version is separate.
+The typed contract is in `agent-workflow.yml`, and `../AGENTS.md` owns repository
+identity, trust bootstrap, and human-only delivery and release rules.
 
 ## Check configuration edits
 
