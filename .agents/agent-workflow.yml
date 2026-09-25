@@ -4,11 +4,12 @@ version: 1
 base_branch: main
 review:
   required: none
+  # Local reviewer preference; independent from hosted review workflows.
   local_review_agents:
-  - provider: anthropic
-    model_family: claude
-  - provider: openai
-    model_family: codex
+    - provider: anthropic
+      model_family: claude
+    - provider: openai
+      model_family: codex
 merge:
   preference: ask
 branches:
