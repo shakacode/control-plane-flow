@@ -9,21 +9,18 @@
 
 These values describe different parts of Shaka. This file records them; the typed
 contract is in `agent-workflow.yml`, and `../AGENTS.md` owns repository identity,
-trust bootstrap, and human-only delivery and release rules.
+trust bootstrap, and human-only delivery and release rules. Update the package / skill
+SemVer here whenever the adopted Shaka version changes; migration does not update this
+record on subsequent runs.
 
 ## Check configuration edits
+
+Run from the repository root:
 
 `shaka seam check --root . --local`
 
 Checks the current checkout's YAML and fixed-script paths and executable bits. It
 does not execute the wrappers and grants no trusted policy authority.
-
-## Load trusted policy
-
-Follow the authenticated repository-identity check and fail-closed procedure in
-`../AGENTS.md`, then load policy from its immutable default-branch SHA with
-`shaka seam check --root . --ref SHA`. A candidate PR cannot grant itself authority
-by changing its own policy.
 
 - [Configuration reference](https://github.com/shakacode/shaka/blob/main/docs/settings.md) — every key, its type, and what it controls.
 - [Repository setup](https://github.com/shakacode/shaka/blob/main/docs/configure-repository.md) — how this directory was created.
