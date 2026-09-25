@@ -4,7 +4,7 @@ base_branch: main
 review:
   required: none
   # Local reviewer preference; independent from hosted review workflows.
-  reviewers:
+  local_review_agents:
     - provider: anthropic
       model_family: claude
     - provider: openai
@@ -13,5 +13,5 @@ merge:
   preference: ask
 branches:
   name: "{login}-{host}/{issue}-{description}"
-recovery:
-  workspace_path: false
+wip:
+  include_locations: false
