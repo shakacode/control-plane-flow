@@ -52,6 +52,7 @@ jobs:
     timeout-minutes: 10
     # No production Environment or production token: this finishes before approval.
     outputs:
+      primary_workload: ${{ steps.preview.outputs.primary_workload }}
       staging_image: ${{ steps.preview.outputs.staging_image }}
       production_commit: ${{ steps.preview.outputs.production_commit }}
     steps:
@@ -103,7 +104,6 @@ jobs:
           CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
         with:
           staging_app_name: ${{ vars.STAGING_APP_NAME }}
-          production_app_name: ${{ vars.PRODUCTION_APP_NAME }}
           staging_org: ${{ steps.staging-org.outputs.org }}
           primary_workload: ${{ vars.PRIMARY_WORKLOAD }}
 
@@ -509,6 +509,8 @@ jobs:
       - name: Verify approved promotion snapshot
         id: verify-preview
         env:
+          PREVIEW_WORKLOAD: ${{ needs.preview-promotion.outputs.primary_workload }}
+          CURRENT_PRIMARY_WORKLOAD: ${{ steps.workloads.outputs.primary }}
           PREVIEW_IMAGE: ${{ needs.preview-promotion.outputs.staging_image }}
           PREVIEW_PRODUCTION_COMMIT: ${{ needs.preview-promotion.outputs.production_commit }}
           CURRENT_STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}
@@ -516,6 +518,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "$PREVIEW_WORKLOAD" || "$PREVIEW_WORKLOAD" != "$CURRENT_PRIMARY_WORKLOAD" ]]; then
+            echo "::error::The production primary workload differs from the preview. Set PRIMARY_WORKLOAD as a repository variable shared by both jobs and rerun."
+            exit 1
+          fi
           if [[ -z "$PREVIEW_IMAGE" || "$CURRENT_STAGING_IMAGE" != "$PREVIEW_IMAGE" ]]; then
             echo "::error::Staging changed since the preview. Rerun promotion and review the new comparison."
             exit 1

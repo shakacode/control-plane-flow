@@ -1767,12 +1767,13 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         preview = jobs.fetch("preview-promotion")
         promotion = jobs.fetch("promote-to-production")
         expect(preview).not_to have_key("environment")
-        expect(preview.to_s).not_to include("secrets.CPLN_TOKEN_PRODUCTION")
+        expect(preview.to_s).not_to include("secrets.CPLN_TOKEN_PRODUCTION", "vars.PRODUCTION_APP_NAME")
         expect(promotion.fetch("needs")).to eq("preview-promotion")
         expect(promotion).to have_key("environment")
         expect(preview.fetch("steps").last.fetch("uses")).to eq("./.github/actions/cpflow-preview-promotion")
         ids = promotion.fetch("steps").map { |step| step["id"] }
         expect(ids.index("verify-preview")).to be > ids.index("staging-image")
+        expect(ids.index("verify-preview")).to be > ids.index("capture-current")
         expect(ids.index("verify-preview")).to be < ids.index("copy-image")
       end
       expect(playground.join(".github/actions/cpflow-preview-promotion/preview-promotion.sh")).to exist

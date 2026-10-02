@@ -28,6 +28,7 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
     Dir.mktmpdir do |dir|
       File.write("#{dir}/gh", <<~BASH)
         #!/bin/sh
+        test "$GH_ENTERPRISE_TOKEN" = "$GH_TOKEN" || exit 3
         printf '%s\n' "$GH_HOST" >> "$TEST_HOST_LOG"
         case "$2" in
           */releases*) printf '%s' "$TEST_RELEASES" ;;
@@ -36,6 +37,8 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
           *) exit 2 ;;
         esac
       BASH
+      File.write("#{dir}/timeout", "#!/bin/sh\nshift\nexec \"$@\"\n")
+      FileUtils.chmod(0o755, "#{dir}/timeout")
       File.write("#{dir}/cpln", "#!/bin/sh\nprintf '%s' \"$TEST_WORKLOAD\"\n")
       FileUtils.chmod(0o755, "#{dir}/cpln")
       FileUtils.chmod(0o755, "#{dir}/gh")
@@ -45,7 +48,8 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
         "TEST_WORKLOAD" => JSON.generate(spec: { containers: [{ image: staging_image }] }),
         "TEST_RELEASES" => JSON.generate(releases),
         "TEST_BASELINE" => JSON.generate(sha: production_sha),
-        "GH_REPO" => "example/app", "GITHUB_SERVER_URL" => server_url, "TEST_HOST_LOG" => "#{dir}/host",
+        "GH_TOKEN" => "fixture-token", "GH_REPO" => "example/app",
+        "GITHUB_SERVER_URL" => server_url, "TEST_HOST_LOG" => "#{dir}/host",
         "GITHUB_STEP_SUMMARY" => "#{dir}/summary", "GITHUB_OUTPUT" => "#{dir}/output",
         "TEST_RESPONSE" => JSON.generate(response),
         "TEST_STATUS" => api_status.to_s

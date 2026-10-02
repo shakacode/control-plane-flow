@@ -230,9 +230,10 @@ because they could change the target org name after normalization.
 
 Production promotion copies the exact image currently deployed on the selected
 staging workload. If that staging image is digest-pinned, the digest is used for
-the source copy while the production tag is derived from the tag portion. Tags
-with a `_<commit>` suffix keep that suffix in production; plain numeric tags are
-also valid and promote to the next plain production tag. The copy step uses
+the source copy while the production tag is derived from the tag portion. Staging tags must
+include a full lowercase 40-character Git commit SHA suffix (`_<commit>`),
+which is preserved in the new production tag. A staging image without that
+provenance stops promotion before approval. The copy step uses
 `docker buildx imagetools create --prefer-index=false --tag` with isolated
 Docker credentials, which preserves multi-architecture manifests, preserves
 single-platform manifest format when supported, and avoids pulling image layers
@@ -249,6 +250,14 @@ Matching SHAs report no commits to promote. Release discovery checks the latest
 explicit availability notice. The preview uses the existing staging token and
 GitHub `contents: read` permission; it has no production token.
 
+The preview selects the primary workload from the staging app’s
+`app_workloads` configuration. `PRODUCTION_APP_NAME` and
+`CPLN_ORG_PRODUCTION` can remain production Environment variables. When staging
+and production have different primary-workload defaults, set `PRIMARY_WORKLOAD`
+as a repository variable shared by both jobs; the protected job rejects a
+workload-selection mismatch. A Control Plane read failure or invalid staging
+SHA fails the preview and prevents approval from starting.
+
 After approval, the protected job checks that staging still uses the captured
 image and, when a release baseline was available, that live production matches
 that release’s commit. A mismatch stops before copying or deploying an image;
@@ -261,6 +270,34 @@ Existing repositories adopt this with
 Review and reapply downstream workflow customizations before committing the
 replacement and the refreshed local composite actions. The bare update command
 preserves existing top-level workflows.
+
+### Recover a missing or stale production release record
+
+A successful production deployment and its GitHub release are separate jobs.
+If deployment succeeded but **create-github-release** failed, open that original
+Actions run and choose **Re-run failed jobs**. This retries release publication
+at the original promoted SHA; do not rerun the whole promotion merely to repair
+the record. Confirm the resulting `production-*` release targets the live
+production image’s SHA, then start a fresh promotion preview.
+
+After an out-of-band production deploy or rollback, an app maintainer should
+first verify the healthy live primary-workload image and its full commit suffix
+with `cpln workload get <primary-workload> --gvc <production-app> --org
+<production-org> -o json`. Use that SHA to publish a fresh release record; do not
+move an existing release tag. For example, after replacing `<verified-live-sha>`:
+
+```sh
+gh release create "production-$(date -u +%Y-%m-%d-%H%M%S)-0" \
+  --target <verified-live-sha> \
+  --title "Production state reconciliation" \
+  --notes "Records the verified live production commit after a manual deployment or rollback."
+```
+
+Run this in the app repository with the maintainer’s normal GitHub credentials.
+Verify the new tag’s commit and the live image agree, then rerun promotion to
+produce a fresh preview. If the live image has no commit suffix, establish its
+provenance and use a traceable image before recording a baseline; guessing a
+branch head would make the comparison misleading.
 
 Before copying the image, production promotion compares the environment variable
 names exposed by staging and production at both the GVC level and each configured

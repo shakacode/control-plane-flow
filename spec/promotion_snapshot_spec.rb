@@ -8,12 +8,12 @@ describe "Approved promotion snapshot", :aggregate_failures do # rubocop:disable
   let(:sha) { "a" * 40 }
   let(:image) { "app:main_#{sha}@sha256:#{'b' * 64}" }
 
-  def verify_snapshot(preview_image:, current_image:, baseline:, production_image:)
+  def verify_snapshot(preview_image:, current_image:, baseline:, production_image:, workload: "rails")
     workflow = YAML.load_file(".github/workflows/cpflow-promote-staging-to-production.yml")
     step = workflow.dig("jobs", "promote-to-production", "steps").find { |item| item["id"] == "verify-preview" }
     env = { "PREVIEW_IMAGE" => preview_image, "CURRENT_STAGING_IMAGE" => current_image,
             "PREVIEW_PRODUCTION_COMMIT" => baseline, "CURRENT_PRODUCTION_IMAGE" => production_image,
-            "BASH_ENV" => "/dev/null" }
+            "PREVIEW_WORKLOAD" => "rails", "CURRENT_PRIMARY_WORKLOAD" => workload, "BASH_ENV" => "/dev/null" }
     Open3.capture3(env, "bash", stdin_data: step.fetch("run"))
   end
 
@@ -35,6 +35,13 @@ describe "Approved promotion snapshot", :aggregate_failures do # rubocop:disable
                                         production_image: "app:v1_#{'d' * 40}")
     expect(status).not_to be_success
     expect(stdout).to include("Live production does not match")
+  end
+
+  it "stops when the production job selects a different primary workload" do
+    stdout, _, status = verify_snapshot(preview_image: image, current_image: image, baseline: sha,
+                                        production_image: "app:v1_#{sha}", workload: "worker")
+    expect(status).not_to be_success
+    expect(stdout).to include("production primary workload differs")
   end
 
   it "allows unavailable production provenance without claiming a comparison" do

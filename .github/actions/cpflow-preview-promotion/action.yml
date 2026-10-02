@@ -4,9 +4,6 @@ inputs:
   staging_app_name:
     required: true
     description: Staging app to read
-  production_app_name:
-    required: true
-    description: Production app whose configured primary workload selects the image
   staging_org:
     required: true
     description: Normalized staging org
@@ -15,6 +12,9 @@ inputs:
     default: ""
     description: Optional primary workload override
 outputs:
+  primary_workload:
+    description: Workload whose staging image was previewed
+    value: ${{ steps.workloads.outputs.primary }}
   staging_image:
     description: Captured staging image for approval
     value: ${{ steps.preview.outputs.staging_image }}
@@ -27,13 +27,13 @@ runs:
     - name: Resolve primary workload
       id: workloads
       env:
-        PRODUCTION_APP_NAME: ${{ inputs.production_app_name }}
+        STAGING_APP_NAME: ${{ inputs.staging_app_name }}
         PRIMARY_WORKLOAD: ${{ inputs.primary_workload }}
       shell: bash
       run: |
         set -euo pipefail
 
-        ruby - "${PRODUCTION_APP_NAME}" "${PRIMARY_WORKLOAD}" >> "$GITHUB_OUTPUT" <<'RUBY'
+        ruby - "${STAGING_APP_NAME}" "${PRIMARY_WORKLOAD}" >> "$GITHUB_OUTPUT" <<'RUBY'
         require "yaml"
 
         app = ARGV.fetch(0)
@@ -44,7 +44,7 @@ runs:
 
         unless app_config
           warn "Error: app '#{app}' is not defined under `apps:` in `.controlplane/controlplane.yml`."
-          warn "       Fix the PRODUCTION_APP_NAME repository variable or add the app to controlplane.yml."
+          warn "       Fix the STAGING_APP_NAME repository variable or add the app to controlplane.yml."
           exit 1
         end
 

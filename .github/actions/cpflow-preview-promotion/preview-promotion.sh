@@ -5,6 +5,7 @@ set -euo pipefail
 # successful production-* release record and is checked against the live image
 # by the protected deployment job after approval.
 export GH_HOST="${GITHUB_SERVER_URL#https://}"
+export GH_ENTERPRISE_TOKEN="${GH_TOKEN:-}"
 workload_json="$(cpln workload get "$PRIMARY_WORKLOAD" --gvc "$STAGING_APP_NAME" --org "$CPLN_ORG_STAGING" -o json)"
 staging_image="$(jq -r '.spec.containers[0].image // empty' <<< "$workload_json")"
 if [[ "$staging_image" == /org/*/image/* ]]; then
@@ -19,10 +20,12 @@ if [[ "$staging_image" == *$'\n'* || "$staging_image" == *$'\r'* ]] || ! [[ "$st
   exit 1
 fi
 echo "staging_image=$staging_image" >> "$GITHUB_OUTPUT"
-echo "## Commits ready for production" >> "$GITHUB_STEP_SUMMARY"
-echo >> "$GITHUB_STEP_SUMMARY"
-echo "Preview captured before production approval. Baseline: the last recorded successful production release; live production is verified after approval." >> "$GITHUB_STEP_SUMMARY"
-echo >> "$GITHUB_STEP_SUMMARY"
+{
+  echo "## Commits ready for production"
+  echo
+  echo "Preview captured before production approval. Baseline: the last recorded successful production release; live production is verified after approval."
+  echo
+} >> "$GITHUB_STEP_SUMMARY"
 
 # Limit release discovery to the latest 100 entries. Missing provenance is
 # explicit rather than falling back to a moving branch or an unrelated release.
