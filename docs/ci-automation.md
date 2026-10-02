@@ -238,18 +238,29 @@ Docker credentials, which preserves multi-architecture manifests, preserves
 single-platform manifest format when supported, and avoids pulling image layers
 onto the GitHub Actions runner.
 
-The production promotion run summary shows a **Commits ready for production**
-section written before image copying starts. It compares the commit SHA suffixes of the
-captured production and staging images, links the full GitHub comparison, and
-lists up to 100 commits present on staging but absent from production. It calls
-out diverged history or staging behind production. Matching SHAs show that there
-are no commits to promote. Legacy images without full SHA suffixes or GitHub API
-failures produce an availability notice without blocking deployment.
+When you start production promotion, the **preview-promotion** job finishes
+before GitHub requests approval for the protected production Environment. Open
+the run summary’s **Commits ready for production** section before approving. It
+compares staging’s deployed primary-workload image with the last recorded
+successful `production-*` GitHub release. It links the full comparison, lists up
+to 100 commit subjects, and flags diverged history or staging behind production.
+Matching SHAs report no commits to promote. Release discovery checks the latest
+100 releases; missing production history or GitHub API failures produce an
+explicit availability notice. The preview uses the existing staging token and
+GitHub `contents: read` permission; it has no production token.
 
-GitHub displays the section in the completed job summary, after approval of the
-protected production Environment; it is not a preview on the approval screen. Existing
-repositories pick it up with `cpflow update-github-actions` and commit the updated
-caller-owned production workflow.
+After approval, the protected job checks that staging still uses the captured
+image and, when a release baseline was available, that live production matches
+that release’s commit. A mismatch stops before copying or deploying an image;
+rerun after staging changes, or reconcile the production release record after an
+out-of-band production deployment. If production history was unavailable, the
+summary does not claim to know the production-to-staging diff.
+
+Existing repositories adopt this with
+`cpflow update-github-actions --workflows cpflow-promote-staging-to-production.yml`.
+Review and reapply downstream workflow customizations before committing the
+replacement and the refreshed local composite actions. The bare update command
+preserves existing top-level workflows.
 
 Before copying the image, production promotion compares the environment variable
 names exposed by staging and production at both the GVC level and each configured

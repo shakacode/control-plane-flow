@@ -8,6 +8,10 @@ require "yaml"
 describe "Production promotion commit summary" do # rubocop:disable RSpec/DescribeClass
   let(:production_sha) { "a" * 40 }
   let(:staging_sha) { "b" * 40 }
+  let(:release) do
+    { tag_name: "production-2026-10-01-120000-1", draft: false, prerelease: false,
+      published_at: "2026-10-01T12:00:00Z" }
+  end
   let(:response) do
     {
       status: "ahead", ahead_by: 1, behind_by: 0,
@@ -15,37 +19,56 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
     }
   end
 
-  def run_summary(production_image:, staging_image:, response:, api_status: 0) # rubocop:disable Metrics/MethodLength
-    workflow = YAML.load_file(".github/workflows/cpflow-promote-staging-to-production.yml")
-    step = workflow.dig("jobs", "promote-to-production", "steps").find { |item| item["id"] == "commit-summary" }
-    expect(step).not_to be_nil
+  def run_summary(staging_image:, response:, releases: [release], **options) # rubocop:disable Metrics/MethodLength
+    api_status = options.fetch(:api_status, 0)
+    server_url = options.fetch(:server_url, "https://github.com")
+    expect_success = options.fetch(:expect_success, true)
+    script = File.read(".github/actions/cpflow-preview-promotion/preview-promotion.sh")
 
     Dir.mktmpdir do |dir|
-      File.write("#{dir}/gh", "#!/bin/sh\nprintf '%s' \"$TEST_RESPONSE\"\nexit \"$TEST_STATUS\"\n")
+      File.write("#{dir}/gh", <<~BASH)
+        #!/bin/sh
+        printf '%s\n' "$GH_HOST" >> "$TEST_HOST_LOG"
+        case "$2" in
+          */releases*) printf '%s' "$TEST_RELEASES" ;;
+          */commits/*) printf '%s' "$TEST_BASELINE" ;;
+          */compare/*) printf '%s' "$TEST_RESPONSE"; exit "$TEST_STATUS" ;;
+          *) exit 2 ;;
+        esac
+      BASH
+      File.write("#{dir}/cpln", "#!/bin/sh\nprintf '%s' \"$TEST_WORKLOAD\"\n")
+      FileUtils.chmod(0o755, "#{dir}/cpln")
       FileUtils.chmod(0o755, "#{dir}/gh")
       env = {
         "PATH" => "#{dir}:#{ENV.fetch('PATH')}", "BASH_ENV" => "/dev/null",
-        "PRODUCTION_IMAGE" => production_image, "STAGING_IMAGE" => staging_image,
-        "GH_REPO" => "example/app", "GITHUB_SERVER_URL" => "https://github.com",
-        "GITHUB_STEP_SUMMARY" => "#{dir}/summary", "TEST_RESPONSE" => JSON.generate(response),
+        "CPLN_ORG_STAGING" => "stage", "STAGING_APP_NAME" => "app-stage", "PRIMARY_WORKLOAD" => "rails",
+        "TEST_WORKLOAD" => JSON.generate(spec: { containers: [{ image: staging_image }] }),
+        "TEST_RELEASES" => JSON.generate(releases),
+        "TEST_BASELINE" => JSON.generate(sha: production_sha),
+        "GH_REPO" => "example/app", "GITHUB_SERVER_URL" => server_url, "TEST_HOST_LOG" => "#{dir}/host",
+        "GITHUB_STEP_SUMMARY" => "#{dir}/summary", "GITHUB_OUTPUT" => "#{dir}/output",
+        "TEST_RESPONSE" => JSON.generate(response),
         "TEST_STATUS" => api_status.to_s
       }
-      _stdout, stderr, status = Open3.capture3(env, "bash", stdin_data: step.fetch("run"))
-      expect(status).to be_success, stderr
-      File.read("#{dir}/summary")
+      _stdout, stderr, status = Open3.capture3(env, "bash", stdin_data: script)
+      expect(status.success?).to eq(expect_success), stderr
+      if expect_success
+        expect(File.read("#{dir}/host").lines.map(&:strip).uniq).to eq([server_url.delete_prefix("https://")])
+      end
+      expect(File.read("#{dir}/output")).to include("staging_image=app:main_") if expect_success
+      File.exist?("#{dir}/summary") ? File.read("#{dir}/summary") : ""
     end
   end
 
   def summary(**overrides)
-    run_summary(production_image: "/org/prod/image/app:v1_#{production_sha}",
-                staging_image: "stage.registry.cpln.io/app:main_#{staging_sha}@sha256:#{'c' * 64}",
+    run_summary(staging_image: "stage.registry.cpln.io/app:main_#{staging_sha}@sha256:#{'c' * 64}",
                 response: response, **overrides)
   end
 
   it "shows the deployed image commit range and first-line commit subjects" do
     text = summary
     expect(text).to include("https://github.com/example/app/compare/#{production_sha}...#{staging_sha}")
-    expect(text).to include("1 commit(s) on staging that are not on production", "Fix checkout")
+    expect(text).to include("1 commit(s) on staging that are not in the recorded production release", "Fix checkout")
     expect(text).not_to include("Details")
   end
 
@@ -53,9 +76,8 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
     expect(summary(staging_image: "app:main_#{production_sha}", api_status: 1)).to include("same commit")
   end
 
-  it "explains unavailable provenance without blocking promotion" do
-    expect(summary(production_image: "app:legacy")).to include("Comparison unavailable")
-    expect(summary(staging_image: "app:main_bad")).to include("Comparison unavailable")
+  it "explains a missing production release without blocking promotion" do
+    expect(summary(releases: [])).to include("Comparison unavailable")
   end
 
   it "keeps the compare link when the API cannot resolve the range" do
@@ -64,6 +86,23 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
 
   it "does not block deployment when the comparison response is incomplete" do
     expect(summary(response: {})).to include("Commit list unavailable")
+  end
+
+  it "selects the most recently published production release and ignores unrelated or draft releases" do
+    recent = release.merge(tag_name: "production-2026-10-02-120000-2", published_at: "2026-10-02T12:00:00Z")
+    unrelated = recent.merge(tag_name: "v9.0.0", published_at: "2026-10-03T12:00:00Z")
+    draft = recent.merge(tag_name: "production-2026-10-04-120000-4", draft: true)
+    text = summary(releases: [unrelated, release, draft, recent])
+    expect(text).to include("releases/tag/production-2026-10-02-120000-2")
+    expect(text).not_to include("releases/tag/v9.0.0", "releases/tag/production-2026-10-04-120000-4")
+  end
+
+  it "uses the GitHub Enterprise host for API calls and links" do
+    expect(summary(server_url: "https://github.example.com")).to include("https://github.example.com/example/app/compare/")
+  end
+
+  it "rejects staging images that have no traceable commit" do
+    expect(summary(staging_image: "app:legacy", expect_success: false)).to eq("")
   end
 
   it "identifies diverged history instead of implying a simple forward promotion" do
@@ -85,7 +124,7 @@ describe "Production promotion commit summary" do # rubocop:disable RSpec/Descri
 
   it "bounds the displayed list and links the complete comparison" do
     response[:ahead_by] = 150
-    response[:commits] *= 150
+    response[:commits] *= 100
     text = summary
     expect(text.scan("<li>").length).to eq(100)
     expect(text).to include("Showing the first 100", "150 commit(s)")

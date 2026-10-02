@@ -54,7 +54,68 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preview-promotion:
+    if: github.event.inputs.confirm_promotion == 'promote'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # No production Environment or production token: this finishes before approval.
+    outputs:
+      staging_image: ${{ steps.preview.outputs.staging_image }}
+      production_commit: ${{ steps.preview.outputs.production_commit }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout control-plane-flow actions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .cpflow
+          persist-credentials: false
+
+      - name: Normalize staging org
+        id: staging-org
+        env:
+          STAGING_ORG: ${{ vars.CPLN_ORG_STAGING }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          org="${STAGING_ORG#"${STAGING_ORG%%[![:space:]]*}"}"
+          org="${org%"${org##*[![:space:]]}"}"
+          if ! [[ "$org" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "::error::CPLN_ORG_STAGING must be a valid Control Plane org name."
+            exit 1
+          fi
+          echo "org=$org" >> "$GITHUB_OUTPUT"
+
+      - name: Setup staging environment
+        uses: ./.github/actions/cpflow-setup-environment
+        with:
+          token: ${{ secrets.CPLN_TOKEN_STAGING }}
+          org: ${{ steps.staging-org.outputs.org }}
+          working_directory: .cpflow
+          cpln_cli_version: ${{ vars.CPLN_CLI_VERSION }}
+          cpflow_version: ${{ vars.CPFLOW_VERSION }}
+          control_plane_flow_ref: ${{ job.workflow_ref }}
+
+      - name: Preview commits before production approval
+        id: preview
+        uses: ./.github/actions/cpflow-preview-promotion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
+        with:
+          staging_app_name: ${{ vars.STAGING_APP_NAME }}
+          production_app_name: ${{ vars.PRODUCTION_APP_NAME }}
+          staging_org: ${{ steps.staging-org.outputs.org }}
+          primary_workload: ${{ vars.PRIMARY_WORKLOAD }}
+
   promote-to-production:
+    needs: preview-promotion
     if: github.event.inputs.confirm_promotion == 'promote'
     runs-on: ubuntu-latest
     # GitHub uses secrets from this protected Environment for jobs that declare
@@ -426,69 +487,29 @@ jobs:
 
           echo "image=${staging_image}" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Show commits ready for production
-        id: commit-summary
+      - name: Verify approved promotion snapshot
+        id: verify-preview
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PRODUCTION_IMAGE: ${{ steps.capture-current.outputs.current_image }}
-          STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}
+          PREVIEW_IMAGE: ${{ needs.preview-promotion.outputs.staging_image }}
+          PREVIEW_PRODUCTION_COMMIT: ${{ needs.preview-promotion.outputs.production_commit }}
+          CURRENT_STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}
+          CURRENT_PRODUCTION_IMAGE: ${{ steps.capture-current.outputs.current_image }}
         shell: bash
         run: |
           set -euo pipefail
-
-          # Compare the captured artifacts, never moving branch tips or release tags.
-          production_tag="${PRODUCTION_IMAGE%%@*}"
-          staging_tag="${STAGING_IMAGE%%@*}"
+          if [[ -z "$PREVIEW_IMAGE" || "$CURRENT_STAGING_IMAGE" != "$PREVIEW_IMAGE" ]]; then
+            echo "::error::Staging changed since the preview. Rerun promotion and review the new comparison."
+            exit 1
+          fi
+          production_tag="${CURRENT_PRODUCTION_IMAGE%%@*}"
           production_commit="${production_tag##*_}"
-          staging_commit="${staging_tag##*_}"
-          echo "## Commits ready for production" >> "$GITHUB_STEP_SUMMARY"
-          echo >> "$GITHUB_STEP_SUMMARY"
-          if ! [[ "${production_commit}" =~ ^[0-9a-f]{40}$ && "${staging_commit}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Comparison unavailable: both deployed images must include a full commit SHA suffix." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [[ -n "$PREVIEW_PRODUCTION_COMMIT" && "$production_commit" != "$PREVIEW_PRODUCTION_COMMIT" ]]; then
+            echo "::error::Live production does not match its recorded release. Reconcile the production release record, then rerun promotion."
+            exit 1
           fi
 
-          repository_url="${GITHUB_SERVER_URL}/${GH_REPO}"
-          {
-            echo "Production: [\`${production_commit:0:7}\`](${repository_url}/commit/${production_commit})"
-            echo "Staging: [\`${staging_commit:0:7}\`](${repository_url}/commit/${staging_commit})"
-            echo
-            echo "[Compare production to staging](${repository_url}/compare/${production_commit}...${staging_commit})"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${production_commit}" == "${staging_commit}" ]]; then
-            echo "Production and staging use the same commit; there are no commits to promote." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          comparison="$(mktemp)"
-          trap 'rm -f "$comparison" "${comparison}.summary"' EXIT
-          # One bounded page; the compare link provides the complete diff and history.
-          if ! gh api "repos/${GH_REPO}/compare/${production_commit}...${staging_commit}?per_page=100&page=1" > "$comparison"; then
-            echo "Commit list unavailable: GitHub could not compare these deployed commits. Use the compare link above." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          if ! jq -r --arg repository_url "$repository_url" '
-            "\(.ahead_by) commit(s) on staging that are not on production.", "",
-            (if .status == "diverged" or .status == "behind" then
-              "Warning: staging is \(.status); production has \(.behind_by) commit(s) that are not on staging. Review the comparison before treating this as a forward promotion."
-            else empty end), "",
-            "<ul>",
-            (.commits[:100][] |
-              "<li><a href=\"\($repository_url)/commit/\(.sha)\">\(.sha[:7])</a> " +
-              (.commit.message | split("\n")[0] | @html) + "</li>"),
-            "</ul>", "",
-            (if .ahead_by > 100 then "Showing the first 100 commits; use the compare link for the complete list." else empty end)
-          ' "$comparison" > "${comparison}.summary"; then
-            echo "Commit list unavailable: GitHub returned incomplete comparison data." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          cat "${comparison}.summary" >> "$GITHUB_STEP_SUMMARY"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Copy image from staging
         id: copy-image
