@@ -1761,6 +1761,19 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(reusable).to include("variable:STAGING_APP_NAME")
     end
 
+    it "copies the artifact commit comparison into the caller-owned promotion job" do
+      canonical = YAML.load_file(reusable_promote_workflow_path)
+      generated = YAML.load_file(promote_workflow_path)
+      source_steps = canonical.dig("jobs", "promote-to-production", "steps")
+      steps = generated.dig("jobs", "promote-to-production", "steps")
+      comparison = steps.find { |step| step["id"] == "commit-summary" }
+
+      expect(comparison).to eq(source_steps.find { |step| step["id"] == "commit-summary" })
+      ids = steps.map { |step| step["id"] }
+      expect(ids.index("commit-summary")).to be > ids.index("staging-image")
+      expect(ids.index("commit-summary")).to be < ids.index("copy-image")
+    end
+
     it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
       contents = reusable_promote_workflow_path.read
       wrapper = promote_workflow_path.read

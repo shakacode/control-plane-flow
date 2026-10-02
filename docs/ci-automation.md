@@ -238,6 +238,19 @@ Docker credentials, which preserves multi-architecture manifests, preserves
 single-platform manifest format when supported, and avoids pulling image layers
 onto the GitHub Actions runner.
 
+The production promotion run summary shows a **Commits ready for production**
+section written before image copying starts. It compares the commit SHA suffixes of the
+captured production and staging images, links the full GitHub comparison, and
+lists up to 100 commits present on staging but absent from production. It calls
+out diverged history or staging behind production. Matching SHAs show that there
+are no commits to promote. Legacy images without full SHA suffixes or GitHub API
+failures produce an availability notice without blocking deployment.
+
+GitHub displays the section in the completed job summary, after approval of the
+protected production Environment; it is not a preview on the approval screen. Existing
+repositories pick it up with `cpflow update-github-actions` and commit the updated
+caller-owned production workflow.
+
 Before copying the image, production promotion compares the environment variable
 names exposed by staging and production at both the GVC level and each configured
 app workload's container level. Variables present in staging are treated as

@@ -14,6 +14,8 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
+- Production promotion runs show the deployed production-to-staging commit comparison and up to 100 commit subjects before copying the staging image, with explicit notices for missing provenance or diverged history.
+
 - Review apps can opt in to generated disposable credentials. Each PR app gets its own tagged secret dictionary and policy; setup fills only missing keys after checking both resource markers and policy scope, and app deletion removes the resources after checking their bindings and target, including after partial deletion or opt-in removal. Cleanup probes the deterministic per-app resource names for every dynamically matched review app so removed opt-ins can still be reconciled; a provider read failure, unexpected grant, or unmarked name collision now fails the delete step for inspection instead of silently succeeding.
 
 ### Fixed

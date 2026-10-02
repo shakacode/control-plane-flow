@@ -447,6 +447,67 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+      - name: Show commits ready for production
+        id: commit-summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRODUCTION_IMAGE: ${{ steps.capture-current.outputs.current_image }}
+          STAGING_IMAGE: ${{ steps.staging-image.outputs.image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Compare the captured artifacts, never moving branch tips or release tags.
+          production_tag="${PRODUCTION_IMAGE%%@*}"
+          staging_tag="${STAGING_IMAGE%%@*}"
+          production_commit="${production_tag##*_}"
+          staging_commit="${staging_tag##*_}"
+          echo "## Commits ready for production" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          if ! [[ "${production_commit}" =~ ^[0-9a-f]{40}$ && "${staging_commit}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Comparison unavailable: both deployed images must include a full commit SHA suffix." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          repository_url="${GITHUB_SERVER_URL}/${GH_REPO}"
+          {
+            echo "Production: [\`${production_commit:0:7}\`](${repository_url}/commit/${production_commit})"
+            echo "Staging: [\`${staging_commit:0:7}\`](${repository_url}/commit/${staging_commit})"
+            echo
+            echo "[Compare production to staging](${repository_url}/compare/${production_commit}...${staging_commit})"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${production_commit}" == "${staging_commit}" ]]; then
+            echo "Production and staging use the same commit; there are no commits to promote." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          comparison="$(mktemp)"
+          trap 'rm -f "$comparison" "${comparison}.summary"' EXIT
+          # One bounded page; the compare link provides the complete diff and history.
+          if ! gh api "repos/${GH_REPO}/compare/${production_commit}...${staging_commit}?per_page=100&page=1" > "$comparison"; then
+            echo "Commit list unavailable: GitHub could not compare these deployed commits. Use the compare link above." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if ! jq -r --arg repository_url "$repository_url" '
+            "\(.ahead_by) commit(s) on staging that are not on production.", "",
+            (if .status == "diverged" or .status == "behind" then
+              "Warning: staging is \(.status); production has \(.behind_by) commit(s) that are not on staging. Review the comparison before treating this as a forward promotion."
+            else empty end), "",
+            "<ul>",
+            (.commits[:100][] |
+              "<li><a href=\"\($repository_url)/commit/\(.sha)\">\(.sha[:7])</a> " +
+              (.commit.message | split("\n")[0] | @html) + "</li>"),
+            "</ul>", "",
+            (if .ahead_by > 100 then "Showing the first 100 commits; use the compare link for the complete list." else empty end)
+          ' "$comparison" > "${comparison}.summary"; then
+            echo "Commit list unavailable: GitHub returned incomplete comparison data." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cat "${comparison}.summary" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Copy image from staging
         id: copy-image
         env:
