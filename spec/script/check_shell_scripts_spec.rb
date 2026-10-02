@@ -66,9 +66,10 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
     expect(stdout.split("\0")).to eq(["--", *(declared_scripts + shell_paths).sort])
   end
 
-  it "preserves all 23 current repository shell surfaces" do
+  it "preserves all 24 current repository shell surfaces" do
     suffix_scripts = %w[
       .github/actions/cpflow-delete-control-plane-app/delete-app.sh
+      .github/actions/cpflow-preview-promotion/preview-promotion.sh
       lib/generator_templates/entrypoint.sh lib/generator_templates/release_script.sh
       lib/generator_templates_sqlite/release_script.sh
       spec/dummy/.controlplane/entrypoint.sh spec/dummy/.controlplane/release-invalid.sh

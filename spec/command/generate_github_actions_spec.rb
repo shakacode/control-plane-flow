@@ -431,7 +431,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         ref.match?(/\A[0-9a-f]{40}\z/) && version_comment&.match?(/\Av\d+\.\d+\.\d+\z/)
       end
 
-      expect(external_uses.length).to eq(3)
+      expect(external_uses.length).to eq(5)
       expect(violations).to be_empty,
                             "generated production external actions need SHA pins and release comments: #{violations}"
     end
@@ -1761,6 +1761,24 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(reusable).to include("variable:STAGING_APP_NAME")
     end
 
+    it "completes the preview before starting the protected production job" do
+      [reusable_promote_workflow_path, promote_workflow_path].each do |path|
+        jobs = YAML.load_file(path).fetch("jobs")
+        preview = jobs.fetch("preview-promotion")
+        promotion = jobs.fetch("promote-to-production")
+        expect(preview).not_to have_key("environment")
+        expect(preview.to_s).not_to include("secrets.CPLN_TOKEN_PRODUCTION", "vars.PRODUCTION_APP_NAME")
+        expect(promotion.fetch("needs")).to eq("preview-promotion")
+        expect(promotion).to have_key("environment")
+        expect(preview.fetch("steps").last.fetch("uses")).to eq("./.github/actions/cpflow-preview-promotion")
+        ids = promotion.fetch("steps").map { |step| step["id"] }
+        expect(ids.index("verify-preview")).to be > ids.index("staging-image")
+        expect(ids.index("verify-preview")).to be > ids.index("capture-current")
+        expect(ids.index("verify-preview")).to be < ids.index("copy-image")
+      end
+      expect(playground.join(".github/actions/cpflow-preview-promotion/preview-promotion.sh")).to exist
+    end
+
     it "configures the promote workflow's concurrency, release tagging, and rollback guard" do
       contents = reusable_promote_workflow_path.read
       wrapper = promote_workflow_path.read
@@ -1842,7 +1860,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     end
 
     it "does not persist checkout credentials in the production promotion job" do
-      expect(reusable_promote_workflow_path.read.scan("persist-credentials: false").length).to eq(2)
+      expect(reusable_promote_workflow_path.read.scan("persist-credentials: false").length).to eq(4)
     end
 
     it "copies the image currently deployed on staging instead of the newest pushed staging image" do
