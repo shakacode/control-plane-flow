@@ -1,447 +1,305 @@
-# Migrating Postgres database from Heroku infrastructure
+# Migrating PostgreSQL from Heroku to RDS
 
-> **Networking note.** This guide is written against a *publicly reachable* RDS instance for simplicity of the
-> Bucardo migration steps. For production, you almost certainly want RDS/Aurora in private subnets reached from
-> Control Plane workloads via the Cloud Wormhole agent — see
-> [Connecting Control Plane workloads to a private AWS RDS/Aurora database](./rds-private-networking.md). The
-> Bucardo migration here still works against a private RDS once the network path is set up.
+This guide covers a database move from Heroku Postgres to AWS RDS using dump and
+restore or Bucardo replication. Rehearse the chosen method with your database before
+scheduling a production cutover.
 
-If you are replacing Heroku Postgres or another pre-provisioned database service, also review the
-[Control Plane PostgreSQL Template Catalog page](https://shakadocs.controlplane.com/template-catalog/templates/postgres). The
-catalog template covers a single-instance PostgreSQL workload with persistent storage, optional PgBouncer, and optional
-scheduled backups.
+For other PostgreSQL tasks, use these guides:
 
-One of the biggest problems that will appear when moving from Heroku infrastructure is migrating the database. And
-despite it being rather easy if done between Heroku-hosted databases or non-Heroku-hosted databases (as Postgres has
-tools to do that naturally) it is not easily possible between Heroku and anything outside Heroku,
-**as Heroku doesn't allow setting up WAL replication for Postgres**. Period. No... any... replication outside of
-Heroku infrastructure for Postgres.
+- [PostgreSQL for disposable review apps](./postgres-review-apps.md): create and
+  clean up review-app helpers.
+- [Private RDS/Aurora networking](./rds-private-networking.md): connect Control Plane
+  workloads through the Cloud Wormhole agent.
+- [Control Plane PostgreSQL Template Catalog](https://shakadocs.controlplane.com/template-catalog/templates/postgres):
+  run PostgreSQL on Control Plane with persistent storage and optional backups.
 
-Previously, it was said to be possible to ask Heroku support to manually set up WAL log shipping, but they
-don't want to do that anymore. Which leaves only 2 options:
+## Choose a migration method
 
-### Option A: dump and restore way
+| Method | Application downtime | Main tradeoff |
+| --- | --- | --- |
+| Dump and restore | Writers stay stopped through the final dump and restore | Fewer moving parts; downtime grows with database size |
+| Bucardo replication | Writers stop for the final catch-up and connection switch | More setup; the initial copy runs while the app stays online |
 
-Nothing problematic here in general **if you can withstand long application maintenance time**.
-You basically need to:
+Bucardo uses triggers to copy data and replicate later changes. It needs permission
+to install its objects on the source database. Confirm that your Heroku plan and
+target database support the required permissions before choosing it.
 
-1. enable maintenance
-2. stop the application completely and wait for all the database writes to finish
-3. dump database on Heroku
-4. restore the database on RDS
-5. start the application
-6. disable maintenance
+Do not treat example timings as a downtime guarantee. Measure backup, restore, and
+replication performance during a rehearsal. For background on the trigger-based
+approach, see [AWS's Bucardo migration example](https://aws.amazon.com/blogs/database/migrating-legacy-postgresql-databases-to-amazon-rds-or-aurora-postgresql-using-bucardo/).
 
-And if the database is small or it is a hobby app, this should not be looked any further.
-However, this is not acceptable for 99% of production apps as their databases are huge and maintenance time
-should be as small as possible.
+### Historical large-database timings
 
-Rough timing for a 1Tb database can be (but your mileage may vary):
+The original guide recorded these approximate timings for a 1 TB database. It did
+not record enough environment details to reproduce the results. Use them to
+understand the difference between elapsed migration time and downtime, not to
+estimate your migration:
 
-- 2.5h creating Heroku backup
-- 0.5h downloading backup to EC2
-- 13h restoring a backup on RDS (in 4 threads)
+| Method | Initial transfer | Application downtime |
+| --- | --- | --- |
+| Dump and restore | 2.5 hours to create a backup, 0.5 hours to download it, and 13 hours to restore with four workers | About 16 hours |
+| Bucardo | About 1.5 days for the initial copy with one worker, while the source application remained online | About 1–2 minutes for the database switch |
 
-**~16h total time, equals maintenance downtime**
+Copy throughput and the source write rate determine how quickly replication can
+catch up. More instance capacity does not automatically make a single-worker copy
+parallel. Measure the initial copy and final catch-up separately during rehearsal,
+including application shutdown, restart, and readiness checks in the downtime budget.
 
-### Option B: logical replication way
+## Prepare the databases and network
 
-There are several logical replication solutions exist for Postgres - Slony, Bucardo, Londiste, Mimeo, but... when
-you try to dig deeper, the only viable and up-to-date solution for purpose of migrating from Heroku to RDS is Bucardo.
+Before either migration method:
 
-The migration process with Bucardo looks as follows:
+1. Inventory database versions, extensions, storage, and every application or job
+   that writes to the database.
+2. Create the RDS database with compatible schema support and enough storage for
+   the data and expected growth.
+3. Establish connectivity from the migration host and the application's eventual
+   deployment location. Prefer private networking; see the
+   [RDS/Aurora networking guide](./rds-private-networking.md).
+4. Restrict security groups to the hosts and ports that need access. If temporary
+   public access is necessary, restrict it to the migration host and remove it afterward.
+5. Take a source backup and agree on validation, cutover, and rollback criteria.
 
-1. setup Bucardo on the dedicated EC2 instance
-2. dump Heroku database schema and restore it on RDS - rather fast as there is no data
-3. start Bucardo replication - this will install triggers and special schema to your database
-4. wait for replication to catch up - this may take a long time, but the application can continue working as usual
-5. enable maintenance
-6. stop the application completely and wait for replication to finally finish
-7. switch the database connection strings
-8. start the application
-9. disable maintenance
+RDS allocated storage cannot be reduced in place. Size it for the initial load,
+indexes, and growth before starting; storage autoscaling may not keep up with a
+large bulk load. Further storage changes must wait for storage optimization to
+finish and are subject to modification limits. See
+[RDS storage autoscaling limitations](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.Autoscaling.html#autoscaling-limitations).
 
-Maintenance downtime here can be minutes not hours or days like in p1, but no free lunches - the process is more complex.
+Choose the target database region based on application latency as well as migration
+throughput. Test the network path while the application still runs on Heroku and
+after its deployment moves. If the application already supports separate read and
+write connections, a temporary read replica near the application may reduce read
+latency. Writes still reach the primary, and reads must tolerate replication lag.
+Rehearse this extra topology before relying on it; see
+[RDS PostgreSQL read replicas](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PostgreSQL.Replication.ReadReplicas.html).
 
-Rough timing for a 1Tb database can be (but your mileage may vary):
+For Bucardo, also check that each replicated table has a primary key. Freeze schema
+changes from the schema copy through cutover. Plan separately for objects Bucardo
+does not replicate, including materialized views.
 
-- whatever setup time, no hurry
-- 1.5 days for onetimecopy (in 1 thread) - DDL changes not allowed, but no downtime
-- 1-2 min for database switch, maintenance downtime
+### Set up a migration host
 
-**~2 days total time, ~1-2 min maintenance downtime**
+Use a temporary host, such as an EC2 instance, that can reach both databases. Choose
+its region, capacity, and disk space based on measured latency and copy requirements.
+Restrict SSH access and protect the private key:
 
-### Some considerations:
-
-- DDL changes should be "frozen and postponed" while Bucardo replication. There is also a way to stop replication,
-update DDL in both databases, and restart replication, however, as well no-DDL for a day or two seems a
-reasonable restriction for production databases vs potential errors.
-
-- there is a "speed up" option to restore dump (with threads) and then run Bucardo to catch up only deltas, but it
-looks unnecessary as speed gain is minimal vs potential errors. It will not speed up things dramatically, but will just
-save a couple of hours of non-maintenance time (which most probably be spent on the command line) so not worth doing.
-
-## Before replication
-
-### Application code changes
-
-Before everything, we need to recheck the database schema and ensure **that every table has a primary key (PK)
-in place** as Bucardo is using PKs for replication.
-
-> NOTE: theoretically Bucardo can work with uniq indexes as well, but having a PK on each table is easy and avoids
-unnesessary complications
-
-So, please stop, and do whatever is needed for your application.
-
-### Choosing database location and EC2 location
-
-All Heroku Postgres databases for location US are running in AWS on `us-east-1`. Control Plane, on the other side,
-recommends `us-east-2` as a default. So we need to choose:
-
-- either simple setup - main database in `us-east-2`
-- or a bit more complex - main database in `us-east-2`, replica in `us-east-1` (which can be removed later)
-
-This makes sense if your application supports working with replicas. Then read-only `SELECT` queries will go to the
-read replica and write `INSERT/UPDATE` queries will go to the main write-enabled database.
-This way we can keep most reading latency to the minimum.
-
-Anyway, it is worth to consider developing such a mode in the application if you want to scale in more than 1 region.
-
-### Create new EC2 instance which we will use for database replication
-
-- better if it will be in the same AWS location where RDS database will be (most probably `us-east-2`)
-- choose Ubuntu as OS
-- use some bigger instance, e.g. `m6i.4xlarge` - price doesn't matter much, as such instance will not run long time
-- if you will be copying backup via this instance, choose sufficient space for both OS and backup and some free space
-- create security group `public-access` with all inbound and outbound traffic allowed. this will be handy as well for
-database setup. if you need tighter access controls, up to you
-- generate a new certificate and save it locally (e.g. `bucardo.pem`), will be used for SSH connection. Do not forget to
-update correct permissions e.g. `chown TODO ~/Dowloads/bucardo.pem`
-
-After the instance will be running on AWS, you can connect to it via SSH as follows:
 ```sh
-ssh ubuntu@1.2.3.4 -i ~/Downloads/bucardo.pem
+chmod 600 ~/Downloads/bucardo.pem
+ssh -i ~/Downloads/bucardo.pem ubuntu@MIGRATION_HOST
 ```
 
-### Creating RDS instance
+Run long foreground operations in a detachable session such as `screen`, and save
+logs so you can inspect errors after reconnecting.
 
-- check `public` box
-- pick `public-access` security group (or whatever you need)
-- if you will be restoring from backup, it is possible to choose temporary bigger instance e.g. `db.r6i.4xlarge`, which
-can be downgraded later.
-- if you will be using bucardo onetimecopy, then it is ok to select any instance you may need, as bucardo does copying
-in a single thread
-- it is fairly easy to switch database instance type afterwards and requires only minimal downtime
-- storage space. this needs a good pick, as it is a) not possible to shrink and b) auto-expanding which AWS offers and
-which should be enabled by default can block database modifications for quite long periods (days)
+### Install database tools
 
-### Running commands in detached mode on the EC2 instance
+Install PostgreSQL clients compatible with the source and target versions. Follow
+the [PostgreSQL installation instructions](https://www.postgresql.org/download/)
+and [supported-version policy](https://www.postgresql.org/support/versioning/).
 
-Some commands that run on EC2 may take a long time and we may want to disconnect from the SSH session while the command
-will continue running. And we want to reconnect to the session and see the progress. Possibly without installing
-special tools. This can be accomplished with `screen` command, e.g.:
+For replication, install Bucardo and its dependencies using the
+[Bucardo installation guide](https://bucardo.org/Bucardo/Installation/) and
+[requirements](https://bucardo.org/Bucardo/installation/requirements). Bucardo needs
+a local PostgreSQL database for its control metadata. Before initializing it, check:
 
-```sh
-# this will start a backround process and return to terminal (which can be closed)
-screen -dmL ...your command...
+- Perl and the `DBI`, `DBD::Pg`, and `DBIx::Safe` modules, plus the utility modules
+  listed in Bucardo's requirements, are installed for the daemon's Perl runtime.
+- The local control database has `PL/pgSQL` and `PL/PerlU` available. Replicated
+  databases need `PL/pgSQL` for the trigger-based sync; they do not need `PL/PerlU`.
+- The installer can authenticate as a PostgreSQL superuser on the local control
+  server. This is separate from the source and target database privileges.
+- The configured PID and log directories exist and are writable by the OS user
+  running Bucardo. Check the paths chosen by your installation rather than assuming
+  a particular distribution's layout.
 
-# checking if screen is still running in the background
-ps aux | grep -i screen
-
-# see the output log
-cat screenlog.0
-```
-
-### Installing Postgres and Bucardo on EC2
-
-Now, when RDS is running and EC2 is running we can start installing local Postgres and Bucardo itself. Let's install
-Postgres 13 first. It may be possible to install the latest Postgres, but 13 seems the best choice atm.
+Configure authenticated local access to that control database, then initialize it:
 
 ```sh
-# update all your packages
-sudo apt update
-sudo apt upgrade -y
-
-# add postgres repository key
-sudo sh -c 'echo "deb [arch=$(dpkg --print-architecture)] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-
-# update again
-sudo apt-get update
-
-# install packages
-sudo apt-get -y install make postgresql-13 postgresql-client-13 postgresql-plperl-13 libdbd-pg-perl libdbix-safe-perl
-```
-
-Postgres Perl language `plperl` as well as DBD and DBIx packages are needed for Bucardo.
-
-Now, as all dependencies are installed, we can install Bucardo from latest tarball.
-
-```sh
-# install Bucardo itself
-wget https://bucardo.org/downloads/Bucardo-5.6.0.tar.gz
-tar xzf Bucardo-5.6.0.tar.gz
-cd Bucardo-5.6.0
-perl Makefile.PL
-sudo make install
-
-# create dirs and fix permissions
-sudo mkdir /var/run/bucardo
-sudo mkdir /var/log/bucardo
-sudo chown ubuntu /var/run/bucardo/
-sudo chown ubuntu /var/log/bucardo
-```
-
-After that, Bucardo is physically installed as a package and runnable but we need to configure everything.
-Let's start with Postgres. As this is a temporary installation (only for the period of replication),
-it is rather safe to set `trust` localhost connections (or set up another way if you want this).
-
-
-For this, we need to edit `pg_hba.conf` as follows:
-```sh
-# edit pg config to make postgres trusted
-sudo nano /etc/postgresql/13/main/pg_hba.conf
-```
-
-in that file change the following lines to `trust`
-```sh
-# in pg_hba.conf
-local   all             postgres                                trust
-local   all             all                                     trust
-```
-
-and restart Postgres to pick up changes
-```sh
-# restart postgres
-sudo systemctl restart postgresql
-```
-
-And finally-finally we can install Bucardo service database on local Postgres and see if everything runs.
-
-```sh
-# this will create local bucardo "service" database
 bucardo install
-
-# for option 3 pick `postgres` as a user
-# for option 4 pick `postgres` as a database from where initial connection should be attempted
 ```
 
-:tada: :tada: :tada: now we have local Postgres and Bucardo running, and can continue with external services
-configuration.
+Test your chosen versions and authentication settings during rehearsal. The steps
+below describe the replication flow; they do not replace Bucardo's installation guide.
 
-### Configuring external (Heroku, RDS) database connections
+### Configure source and target connections
 
-For this, we will use `pg_service.conf`. It will not work in all places, and sometimes we will need to provide
-connection properties manually, but for many commands, it is very useful.
-
-```sh
-# create and edit .pg_service.conf
-touch ~/.pg_service.conf
-nano ~/.pg_service.conf
-```
+Create `~/.pg_service.conf` on the migration host. Replace the placeholders with
+credentials for the source and target databases:
 
 ```ini
-# ~/.pg_service.conf
-
 [heroku]
-host=ec2-xxx.compute-1.amazonaws.com
+host=HEROKU_HOST
 port=5432
-dbname=xxx
-user=xxx
-password=xxx
+dbname=SOURCE_DATABASE
+user=SOURCE_USER
+password=SOURCE_PASSWORD
+sslmode=require
 
 [rds]
-host=xxx.us-east-2.rds.amazonaws.com
+host=RDS_HOST
 port=5432
-dbname=xxx
-user=postgres
-password=xxx
+dbname=TARGET_DATABASE
+user=TARGET_USER
+password=TARGET_PASSWORD
+sslmode=require
 ```
 
-Test connectivity to databases with:
-```sh
-psql service=heroku -c '\l+'
-psql service=rds -c '\l+'
-```
-
-You will see all databases set up on each server (and can see their size):
-```console
-       Name        |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges   |   Size    | Tablespace |                Description
--------------------+----------+----------+-------------+-------------+-----------------------+-----------+------------+--------------------------------------------
- my-production-db  | xxx      | UTF8     | en_US.UTF-8 | en_US.UTF-8 |                       | 821 GB    | pg_default |
- postgres          | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 |                       | 8205 kB   | pg_default | default administrative connection database
- rdsadmin          | rdsadmin | UTF8     | en_US.UTF-8 | en_US.UTF-8 | rdsadmin=CTc/rdsadmin+| No Access | pg_default |
-                   |          |          |             |             | rdstopmgr=Tc/rdsadmin |           |            |
- template0         | rdsadmin | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/rdsadmin          +| 8033 kB   | pg_default | unmodifiable empty database
-                   |          |          |             |             | rdsadmin=CTc/rdsadmin |           |            |
- template1         | postgres | UTF8     | en_US.UTF-8 | en_US.UTF-8 | =c/postgres          +| 8205 kB   | pg_default | default template for new databases
-                   |          |          |             |             | postgres=CTc/postgres |           |            |
-(5 rows)
-```
-
-After both databases are connectable, we can proceed with replication itself.
-
-## Performing replication
-
-:fire: :fire: :fire: **IMPORTANT: from this step, DDL changes are not allowed** :fire: :fire: :fire:
-
-### Application changes
-
-- temporary freeze all DDL changes till replication will finish
-- temporary disable all background jobs or services that are possible to stop. This will help to lessen database
-load and especially, where possible, to decrease database write operations that will decrease replication pipe as well.
-
-### Dump and restore the initial schema
-
-This step doesn't take much time (as it is only a database schema without data),
-but it is definitely handy to save all output, and closely check for any errors.
+Protect this file and confirm that both connections work. Use your provider's
+certificate settings if your environment requires server identity verification.
 
 ```sh
-# save heroku schema to `schema.sql`
+chmod 600 ~/.pg_service.conf
+psql service=heroku -c 'SELECT current_database();'
+psql service=rds -c 'SELECT current_database();'
+```
+
+## Option A: dump and restore
+
+For a migration that can tolerate the measured restore time:
+
+1. Enable maintenance mode and stop **all database writers**, including background
+   jobs and external services. Maintenance mode alone does not stop writes.
+2. Wait for active writes to finish, then create and download the final source dump.
+3. Restore the dump into RDS and check every restore error.
+4. Validate the target data and application connection.
+5. Follow the [cutover steps](#switch-the-application-to-rds) below.
+
+Keep writers stopped throughout the final dump and restore. The
+[Heroku PGBackups guide](https://devcenter.heroku.com/articles/heroku-postgres-backups)
+covers backup capture and download; choose and rehearse a restore procedure suitable
+for your dump format and database size.
+
+## Option B: Bucardo replication
+
+### Copy the schema
+
+Freeze DDL changes and reduce avoidable write traffic. Copy the source schema into
+the empty target database, retaining logs and checking for errors:
+
+```sh
 pg_dump service=heroku --schema-only --no-acl --no-owner -v > schema.sql
-
-# restore `schema.sql` on RDS
-psql service=rds < schema.sql
+psql --single-transaction -v ON_ERROR_STOP=1 -f schema.sql service=rds
 ```
 
-### Configure Bucardo replication
+The restore runs in one transaction and rolls back on error. Investigate any
+unsupported extensions or other schema incompatibilities before retrying.
 
-After we have all databases connectable and all same schema, we can tell Bucardo what it needs to replicate:
-```sh
-# add databases
-bucardo add db from_db dbhost=xxx dbport=5432 dbuser=xxx dbpass=xxx dbname=xxx
-bucardo add db to_db dbhost=xxx dbport=5432 dbuser=postgres dbpass=xxx dbname=xxx
+### Configure the sync
 
-# mark all tables and sequences for replication
-bucardo add all tables
-bucardo add all sequences
-```
-Here, Bucardo will connect to databases and collect object metadata for replication.
-After that, we can add sync as well:
+Register the source and target with Bucardo. Replace the named placeholders with
+the connection values for each database. These commands contain credentials; protect your terminal
+history and any logs that capture them.
 
 ```sh
-# add sync itself
-bucardo add sync mysync tables=all dbs=from_db,to_db onetimecopy=1
+bucardo add db from_db dbhost=HEROKU_HOST dbport=5432 dbuser=SOURCE_USER dbpass=SOURCE_PASSWORD dbname=SOURCE_DATABASE
+bucardo add db to_db dbhost=RDS_HOST dbport=5432 dbuser=TARGET_USER dbpass=TARGET_PASSWORD dbname=TARGET_DATABASE
+
+bucardo add all tables db=from_db --relgroup=migration
+bucardo add all sequences db=from_db --relgroup=migration
+bucardo add sync mysync relgroup=migration dbs=from_db:source,to_db:target onetimecopy=1
 ```
 
-The most important option here is `onetimecopy=1` which will tell Bucardo to perform initial data copying
-(when sync will start). Such a copying is done *in a single thread* by creating a pipe (via Bucardo) as follows:
-```SQL
--- on heroku
-COPY xxx TO STDOUT
--- on rds
-COPY xxx FROM STDIN
-```
+Inspect the registered tables, sequences, and source/target roles before starting.
+See the [Bucardo tutorial](https://bucardo.org/Bucardo/pgbench_example) for its
+registration and inspection commands.
+The `onetimecopy=1` setting requests an initial data copy, followed by replication
+of subsequent changes.
 
-### Run sync
-
-And now, when everything is ready, we can push the button and go for a long :coffee: or maybe even a weekend.
+### Start and monitor replication
 
 ```sh
-# starts Bucardo sync daemon
 bucardo start
-```
-
-As well it is ok to disconnect from SSH as Bucardo daemon will continue working in background.
-
-### Monitor status
-
-To check the progress of sync (from Bucardo perspective):
-```sh
-# overall progress of all syncs
 bucardo status
-
-# single sync progress
 bucardo status mysync
 ```
 
-To check what's going on in databases directly:
-```sh
-# Bucardo adds a comment to it's queries, so it is fairly easy to grep those
-psql service=heroku -c 'select * from pg_stat_activity' | grep -i bucardo
-psql service=rds -c 'select * from pg_stat_activity' | grep -i bucardo
-```
-
-### After replication will catch up, but before databases switch
-
-1. Please do a sanity check of data in tables. E.g. check:
-
-- table `COUNT`
-- min/max of PK ids where applicable
-- min/max of `created_at/updated_at` where applicable
-
-2. For p1 it is possible to use our checker script that will do this automatically (TODO)
-
-3. Refresh materialized views manually (as they are not synced by Bucardo).
-Just go to `psql` and `REFRESH MATERIALIZED VIEW ...`
-
-## Switch databases
-
-:fire: :fire: :fire: **This is final non reverisble step now** :fire: :fire: :fire:
-Before this point, all changes can be easily removed or reversed and database can stay on Heroku as it was before,
-afther this switch it is not possible (at least easily).
-
-So... after sync will catch up, basically it is needed to:
-
-1. start maintenance mode on heroku `heroku maintenance:on`
-2. scale down and stop all the dynos
-3. wait a bit for all queries to finish and replication catch up latest changes
-4. detach heroku postgres from DATABASE_URL
-5. set `DATABASE_URL` to RDS url (plaintext now)
-6. start dynos
-7. wait for their readiness with `heroku ps:wait`
-8. stop maintenance with `heroku maintenance:off`
-9. :fire: **Now we are fully on RDS, so DDL changes are allowed** :fire:
-10. you could gradually enable all background jobs and services which were temporary stopped
-
-## After switch
-
-As we now running on RDS, there is only single task left to do on Heroku - make a final backup of database and save it.
+Bucardo runs as a daemon. You can disconnect from SSH and reconnect to inspect its
+status and logs. To inspect its database activity:
 
 ```sh
-# to capture backup (will take lots of time), can be disconnected
-heroku pg:backups:capture -a example-app
-
-# to get url of backup
-heroku pg:backups:url bXXXX -a example-app
+psql service=heroku -c 'SELECT * FROM pg_stat_activity' | grep -i bucardo
+psql service=rds -c 'SELECT * FROM pg_stat_activity' | grep -i bucardo
 ```
 
-Now you can download it locally or copy to S3 via EC2 as it will take quite some time and traffic.
+Wait for the initial copy to finish and investigate replication errors. Keep schema
+changes frozen until cutover completes.
+
+### Validate before cutover
+
+Compare source and target data with checks suited to the application:
+
+- Row counts and representative records.
+- Minimum and maximum primary keys or timestamps, where meaningful.
+- Sequence values and application-specific invariants.
+- Objects outside replication, including refreshed materialized views.
+
+Checks taken while writes continue can differ. Repeat the final validation after
+stopping writers and waiting for replication to catch up.
+
+## Switch the application to RDS
+
+Rehearse these steps with the application's deployment process. If you are also
+moving the app to Control Plane, prepare its database secret and workloads before
+the cutover window.
+
+For classic Heroku Postgres, retain a second source attachment before detaching
+`DATABASE`. Replace `SOURCE_ADDON` with the existing add-on identifier:
 
 ```sh
-# download dump to EC2
-screen -dmL time curl 'your-url' -o latest.dump
-
-# install aws cli (in a way reccomended by Amazon)
-# ...TODO...
-
-# configure aws credentials
-aws configure
-
-# check S3 access
-aws s3 ls
-
-# upload to S3
-screen -dmL time aws s3 cp latest.dump s3://my-dumps-bucket/ --region us-east-1
+heroku addons:attach SOURCE_ADDON --as MIGRATION_SOURCE -a APP
 ```
 
-# Refs
+Confirm that `MIGRATION_SOURCE_URL` refers to the source database. Leave this
+attachment in place for backup and recovery; the cutover detaches only `DATABASE`.
+For Advanced databases, establish the equivalent retained attachment using that
+plan's commands during rehearsal.
 
-https://bucardo.org
+1. Enable maintenance mode. For a Heroku-hosted app, use `heroku maintenance:on -a APP`.
+2. Stop all writers: web dynos, workers, scheduled jobs, and external services.
+3. Wait for active writes to finish. With Bucardo, wait for the final replication
+   catch-up and verify the target again.
+4. Save the old connection configuration and add-on attachment details for recovery.
+   For a Heroku-hosted app, detach the attachment that owns `DATABASE_URL` before
+   setting the RDS connection. For classic Heroku Postgres, this is typically
+   `heroku addons:detach DATABASE -a APP`; confirm the attachment name first.
+   Advanced databases use a different attachment command. See the
+   [Heroku CLI attachment reference](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-addons-detach-attachment_name)
+   and [database-type-specific credential instructions](https://devcenter.heroku.com/articles/heroku-postgresql-credentials#detach-a-credential).
+   Keep the source database itself; do not destroy the add-on.
+5. With Bucardo, stop replication with `bucardo stop` after the final catch-up,
+   before any application writes reach RDS. Confirm that the sync has stopped and
+   keep source writers disabled.
+6. Update the app's database connection to RDS using its deployment secret/configuration
+   mechanism.
+7. Start the application and check readiness, database connectivity, and key operations.
+   For Heroku dynos, `heroku ps:wait -a APP` can check process readiness.
+8. End maintenance only after those checks pass. On Heroku, use `heroku maintenance:off -a APP`.
+9. Resume background jobs and scheduled writers. Lift the schema freeze once
+   replication is no longer needed.
 
-https://stackoverflow.com/questions/22264753/linux-how-to-install-dbdpg-module
+**Rollback boundary:** before RDS accepts new application writes, the source can
+remain the authoritative database. After new writes reach RDS, switching back to
+Heroku requires a data reconciliation plan; changing the connection string alone
+would lose those writes.
 
-https://gist.github.com/luizomf/1a7994cf4263e10dce416a75b9180f01
+## Finish the migration
 
-https://www.waytoeasylearn.com/learn/bucardo-installation/
+1. Retain a final Heroku backup according to your recovery policy. Keep the source
+   available until the agreed recovery window closes.
+2. Verify RDS backups, monitoring, storage, and application performance.
+3. Remove Bucardo's temporary replication objects when they are no longer needed,
+   following its cleanup procedure. Do not restart the old sync against the live target.
+4. Remove temporary network access, migration credentials, and the migration host.
 
-https://gist.github.com/knasyrov/97301801733a31c60521
+To capture and locate a final Heroku backup, use a remaining source attachment or
+add-on identifier for `SOURCE_ADDON`:
 
-https://www.cloudnation.nl/inspiratie/blogs/migrating-heroku-postgresql-to-aurora-rds-with-almost-minimal-downtime
+```sh
+heroku pg:backups:capture SOURCE_ADDON -a APP
+heroku pg:backups:url BACKUP_ID -a APP
+```
 
-https://blog.porter.run/migrating-postgres-from-heroku-to-rds/
-
-https://www.endpointdev.com/blog/2017/06/amazon-aws-upgrades-to-postgres-with/
-
-https://aws.amazon.com/blogs/database/migrating-legacy-postgresql-databases-to-amazon-rds-or-aurora-postgresql-using-bucardo/
+Download it to protected storage. If your retention destination is S3, use your
+normal AWS credentials and bucket policy to upload the dump. Verify the stored
+backup before removing the source database.

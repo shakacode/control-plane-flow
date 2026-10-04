@@ -545,6 +545,9 @@ If you want to run PostgreSQL on Control Plane instead of keeping a Heroku add-o
 persistent storage and optional scheduled backups. Additionally, we provide a default `postgres` template in this
 repository optimized for Control Plane and suitable for development purposes.
 
+For disposable review apps, see [PostgreSQL for review apps](./docs/postgres-review-apps.md)
+for helper ownership, automatic cleanup, and recovery after interrupted deletion.
+
 ## In-memory Databases
 
 E.g., Redis, Memcached.

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../core/disposable_postgres_helpers"
+
 module Command
   class Delete < Base # rubocop:disable Metrics/ClassLength
     NAME = "delete"
@@ -53,6 +55,7 @@ module Command
     def delete_whole_app
       return handle_missing_app if cp.fetch_gvc.nil?
 
+      postgres_helpers.validate!
       validate_disposable_review_secret_resources!
       check_volumesets
       check_images
@@ -69,11 +72,13 @@ module Command
     def handle_missing_app
       progress.puts("App '#{config.app}' does not exist.")
       cleanup_state = validate_disposable_review_secret_resources!
-      return if cleanup_state == :none
+      postgres_resources = postgres_helpers.validate!
+      return if cleanup_state == :none && postgres_resources.empty?
       return unless confirm_delete("disposable secrets for app #{config.app}")
 
       unbind_missing_app_disposable_policy! if cleanup_state == :own_binding
       delete_generated_review_secret_resources
+      delete_postgres_helpers
     end
 
     def validate_disposable_review_secret_resources!
@@ -144,8 +149,19 @@ module Command
       # Keep the GVC discoverable by stale-app cleanup if disposable resource deletion fails.
       # The app identity has already been unbound from its secret policy.
       delete_generated_review_secret_resources
+      delete_postgres_helpers
       delete_gvc
       delete_images
+    end
+
+    def postgres_helpers
+      @postgres_helpers ||= DisposablePostgresHelpers.new(config, cp)
+    end
+
+    def delete_postgres_helpers
+      postgres_helpers.delete do |kind, name, &operation|
+        step("Deleting disposable PostgreSQL #{kind} '#{name}'", &operation)
+      end
     end
 
     def check_volumesets

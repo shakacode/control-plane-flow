@@ -48,6 +48,13 @@ describe ControlplaneApi do
     end
   end
 
+  describe "#secret_access_report" do
+    it "reads effective permissions for the exact secret without revealing its content" do
+      response = stub_api_call("/org/my-org/secret/my-secret/-accessreport", method: :get)
+      expect(api.secret_access_report(org: "my-org", secret: "my-secret")).to eq(response)
+    end
+  end
+
   describe "#query_images" do
     let(:expected_body) do
       {

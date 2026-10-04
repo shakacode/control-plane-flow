@@ -152,6 +152,10 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     )
   end
 
+  def secret_access_report(org:, secret:)
+    api_json("/org/#{org}/secret/#{secret}/-accessreport", method: :get)
+  end
+
   def delete_secret(org:, secret:)
     api_json("/org/#{org}/secret/#{secret}", method: :delete)
   end

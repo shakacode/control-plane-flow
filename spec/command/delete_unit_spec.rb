@@ -280,6 +280,9 @@ describe Command::Delete do
     let(:command) { described_class.new(config) }
 
     before do
+      allow(cp).to receive(:fetch_secret).with("#{config.app}-pg").and_return(nil)
+      allow(cp).to receive(:fetch_secret).with("#{config.app}-pg-script").and_return(nil)
+      allow(cp).to receive(:fetch_policy).with("#{config.app}-pg-access").and_return(nil)
       allow(command).to receive(:cp).and_return(cp)
       allow(command).to receive(:step).and_yield
       allow(cp).to receive(:fetch_secret).with(config.secrets).and_return(

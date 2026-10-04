@@ -44,6 +44,7 @@ const sidebars: SidebarsConfig = {
       label: 'Data Services',
       items: [
         'postgres',
+        'postgres-review-apps',
         'rds-private-networking',
         'redis',
       ],
