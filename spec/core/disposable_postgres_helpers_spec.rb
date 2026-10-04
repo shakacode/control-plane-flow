@@ -25,7 +25,10 @@ describe DisposablePostgresHelpers do # rubocop:disable RSpec/MultipleMemoizedHe
     allow(cp).to receive(:fetch_secret).with("#{app}-pg").and_return(secret)
     allow(cp).to receive(:fetch_secret).with("#{app}-pg-script").and_return(script)
     allow(cp).to receive(:fetch_policy).with("#{app}-pg-access").and_return(policy)
-    allow(cp).to receive_messages(delete_secret: true, delete_policy: true, fetch_policies: { "items" => [] })
+    allow(cp).to receive_messages(delete_secret: true, delete_policy: true)
+    allow(cp).to receive(:secret_access_report).and_return(
+      { "kind" => "accessreport", "permissions" => %w[reveal use].map { |name| { "name" => name, "bindings" => [] } } }
+    )
   end
 
   it "removes marked helpers and their exact policy" do
@@ -168,26 +171,6 @@ describe DisposablePostgresHelpers do # rubocop:disable RSpec/MultipleMemoizedHe
     expect(cp).not_to have_received(:fetch_policy)
   end
 
-  it "refuses helpers shared by a policy outside the app configuration" do
-    allow(cp).to receive(:fetch_policies).and_return(
-      { "items" => [{ "name" => "foreign", "targetKind" => "secret", "targetLinks" => ["//secret/#{app}-pg"] }] }
-    )
-    expect { helpers.validate! }.to raise_error(/ownership/)
-  end
-
-  it "refuses ambiguous secret policy queries" do
-    allow(cp).to receive(:fetch_policies).and_return(
-      { "items" => [{ "name" => "foreign", "targetKind" => "secret", "targetQuery" => {} }] }
-    )
-    expect { helpers.validate! }.to raise_error(/ownership/)
-  end
-
-  it "fails closed when policy inventory is unavailable" do
-    allow(cp).to receive(:fetch_policies).and_raise("provider unavailable")
-    expect { helpers.delete }.to raise_error("provider unavailable")
-    expect(cp).not_to have_received(:delete_secret)
-  end
-
   it "rejects partially tagged helper templates before creation" do
     policy.delete("tags")
     [secret, script, policy].each do |resource|
@@ -197,26 +180,61 @@ describe DisposablePostgresHelpers do # rubocop:disable RSpec/MultipleMemoizedHe
     expect { helpers.prepare_templates!([secret, script, policy]) }.to raise_error(/ownership/)
   end
 
-  it "allows org-wide metadata administration without treating helpers as shared credentials" do
-    allow(cp).to receive(:fetch_policies).and_return(
-      { "items" => [{ "name" => "admins", "targetKind" => "secret", "target" => "all",
-                      "bindings" => [{ "permissions" => ["manage"], "principalLinks" => ["//group/admins"] }] }] }
+  def report_binding(principal:, policy_link: "/org/test-org/policy/foreign", match: "link", grants: ["reveal"])
+    { "principalLink" => principal, "grantingPolicyLink" => policy_link,
+      "match" => match, "grantedPermissions" => grants }
+  end
+
+  def stub_access(binding)
+    allow(cp).to receive(:secret_access_report).and_return(
+      { "kind" => "accessreport", "permissions" => [
+        { "name" => "reveal", "bindings" => [binding] }, { "name" => "use", "bindings" => [] }
+      ] }
     )
+  end
+
+  it "refuses effective foreign workload access, including manage-implied reveal" do
+    stub_access(report_binding(principal: "/org/test-org/gvc/foreign/identity/foreign", grants: ["manage"],
+                               match: "all"))
+    expect { helpers.delete }.to raise_error(/access report/)
+    expect(cp).not_to have_received(:delete_secret)
+  end
+
+  it "preserves a helper shared through a separate policy even with the app identity" do
+    stub_access(report_binding(principal: "/org/test-org/gvc/#{app}/identity/#{app}-identity"))
+    expect { helpers.validate! }.to raise_error(/access report/)
+  end
+
+  it "accepts app access through the exact owned policy" do
+    stub_access(report_binding(principal: "/org/test-org/gvc/#{app}/identity/#{app}-identity",
+                               policy_link: "/org/test-org/policy/#{app}-pg-access"))
     expect(helpers.validate!.size).to eq(3)
   end
 
-  it "still refuses broad policies granting credential access" do
-    allow(cp).to receive(:fetch_policies).and_return(
-      { "items" => [{ "name" => "consumers", "targetKind" => "secret", "target" => "all",
-                      "bindings" => [{ "permissions" => ["reveal"], "principalLinks" => ["//group/consumers"] }] }] }
-    )
-    expect { helpers.validate! }.to raise_error(/ownership/)
+  it "permits global org administration while refusing targeted admin grants" do
+    stub_access(report_binding(principal: "/org/test-org/group/admins", match: "all", grants: ["manage"]))
+    expect(helpers.validate!.size).to eq(3)
+    stub_access(report_binding(principal: "/org/test-org/group/admins", grants: ["manage"]))
+    expect { helpers.validate! }.to raise_error(/access report/)
   end
 
-  it "ignores policies with no targets or selectors" do
-    allow(cp).to receive(:fetch_policies).and_return(
-      { "items" => [{ "name" => "empty", "targetKind" => "secret", "targetLinks" => [] }] }
-    )
-    expect(helpers.validate!.size).to eq(3)
+  it "refuses broad consumer and query grants" do
+    stub_access(report_binding(principal: "/org/test-org/serviceaccount/consumer", match: "all"))
+    expect { helpers.validate! }.to raise_error(/access report/)
+    stub_access(report_binding(principal: "/org/test-org/group/consumer", match: "query", grants: ["manage"]))
+    expect { helpers.validate! }.to raise_error(/access report/)
+  end
+
+  it "fails closed on missing or malformed access reports" do
+    [nil, {}, { "kind" => "accessreport", "permissions" => [] }].each do |report|
+      allow(cp).to receive(:secret_access_report).and_return(report)
+      expect { helpers.validate! }.to raise_error(/access report/)
+    end
+  end
+
+  it "fails closed when the provider denies access-report reads" do
+    allow(cp).to receive(:secret_access_report).and_raise("provider denied access report")
+    expect { helpers.delete }.to raise_error(/denied/)
+    expect(cp).not_to have_received(:delete_policy)
   end
 end

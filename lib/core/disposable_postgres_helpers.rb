@@ -19,8 +19,9 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
       return
     end
     candidates = templates.select { |template| resource_types.key?(template.values_at("kind", "name")) }
-    refuse! unless (candidates + fetch_resources).all? { |resource| owned?(resource) }
-    ensure_not_shared!
+    existing = fetch_resources
+    refuse! unless (candidates + existing).all? { |resource| owned?(resource) }
+    ensure_not_shared!(existing)
   end
 
   def validate!
@@ -31,7 +32,7 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
     return [] unless resources.any? { |resource| marked?(resource) }
 
     refuse! unless resources.all? { |resource| owned?(resource) }
-    ensure_not_shared!
+    ensure_not_shared!(resources)
     resources
   end
 
@@ -71,36 +72,45 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def ensure_not_shared!
+  def ensure_not_shared!(resources)
     refuse! if shared?
-    policy = external_sharing_policy
-    refuse!(policy["name"]) if policy
-  end
-
-  def external_sharing_policy # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength
-    @cp.fetch_policies.fetch("items").find do |policy|
-      next false if policy["name"] == "#{@config.app}-pg-access" || policy["targetKind"] != "secret"
-
-      next false if administrative_policy?(policy)
-
-      links = policy["targetLinks"]
-      next false if policy["target"].nil? && policy["targetQuery"].nil? && (links.nil? || links == [])
-      next true unless links.is_a?(Array) && links.any? && policy["targetQuery"].nil? && policy["target"].nil?
-
-      names = ["#{@config.app}-pg", "#{@config.app}-pg-script"]
-      names.any? do |name|
-        links.intersect?(["//secret/#{name}", "/org/#{@config.org}/secret/#{name}"])
-      end
+    resources.select { |resource| resource["kind"] == "secret" }.each do |secret|
+      report = @cp.secret_access_report(secret["name"])
+      refuse! unless exclusive_access_report?(report)
     end
   end
 
-  # Org-wide view/manage grants administer metadata; they do not make a helper
-  # a shared application credential. Consumer grants (reveal/use) still block.
-  def administrative_policy?(policy)
-    bindings = policy["bindings"]
-    bindings.is_a?(Array) && bindings.any? && bindings.all? do |binding|
-      permissions = binding.is_a?(Hash) && binding["permissions"]
-      permissions.is_a?(Array) && permissions.any? && (permissions - %w[view manage]).empty?
+  def exclusive_access_report?(report) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+    return false unless report.is_a?(Hash) && report["kind"] == "accessreport"
+
+    permissions = report["permissions"]
+    return false unless permissions.is_a?(Array) && permissions.all?(Hash)
+
+    %w[reveal use].all? do |name|
+      entries = permissions.select { |item| item["name"] == name }
+      entries.one? && entries.first["bindings"].is_a?(Array) &&
+        entries.first["bindings"].all? { |binding| exclusive_access_binding?(binding) }
+    end
+  end
+
+  def exclusive_access_binding?(binding)
+    return false unless binding.is_a?(Hash)
+
+    principal = binding["principalLink"]
+    policy_link = "/org/#{@config.org}/policy/#{@config.app}-pg-access"
+    return true if binding["grantingPolicyLink"] == policy_link && app_principals.include?(principal)
+
+    # Global human/service administration is not an application dependency.
+    # A targeted/query grant, or ANY other GVC identity, still means shared use.
+    admin_path = %r{\A/org/#{Regexp.escape(@config.org)}/(?:group|user|serviceaccount)/[^/]+\z}
+    binding["match"] == "all" && binding["grantedPermissions"] == ["manage"] &&
+      principal.is_a?(String) && principal.match?(admin_path)
+  end
+
+  def app_principals
+    [@config.identity, "#{@config.app}-pg-identity"].flat_map do |identity|
+      path = "gvc/#{@config.app}/identity/#{identity}"
+      ["//#{path}", "/org/#{@config.org}/#{path}"]
     end
   end
 
@@ -139,11 +149,7 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
   def bindings_owned?(bindings)
     return false unless bindings.is_a?(Array)
 
-    principals = [@config.identity, "#{@config.app}-pg-identity"].flat_map do |identity|
-      path = "gvc/#{@config.app}/identity/#{identity}"
-      ["//#{path}", "/org/#{@config.org}/#{path}"]
-    end
-    bindings.all? { |binding| binding_owned?(binding, principals) }
+    bindings.all? { |binding| binding_owned?(binding, app_principals) }
   end
 
   def binding_owned?(binding, principals)
@@ -154,9 +160,8 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
       links.is_a?(Array) && (links - principals).empty?
   end
 
-  def refuse!(policy_name = nil)
-    detail = policy_name ? " (sharing policy: #{policy_name})" : ""
-    raise "PostgreSQL helper resources have unexpected ownership, grants, or target#{detail}; " \
+  def refuse!
+    raise "PostgreSQL helper resources have unexpected ownership, grants, target, or access report; " \
           "leaving them for inspection."
   end
 end

@@ -446,6 +446,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.patch_sensitive_secret_data(org: org, secret: secret, data: data)
   end
 
+  def secret_access_report(secret)
+    api.secret_access_report(org: org, secret: secret)
+  end
+
   def delete_secret(secret)
     api.delete_secret(org: org, secret: secret)
   end
@@ -460,10 +464,6 @@ class Controlplane # rubocop:disable Metrics/ClassLength
 
   def fetch_policy(policy)
     api.fetch_policy(org: org, policy: policy)
-  end
-
-  def fetch_policies
-    api.list_policies(org: org)
   end
 
   def delete_policy(policy)

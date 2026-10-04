@@ -24,12 +24,15 @@ than silently adopting them.
 `cpflow delete` removes marked `<APP>-pg`, `<APP>-pg-script`, and `<APP>-pg-access`
 resources only after validating their ownership and scope. The policy must target
 exactly the two helper secrets and grant only `reveal` to the app and PostgreSQL
-identities in that app's GVC. A paginated policy inventory also checks for other
-consumer policies targeting either helper, and refuses ambiguous secret-policy queries.
-Org-wide policies granting only metadata `view` or `manage` do not establish shared
-credential use.
-The token must be able to list org policies as well as read and delete named helpers.
-An unavailable policy inventory fails cleanup before app data is deleted.
+identities in that app's GVC. Cleanup and reapplication inspect each existing
+helper secret's effective access report, including permissions implied by `edit`
+or `manage`, and refuse access through other application policies or identities.
+Global `manage` grants to org groups, users, or service accounts are treated as
+org administration; targeted or query grants and other GVC identities always block.
+The token needs access-report permission (`viewAccessReport` on the org), as well
+as permission to read and delete the named helpers. An unavailable or incomplete
+access report fails safely before app data is deleted. These checks also apply to
+`apply-template` when reapplying marked helpers.
 Helpers named in `shared_secret_grants`, foreign
 markers, mixed ownership, and unexpected targets or principals cause a safe refusal
 before live app data is deleted. Unmarked legacy helpers are preserved; inspect and

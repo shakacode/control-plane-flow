@@ -48,23 +48,10 @@ describe ControlplaneApi do
     end
   end
 
-  describe "#list_policies" do
-    it "follows every inventory page before returning policies" do
-      allow(api_direct).to receive(:call).with("/org/my-org/policy", method: :get).and_return(
-        { "items" => [{ "name" => "app" }],
-          "links" => [{ "rel" => "next", "href" => "/org/my-org/policy?page=2" }] }
-      )
-      allow(api_direct).to receive(:call).with("/org/my-org/policy?page=2", method: :get).and_return(
-        { "items" => [{ "name" => "shared" }], "links" => [] }
-      )
-      expect(api.list_policies(org: "my-org")["items"].map { |item| item["name"] }).to eq(%w[app shared])
-    end
-  end
-
-  describe "unavailable policy inventory" do
-    it "reports a clear ownership verification failure rather than dereferencing nil" do
-      allow(api_direct).to receive(:call).with("/org/my-org/policy", method: :get).and_return(nil)
-      expect { api.list_policies(org: "my-org") }.to raise_error(/Policy inventory is unavailable/)
+  describe "#secret_access_report" do
+    it "reads effective permissions for the exact secret without revealing its content" do
+      response = stub_api_call("/org/my-org/secret/my-secret/-accessreport", method: :get)
+      expect(api.secret_access_report(org: "my-org", secret: "my-secret")).to eq(response)
     end
   end
 

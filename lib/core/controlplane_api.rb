@@ -152,6 +152,10 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     )
   end
 
+  def secret_access_report(org:, secret:)
+    api_json("/org/#{org}/secret/#{secret}/-accessreport", method: :get)
+  end
+
   def delete_secret(org:, secret:)
     api_json("/org/#{org}/secret/#{secret}", method: :delete)
   end
@@ -162,16 +166,6 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
 
   def fetch_policy(org:, policy:)
     api_json("/org/#{org}/policy/#{policy}", method: :get)
-  end
-
-  def list_policies(org:)
-    result = api_json("/org/#{org}/policy", method: :get)
-    unless result.is_a?(Hash) && result["items"].is_a?(Array) && result["links"].is_a?(Array)
-      raise "Policy inventory is unavailable or malformed; cannot verify exclusive helper ownership."
-    end
-
-    fetch_query_pages(result)
-    result
   end
 
   def delete_policy(org:, policy:)
