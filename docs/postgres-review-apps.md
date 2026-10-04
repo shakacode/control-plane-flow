@@ -65,7 +65,7 @@ sharing grant until you know which applications depend on it.
 
 | Condition | Result |
 | --- | --- |
-| All helpers are unmarked legacy resources | Helpers are preserved |
+| All helpers are unmarked legacy resources | App deletion proceeds; helpers are preserved |
 | Marked and unmarked helpers coexist | Cleanup refuses deletion |
 | A marker names another app | Cleanup refuses deletion |
 | Policy targets or principals differ from the expected app scope | Cleanup refuses deletion |

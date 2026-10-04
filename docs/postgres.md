@@ -139,7 +139,7 @@ the empty target database, retaining logs and checking for errors:
 
 ```sh
 pg_dump service=heroku --schema-only --no-acl --no-owner -v > schema.sql
-psql service=rds --single-transaction -v ON_ERROR_STOP=1 -f schema.sql
+psql --single-transaction -v ON_ERROR_STOP=1 -f schema.sql service=rds
 ```
 
 The restore runs in one transaction and rolls back on error. Investigate any
@@ -209,15 +209,21 @@ the cutover window.
    catch-up and verify the target again.
 4. Save the old connection configuration and add-on attachment details for recovery.
    For a Heroku-hosted app, detach the attachment that owns `DATABASE_URL` before
-   setting the RDS connection. Use the attachment command for your database type; see
-   [Heroku Postgres credentials](https://devcenter.heroku.com/articles/heroku-postgresql-credentials#detach-a-credential).
+   setting the RDS connection. For classic Heroku Postgres, this is typically
+   `heroku addons:detach DATABASE -a APP`; confirm the attachment name first.
+   Advanced databases use a different attachment command. See the
+   [Heroku CLI attachment reference](https://devcenter.heroku.com/articles/heroku-cli-commands#heroku-addons-detach-attachment_name)
+   and [database-type-specific credential instructions](https://devcenter.heroku.com/articles/heroku-postgresql-credentials#detach-a-credential).
    Keep the source database itself; do not destroy the add-on.
-5. Update the app's database connection to RDS using its deployment secret/configuration
+5. With Bucardo, stop replication with `bucardo stop` after the final catch-up,
+   before any application writes reach RDS. Confirm that the sync has stopped and
+   keep source writers disabled.
+6. Update the app's database connection to RDS using its deployment secret/configuration
    mechanism.
-6. Start the application and check readiness, database connectivity, and key operations.
+7. Start the application and check readiness, database connectivity, and key operations.
    For Heroku dynos, `heroku ps:wait -a APP` can check process readiness.
-7. End maintenance only after those checks pass. On Heroku, use `heroku maintenance:off -a APP`.
-8. Resume background jobs and scheduled writers. Lift the schema freeze once
+8. End maintenance only after those checks pass. On Heroku, use `heroku maintenance:off -a APP`.
+9. Resume background jobs and scheduled writers. Lift the schema freeze once
    replication is no longer needed.
 
 **Rollback boundary:** before RDS accepts new application writes, the source can
@@ -230,14 +236,15 @@ would lose those writes.
 1. Retain a final Heroku backup according to your recovery policy. Keep the source
    available until the agreed recovery window closes.
 2. Verify RDS backups, monitoring, storage, and application performance.
-3. Stop Bucardo and remove its temporary replication objects when they are no
-   longer needed, following its cleanup procedure.
+3. Remove Bucardo's temporary replication objects when they are no longer needed,
+   following its cleanup procedure. Do not restart the old sync against the live target.
 4. Remove temporary network access, migration credentials, and the migration host.
 
-To capture and locate a final Heroku backup:
+To capture and locate a final Heroku backup, use a remaining source attachment or
+add-on identifier for `SOURCE_ADDON`:
 
 ```sh
-heroku pg:backups:capture -a APP
+heroku pg:backups:capture SOURCE_ADDON -a APP
 heroku pg:backups:url BACKUP_ID -a APP
 ```
 
