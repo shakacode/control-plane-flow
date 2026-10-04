@@ -66,8 +66,6 @@ logs so you can inspect errors after reconnecting.
 Install PostgreSQL clients compatible with the source and target versions. Follow
 the [PostgreSQL installation instructions](https://www.postgresql.org/download/)
 and [supported-version policy](https://www.postgresql.org/support/versioning/).
-The former PostgreSQL 13 example is no longer a suitable default: version 13 reached
-end of support in November 2025.
 
 For replication, install Bucardo and its dependencies using the
 [Bucardo installation guide](https://bucardo.org/Bucardo/Installation/) and
@@ -141,18 +139,21 @@ the empty target database, retaining logs and checking for errors:
 
 ```sh
 pg_dump service=heroku --schema-only --no-acl --no-owner -v > schema.sql
-psql service=rds -v ON_ERROR_STOP=1 -f schema.sql
+psql service=rds --single-transaction -v ON_ERROR_STOP=1 -f schema.sql
 ```
+
+The restore runs in one transaction and rolls back on error. Investigate any
+unsupported extensions or other schema incompatibilities before retrying.
 
 ### Configure the sync
 
-Register the source and target with Bucardo. Replace every `xxx` with the connection
-value for that database. These commands contain credentials; protect your terminal
+Register the source and target with Bucardo. Replace the named placeholders with
+the connection values for each database. These commands contain credentials; protect your terminal
 history and any logs that capture them.
 
 ```sh
-bucardo add db from_db dbhost=xxx dbport=5432 dbuser=xxx dbpass=xxx dbname=xxx
-bucardo add db to_db dbhost=xxx dbport=5432 dbuser=xxx dbpass=xxx dbname=xxx
+bucardo add db from_db dbhost=HEROKU_HOST dbport=5432 dbuser=SOURCE_USER dbpass=SOURCE_PASSWORD dbname=SOURCE_DATABASE
+bucardo add db to_db dbhost=RDS_HOST dbport=5432 dbuser=TARGET_USER dbpass=TARGET_PASSWORD dbname=TARGET_DATABASE
 
 bucardo add all tables db=from_db --relgroup=migration
 bucardo add all sequences db=from_db --relgroup=migration
@@ -206,12 +207,17 @@ the cutover window.
 2. Stop all writers: web dynos, workers, scheduled jobs, and external services.
 3. Wait for active writes to finish. With Bucardo, wait for the final replication
    catch-up and verify the target again.
-4. Save the old connection configuration for recovery. Update the app's database
-   connection to RDS using its deployment secret/configuration mechanism.
-5. Start the application and check readiness, database connectivity, and key operations.
+4. Save the old connection configuration and add-on attachment details for recovery.
+   For a Heroku-hosted app, detach the attachment that owns `DATABASE_URL` before
+   setting the RDS connection. Use the attachment command for your database type; see
+   [Heroku Postgres credentials](https://devcenter.heroku.com/articles/heroku-postgresql-credentials#detach-a-credential).
+   Keep the source database itself; do not destroy the add-on.
+5. Update the app's database connection to RDS using its deployment secret/configuration
+   mechanism.
+6. Start the application and check readiness, database connectivity, and key operations.
    For Heroku dynos, `heroku ps:wait -a APP` can check process readiness.
-6. End maintenance only after those checks pass. On Heroku, use `heroku maintenance:off -a APP`.
-7. Resume background jobs and scheduled writers. Lift the schema freeze once
+7. End maintenance only after those checks pass. On Heroku, use `heroku maintenance:off -a APP`.
+8. Resume background jobs and scheduled writers. Lift the schema freeze once
    replication is no longer needed.
 
 **Rollback boundary:** before RDS accepts new application writes, the source can

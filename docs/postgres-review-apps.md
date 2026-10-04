@@ -42,8 +42,8 @@ cpflow delete -a APP_NAME
 ```
 
 Cleanup validates the helpers before deleting app data. It removes the marked
-policy and secrets before deleting the GVC. The workload-only deletion option
-preserves the helpers.
+policy and secrets before deleting the GVC. Deleting a single workload with
+`cpflow delete -a APP_NAME -w WORKLOAD_NAME` preserves the helpers.
 
 The ownership checks require:
 
@@ -59,7 +59,8 @@ Reapplying marked helpers with `cpflow apply-template` uses the same checks.
 ## Understand a cleanup refusal
 
 Cleanup preserves resources when a marker, policy, or access report cannot establish
-exclusive ownership. Fix the reported condition before retrying; do not remove a
+exclusive ownership. A refusal aborts whole-app deletion before live app data is
+deleted. Fix the reported condition before retrying; do not remove a
 sharing grant until you know which applications depend on it.
 
 | Condition | Result |
