@@ -11,6 +11,9 @@ set these values directly at the GVC or workload levels, so none of these ENV va
 
 ## Review app secrets
 
+For credentials and initialization scripts created by the PostgreSQL template, see
+[PostgreSQL for disposable review apps](./postgres-review-apps.md).
+
 For same-repository review apps that need only disposable credentials, opt in on
 the dynamically matched review-app entry in `.controlplane/controlplane.yml`:
 
