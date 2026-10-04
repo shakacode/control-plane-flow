@@ -166,6 +166,10 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
 
   def list_policies(org:)
     result = api_json("/org/#{org}/policy", method: :get)
+    unless result.is_a?(Hash) && result["items"].is_a?(Array) && result["links"].is_a?(Array)
+      raise "Policy inventory is unavailable or malformed; cannot verify exclusive helper ownership."
+    end
+
     fetch_query_pages(result)
     result
   end

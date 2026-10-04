@@ -25,7 +25,11 @@ than silently adopting them.
 resources only after validating their ownership and scope. The policy must target
 exactly the two helper secrets and grant only `reveal` to the app and PostgreSQL
 identities in that app's GVC. A paginated policy inventory also checks for other
-policies targeting either helper, and refuses ambiguous secret-policy queries.
+consumer policies targeting either helper, and refuses ambiguous secret-policy queries.
+Org-wide policies granting only metadata `view` or `manage` do not establish shared
+credential use.
+The token must be able to list org policies as well as read and delete named helpers.
+An unavailable policy inventory fails cleanup before app data is deleted.
 Helpers named in `shared_secret_grants`, foreign
 markers, mixed ownership, and unexpected targets or principals cause a safe refusal
 before live app data is deleted. Unmarked legacy helpers are preserved; inspect and

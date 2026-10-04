@@ -10,7 +10,7 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
     @cp = controlplane
   end
 
-  def prepare_templates!(templates) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  def prepare_templates!(templates) # rubocop:disable Metrics/CyclomaticComplexity
     marked = templates.select { |template| marked?(template) }
     return if marked.empty?
 
@@ -20,10 +20,10 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
     end
     candidates = templates.select { |template| resource_types.key?(template.values_at("kind", "name")) }
     refuse! unless (candidates + fetch_resources).all? { |resource| owned?(resource) }
-    refuse! if shared? || externally_shared?
+    ensure_not_shared!
   end
 
-  def validate! # rubocop:disable Metrics/CyclomaticComplexity
+  def validate!
     return [] unless disposable?
 
     resources = fetch_resources
@@ -31,7 +31,7 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
     return [] unless resources.any? { |resource| marked?(resource) }
 
     refuse! unless resources.all? { |resource| owned?(resource) }
-    refuse! if shared? || externally_shared?
+    ensure_not_shared!
     resources
   end
 
@@ -71,17 +71,36 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def externally_shared? # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-    @cp.fetch_policies.fetch("items").any? do |policy|
+  def ensure_not_shared!
+    refuse! if shared?
+    policy = external_sharing_policy
+    refuse!(policy["name"]) if policy
+  end
+
+  def external_sharing_policy # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength
+    @cp.fetch_policies.fetch("items").find do |policy|
       next false if policy["name"] == "#{@config.app}-pg-access" || policy["targetKind"] != "secret"
 
+      next false if administrative_policy?(policy)
+
       links = policy["targetLinks"]
+      next false if policy["target"].nil? && policy["targetQuery"].nil? && (links.nil? || links == [])
       next true unless links.is_a?(Array) && links.any? && policy["targetQuery"].nil? && policy["target"].nil?
 
       names = ["#{@config.app}-pg", "#{@config.app}-pg-script"]
       names.any? do |name|
         links.intersect?(["//secret/#{name}", "/org/#{@config.org}/secret/#{name}"])
       end
+    end
+  end
+
+  # Org-wide view/manage grants administer metadata; they do not make a helper
+  # a shared application credential. Consumer grants (reveal/use) still block.
+  def administrative_policy?(policy)
+    bindings = policy["bindings"]
+    bindings.is_a?(Array) && bindings.any? && bindings.all? do |binding|
+      permissions = binding.is_a?(Hash) && binding["permissions"]
+      permissions.is_a?(Array) && permissions.any? && (permissions - %w[view manage]).empty?
     end
   end
 
@@ -135,7 +154,9 @@ class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
       links.is_a?(Array) && (links - principals).empty?
   end
 
-  def refuse!
-    raise "PostgreSQL helper resources have unexpected ownership, grants, or target; leaving them for inspection."
+  def refuse!(policy_name = nil)
+    detail = policy_name ? " (sharing policy: #{policy_name})" : ""
+    raise "PostgreSQL helper resources have unexpected ownership, grants, or target#{detail}; " \
+          "leaving them for inspection."
   end
 end

@@ -196,4 +196,27 @@ describe DisposablePostgresHelpers do # rubocop:disable RSpec/MultipleMemoizedHe
     end
     expect { helpers.prepare_templates!([secret, script, policy]) }.to raise_error(/ownership/)
   end
+
+  it "allows org-wide metadata administration without treating helpers as shared credentials" do
+    allow(cp).to receive(:fetch_policies).and_return(
+      { "items" => [{ "name" => "admins", "targetKind" => "secret", "target" => "all",
+                      "bindings" => [{ "permissions" => ["manage"], "principalLinks" => ["//group/admins"] }] }] }
+    )
+    expect(helpers.validate!.size).to eq(3)
+  end
+
+  it "still refuses broad policies granting credential access" do
+    allow(cp).to receive(:fetch_policies).and_return(
+      { "items" => [{ "name" => "consumers", "targetKind" => "secret", "target" => "all",
+                      "bindings" => [{ "permissions" => ["reveal"], "principalLinks" => ["//group/consumers"] }] }] }
+    )
+    expect { helpers.validate! }.to raise_error(/ownership/)
+  end
+
+  it "ignores policies with no targets or selectors" do
+    allow(cp).to receive(:fetch_policies).and_return(
+      { "items" => [{ "name" => "empty", "targetKind" => "secret", "targetLinks" => [] }] }
+    )
+    expect(helpers.validate!.size).to eq(3)
+  end
 end

@@ -61,6 +61,13 @@ describe ControlplaneApi do
     end
   end
 
+  describe "unavailable policy inventory" do
+    it "reports a clear ownership verification failure rather than dereferencing nil" do
+      allow(api_direct).to receive(:call).with("/org/my-org/policy", method: :get).and_return(nil)
+      expect { api.list_policies(org: "my-org") }.to raise_error(/Policy inventory is unavailable/)
+    end
+  end
+
   describe "#query_images" do
     let(:expected_body) do
       {
