@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../core/disposable_postgres_helpers"
+
 module Command
   class ApplyTemplate < Base # rubocop:disable Metrics/ClassLength
     NAME = "apply-template"
@@ -64,6 +66,7 @@ module Command
       @skipped_templates = []
 
       templates = @template_parser.parse(@names_to_filenames.values)
+      DisposablePostgresHelpers.new(config, cp).prepare_templates!(templates)
       templates = filter_existing_resources(templates)
       pending_templates = confirm_templates(templates)
       add_app_identity_template(pending_templates) if config.options[:add_app_identity]

@@ -11,6 +11,29 @@ If you are replacing Heroku Postgres or another pre-provisioned database service
 catalog template covers a single-instance PostgreSQL workload with persistent storage, optional PgBouncer, and optional
 scheduled backups.
 
+## Disposable review-app helpers
+
+The generated `.controlplane/templates/postgres.yml` opts its credential dictionary,
+initialization-script secret, and access policy into ownership checks with the
+`cpflow-disposable-postgres-app: "{{APP_NAME}}"` tag. `cpflow apply-template` retains
+this tag only for dynamically named review apps; persistent apps do not acquire it.
+Existing projects can copy this tag onto these three **templates before creating new
+review apps**. Applying it to existing unmarked provider resources is refused rather
+than silently adopting them.
+
+`cpflow delete` removes marked `<APP>-pg`, `<APP>-pg-script`, and `<APP>-pg-access`
+resources only after validating their ownership and scope. The policy must target
+exactly the two helper secrets and grant only `reveal` to the app and PostgreSQL
+identities in that app's GVC. Helpers named in `shared_secret_grants`, foreign
+markers, mixed ownership, and unexpected targets or principals cause a safe refusal
+before live app data is deleted. Unmarked legacy helpers are preserved; inspect and
+remove those manually after establishing that they are exclusively owned.
+
+Cleanup runs before GVC deletion and can be repeated after interruption, including
+when the GVC, policy, or either secret is already absent. Workload-only deletion
+preserves the helpers. A rollback to an older cpflow version preserves the new tags
+but no longer cleans up these resources automatically.
+
 One of the biggest problems that will appear when moving from Heroku infrastructure is migrating the database. And
 despite it being rather easy if done between Heroku-hosted databases or non-Heroku-hosted databases (as Postgres has
 tools to do that naturally) it is not easily possible between Heroku and anything outside Heroku,

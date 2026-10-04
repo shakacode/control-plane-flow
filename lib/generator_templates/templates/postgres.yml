@@ -19,6 +19,9 @@ spec:
 ---
 kind: secret
 name: "{{APP_NAME}}-pg"
+# Only newly created dynamically named review-app helpers acquire this marker.
+tags:
+  cpflow-disposable-postgres-app: "{{APP_NAME}}"
 description: ''
 type: dictionary
 data:
@@ -28,6 +31,9 @@ data:
 ---
 kind: secret
 name: "{{APP_NAME}}-pg-script"
+# Only newly created dynamically named review-app helpers acquire this marker.
+tags:
+  cpflow-disposable-postgres-app: "{{APP_NAME}}"
 type: opaque
 data:
   encoding: base64
@@ -98,6 +104,9 @@ description: "{{APP_NAME}}-pg-identity"
 ---
 kind: policy
 name: "{{APP_NAME}}-pg-access"
+# Only newly created dynamically named review-app helpers acquire this marker.
+tags:
+  cpflow-disposable-postgres-app: "{{APP_NAME}}"
 description: "{{APP_NAME}}-pg-access"
 bindings:
   - permissions:
