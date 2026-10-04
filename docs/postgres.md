@@ -28,6 +28,23 @@ Do not treat example timings as a downtime guarantee. Measure backup, restore, a
 replication performance during a rehearsal. For background on the trigger-based
 approach, see [AWS's Bucardo migration example](https://aws.amazon.com/blogs/database/migrating-legacy-postgresql-databases-to-amazon-rds-or-aurora-postgresql-using-bucardo/).
 
+### Historical large-database timings
+
+The original guide recorded these approximate timings for a 1 TB database. It did
+not record enough environment details to reproduce the results. Use them to
+understand the difference between elapsed migration time and downtime, not to
+estimate your migration:
+
+| Method | Initial transfer | Application downtime |
+| --- | --- | --- |
+| Dump and restore | 2.5 hours to create a backup, 0.5 hours to download it, and 13 hours to restore with four workers | About 16 hours |
+| Bucardo | About 1.5 days for the initial copy with one worker, while the source application remained online | About 1–2 minutes for the database switch |
+
+Copy throughput and the source write rate determine how quickly replication can
+catch up. More instance capacity does not automatically make a single-worker copy
+parallel. Measure the initial copy and final catch-up separately during rehearsal,
+including application shutdown, restart, and readiness checks in the downtime budget.
+
 ## Prepare the databases and network
 
 Before either migration method:
@@ -42,6 +59,20 @@ Before either migration method:
 4. Restrict security groups to the hosts and ports that need access. If temporary
    public access is necessary, restrict it to the migration host and remove it afterward.
 5. Take a source backup and agree on validation, cutover, and rollback criteria.
+
+RDS allocated storage cannot be reduced in place. Size it for the initial load,
+indexes, and growth before starting; storage autoscaling may not keep up with a
+large bulk load. Further storage changes must wait for storage optimization to
+finish and are subject to modification limits. See
+[RDS storage autoscaling limitations](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.Autoscaling.html#USER_PIOPS.Autoscaling.Limitations).
+
+Choose the target database region based on application latency as well as migration
+throughput. Test the network path while the application still runs on Heroku and
+after its deployment moves. If the application already supports separate read and
+write connections, a temporary read replica near the application may reduce read
+latency. Writes still reach the primary, and reads must tolerate replication lag.
+Rehearse this extra topology before relying on it; see
+[RDS PostgreSQL read replicas](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PostgreSQL.Replication.ReadReplicas.html).
 
 For Bucardo, also check that each replicated table has a primary key. Freeze schema
 changes from the schema copy through cutover. Plan separately for objects Bucardo
@@ -70,8 +101,17 @@ and [supported-version policy](https://www.postgresql.org/support/versioning/).
 For replication, install Bucardo and its dependencies using the
 [Bucardo installation guide](https://bucardo.org/Bucardo/Installation/) and
 [requirements](https://bucardo.org/Bucardo/installation/requirements). Bucardo needs
-a local PostgreSQL database for its control metadata, plus Perl database modules
-and the required PostgreSQL procedural languages.
+a local PostgreSQL database for its control metadata. Before initializing it, check:
+
+- Perl and the `DBI`, `DBD::Pg`, and `DBIx::Safe` modules, plus the utility modules
+  listed in Bucardo's requirements, are installed for the daemon's Perl runtime.
+- The local control database has `PL/pgSQL` and `PL/PerlU` available. Replicated
+  databases need `PL/pgSQL` for the trigger-based sync; they do not need `PL/PerlU`.
+- The installer can authenticate as a PostgreSQL superuser on the local control
+  server. This is separate from the source and target database privileges.
+- The configured PID and log directories exist and are writable by the OS user
+  running Bucardo. Check the paths chosen by your installation rather than assuming
+  a particular distribution's layout.
 
 Configure authenticated local access to that control database, then initialize it:
 
