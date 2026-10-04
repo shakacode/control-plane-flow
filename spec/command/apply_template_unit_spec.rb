@@ -91,6 +91,32 @@ describe Command::ApplyTemplate do
         .to eq([deployed_image, deployed_image])
     end
 
+    context "with marked helper templates and unmarked existing secrets" do
+      before do
+        templates.first["tags"] = { DisposablePostgresHelpers::TAG => config.app }
+        allow(config).to receive(:disposable_review_secret_resource_names).and_return(%w[secrets policy])
+        allow(cp).to receive(:fetch_secret).with("test-review-123-pg-script").and_return(nil)
+        allow(cp).to receive(:fetch_policy).with("test-review-123-pg-access").and_return(nil)
+      end
+
+      it "refreshes workloads without adopting skipped helper secrets" do
+        command.call
+
+        expect(applied_templates.map { |template| template["name"] }).to eq(%w[rails worker])
+        expect(cp).not_to have_received(:apply_hash).with(hash_including("kind" => "secret"))
+      end
+
+      context "with an explicit helper exclusion" do
+        let(:options) { { yes: true, exclude_secret_template: "test-review-123-pg" } }
+
+        it "applies selected workloads without validating the excluded helper" do
+          command.call
+
+          expect(applied_templates.map { |template| template["name"] }).to eq(%w[rails worker])
+        end
+      end
+    end
+
     context "with bare app image references" do
       let(:latest_image) { "test-review-123:9_bad" }
       let(:deployed_image) { "test-review-123:8_good" }

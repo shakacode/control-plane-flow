@@ -66,8 +66,8 @@ module Command
       @skipped_templates = []
 
       templates = @template_parser.parse(@names_to_filenames.values)
-      DisposablePostgresHelpers.new(config, cp).prepare_templates!(templates)
       templates = filter_existing_resources(templates)
+      DisposablePostgresHelpers.new(config, cp).prepare_templates!(templates)
       pending_templates = confirm_templates(templates)
       add_app_identity_template(pending_templates) if config.options[:add_app_identity]
       pending_templates.each do |template|
