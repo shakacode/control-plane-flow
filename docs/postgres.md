@@ -203,6 +203,18 @@ Rehearse these steps with the application's deployment process. If you are also
 moving the app to Control Plane, prepare its database secret and workloads before
 the cutover window.
 
+For classic Heroku Postgres, retain a second source attachment before detaching
+`DATABASE`. Replace `SOURCE_ADDON` with the existing add-on identifier:
+
+```sh
+heroku addons:attach SOURCE_ADDON --as MIGRATION_SOURCE -a APP
+```
+
+Confirm that `MIGRATION_SOURCE_URL` refers to the source database. Leave this
+attachment in place for backup and recovery; the cutover detaches only `DATABASE`.
+For Advanced databases, establish the equivalent retained attachment using that
+plan's commands during rehearsal.
+
 1. Enable maintenance mode. For a Heroku-hosted app, use `heroku maintenance:on -a APP`.
 2. Stop all writers: web dynos, workers, scheduled jobs, and external services.
 3. Wait for active writes to finish. With Bucardo, wait for the final replication
