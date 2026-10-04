@@ -64,7 +64,7 @@ RDS allocated storage cannot be reduced in place. Size it for the initial load,
 indexes, and growth before starting; storage autoscaling may not keep up with a
 large bulk load. Further storage changes must wait for storage optimization to
 finish and are subject to modification limits. See
-[RDS storage autoscaling limitations](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.Autoscaling.html#USER_PIOPS.Autoscaling.Limitations).
+[RDS storage autoscaling limitations](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.Autoscaling.html#autoscaling-limitations).
 
 Choose the target database region based on application latency as well as migration
 throughput. Test the network path while the application still runs on Heroku and
