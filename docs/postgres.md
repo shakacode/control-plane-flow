@@ -24,7 +24,9 @@ than silently adopting them.
 `cpflow delete` removes marked `<APP>-pg`, `<APP>-pg-script`, and `<APP>-pg-access`
 resources only after validating their ownership and scope. The policy must target
 exactly the two helper secrets and grant only `reveal` to the app and PostgreSQL
-identities in that app's GVC. Helpers named in `shared_secret_grants`, foreign
+identities in that app's GVC. A paginated policy inventory also checks for other
+policies targeting either helper, and refuses ambiguous secret-policy queries.
+Helpers named in `shared_secret_grants`, foreign
 markers, mixed ownership, and unexpected targets or principals cause a safe refusal
 before live app data is deleted. Unmarked legacy helpers are preserved; inspect and
 remove those manually after establishing that they are exclusively owned.

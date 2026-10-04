@@ -48,6 +48,19 @@ describe ControlplaneApi do
     end
   end
 
+  describe "#list_policies" do
+    it "follows every inventory page before returning policies" do
+      allow(api_direct).to receive(:call).with("/org/my-org/policy", method: :get).and_return(
+        { "items" => [{ "name" => "app" }],
+          "links" => [{ "rel" => "next", "href" => "/org/my-org/policy?page=2" }] }
+      )
+      allow(api_direct).to receive(:call).with("/org/my-org/policy?page=2", method: :get).and_return(
+        { "items" => [{ "name" => "shared" }], "links" => [] }
+      )
+      expect(api.list_policies(org: "my-org")["items"].map { |item| item["name"] }).to eq(%w[app shared])
+    end
+  end
+
   describe "#query_images" do
     let(:expected_body) do
       {

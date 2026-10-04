@@ -25,7 +25,7 @@ describe DisposablePostgresHelpers do # rubocop:disable RSpec/MultipleMemoizedHe
     allow(cp).to receive(:fetch_secret).with("#{app}-pg").and_return(secret)
     allow(cp).to receive(:fetch_secret).with("#{app}-pg-script").and_return(script)
     allow(cp).to receive(:fetch_policy).with("#{app}-pg-access").and_return(policy)
-    allow(cp).to receive_messages(delete_secret: true, delete_policy: true)
+    allow(cp).to receive_messages(delete_secret: true, delete_policy: true, fetch_policies: { "items" => [] })
   end
 
   it "removes marked helpers and their exact policy" do
@@ -166,5 +166,34 @@ describe DisposablePostgresHelpers do # rubocop:disable RSpec/MultipleMemoizedHe
     secret.delete("tags")
     helpers.prepare_templates!([secret])
     expect(cp).not_to have_received(:fetch_policy)
+  end
+
+  it "refuses helpers shared by a policy outside the app configuration" do
+    allow(cp).to receive(:fetch_policies).and_return(
+      { "items" => [{ "name" => "foreign", "targetKind" => "secret", "targetLinks" => ["//secret/#{app}-pg"] }] }
+    )
+    expect { helpers.validate! }.to raise_error(/ownership/)
+  end
+
+  it "refuses ambiguous secret policy queries" do
+    allow(cp).to receive(:fetch_policies).and_return(
+      { "items" => [{ "name" => "foreign", "targetKind" => "secret", "targetQuery" => {} }] }
+    )
+    expect { helpers.validate! }.to raise_error(/ownership/)
+  end
+
+  it "fails closed when policy inventory is unavailable" do
+    allow(cp).to receive(:fetch_policies).and_raise("provider unavailable")
+    expect { helpers.delete }.to raise_error("provider unavailable")
+    expect(cp).not_to have_received(:delete_secret)
+  end
+
+  it "rejects partially tagged helper templates before creation" do
+    policy.delete("tags")
+    [secret, script, policy].each do |resource|
+      allow(cp).to receive(resource["kind"] == "policy" ? :fetch_policy : :fetch_secret)
+        .with(resource["name"]).and_return(nil)
+    end
+    expect { helpers.prepare_templates!([secret, script, policy]) }.to raise_error(/ownership/)
   end
 end

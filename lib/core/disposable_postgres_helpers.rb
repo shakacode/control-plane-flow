@@ -2,7 +2,7 @@
 
 # Ownership is asserted only by opted-in templates creating new resources. Names
 # locate candidates; the marker, shape and exact policy scope authorize cleanup.
-class DisposablePostgresHelpers
+class DisposablePostgresHelpers # rubocop:disable Metrics/ClassLength
   TAG = "cpflow-disposable-postgres-app"
 
   def initialize(config, controlplane)
@@ -10,7 +10,7 @@ class DisposablePostgresHelpers
     @cp = controlplane
   end
 
-  def prepare_templates!(templates) # rubocop:disable Metrics/CyclomaticComplexity
+  def prepare_templates!(templates) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
     marked = templates.select { |template| marked?(template) }
     return if marked.empty?
 
@@ -18,11 +18,12 @@ class DisposablePostgresHelpers
       marked.each { |template| template["tags"].delete(TAG) }
       return
     end
-    refuse! unless (marked + fetch_resources).all? { |resource| owned?(resource) }
-    refuse! if shared?
+    candidates = templates.select { |template| resource_types.key?(template.values_at("kind", "name")) }
+    refuse! unless (candidates + fetch_resources).all? { |resource| owned?(resource) }
+    refuse! if shared? || externally_shared?
   end
 
-  def validate!
+  def validate! # rubocop:disable Metrics/CyclomaticComplexity
     return [] unless disposable?
 
     resources = fetch_resources
@@ -30,7 +31,7 @@ class DisposablePostgresHelpers
     return [] unless resources.any? { |resource| marked?(resource) }
 
     refuse! unless resources.all? { |resource| owned?(resource) }
-    refuse! if shared?
+    refuse! if shared? || externally_shared?
     resources
   end
 
@@ -67,6 +68,20 @@ class DisposablePostgresHelpers
     names = resource_types.keys.map(&:last)
     @config.shared_secret_grants.any? do |grant|
       [grant[:secret_name], grant[:policy_name]].any? { |name| names.include?(name) }
+    end
+  end
+
+  def externally_shared? # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+    @cp.fetch_policies.fetch("items").any? do |policy|
+      next false if policy["name"] == "#{@config.app}-pg-access" || policy["targetKind"] != "secret"
+
+      links = policy["targetLinks"]
+      next true unless links.is_a?(Array) && links.any? && policy["targetQuery"].nil? && policy["target"].nil?
+
+      names = ["#{@config.app}-pg", "#{@config.app}-pg-script"]
+      names.any? do |name|
+        links.intersect?(["//secret/#{name}", "/org/#{@config.org}/secret/#{name}"])
+      end
     end
   end
 

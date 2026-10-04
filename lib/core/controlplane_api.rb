@@ -164,6 +164,12 @@ class ControlplaneApi # rubocop:disable Metrics/ClassLength
     api_json("/org/#{org}/policy/#{policy}", method: :get)
   end
 
+  def list_policies(org:)
+    result = api_json("/org/#{org}/policy", method: :get)
+    fetch_query_pages(result)
+    result
+  end
+
   def delete_policy(org:, policy:)
     api_json("/org/#{org}/policy/#{policy}", method: :delete)
   end

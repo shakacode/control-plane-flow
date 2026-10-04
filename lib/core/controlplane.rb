@@ -462,6 +462,10 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     api.fetch_policy(org: org, policy: policy)
   end
 
+  def fetch_policies
+    api.list_policies(org: org)
+  end
+
   def delete_policy(policy)
     api.delete_policy(org: org, policy: policy)
   end
