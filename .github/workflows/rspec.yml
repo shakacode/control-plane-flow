@@ -87,10 +87,33 @@ jobs:
             spec/command/test_spec.rb \
             spec/command/update_github_actions_spec.rb \
             spec/command/version_spec.rb \
+            spec/command/build_image_secrets_spec.rb --tag ~docker_integration \
             spec/command/deploy_image_unit_spec.rb \
             spec/command/promote_app_from_upstream_unit_spec.rb
       - name: Analyze code
         run: bundle exec rubocop
+
+  docker-build-secrets:
+    name: Docker build secret integration
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Verify Docker is available
+        run: docker version
+      - name: Test real BuildKit secret consumption without deployment credentials
+        env:
+          CPLN_ORG: ""
+          DOCKER_BUILDKIT: "1"
+        run: bundle exec rspec spec/command/build_image_secrets_spec.rb --tag docker_integration
 
   rspec-slow:
     name: RSpec (Slow)
