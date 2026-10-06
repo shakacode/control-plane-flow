@@ -63,6 +63,11 @@ runs:
             echo "Duplicate Docker build secret id." >&2
             exit 1
           fi
+          # GitHub masks the stored id=value entry; register the extracted value too.
+          masked_value="${secret_value//%/%25}"
+          masked_value="${masked_value//$'\r'/%0D}"
+          masked_value="${masked_value//$'\n'/%0A}"
+          printf '::add-mask::%s\n' "${masked_value}"
           printf '%s' "${secret_value}" > "${secret_directory}/${secret_id}"
         done <<< "${DOCKER_BUILD_SECRETS}"
         echo "directory=${secret_directory}" >> "${GITHUB_OUTPUT}"

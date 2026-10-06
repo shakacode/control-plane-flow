@@ -115,11 +115,21 @@ RSpec.describe "GitHub Docker build secrets" do # rubocop:disable RSpec/Describe
     stdout, stderr, status = prepare("sentry_auth_token=test-secret=with-equals\r\nsecond= leading and trailing \n")
 
     expect(status).to be_success, stderr
-    expect(stdout + stderr).not_to include("test-secret")
+    expect(stdout.lines.grep_v(/\A::add-mask::/).join + stderr).not_to include("test-secret")
     expect(File.read(File.join(secret_directory, "sentry_auth_token"))).to eq("test-secret=with-equals")
     expect(File.read(File.join(secret_directory, "second"))).to eq(" leading and trailing ")
     expect(File.stat(secret_directory).mode & 0o777).to eq(0o700)
     expect(File.stat(File.join(secret_directory, "sentry_auth_token")).mode & 0o777).to eq(0o600)
+  end
+
+  it "registers extracted secret values for masking with workflow-command escaping" do
+    stdout, stderr, status = prepare("token=test%0D\rvalue=with-equals\nsecond= leading and trailing \n")
+
+    expect(status).to be_success, stderr
+    expect(stdout).to eq("::add-mask::test%250D%0Dvalue=with-equals\n::add-mask:: leading and trailing \n")
+    expect(stderr).to be_empty
+    expect(File.read(File.join(secret_directory, "token"))).to eq("test%0D\rvalue=with-equals")
+    expect(File.read(File.join(secret_directory, "second"))).to eq(" leading and trailing ")
   end
 
   it "passes only secret file paths to the build and cleans up after success" do
@@ -162,7 +172,7 @@ RSpec.describe "GitHub Docker build secrets" do # rubocop:disable RSpec/Describe
       stdout, stderr, status = prepare(secrets)
 
       expect(status).not_to be_success
-      expect(stdout + stderr).not_to include("test-secret")
+      expect(stdout.lines.grep_v(/\A::add-mask::/).join + stderr).not_to include("test-secret")
       expect(Dir.glob(File.join(directory, "cpflow-build-secrets.*"))).to be_empty
     end
   end
