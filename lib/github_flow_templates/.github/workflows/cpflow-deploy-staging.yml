@@ -21,4 +21,5 @@ jobs:
       staging_app_branch_default: "__STAGING_BRANCH_DEFAULT__"
     secrets:
       CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
+      DOCKER_BUILD_SECRETS: ${{ secrets.DOCKER_BUILD_SECRETS }}
       DOCKER_BUILD_SSH_KEY: ${{ secrets.DOCKER_BUILD_SSH_KEY }}

@@ -1150,7 +1150,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "wires Docker build inputs through the review-app workflow" do
       contents = reusable_review_app_workflow_path.read
-      expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
+      expect(contents).to include(
+        "docker_build_extra_args: |",
+        "${{ vars.DOCKER_BUILD_EXTRA_ARGS }}",
+        "${{ inputs.docker_build_extra_args }}"
+      )
       expect(contents).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
       expect(contents).to include(
         "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
@@ -1735,7 +1739,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
     it "wires Docker build inputs through the staging workflow" do
       contents = reusable_staging_workflow_path.read
-      expect(contents).to include("docker_build_extra_args: ${{ vars.DOCKER_BUILD_EXTRA_ARGS }}")
+      expect(contents).to include(
+        "docker_build_extra_args: |",
+        "${{ vars.DOCKER_BUILD_EXTRA_ARGS }}",
+        "${{ inputs.docker_build_extra_args }}"
+      )
       expect(contents).to include("docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}")
       expect(contents).to include(
         "docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}"
