@@ -14,7 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
-- Staging and review-app Docker builds accept optional `DOCKER_BUILD_SECRETS` entries through BuildKit secret mounts, keeping credential values out of build arguments and cleaning up temporary files after success or failure. Generated callers forward the secret, deployment callers can append build arguments through the `docker_build_extra_args` workflow input.
+- Staging and review-app Docker builds accept optional `DOCKER_BUILD_SECRETS` entries through BuildKit secret mounts, keeping credential values out of build arguments and cleaning up temporary files after success or failure. The generated review-app caller uses separate `REVIEW_APP_DOCKER_BUILD_SECRETS` credentials without falling back to the staging secret. Deployment callers can append build arguments through the `docker_build_extra_args` workflow input.
 
 - Production promotion runs show a staging comparison against the last recorded production release before production approval, with up to 100 commit subjects and explicit notices for missing provenance or diverged history. After approval, promotion stops if staging changed or live production differs from the preview’s release baseline.
 

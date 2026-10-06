@@ -107,7 +107,8 @@ RSpec.describe "GitHub Docker build secrets" do # rubocop:disable RSpec/Describe
                                      __dir__)
       caller = YAML.safe_load_file(caller_path)
       caller_job = caller.fetch("jobs").values.find { |job| job["uses"] }
-      expect(caller_job.dig("secrets", "DOCKER_BUILD_SECRETS")).to eq("${{ secrets.DOCKER_BUILD_SECRETS }}")
+      repository_secret = name == "review-app" ? "REVIEW_APP_DOCKER_BUILD_SECRETS" : "DOCKER_BUILD_SECRETS"
+      expect(caller_job.dig("secrets", "DOCKER_BUILD_SECRETS")).to eq("${{ secrets.#{repository_secret} }}")
     end
   end
 
