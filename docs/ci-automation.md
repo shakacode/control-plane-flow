@@ -486,9 +486,11 @@ Recommended org layout:
   review/staging CI operations; use a dedicated review-app org only if you also customize the generated
   workflow/configuration to target that org separately
 
-Optional repository secret for private dependency builds:
+Optional repository secrets for Docker builds:
 
 - `DOCKER_BUILD_SSH_KEY`: private SSH key used when the Dockerfile needs `RUN --mount=type=ssh` to fetch private GitHub dependencies during image build
+- `DOCKER_BUILD_SECRETS`: staging build credentials as newline-delimited `id=value` entries supplied through BuildKit secret mounts. Values must be single-line; spaces and additional `=` characters are preserved. IDs may contain letters, digits, underscores, and hyphens, and must start with a letter or digit. Empty values and duplicate IDs are rejected. Leave this secret unset when the build does not need credentials.
+- `REVIEW_APP_DOCKER_BUILD_SECRETS`: separate credentials for review-app builds, using the same format. The generated review-app caller uses only this secret; it does not fall back to `DOCKER_BUILD_SECRETS`. Leave it unset to supply no BuildKit secrets to review apps.
 
 Optional repository variables for private dependency builds:
 
@@ -631,6 +633,30 @@ The generated `cpflow-build-docker-image` action supports this without hardcodin
 - set `DOCKER_BUILD_SSH_KEY` if the Docker build needs SSH access to GitHub
 - optionally set `DOCKER_BUILD_SSH_KNOWN_HOSTS` when the SSH build host is not GitHub.com or you need custom host entries
 - set `DOCKER_BUILD_EXTRA_ARGS` when you need extra `docker build` flags
+- set `DOCKER_BUILD_SECRETS` for staging builds that need credentials such as a private package token or a source-map upload token
+- set `REVIEW_APP_DOCKER_BUILD_SECRETS` separately if review-app builds need credentials
+
+For example, store the following as the **value** of the `DOCKER_BUILD_SECRETS` GitHub Actions secret:
+
+```text
+sentry_auth_token=<source-map upload token>
+npm_token=<private package token>
+```
+
+The generated staging caller forwards `DOCKER_BUILD_SECRETS`. The review-app caller forwards `REVIEW_APP_DOCKER_BUILD_SECRETS`, the only build-secret parameter the reusable review-app workflow accepts, so review builds never receive the staging secret. The build action writes each value to a private temporary file, passes only its path through `--secret=id=...,src=...`, and removes the files on success or failure. Values are not passed as build arguments or persisted through `GITHUB_ENV`.
+
+A Dockerfile can consume a token only for the command that needs it:
+
+```dockerfile
+# syntax=docker/dockerfile:1
+ARG SENTRY_UPLOAD=false
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+    SENTRY_UPLOAD=${SENTRY_UPLOAD} npm run build
+```
+
+If the application's build requires an explicit upload opt-in, pass `docker_build_extra_args: --build-arg=SENTRY_UPLOAD=true` in the caller workflow's `with` block, or add that token to `DOCKER_BUILD_EXTRA_ARGS`. The optional workflow input is appended after the repository variable, retaining existing build arguments. Token availability alone need not enable uploads. BuildKit secret values do not invalidate build caches; force the relevant build step to run again when rotating a credential requires repeating an upload.
+
+Every secret supplied to a review build is accessible to the PR-controlled Dockerfile, which can read and transmit it. Automatic rebuilds of an existing review app also receive these secrets; approval to create the app does not approve later commits. Configure only credentials whose access can be entrusted to anyone able to change the deployed branch, scoped to the minimum review-build permissions. Separate secret names reduce accidental sharing but do not prevent the Dockerfile from accessing supplied credentials. If a credential cannot be entrusted to branch authors, omit it from review builds or use a customized approval gate that approves each deployed commit. Apply the review-app security guidance above.
 
 For example, a repo that installs private dependencies from GitHub during Docker build can set:
 
