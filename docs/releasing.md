@@ -44,11 +44,16 @@ the GitHub release from that section automatically.
 
 ### 2. Run the Release Task
 
-The recommended command has no arguments:
+The recommended command has no arguments, and you run it twice:
 
 ```bash
 bundle exec rake release
 ```
+
+The first run opens a version bump pull request and stops. Merge that pull
+request, then run the command again to tag, publish, and create the GitHub
+release. The bump goes through a pull request because the release branch may be
+protected; the task never pushes commits to it directly.
 
 With no arguments, `rake release`:
 
@@ -58,9 +63,11 @@ With no arguments, `rake release`:
    on a retry after a release attempt created the version commit or tag.
 4. Lets the existing-tag policy stop an incomplete retry instead of silently
    selecting a different version.
-5. Falls back to a patch bump only from a stable current version when the
-   changelog does not name the current or a newer version. Prereleases require
-   an explicit target if the changelog cannot supply one.
+5. Publishes the current gem version when the changelog does not name it and
+   the remote has no tag for it or any later version, because that version's
+   bump has already merged.
+6. Otherwise falls back to a patch bump, only from a stable current version.
+   Prereleases require an explicit target if the changelog cannot supply one.
 
 Other supported forms:
 
@@ -93,7 +100,7 @@ GEM_RELEASE_MAX_RETRIES=<n>
 
 ### 3. What the Task Does
 
-`bundle exec rake release` performs the gem-only release:
+Every run of `bundle exec rake release` starts with the same checks:
 
 1. Requires a clean working tree.
 2. Verifies `gem-release` is available through Bundler.
@@ -102,14 +109,29 @@ GEM_RELEASE_MAX_RETRIES=<n>
 5. Resolves the target version from the changelog or explicit argument.
 6. Requires stable releases to run from `main`; prereleases may run from another
    branch.
-7. Validates the target version is newer than the latest tag and is consistent
-   with the changelog section when the section indicates a bump level.
-8. Bumps `lib/cpflow/version.rb` and updates `Gemfile.lock`.
-9. Commits the version bump, tags `vX.Y.Z`, and pushes the commit and tags.
-10. Publishes the `cpflow` gem to RubyGems.org.
-11. Creates or updates the GitHub release from the matching changelog section.
-12. Prints the downstream GitHub Actions follow-up command:
-    `cpflow update-github-actions`.
+7. Validates the target version is newer than the latest release tag on
+   `origin` and is consistent with the changelog section when the section
+   indicates a bump level. Local tags are not consulted.
+
+When the gem version differs from the target, the run prepares the bump:
+
+1. Creates a `release/vX.Y.Z` branch in a temporary worktree, leaving your
+   checkout untouched.
+2. Bumps `lib/cpflow/version.rb`, updates `Gemfile.lock`, and regenerates
+   `docs/commands.md`, which embeds the gem version.
+3. Commits, pushes the branch, and opens a pull request against the branch you
+   ran the release from.
+4. Stops without tagging or publishing, and prints the command for the second
+   run.
+
+When the checkout already carries the target version, the run publishes:
+
+1. Requires `HEAD` to be the tip of the remote release branch.
+2. Tags `vX.Y.Z` on that commit and pushes only that tag.
+3. Publishes the `cpflow` gem to RubyGems.org.
+4. Creates or updates the GitHub release from the matching changelog section.
+5. Prints the downstream GitHub Actions follow-up command:
+   `cpflow update-github-actions`.
 
 The older `bundle exec rake "create_release[4.2.0,false]"` task name remains as
 a compatibility alias, but new releases should use `bundle exec rake release`.
@@ -159,6 +181,14 @@ authentication or permissions and run:
 ```bash
 bundle exec rake "sync_github_release[4.2.0]"
 ```
+
+If the version bump pull request is open but not merged, merge it and rerun the
+release. The task stops if the `release/vX.Y.Z` branch already exists rather
+than opening a second pull request.
+
+If the task reports that a local tag points at another commit, the tag is left
+over from an earlier failed release. Delete it with `git tag -d vX.Y.Z` and
+rerun.
 
 If the tag was pushed but the gem was not published, delete or correct the tag
 and version commit intentionally before trying again. A no-argument retry keeps

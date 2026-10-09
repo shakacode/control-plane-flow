@@ -18,8 +18,13 @@ desc("Releases the cpflow Ruby gem.
 
   The recommended flow is changelog-first:
     1. Merge the CHANGELOG.md update for the target version.
-    2. Run `bundle exec rake release`.
-    3. Enter the RubyGems OTP when prompted.
+    2. Run `bundle exec rake release`. It opens a version bump pull request.
+    3. Merge that pull request, then run `bundle exec rake release` again.
+    4. Enter the RubyGems OTP when prompted.
+
+  The version bump lands through a pull request because the release branch
+  may be protected. The second run tags the merged commit, pushes that tag,
+  publishes the gem, and creates the GitHub release.
 
   With no version argument, the task reads the latest versioned CHANGELOG.md
   header and uses it when it is newer than or equal to the current gem version.
@@ -50,60 +55,80 @@ task :release, %i[version dry_run override_version_policy] do |_t, args|
   allow_version_policy_override = Release.version_policy_override_enabled?(args_hash[:override_version_policy])
   rubygems_otp = ENV.fetch("RUBYGEMS_OTP", nil)
   current_branch = Release.current_git_branch(gem_root)
-  released_gem_version = nil
 
   Release.ensure_there_is_nothing_to_commit(gem_root)
   Release.run_release_preflight_checks!(gem_root: gem_root, dry_run: is_dry_run)
+  Release.update_the_local_project(gem_root) unless is_dry_run
 
-  Release.with_release_checkout(gem_root: gem_root, dry_run: is_dry_run) do |release_root|
-    Release.update_the_local_project(release_root) unless is_dry_run
+  released_versions = Release.tagged_release_gem_versions(gem_root)
+  version_input = Release.resolve_version_input(
+    args_hash.fetch(:version, ""), gem_root: gem_root, released_versions: released_versions
+  )
+  Release.validate_requested_version_input!(version_input)
 
-    version_input = Release.resolve_version_input(args_hash.fetch(:version, ""), gem_root: release_root)
-    Release.validate_requested_version_input!(version_input)
+  current_gem_version = Release.current_gem_version(gem_root)
+  target_gem_version = Release.compute_target_gem_version(
+    current_gem_version: current_gem_version,
+    version_input: version_input
+  )
 
-    current_checkout_version = Release.current_gem_version(release_root)
-    target_gem_version = Release.compute_target_gem_version(
-      current_gem_version: current_checkout_version,
-      version_input: version_input
-    )
+  Release.ensure_release_branch_allowed!(
+    current_branch: current_branch,
+    target_gem_version: target_gem_version
+  )
 
-    Release.ensure_release_branch_allowed!(
-      current_branch: current_branch,
-      target_gem_version: target_gem_version
-    )
+  Release.validate_release_version_policy!(
+    gem_root: gem_root,
+    target_gem_version: target_gem_version,
+    allow_override: allow_version_policy_override,
+    tagged_versions: released_versions
+  )
 
-    Release.validate_release_version_policy!(
-      gem_root: release_root,
-      target_gem_version: target_gem_version,
-      allow_override: allow_version_policy_override,
-      fetch_tags: true
-    )
-
-    Release.confirm_release!(version: target_gem_version, gem_root: release_root) unless is_dry_run
-    Release.bump_gem_version!(gem_root: release_root, version_input: version_input)
-    Release.update_lockfile!(gem_root: release_root)
-
-    released_gem_version = Release.current_gem_version(release_root)
-
-    next if is_dry_run
-
-    Release.commit_tag_and_push!(gem_root: release_root, version: released_gem_version)
-    Release.publish_gem_with_retry(release_root, "cpflow", otp: rubygems_otp)
-  end
+  version_bump_needed = current_gem_version != target_gem_version
 
   if is_dry_run
+    if version_bump_needed
+      Release.with_release_worktree(gem_root: gem_root) do |release_root|
+        Release.apply_version_bump!(gem_root: release_root, version_input: version_input)
+      end
+    end
+
     puts ""
     puts "DRY RUN COMPLETE"
-    puts "Version would be bumped to: #{released_gem_version}"
-    puts "To release for real, run: bundle exec rake \"release[#{released_gem_version}]\""
-  else
-    Release.sync_github_release_after_publish(gem_root: gem_root, gem_version: released_gem_version, dry_run: false)
-    puts ""
-    puts "RELEASE COMPLETE"
-    puts "Published cpflow #{released_gem_version} to RubyGems.org."
+    if version_bump_needed
+      puts "Would open a pull request bumping the version to #{target_gem_version}."
+    else
+      puts "Would tag v#{target_gem_version}, publish the gem, and create the GitHub release."
+    end
+    puts "To release for real, run: bundle exec rake \"release[#{target_gem_version}]\""
+    next
   end
 
-  Release.print_github_actions_update_reminder(released_gem_version)
+  Release.confirm_release!(version: target_gem_version, gem_root: gem_root, version_bump_needed: version_bump_needed)
+
+  if version_bump_needed
+    Release.open_version_bump_pull_request!(
+      gem_root: gem_root,
+      version_input: version_input,
+      target_gem_version: target_gem_version,
+      base_branch: current_branch
+    )
+
+    puts ""
+    puts "VERSION BUMP PULL REQUEST OPENED"
+    puts "Nothing is tagged or published yet."
+    puts "Merge the pull request, then run: bundle exec rake \"release[#{target_gem_version}]\""
+    next
+  end
+
+  Release.tag_and_push_release!(gem_root: gem_root, version: target_gem_version, branch: current_branch)
+  Release.publish_gem_with_retry(gem_root, "cpflow", otp: rubygems_otp)
+  Release.sync_github_release_after_publish(gem_root: gem_root, gem_version: target_gem_version, dry_run: false)
+
+  puts ""
+  puts "RELEASE COMPLETE"
+  puts "Published cpflow #{target_gem_version} to RubyGems.org."
+  Release.print_github_actions_update_reminder(target_gem_version)
 end
 
 desc("Compatibility alias for the old release task. Prefer `bundle exec rake release`.")
@@ -152,6 +177,7 @@ module Release
 
   PRERELEASE_PATTERN = /\.(test|beta|alpha|rc|pre)\./i
   VERSION_PATTERN = /\A\d+\.\d+\.\d+(\.(test|beta|alpha|rc|pre)\.\d+)?\z/i
+  VERSION_BUMP_PATHS = ["Gemfile.lock", "lib/cpflow/version.rb", "docs/commands.md"].freeze
 
   class << self
     def gem_root
@@ -263,7 +289,7 @@ module Release
       content
     end
 
-    def resolve_version_input(version_input, gem_root:)
+    def resolve_version_input(version_input, gem_root:, released_versions: nil)
       stripped = version_input.to_s.strip
       return stripped unless stripped.empty?
 
@@ -280,9 +306,19 @@ module Release
         return changelog_version
       end
 
+      if released_versions && unreleased_version?(current_version, released_versions)
+        puts "Found unreleased current version: #{current_version}"
+        return current_version
+      end
+
       puts "No new version found in CHANGELOG.md (latest: #{changelog_version || 'none'}, current: #{current_version})."
       puts "Falling back to patch bump."
       "patch"
+    end
+
+    # True when the version bump has already landed but no release tag exists on the remote yet.
+    def unreleased_version?(version, released_versions)
+      released_versions.none? { |released| Gem::Version.new(released) >= Gem::Version.new(version) }
     end
 
     def parse_release_tag_to_gem_version(tag)
@@ -300,16 +336,16 @@ module Release
       "#{prerelease_with_dash[1]}.#{prerelease_with_dash[2].downcase}.#{prerelease_with_dash[3]}"
     end
 
-    def tagged_release_gem_versions(gem_root, fetch_tags: true)
-      if fetch_tags
-        fetch_output, fetch_status = Open3.capture2e("git", "-C", gem_root, "fetch", "--tags", "--quiet")
-        abort "Unable to fetch tags for version validation.\n\n#{fetch_output.strip}" unless fetch_status.success?
+    # The remote is the record of what has shipped. Local tags can be stale leftovers of a
+    # failed release, and a local tag that differs from the remote one makes `git fetch --tags` fail.
+    def tagged_release_gem_versions(gem_root)
+      tags_output, tags_status = Open3.capture2e("git", "-C", gem_root, "ls-remote", "--tags", "--refs", "origin", "v*")
+      unless tags_status.success?
+        abort "Unable to list release tags on origin for version validation.\n\n#{tags_output.strip}"
       end
 
-      tags_output, tags_status = Open3.capture2e("git", "-C", gem_root, "tag", "-l", "v*")
-      abort "Unable to list git tags for version validation.\n\n#{tags_output.strip}" unless tags_status.success?
-
-      tags_output.lines.map(&:strip).filter_map { |tag| parse_release_tag_to_gem_version(tag) }.uniq
+      tag_names = tags_output.lines.map { |line| line.strip.split("refs/tags/").last.to_s }
+      tag_names.filter_map { |tag| parse_release_tag_to_gem_version(tag) }.uniq
     end
 
     def version_bump_type(previous_stable_gem_version:, target_gem_version:)
@@ -345,8 +381,8 @@ module Release
       abort message
     end
 
-    def validate_release_version_policy!(gem_root:, target_gem_version:, allow_override:, fetch_tags: true)
-      tagged_versions = tagged_release_gem_versions(gem_root, fetch_tags: fetch_tags)
+    def validate_release_version_policy!(gem_root:, target_gem_version:, allow_override:, tagged_versions: nil)
+      tagged_versions ||= tagged_release_gem_versions(gem_root)
       latest_tagged_version = tagged_versions.max_by { |version| Gem::Version.new(version) }
 
       if latest_tagged_version && Gem::Version.new(target_gem_version) <= Gem::Version.new(latest_tagged_version)
@@ -399,14 +435,16 @@ module Release
       )
     end
 
-    def confirm_release!(version:, gem_root:)
+    def confirm_release!(version:, gem_root:, version_bump_needed: false)
       has_changelog = extract_changelog_section(gem_root: gem_root, version: version)
+      next_step = version_bump_needed ? "open a version bump pull request" : "tag, publish, and create the release"
 
       puts ""
       puts "Release confirmation"
       puts "  Version: #{version}"
+      puts "  This run will: #{next_step}"
       puts "  Changelog: #{has_changelog ? 'section found' : 'missing; GitHub release sync will be skipped'}"
-      print "Proceed with release? [y/N] "
+      print "Proceed? [y/N] "
       $stdout.flush
       answer = $stdin.gets&.strip&.downcase
       abort "Release aborted." unless answer == "y"
@@ -537,12 +575,13 @@ module Release
       raise "Ensure you have Git and Bundler installed before releasing."
     end
 
-    def with_release_checkout(gem_root:, dry_run:)
-      return yield(gem_root) unless dry_run
-
-      Dir.mktmpdir("cpflow-release-dry-run") do |tmpdir|
+    # Runs the version bump in a throwaway worktree so a failed run never leaves commits,
+    # tags, or edits in the release checkout. With a branch name, the worktree starts that branch.
+    def with_release_worktree(gem_root:, branch: nil)
+      Dir.mktmpdir("cpflow-release") do |tmpdir|
         worktree_dir = File.join(tmpdir, "worktree")
-        sh_args_in_dir(gem_root, "git", "worktree", "add", "--detach", worktree_dir, "HEAD")
+        checkout_args = branch ? ["-b", branch, worktree_dir, "HEAD"] : ["--detach", worktree_dir, "HEAD"]
+        sh_args_in_dir(gem_root, "git", "worktree", "add", *checkout_args)
         begin
           yield(worktree_dir)
         ensure
@@ -562,29 +601,113 @@ module Release
       unbundled_sh_in_dir(gem_root, "bundle install#{quiet_flag}")
     end
 
-    def commit_tag_and_push!(gem_root:, version:)
-      sh_args_in_dir(gem_root, "git", "add", "-A", "Gemfile.lock", "lib/cpflow/version.rb")
+    # docs/commands.md embeds the gem version, so the required Command Docs check fails
+    # on a version bump that does not regenerate it.
+    def update_command_docs!(gem_root:)
+      unbundled_sh_in_dir(gem_root, "bundle exec rake update_command_docs")
+    end
 
-      _git_diff_output, git_diff_status = Open3.capture2e("git", "-C", gem_root, "diff", "--cached", "--quiet")
-      if git_diff_status.success?
-        puts "No version changes to commit; version is already #{version}."
-      else
-        sh_args_in_dir(gem_root, "git", "commit", "-m", "Bump version to #{version}")
+    def apply_version_bump!(gem_root:, version_input:)
+      bump_gem_version!(gem_root: gem_root, version_input: version_input)
+      update_lockfile!(gem_root: gem_root)
+      update_command_docs!(gem_root: gem_root)
+    end
+
+    def git_ref_exists?(gem_root, ref)
+      exists = system("git", "-C", gem_root, "rev-parse", "--verify", "--quiet", ref, out: File::NULL, err: File::NULL)
+      abort "Unable to run git to verify #{ref}." if exists.nil?
+
+      exists
+    end
+
+    def remote_ref_exists?(gem_root, ref)
+      output, status = Open3.capture2e("git", "-C", gem_root, "ls-remote", "--exit-code", "origin", ref)
+      return true if status.success?
+      return false if status.exitstatus == 2
+
+      abort "Unable to check origin for #{ref}.\n\n#{output.strip}"
+    end
+
+    def ensure_release_branch_is_new!(gem_root:, branch:)
+      return unless git_ref_exists?(gem_root, "refs/heads/#{branch}") ||
+                    remote_ref_exists?(gem_root, "refs/heads/#{branch}")
+
+      abort <<~ERROR
+        Branch #{branch} already exists, so a version bump is probably already in review.
+
+        Merge its pull request and rerun the release, or delete the branch to start over:
+          git branch -D #{branch}
+          git push origin --delete #{branch}
+      ERROR
+    end
+
+    def create_version_bump_pull_request!(gem_root:, branch:, base_branch:, version:)
+      body = <<~BODY
+        Bump `Cpflow::VERSION`, `Gemfile.lock`, and the generated command docs to #{version}.
+
+        Opened by `bundle exec rake release`. After this merges, run `bundle exec rake "release[#{version}]"` from an up-to-date `#{base_branch}` to tag the merged commit, publish the gem, and create the GitHub release.
+      BODY
+      sh_args_in_dir(gem_root, "gh", "pr", "create", "--base", base_branch, "--head", branch,
+                     "--title", "Bump version to #{version}", "--body", body)
+    end
+
+    def open_version_bump_pull_request!(gem_root:, version_input:, target_gem_version:, base_branch:)
+      branch = "release/v#{target_gem_version}"
+      ensure_release_branch_is_new!(gem_root: gem_root, branch: branch)
+
+      with_release_worktree(gem_root: gem_root, branch: branch) do |release_root|
+        apply_version_bump!(gem_root: release_root, version_input: version_input)
+        sh_args_in_dir(release_root, "git", "add", "-A", *VERSION_BUMP_PATHS)
+        sh_args_in_dir(release_root, "git", "commit", "-m", "Bump version to #{target_gem_version}")
+        sh_args_in_dir(release_root, "git", "push", "--set-upstream", "origin", branch)
+        create_version_bump_pull_request!(
+          gem_root: release_root, branch: branch, base_branch: base_branch, version: target_gem_version
+        )
       end
+    end
+
+    def ensure_head_is_remote_branch_tip!(gem_root:, branch:)
+      fetch_output, fetch_status = Open3.capture2e("git", "-C", gem_root, "fetch", "origin", branch)
+      abort "Unable to fetch origin/#{branch}.\n\n#{fetch_output.strip}" unless fetch_status.success?
+
+      head = `git -C #{Shellwords.escape(gem_root)} rev-parse HEAD`.strip
+      remote_head = `git -C #{Shellwords.escape(gem_root)} rev-parse FETCH_HEAD`.strip
+      return if !head.empty? && head == remote_head
+
+      abort <<~ERROR
+        HEAD (#{head[0, 7]}) is not the tip of origin/#{branch} (#{remote_head[0, 7]}).
+
+        The release tag must name a commit that is already on origin/#{branch}.
+        Land local commits through a pull request, update this checkout, and rerun the release.
+      ERROR
+    end
+
+    # The tag is created only once its commit is on the remote branch, and only this tag is pushed.
+    # A tag made before a rejected branch push would otherwise name a commit that never merged.
+    def tag_and_push_release!(gem_root:, version:, branch:)
+      ensure_head_is_remote_branch_tip!(gem_root: gem_root, branch: branch)
 
       tag_name = "v#{version}"
-      tag_exists = system("git", "-C", gem_root, "rev-parse", "--verify", "--quiet", "refs/tags/#{tag_name}",
-                          out: File::NULL, err: File::NULL)
-      abort "Unable to verify git tag #{tag_name}." if tag_exists.nil?
+      tag_ref = "refs/tags/#{tag_name}"
 
-      if tag_exists
-        puts "Git tag #{tag_name} already exists; skipping tag creation."
+      if git_ref_exists?(gem_root, tag_ref)
+        head = `git -C #{Shellwords.escape(gem_root)} rev-parse HEAD`.strip
+        tag_commit = `git -C #{Shellwords.escape(gem_root)} rev-parse #{Shellwords.escape("#{tag_ref}^{commit}")}`.strip
+        unless tag_commit == head
+          abort <<~ERROR
+            Local tag #{tag_name} points at #{tag_commit[0, 7]}, not the release commit #{head[0, 7]}.
+
+            It is probably left over from an earlier failed release. Remove it and rerun:
+              git tag -d #{tag_name}
+          ERROR
+        end
+
+        puts "Git tag #{tag_name} already exists on the release commit; skipping tag creation."
       else
         sh_args_in_dir(gem_root, "git", "tag", tag_name)
       end
 
-      sh_args_in_dir(gem_root, "git", "push")
-      sh_args_in_dir(gem_root, "git", "push", "--tags")
+      sh_args_in_dir(gem_root, "git", "push", "origin", tag_ref)
     end
 
     def normalize_otp_code(otp)
@@ -641,18 +764,9 @@ module Release
     end
 
     def ensure_git_tag_exists!(gem_root:, tag:)
-      fetch_output, fetch_status = Open3.capture2e("git", "-C", gem_root, "fetch", "--tags", "--quiet")
-      unless fetch_status.success?
-        abort "Unable to fetch git tags before verifying #{tag.inspect}.\n\n#{fetch_output.strip}"
-      end
+      return if remote_ref_exists?(gem_root, "refs/tags/#{tag}")
 
-      tag_ref = "refs/tags/#{tag}"
-      tag_exists = system("git", "-C", gem_root, "rev-parse", "--verify", "--quiet", tag_ref,
-                          out: File::NULL, err: File::NULL)
-      abort "Unable to run git to verify tag #{tag.inspect}." if tag_exists.nil?
-      return if tag_exists
-
-      abort "Git tag #{tag.inspect} was not found locally or remotely."
+      abort "Git tag #{tag.inspect} was not found on origin. Push the release tag before syncing the GitHub release."
     end
 
     def prepare_github_release_context(gem_root:, gem_version:)
