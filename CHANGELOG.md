@@ -12,10 +12,6 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-### Added
-
-- **Staging and review-app Docker builds accept optional credentials through BuildKit secret mounts.** Set `DOCKER_BUILD_SECRETS` for staging and `REVIEW_APP_DOCKER_BUILD_SECRETS` for review apps; review builds never receive the staging secret. Credential values stay out of build arguments, and temporary files are removed after success or failure. Deployment callers can append build arguments through the `docker_build_extra_args` workflow input. [PR 503](https://github.com/shakacode/control-plane-flow/pull/503) by [Alexey Romanov](https://github.com/alexeyr-ci6).
-
 ## [6.0.0] - 2026-10-08
 
 ### Breaking Changes
@@ -26,6 +22,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - **Production promotion runs show a staging comparison against the last recorded production release before production approval, with up to 100 commit subjects and explicit notices for missing provenance or diverged history.** After approval, promotion stops if staging changed or live production differs from the preview’s release baseline. [PR 500](https://github.com/shakacode/control-plane-flow/pull/500) by [Justin Gordon](https://github.com/justin808).
 - **Review apps can opt in to generated disposable credentials.** Each PR app gets its own tagged secret dictionary and policy; setup fills only missing keys after checking both resource markers and policy scope, and app deletion removes the resources after checking their bindings and target, including after partial deletion or opt-in removal. Cleanup probes the deterministic per-app resource names for every dynamically matched review app so removed opt-ins can still be reconciled; a provider read failure, unexpected grant, or unmarked name collision now fails the delete step for inspection instead of silently succeeding. [PR 483](https://github.com/shakacode/control-plane-flow/pull/483) by [Justin Gordon](https://github.com/justin808).
+- **Staging and review-app Docker builds accept optional credentials through BuildKit secret mounts.** Set `DOCKER_BUILD_SECRETS` for staging and `REVIEW_APP_DOCKER_BUILD_SECRETS` for review apps; review builds never receive the staging secret. Credential values stay out of build arguments, and temporary files are removed after success or failure. Deployment callers can append build arguments through the `docker_build_extra_args` workflow input. [PR 503](https://github.com/shakacode/control-plane-flow/pull/503) and [PR 505](https://github.com/shakacode/control-plane-flow/pull/505) by [Alexey Romanov](https://github.com/alexeyr-ci6).
 
 ### Changed
 
