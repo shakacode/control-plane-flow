@@ -14,7 +14,7 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
-- **Staging and review-app Docker builds accept optional `DOCKER_BUILD_SECRETS` entries through BuildKit secret mounts.** Credential values stay out of build arguments, and temporary files are cleaned up after success or failure. The generated review-app caller uses separate `REVIEW_APP_DOCKER_BUILD_SECRETS` credentials without falling back to the staging secret. Deployment callers can append build arguments through the `docker_build_extra_args` workflow input. [PR 503](https://github.com/shakacode/control-plane-flow/pull/503) by [Alexey Romanov](https://github.com/alexeyr-ci6).
+- **Staging and review-app Docker builds accept optional credentials through BuildKit secret mounts.** Set `DOCKER_BUILD_SECRETS` for staging and `REVIEW_APP_DOCKER_BUILD_SECRETS` for review apps; review builds never receive the staging secret. Credential values stay out of build arguments, and temporary files are removed after success or failure. Deployment callers can append build arguments through the `docker_build_extra_args` workflow input. [PR 503](https://github.com/shakacode/control-plane-flow/pull/503) by [Alexey Romanov](https://github.com/alexeyr-ci6).
 
 ## [6.0.0] - 2026-10-08
 

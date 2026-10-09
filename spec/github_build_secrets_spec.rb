@@ -147,6 +147,19 @@ RSpec.describe "GitHub Docker build secrets" do # rubocop:disable RSpec/Describe
     expect(File).not_to exist(prepared_directory)
   end
 
+  it "skips the blank lines the workflows render when an extra-args source is unset" do
+    ["\n\n", "--build-arg=FIRST=1\n\n", "\n--build-arg=SECOND=2\n"].each do |extra_args|
+      expect(prepare("sentry_auth_token=test-secret").last).to be_success
+      _stdout, stderr, status = build("DOCKER_BUILD_EXTRA_ARGS" => extra_args)
+
+      expect(status).to be_success, stderr
+      arguments = JSON.parse(File.read(File.join(directory, "capture.json"))).fetch("arguments")
+      expect(arguments.grep(/\A--build-arg/)).to eq(extra_args.split("\n").reject(&:empty?))
+      expect(arguments).not_to include("")
+      File.delete(File.join(directory, "outputs"))
+    end
+  end
+
   it "cleans up secrets after build failure and before-build argument failures" do
     [
       { "BUILD_STATUS" => "1" },
