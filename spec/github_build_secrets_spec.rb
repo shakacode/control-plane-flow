@@ -87,6 +87,7 @@ RSpec.describe "GitHub Docker build secrets" do # rubocop:disable RSpec/Describe
 
   it "passes secrets through both reusable workflows and generated callers" do
     %w[staging review-app].each do |name|
+      secret_name = name == "review-app" ? "REVIEW_APP_DOCKER_BUILD_SECRETS" : "DOCKER_BUILD_SECRETS"
       path = File.expand_path("../.github/workflows/cpflow-deploy-#{name}.yml", __dir__)
       workflow = YAML.safe_load_file(path)
       triggers = workflow["on"] || workflow.fetch(true)
@@ -96,19 +97,19 @@ RSpec.describe "GitHub Docker build secrets" do # rubocop:disable RSpec/Describe
           "type" => "string",
           "default" => ""
         )
-      expect(triggers.dig("workflow_call", "secrets", "DOCKER_BUILD_SECRETS"))
-        .to include("required" => false)
+      expect(triggers.dig("workflow_call", "secrets").keys.grep(/DOCKER_BUILD_SECRETS/)).to eq([secret_name])
+      expect(triggers.dig("workflow_call", "secrets", secret_name)).to include("required" => false)
       build_step = workflow.fetch("jobs").values.flat_map { |job| job.fetch("steps", []) }
                                                 .find { |entry| entry["name"] == "Build Docker image" }
       expect(build_step.dig("with", "docker_build_extra_args"))
         .to eq("${{ vars.DOCKER_BUILD_EXTRA_ARGS }}\n${{ inputs.docker_build_extra_args }}\n")
-      expect(build_step.dig("with", "docker_build_secrets")).to eq("${{ secrets.DOCKER_BUILD_SECRETS }}")
+      expect(build_step.dig("with", "docker_build_secrets")).to eq("${{ secrets.#{secret_name} }}")
       caller_path = File.expand_path("../lib/github_flow_templates/.github/workflows/cpflow-deploy-#{name}.yml",
                                      __dir__)
       caller = YAML.safe_load_file(caller_path)
       caller_job = caller.fetch("jobs").values.find { |job| job["uses"] }
-      repository_secret = name == "review-app" ? "REVIEW_APP_DOCKER_BUILD_SECRETS" : "DOCKER_BUILD_SECRETS"
-      expect(caller_job.dig("secrets", "DOCKER_BUILD_SECRETS")).to eq("${{ secrets.#{repository_secret} }}")
+      expect(caller_job.fetch("secrets").keys.grep(/DOCKER_BUILD_SECRETS/)).to eq([secret_name])
+      expect(caller_job.dig("secrets", secret_name)).to eq("${{ secrets.#{secret_name} }}")
     end
   end
 

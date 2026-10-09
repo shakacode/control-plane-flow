@@ -42,5 +42,5 @@ jobs:
     uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@__CPFLOW_GITHUB_ACTIONS_REF__
     secrets:
       CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
-      DOCKER_BUILD_SECRETS: ${{ secrets.REVIEW_APP_DOCKER_BUILD_SECRETS }}
+      REVIEW_APP_DOCKER_BUILD_SECRETS: ${{ secrets.REVIEW_APP_DOCKER_BUILD_SECRETS }}
       DOCKER_BUILD_SSH_KEY: ${{ secrets.DOCKER_BUILD_SSH_KEY }}

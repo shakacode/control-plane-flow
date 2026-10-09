@@ -643,7 +643,7 @@ sentry_auth_token=<source-map upload token>
 npm_token=<private package token>
 ```
 
-The generated staging caller forwards `DOCKER_BUILD_SECRETS`. The review-app caller maps `REVIEW_APP_DOCKER_BUILD_SECRETS` to the reusable workflow's `DOCKER_BUILD_SECRETS` parameter, without falling back to the staging secret. Custom callers should preserve this separation. The build action writes each value to a private temporary file, passes only its path through `--secret=id=...,src=...`, and removes the files on success or failure. Values are not passed as build arguments or persisted through `GITHUB_ENV`.
+The generated staging caller forwards `DOCKER_BUILD_SECRETS`. The review-app caller forwards `REVIEW_APP_DOCKER_BUILD_SECRETS`, the only build-secret parameter the reusable review-app workflow accepts, so review builds never receive the staging secret. The build action writes each value to a private temporary file, passes only its path through `--secret=id=...,src=...`, and removes the files on success or failure. Values are not passed as build arguments or persisted through `GITHUB_ENV`.
 
 A Dockerfile can consume a token only for the command that needs it:
 
