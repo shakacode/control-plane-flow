@@ -28,8 +28,9 @@ desc("Releases the cpflow Ruby gem.
 
   With no version argument, the task reads the latest versioned CHANGELOG.md
   header and uses it when it is newer than or equal to the current gem version.
-  It falls back to a patch bump only when the current version is stable and the
-  changelog does not name the current or a newer version.
+  When the changelog names neither, it publishes the current gem version if
+  origin has no tag for it or any later version, because that bump has already
+  merged. Otherwise it falls back to a patch bump, only from a stable version.
 
   1st argument: Version (optional). Supported values:
                 patch, minor, major, 4.2.0, or 4.2.0.rc.1
