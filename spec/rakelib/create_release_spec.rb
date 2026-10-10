@@ -86,18 +86,6 @@ RSpec.describe Release do
         expect(described_class.resolve_version_input("", gem_root: root)).to eq("6.0.0.rc.0")
       end
     end
-
-    it "publishes an unreleased current version instead of bumping past it" do
-      Dir.mktmpdir do |root|
-        write_file(root, "CHANGELOG.md", changelog("## [4.2.0] - 2026-05-05"))
-        write_file(root, "lib/cpflow/version.rb", version_file("4.2.1"))
-
-        expect(described_class.resolve_version_input("", gem_root: root, released_versions: %w[4.1.1 4.2.0]))
-          .to eq("4.2.1")
-        expect(described_class.resolve_version_input("", gem_root: root, released_versions: %w[4.2.0 4.2.1]))
-          .to eq("patch")
-      end
-    end
   end
 
   describe ".compute_target_gem_version" do
@@ -199,82 +187,45 @@ RSpec.describe Release do
       end
     end
 
-    describe ".tag_and_push_release!" do
-      it "tags the pushed commit and pushes only the release tag" do
-        with_release_repo(version: "4.2.0") do |checkout|
-          head = git(checkout, "rev-parse", "HEAD")
+    describe ".commit_tag_and_push!" do
+      it "pushes the bump, then tags that commit and pushes only the release tag" do
+        with_release_repo do |checkout|
+          write_file(checkout, "lib/cpflow/version.rb", version_file("4.2.0"))
+          write_file(checkout, "Gemfile.lock", "cpflow (4.2.0)\n")
+          write_file(checkout, "docs/commands.md", "cpflow 4.2.0\n")
           git(checkout, "tag", "v0.0.1-scratch")
 
-          described_class.tag_and_push_release!(gem_root: checkout, version: "4.2.0", branch: "main")
+          described_class.commit_tag_and_push!(gem_root: checkout, version: "4.2.0")
 
           expect(remote_tags(checkout)).to eq(["v4.2.0"])
-          expect(git(checkout, "rev-parse", "v4.2.0^{commit}")).to eq(head)
+          expect(git(checkout, "rev-parse", "v4.2.0^{commit}")).to eq(git(checkout, "rev-parse", "origin/main"))
+          expect(git(checkout, "show", "--stat", "--format=%s", "origin/main"))
+            .to include("Bump version to 4.2.0", "docs/commands.md")
+        end
+      end
+
+      it "does not create the tag when the branch push is rejected" do
+        with_release_repo do |checkout|
+          write_file(checkout, "lib/cpflow/version.rb", version_file("4.2.0"))
+          write_file(checkout, "Gemfile.lock", "cpflow (4.2.0)\n")
+          write_file(checkout, "docs/commands.md", "cpflow 4.2.0\n")
+          git(checkout, "remote", "set-url", "--push", "origin", File.join(checkout, "missing.git"))
+
+          expect { described_class.commit_tag_and_push!(gem_root: checkout, version: "4.2.0") }
+            .to raise_error(RuntimeError, /git push/)
+          expect(git(checkout, "tag", "-l", "v4.2.0")).to eq("")
         end
       end
 
       it "refuses a local release tag that points at another commit" do
         with_release_repo(version: "4.2.0") do |checkout|
           git(checkout, "tag", "v4.2.0")
-          commit_file(checkout, "notes.txt", "merged", "Merged bump")
-          git(checkout, "push", "-q", "origin", "main")
+          commit_file(checkout, "notes.txt", "later", "Later commit")
+          %w[Gemfile.lock docs/commands.md].each { |path| commit_file(checkout, path, "4.2.0\n", "Add #{path}") }
 
-          expect do
-            described_class.tag_and_push_release!(gem_root: checkout, version: "4.2.0", branch: "main")
-          end.to raise_error(SystemExit, /git tag -d v4\.2\.0/)
+          expect { described_class.commit_tag_and_push!(gem_root: checkout, version: "4.2.0") }
+            .to raise_error(SystemExit, /git tag -d v4\.2\.0/)
           expect(remote_tags(checkout)).to be_empty
-        end
-      end
-
-      it "does not tag a commit that is missing from the remote branch" do
-        with_release_repo(version: "4.2.0") do |checkout|
-          commit_file(checkout, "notes.txt", "local", "Unpushed commit")
-
-          expect do
-            described_class.tag_and_push_release!(gem_root: checkout, version: "4.2.0", branch: "main")
-          end.to raise_error(SystemExit, %r{not the tip of origin/main})
-          expect(git(checkout, "tag", "-l", "v4.2.0")).to eq("")
-        end
-      end
-    end
-
-    describe ".open_version_bump_pull_request!" do
-      before do
-        allow(described_class).to receive(:apply_version_bump!) do |gem_root:, **|
-          write_file(gem_root, "lib/cpflow/version.rb", version_file("4.2.0"))
-          write_file(gem_root, "Gemfile.lock", "cpflow (4.2.0)\n")
-          write_file(gem_root, "docs/commands.md", "cpflow 4.2.0\n")
-        end
-        allow(described_class).to receive(:create_version_bump_pull_request!)
-      end
-
-      it "pushes the bump to a release branch and leaves the release checkout untouched" do
-        with_release_repo do |checkout|
-          head = git(checkout, "rev-parse", "HEAD")
-
-          described_class.open_version_bump_pull_request!(
-            gem_root: checkout, version_input: "4.2.0", target_gem_version: "4.2.0", base_branch: "main"
-          )
-
-          expect(git(checkout, "rev-parse", "HEAD")).to eq(head)
-          expect(git(checkout, "status", "--porcelain")).to eq("")
-          expect(git(checkout, "tag", "-l")).to eq("")
-          expect(git(checkout, "show", "origin/release/v4.2.0:lib/cpflow/version.rb")).to include('"4.2.0"')
-          expect(git(checkout, "show", "--stat", "--format=%s", "origin/release/v4.2.0"))
-            .to include("Bump version to 4.2.0", "docs/commands.md")
-          expect(described_class).to have_received(:create_version_bump_pull_request!)
-            .with(hash_including(branch: "release/v4.2.0", base_branch: "main", version: "4.2.0"))
-        end
-      end
-
-      it "stops when the release branch already exists" do
-        with_release_repo do |checkout|
-          git(checkout, "branch", "release/v4.2.0")
-
-          expect do
-            described_class.open_version_bump_pull_request!(
-              gem_root: checkout, version_input: "4.2.0", target_gem_version: "4.2.0", base_branch: "main"
-            )
-          end.to raise_error(SystemExit, %r{release/v4\.2\.0 already exists})
         end
       end
     end
