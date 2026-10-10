@@ -932,12 +932,12 @@ every workflow is updated:
 1. Update the gem, then replace the wrappers and the production promotion
    workflow with `cpflow update-github-actions --workflows FILE...`. Reapply
    downstream customizations.
-2. The same command deletes `.github/actions/cpflow-*` when no file under
-   `.github/workflows/` or `.github/actions/` still has a
-   `uses: ./.github/actions/cpflow-*` line. Otherwise it keeps the copies and
-   lists the files that reference them. In a workflow you maintain by hand,
-   change each such line to `uses: ./.cpflow/.github/actions/cpflow-*`, then
-   rerun the command.
+2. The same command deletes `.github/actions/cpflow-*` when no YAML file under
+   `.github/workflows/` or `.github/actions/` still mentions
+   `./.github/actions/cpflow-*`. Otherwise, or when one of those files cannot
+   be parsed, it keeps the copies and lists the files. In a workflow you
+   maintain by hand, change each `uses: ./.github/actions/cpflow-*` to
+   `uses: ./.cpflow/.github/actions/cpflow-*`, then rerun the command.
 3. Delete any downstream check that compares the copies with the gem, and run
    `bin/test-cpflow-github-flow`.
 

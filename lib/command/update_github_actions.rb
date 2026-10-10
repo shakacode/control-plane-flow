@@ -60,7 +60,6 @@ module Command
 
     DEFAULT_STAGING_BRANCHES = %w[main master].freeze
     STAGING_WORKFLOW_PATH = Pathname.new(".github/workflows/cpflow-deploy-staging.yml")
-    # Matched as plain text so any YAML spelling of a reference keeps the copies.
     VENDORED_ACTION_REFERENCE = "./.github/actions/cpflow-"
 
     def call
@@ -145,9 +144,27 @@ module Command
 
     def files_referencing_vendored_actions(directories)
       Dir.glob(".github/{workflows,actions}/**/*.{yml,yaml}").select do |path|
-        directories.none? { |directory| path.start_with?("#{directory}/") } &&
-          File.read(path).include?(VENDORED_ACTION_REFERENCE)
+        directories.none? { |directory| path.start_with?("#{directory}/") } && references_vendored_action?(path)
       end
+    end
+
+    # Deleting a copy that is still used breaks a deployment, so this errs toward keeping:
+    # the raw text, every decoded YAML string, and an unreadable file all count as a reference.
+    def references_vendored_action?(path)
+      return true if File.read(path).include?(VENDORED_ACTION_REFERENCE)
+
+      yaml_strings(YAML.load_file(path, aliases: true)).any? { |value| value.include?(VENDORED_ACTION_REFERENCE) }
+    rescue Psych::Exception
+      true
+    end
+
+    def yaml_strings(node, seen = {}.compare_by_identity)
+      return [node] if node.is_a?(String)
+      return [] unless node.is_a?(Hash) || node.is_a?(Array)
+      return [] if seen.key?(node)
+
+      seen[node] = true
+      (node.is_a?(Hash) ? node.to_a.flatten(1) : node).flat_map { |child| yaml_strings(child, seen) }
     end
 
     def print_post_update_message

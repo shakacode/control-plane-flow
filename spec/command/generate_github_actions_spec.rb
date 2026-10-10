@@ -500,22 +500,28 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(playground.join(".github/actions")).not_to exist
     end
 
-    it "keeps local action copies referenced through a quoted uses key" do
-      write_vendored_action("cpflow-setup-environment", "name: cpflow 6.0.0 action\n")
-      playground.join(".github/workflows/custom.yml").write(<<~YAML)
-        jobs:
-          test:
-            runs-on: ubuntu-latest
-            steps:
-              - "uses": ./.github/actions/cpflow-setup-environment
-      YAML
+    {
+      "a quoted uses key" => %(- "uses": ./.github/actions/cpflow-setup-environment),
+      "an escaped YAML string" => %(- uses: "\\x2e/.github/actions/cpflow-setup-environment"),
+      "an unparsable workflow" => %(- uses: [unbalanced)
+    }.each do |description, step|
+      it "keeps local action copies referenced through #{description}" do
+        write_vendored_action("cpflow-setup-environment", "name: cpflow 6.0.0 action\n")
+        playground.join(".github/workflows/custom.yml").write(<<~YAML)
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                #{step}
+        YAML
 
-      inside_dir(playground) do
-        result = run_cpflow_command("update-github-actions")
+        inside_dir(playground) do
+          result = run_cpflow_command("update-github-actions")
 
-        expect(result[:stderr]).to include("- .github/workflows/custom.yml")
+          expect(result[:stderr]).to include("- .github/workflows/custom.yml")
+        end
+        expect(generated_action_path("cpflow-setup-environment")).to exist
       end
-      expect(generated_action_path("cpflow-setup-environment")).to exist
     end
 
     it "leaves unrelated local actions in place when removing cpflow copies" do
