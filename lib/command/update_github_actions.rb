@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "yaml"
 
 require_relative "staging_branch_validation"
@@ -18,7 +19,10 @@ module Command
     }].freeze
     DESCRIPTION = "Regenerates GitHub Actions files for the installed cpflow version"
     LONG_DESCRIPTION = <<~DESC.freeze
-      Refreshes local composite actions and helper files from the installed gem.
+      Refreshes helper files from the installed gem and removes the
+      `.github/actions/cpflow-*` copies that cpflow 6.0.0 generated, once no
+      workflow references them. Workflows load those actions from the pinned
+      cpflow ref instead.
       All top-level workflows are preserved by default, including their refs,
       triggers, permissions, and deployment ownership. Use --workflows FILE...
       to explicitly add or replace named generated workflows. Replacement resets
@@ -37,7 +41,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Refresh actions/helpers while preserving downstream workflows
+      # Refresh helpers and drop unused action copies while preserving downstream workflows
       cpflow update-github-actions
 
       # When running cpflow through Bundler
@@ -56,6 +60,7 @@ module Command
 
     DEFAULT_STAGING_BRANCHES = %w[main master].freeze
     STAGING_WORKFLOW_PATH = Pathname.new(".github/workflows/cpflow-deploy-staging.yml")
+    VENDORED_ACTION_REFERENCE = %r{uses:\s*["']?\./\.github/actions/cpflow-}
 
     def call
       GenerateGithubActions.ensure_template_root!
@@ -64,6 +69,7 @@ module Command
       branch = selected_staging_branch(workflows)
       abort_if_custom_validator!
       GithubActionsGenerator.new([branch].compact, workflows: workflows).invoke_all
+      remove_vendored_actions
 
       print_post_update_message
     end
@@ -102,12 +108,45 @@ module Command
 
     def abort_if_no_generated_files!
       return if GenerateGithubActions.generated_files.any? { |path| File.exist?(path) }
+      return if vendored_action_directories.any?
 
       Shell.abort(<<~MESSAGE)
         No generated cpflow GitHub Actions files found in this repository.
         Run `cpflow generate-github-actions` first to create the wrappers,
         then use `cpflow update-github-actions` after future gem upgrades.
       MESSAGE
+    end
+
+    def vendored_action_directories
+      GenerateGithubActions.vendored_action_directories.select { |path| File.directory?(path) }
+    end
+
+    def remove_vendored_actions
+      directories = vendored_action_directories
+      return if directories.empty?
+
+      referencing = files_referencing_vendored_actions(directories)
+      return warn_vendored_actions_kept(directories, referencing) if referencing.any?
+
+      directories.each { |path| FileUtils.rm_rf(path) }
+      Dir.rmdir(".github/actions") if Dir.empty?(".github/actions")
+      Shell.info("Removed unused local action copies: #{directories.join(', ')}.")
+    end
+
+    def warn_vendored_actions_kept(directories, referencing)
+      Shell.warn(<<~MESSAGE)
+        Kept #{directories.join(', ')} because these files still reference them:
+        #{referencing.map { |path| "- #{path}" }.join("\n")}
+        Replace generated workflows with `cpflow #{NAME} --workflows FILE...`, or change each
+        `uses: ./.github/actions/cpflow-*` to `uses: ./.cpflow/.github/actions/cpflow-*`, then rerun.
+      MESSAGE
+    end
+
+    def files_referencing_vendored_actions(directories)
+      Dir.glob(".github/{workflows,actions}/**/*.{yml,yaml}").select do |path|
+        directories.none? { |directory| path.start_with?("#{directory}/") } &&
+          File.read(path).match?(VENDORED_ACTION_REFERENCE)
+      end
     end
 
     def print_post_update_message

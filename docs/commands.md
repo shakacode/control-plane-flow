@@ -234,8 +234,8 @@ Creates GitHub Actions templates for a Heroku Flow style Control Plane pipeline:
 - manual promotion from staging to production
 - nightly cleanup and PR help workflows
 
-It also copies cpflow's composite actions into `.github/actions/cpflow-*`
-so every local `uses:` target is checked in and can be audited directly.
+The workflows load cpflow's composite actions from this gem's repository at
+the ref each workflow pins, so no `.github/actions/cpflow-*` copies are generated.
 
 Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
 other than `main` or `master`; the generator will bake that branch into the
@@ -245,7 +245,7 @@ Pass `--force` to overwrite existing generated files. Prefer
 repo.
 
 ```sh
-# Creates workflow wrappers, local composite actions, and validation helpers
+# Creates workflow wrappers and validation helpers
 cpflow generate-github-actions
 
 # Creates the flow with staging deploys triggered from develop
@@ -591,7 +591,10 @@ cpflow terraform import
 
 ### `update-github-actions`
 
-Refreshes local composite actions and helper files from the installed gem.
+Refreshes helper files from the installed gem and removes the
+`.github/actions/cpflow-*` copies that cpflow 6.0.0 generated, once no
+workflow references them. Workflows load those actions from the pinned
+cpflow ref instead.
 All top-level workflows are preserved by default, including their refs,
 triggers, permissions, and deployment ownership. Use --workflows FILE...
 to explicitly add or replace named generated workflows. Replacement resets
@@ -609,7 +612,7 @@ invokes that extension after its baseline checks; the extension is never
 generated or overwritten. See docs/ci-automation.md for migration guidance.
 
 ```sh
-# Refresh actions/helpers while preserving downstream workflows
+# Refresh helpers and drop unused action copies while preserving downstream workflows
 cpflow update-github-actions
 
 # When running cpflow through Bundler

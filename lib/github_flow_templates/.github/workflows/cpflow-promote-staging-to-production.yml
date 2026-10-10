@@ -85,7 +85,7 @@ jobs:
           echo "org=$org" >> "$GITHUB_OUTPUT"
 
       - name: Setup staging environment
-        uses: ./.github/actions/cpflow-setup-environment
+        uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ steps.staging-org.outputs.org }}
@@ -97,7 +97,7 @@ jobs:
 
       - name: Preview commits before production approval
         id: preview
-        uses: ./.github/actions/cpflow-preview-promotion
+        uses: ./.cpflow/.github/actions/cpflow-preview-promotion
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -156,7 +156,7 @@ jobs:
           fi
 
       - name: Validate required secrets and variables
-        uses: ./.github/actions/cpflow-validate-config
+        uses: ./.cpflow/.github/actions/cpflow-validate-config
         # Pass secrets via env so the composite action checks indirect shell
         # variables instead of interpolating secret values into a run script.
         env:
@@ -237,7 +237,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Setup production environment
-        uses: ./.github/actions/cpflow-setup-environment
+        uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
           org: ${{ steps.cpln-orgs.outputs.production }}
@@ -303,7 +303,7 @@ jobs:
 
       - name: Detect release phase support
         id: release-phase
-        uses: ./.github/actions/cpflow-detect-release-phase
+        uses: ./.cpflow/.github/actions/cpflow-detect-release-phase
         with:
           app_name: ${{ vars.PRODUCTION_APP_NAME }}
 
@@ -698,7 +698,7 @@ jobs:
 
       - name: Wait for deployment health
         id: health-check
-        uses: ./.github/actions/cpflow-wait-for-health
+        uses: ./.cpflow/.github/actions/cpflow-wait-for-health
         with:
           workload_name: ${{ steps.workloads.outputs.primary }}
           app_name: ${{ vars.PRODUCTION_APP_NAME }}

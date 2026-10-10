@@ -105,8 +105,8 @@ module Command
       - manual promotion from staging to production
       - nightly cleanup and PR help workflows
 
-      It also copies cpflow's composite actions into `.github/actions/cpflow-*`
-      so every local `uses:` target is checked in and can be audited directly.
+      The workflows load cpflow's composite actions from this gem's repository at
+      the ref each workflow pins, so no `.github/actions/cpflow-*` copies are generated.
 
       Pass `--staging-branch BRANCH` when staging should auto-deploy from a branch
       other than `main` or `master`; the generator will bake that branch into the
@@ -117,7 +117,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Creates workflow wrappers, local composite actions, and validation helpers
+      # Creates workflow wrappers and validation helpers
       cpflow generate-github-actions
 
       # Creates the flow with staging deploys triggered from develop
@@ -140,14 +140,18 @@ module Command
     def self.generated_file_sources
       ensure_template_root!
 
-      template_sources = files_beneath(TEMPLATE_ROOT).to_h do |source|
+      files_beneath(TEMPLATE_ROOT).to_h do |source|
         [source.relative_path_from(TEMPLATE_ROOT).to_s, source]
-      end
-      action_sources = files_beneath(ACTIONS_ROOT, "cpflow-*/**/*").to_h do |source|
-        [source.relative_path_from(REPOSITORY_ROOT).to_s, source]
-      end
+      end.sort.to_h.freeze
+    end
 
-      template_sources.merge(action_sources).sort.to_h.freeze
+    # cpflow 6.0.0 copied these directories into caller repositories. Workflows now load
+    # them from the pinned `.cpflow` checkout, so `update-github-actions` removes the copies.
+    def self.vendored_action_directories
+      Dir.glob(ACTIONS_ROOT.join("cpflow-*").to_s)
+         .select { |path| File.directory?(path) }
+         .map { |path| Pathname.new(path).relative_path_from(REPOSITORY_ROOT).to_s }
+         .sort
     end
 
     def self.generated_files
@@ -163,8 +167,8 @@ module Command
       raise "cpflow action directory not found: #{ACTIONS_ROOT}" unless ACTIONS_ROOT.directory?
     end
 
-    def self.files_beneath(root, pattern = "**/*")
-      Dir.glob(root.join(pattern).to_s, File::FNM_DOTMATCH)
+    def self.files_beneath(root)
+      Dir.glob(root.join("**/*").to_s, File::FNM_DOTMATCH)
          .select { |path| File.file?(path) }
          .map { |path| Pathname.new(path) }
          .sort
