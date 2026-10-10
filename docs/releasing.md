@@ -102,10 +102,13 @@ GEM_RELEASE_MAX_RETRIES=<n>
 5. Resolves the target version from the changelog or explicit argument.
 6. Requires stable releases to run from `main`; prereleases may run from another
    branch.
-7. Validates the target version is newer than the latest tag and is consistent
-   with the changelog section when the section indicates a bump level.
-8. Bumps `lib/cpflow/version.rb` and updates `Gemfile.lock`.
-9. Commits the version bump, tags `vX.Y.Z`, and pushes the commit and tags.
+7. Validates the target version is newer than the latest release tag on
+   `origin` and is consistent with the changelog section when the section
+   indicates a bump level. Local tags are not consulted.
+8. Bumps `lib/cpflow/version.rb`, updates `Gemfile.lock`, and regenerates
+   `docs/commands.md`, which embeds the gem version.
+9. Commits the version bump and pushes it, then tags `vX.Y.Z` on that commit
+   and pushes only that tag.
 10. Publishes the `cpflow` gem to RubyGems.org.
 11. Creates or updates the GitHub release from the matching changelog section.
 12. Prints the downstream GitHub Actions follow-up command:
@@ -136,8 +139,12 @@ Before running the release:
 3. `bundle install`
 4. `gh auth status`
 5. Confirm RubyGems credentials can publish `cpflow`.
-6. Confirm `CHANGELOG.md` has a committed section for the target version.
-7. Run a dry run:
+6. Confirm your account can push the version bump commit directly to `main`.
+   Branch protection must let the releaser bypass the pull request and status
+   check requirements; otherwise the push is rejected before anything is
+   tagged or published.
+7. Confirm `CHANGELOG.md` has a committed section for the target version.
+8. Run a dry run:
 
    ```bash
    bundle exec rake "release[4.2.0,true]"
@@ -159,6 +166,10 @@ authentication or permissions and run:
 ```bash
 bundle exec rake "sync_github_release[4.2.0]"
 ```
+
+If the task reports that a local tag points at another commit, the tag is left
+over from an earlier failed release. Delete it with `git tag -d vX.Y.Z` and
+rerun.
 
 If the tag was pushed but the gem was not published, delete or correct the tag
 and version commit intentionally before trying again. A no-argument retry keeps

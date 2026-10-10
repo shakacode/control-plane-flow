@@ -75,13 +75,13 @@ task :release, %i[version dry_run override_version_policy] do |_t, args|
     Release.validate_release_version_policy!(
       gem_root: release_root,
       target_gem_version: target_gem_version,
-      allow_override: allow_version_policy_override,
-      fetch_tags: true
+      allow_override: allow_version_policy_override
     )
 
     Release.confirm_release!(version: target_gem_version, gem_root: release_root) unless is_dry_run
     Release.bump_gem_version!(gem_root: release_root, version_input: version_input)
     Release.update_lockfile!(gem_root: release_root)
+    Release.update_command_docs!(gem_root: release_root)
 
     released_gem_version = Release.current_gem_version(release_root)
 
@@ -152,6 +152,7 @@ module Release
 
   PRERELEASE_PATTERN = /\.(test|beta|alpha|rc|pre)\./i
   VERSION_PATTERN = /\A\d+\.\d+\.\d+(\.(test|beta|alpha|rc|pre)\.\d+)?\z/i
+  VERSION_BUMP_PATHS = ["Gemfile.lock", "lib/cpflow/version.rb", "docs/commands.md"].freeze
 
   class << self
     def gem_root
@@ -300,16 +301,16 @@ module Release
       "#{prerelease_with_dash[1]}.#{prerelease_with_dash[2].downcase}.#{prerelease_with_dash[3]}"
     end
 
-    def tagged_release_gem_versions(gem_root, fetch_tags: true)
-      if fetch_tags
-        fetch_output, fetch_status = Open3.capture2e("git", "-C", gem_root, "fetch", "--tags", "--quiet")
-        abort "Unable to fetch tags for version validation.\n\n#{fetch_output.strip}" unless fetch_status.success?
+    # The remote is the record of what has shipped. Local tags can be stale leftovers of a
+    # failed release, and a local tag that differs from the remote one makes `git fetch --tags` fail.
+    def tagged_release_gem_versions(gem_root)
+      tags_output, tags_status = Open3.capture2e("git", "-C", gem_root, "ls-remote", "--tags", "--refs", "origin", "v*")
+      unless tags_status.success?
+        abort "Unable to list release tags on origin for version validation.\n\n#{tags_output.strip}"
       end
 
-      tags_output, tags_status = Open3.capture2e("git", "-C", gem_root, "tag", "-l", "v*")
-      abort "Unable to list git tags for version validation.\n\n#{tags_output.strip}" unless tags_status.success?
-
-      tags_output.lines.map(&:strip).filter_map { |tag| parse_release_tag_to_gem_version(tag) }.uniq
+      tag_names = tags_output.lines.map { |line| line.strip.split("refs/tags/").last.to_s }
+      tag_names.filter_map { |tag| parse_release_tag_to_gem_version(tag) }.uniq
     end
 
     def version_bump_type(previous_stable_gem_version:, target_gem_version:)
@@ -345,8 +346,8 @@ module Release
       abort message
     end
 
-    def validate_release_version_policy!(gem_root:, target_gem_version:, allow_override:, fetch_tags: true)
-      tagged_versions = tagged_release_gem_versions(gem_root, fetch_tags: fetch_tags)
+    def validate_release_version_policy!(gem_root:, target_gem_version:, allow_override:)
+      tagged_versions = tagged_release_gem_versions(gem_root)
       latest_tagged_version = tagged_versions.max_by { |version| Gem::Version.new(version) }
 
       if latest_tagged_version && Gem::Version.new(target_gem_version) <= Gem::Version.new(latest_tagged_version)
@@ -562,8 +563,31 @@ module Release
       unbundled_sh_in_dir(gem_root, "bundle install#{quiet_flag}")
     end
 
+    # docs/commands.md embeds the gem version, so the Command Docs check fails
+    # on a version bump that does not regenerate it.
+    def update_command_docs!(gem_root:)
+      unbundled_sh_in_dir(gem_root, "bundle exec rake update_command_docs")
+    end
+
+    def git_ref_exists?(gem_root, ref)
+      exists = system("git", "-C", gem_root, "rev-parse", "--verify", "--quiet", ref, out: File::NULL, err: File::NULL)
+      abort "Unable to run git to verify #{ref}." if exists.nil?
+
+      exists
+    end
+
+    def remote_ref_exists?(gem_root, ref)
+      output, status = Open3.capture2e("git", "-C", gem_root, "ls-remote", "--exit-code", "origin", ref)
+      return true if status.success?
+      return false if status.exitstatus == 2
+
+      abort "Unable to check origin for #{ref}.\n\n#{output.strip}"
+    end
+
+    # The branch is pushed before the tag exists, and only this tag is pushed. A tag made
+    # before a rejected branch push would name a commit that never reached the remote.
     def commit_tag_and_push!(gem_root:, version:)
-      sh_args_in_dir(gem_root, "git", "add", "-A", "Gemfile.lock", "lib/cpflow/version.rb")
+      sh_args_in_dir(gem_root, "git", "add", "-A", *VERSION_BUMP_PATHS)
 
       _git_diff_output, git_diff_status = Open3.capture2e("git", "-C", gem_root, "diff", "--cached", "--quiet")
       if git_diff_status.success?
@@ -572,19 +596,28 @@ module Release
         sh_args_in_dir(gem_root, "git", "commit", "-m", "Bump version to #{version}")
       end
 
-      tag_name = "v#{version}"
-      tag_exists = system("git", "-C", gem_root, "rev-parse", "--verify", "--quiet", "refs/tags/#{tag_name}",
-                          out: File::NULL, err: File::NULL)
-      abort "Unable to verify git tag #{tag_name}." if tag_exists.nil?
+      sh_args_in_dir(gem_root, "git", "push", "--no-follow-tags")
+      tag_release_commit!(gem_root: gem_root, tag_name: "v#{version}")
+      sh_args_in_dir(gem_root, "git", "push", "--no-follow-tags", "origin", "refs/tags/v#{version}")
+    end
 
-      if tag_exists
-        puts "Git tag #{tag_name} already exists; skipping tag creation."
-      else
-        sh_args_in_dir(gem_root, "git", "tag", tag_name)
+    def tag_release_commit!(gem_root:, tag_name:)
+      tag_ref = "refs/tags/#{tag_name}"
+      return sh_args_in_dir(gem_root, "git", "tag", tag_name) unless git_ref_exists?(gem_root, tag_ref)
+
+      head = `git -C #{Shellwords.escape(gem_root)} rev-parse HEAD`.strip
+      tag_commit = `git -C #{Shellwords.escape(gem_root)} rev-parse #{Shellwords.escape("#{tag_ref}^{commit}")}`.strip
+      if tag_commit == head
+        puts "Git tag #{tag_name} already exists on the release commit; skipping tag creation."
+        return
       end
 
-      sh_args_in_dir(gem_root, "git", "push")
-      sh_args_in_dir(gem_root, "git", "push", "--tags")
+      abort <<~ERROR
+        Local tag #{tag_name} points at #{tag_commit[0, 7]}, not the release commit #{head[0, 7]}.
+
+        It is probably left over from an earlier failed release. Remove it and rerun:
+          git tag -d #{tag_name}
+      ERROR
     end
 
     def normalize_otp_code(otp)
@@ -641,18 +674,9 @@ module Release
     end
 
     def ensure_git_tag_exists!(gem_root:, tag:)
-      fetch_output, fetch_status = Open3.capture2e("git", "-C", gem_root, "fetch", "--tags", "--quiet")
-      unless fetch_status.success?
-        abort "Unable to fetch git tags before verifying #{tag.inspect}.\n\n#{fetch_output.strip}"
-      end
+      return if remote_ref_exists?(gem_root, "refs/tags/#{tag}")
 
-      tag_ref = "refs/tags/#{tag}"
-      tag_exists = system("git", "-C", gem_root, "rev-parse", "--verify", "--quiet", tag_ref,
-                          out: File::NULL, err: File::NULL)
-      abort "Unable to run git to verify tag #{tag.inspect}." if tag_exists.nil?
-      return if tag_exists
-
-      abort "Git tag #{tag.inspect} was not found locally or remotely."
+      abort "Git tag #{tag.inspect} was not found on origin. Push the release tag before syncing the GitHub release."
     end
 
     def prepare_github_release_context(gem_root:, gem_version:)
