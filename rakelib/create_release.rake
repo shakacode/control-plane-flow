@@ -596,9 +596,9 @@ module Release
         sh_args_in_dir(gem_root, "git", "commit", "-m", "Bump version to #{version}")
       end
 
-      sh_args_in_dir(gem_root, "git", "push")
+      sh_args_in_dir(gem_root, "git", "push", "--no-follow-tags")
       tag_release_commit!(gem_root: gem_root, tag_name: "v#{version}")
-      sh_args_in_dir(gem_root, "git", "push", "origin", "refs/tags/v#{version}")
+      sh_args_in_dir(gem_root, "git", "push", "--no-follow-tags", "origin", "refs/tags/v#{version}")
     end
 
     def tag_release_commit!(gem_root:, tag_name:)

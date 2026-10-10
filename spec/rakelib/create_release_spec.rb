@@ -193,7 +193,8 @@ RSpec.describe Release do
           write_file(checkout, "lib/cpflow/version.rb", version_file("4.2.0"))
           write_file(checkout, "Gemfile.lock", "cpflow (4.2.0)\n")
           write_file(checkout, "docs/commands.md", "cpflow 4.2.0\n")
-          git(checkout, "tag", "v0.0.1-scratch")
+          git(checkout, "config", "push.followTags", "true")
+          git(checkout, "tag", "-a", "v0.0.1-scratch", "-m", "Unrelated local tag")
 
           described_class.commit_tag_and_push!(gem_root: checkout, version: "4.2.0")
 
