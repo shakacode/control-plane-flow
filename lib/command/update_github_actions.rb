@@ -60,7 +60,8 @@ module Command
 
     DEFAULT_STAGING_BRANCHES = %w[main master].freeze
     STAGING_WORKFLOW_PATH = Pathname.new(".github/workflows/cpflow-deploy-staging.yml")
-    VENDORED_ACTION_REFERENCE = %r{uses:\s*["']?\./\.github/actions/cpflow-}
+    # Matched as plain text so any YAML spelling of a reference keeps the copies.
+    VENDORED_ACTION_REFERENCE = "./.github/actions/cpflow-"
 
     def call
       GenerateGithubActions.ensure_template_root!
@@ -145,7 +146,7 @@ module Command
     def files_referencing_vendored_actions(directories)
       Dir.glob(".github/{workflows,actions}/**/*.{yml,yaml}").select do |path|
         directories.none? { |directory| path.start_with?("#{directory}/") } &&
-          File.read(path).match?(VENDORED_ACTION_REFERENCE)
+          File.read(path).include?(VENDORED_ACTION_REFERENCE)
       end
     end
 
