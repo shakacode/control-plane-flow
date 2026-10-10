@@ -591,10 +591,10 @@ cpflow terraform import
 
 ### `update-github-actions`
 
-Refreshes helper files from the installed gem and removes the
-`.github/actions/cpflow-*` copies that cpflow 6.0.0 generated, once no
-workflow references them. Workflows load those actions from the pinned
-cpflow ref instead.
+Refreshes helper files from the installed gem. Workflows load cpflow's
+composite actions from the pinned cpflow ref, so the command reports any
+`.github/actions/cpflow-*` copies left by cpflow 6.0.0 for you to delete
+once no workflow is pinned to 6.0.0. It never deletes them itself.
 All top-level workflows are preserved by default, including their refs,
 triggers, permissions, and deployment ownership. Use --workflows FILE...
 to explicitly add or replace named generated workflows. Replacement resets
@@ -612,7 +612,7 @@ invokes that extension after its baseline checks; the extension is never
 generated or overwritten. See docs/ci-automation.md for migration guidance.
 
 ```sh
-# Refresh helpers and drop unused action copies while preserving downstream workflows
+# Refresh helpers while preserving downstream workflows
 cpflow update-github-actions
 
 # When running cpflow through Bundler

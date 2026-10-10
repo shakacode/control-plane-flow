@@ -927,23 +927,24 @@ requires selecting `cpflow-deploy-staging.yml`.
 
 cpflow 6.0.0 generated `.github/actions/cpflow-*` and ran those copies. Later
 releases load the actions from the pinned ref, so the copies are unused once
-every workflow is updated:
+every workflow has moved off 6.0.0:
 
 1. Update the gem, then replace the wrappers and the production promotion
    workflow with `cpflow update-github-actions --workflows FILE...`. Reapply
    downstream customizations.
-2. The same command deletes `.github/actions/cpflow-*` when no YAML file under
-   `.github/workflows/` or `.github/actions/` still mentions
-   `./.github/actions/cpflow-*`. Otherwise, or when one of those files cannot
-   be parsed, it keeps the copies and lists the files. In a workflow you
-   maintain by hand, change each `uses: ./.github/actions/cpflow-*` to
-   `uses: ./.cpflow/.github/actions/cpflow-*`, then rerun the command.
-3. Delete any downstream check that compares the copies with the gem, and run
+2. Confirm that no workflow is still pinned to cpflow 6.0.0 and that none has a
+   `uses: ./.github/actions/cpflow-*` line. In a workflow you maintain by hand,
+   change each such line to `uses: ./.cpflow/.github/actions/cpflow-*`.
+3. Delete the copies with `git rm -r .github/actions/cpflow-*`, delete any
+   downstream check that compares them with the gem, and run
    `bin/test-cpflow-github-flow`.
 
-A wrapper pinned to a release after 6.0.0 never reads the copies, so a
-repository that only bumps its wrapper refs keeps deploying before step 2.
-Local actions outside the `cpflow-*` names are never removed.
+`cpflow update-github-actions` lists the copies it finds and never deletes
+them. A wrapper pinned to 6.0.0 runs them without naming them, and a full-SHA
+pin does not say which release it is, so the command cannot prove a copy is
+unused. Until step 3 the copies are harmless: a wrapper pinned to a later
+release never reads them. The validator fails when a workflow names a copy
+that is not checked in.
 
 ### Preserving downstream validation
 

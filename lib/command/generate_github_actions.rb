@@ -146,7 +146,7 @@ module Command
     end
 
     # cpflow 6.0.0 copied these directories into caller repositories. Workflows now load
-    # them from the pinned `.cpflow` checkout, so `update-github-actions` removes the copies.
+    # them from the pinned `.cpflow` checkout, so `update-github-actions` reports the copies.
     def self.vendored_action_directories
       Dir.glob(ACTIONS_ROOT.join("cpflow-*").to_s)
          .select { |path| File.directory?(path) }

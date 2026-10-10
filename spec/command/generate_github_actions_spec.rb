@@ -452,7 +452,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("did not validate the Docker image")
     end
 
-    it "explicitly updates selected wrappers and removes unused local action copies" do
+    it "explicitly updates selected wrappers and reports cpflow 6.0.0 local action copies without changing them" do
       old_ref = "v5.0.0"
       current_ref = "v#{Cpflow::VERSION}"
 
@@ -464,74 +464,42 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
 
         expect(result[:status]).to eq(0)
         expect(result[:stdout]).to include("Updated cpflow GitHub Actions files for cpflow #{Cpflow::VERSION}.")
-        expect(result[:stdout]).to include(
-          "Removed unused local action copies: .github/actions/cpflow-setup-environment."
+        expect(result[:stderr]).to include(
+          "cpflow no longer generates or updates these local action copies:\n" \
+          "- .github/actions/cpflow-setup-environment\n" \
+          "Workflows pinned to cpflow 6.0.0 still run them."
         )
       end
 
       expect(review_app_workflow_path.read).to include(
         "uses: shakacode/control-plane-flow/.github/workflows/cpflow-deploy-review-app.yml@#{current_ref}"
       )
-      expect(generated_action_path("cpflow-setup-environment").dirname).not_to exist
+      expect(generated_action_path("cpflow-setup-environment").read).to eq("name: Stale generated action\n")
     end
 
-    it "keeps local action copies that a preserved workflow still references" do
+    # A wrapper still pinned to cpflow 6.0.0 runs these copies without naming them, so the
+    # updater cannot prove a copy is unused and never deletes one.
+    it "leaves local action copies in place when no workflow names them" do
       write_vendored_action("cpflow-setup-environment", "name: cpflow 6.0.0 action\n")
-      write_vendored_action("cpflow-wait-for-health", "name: cpflow 6.0.0 action\n")
-      promote_workflow_path.write(
-        promote_workflow_path.read.gsub("uses: ./.cpflow/.github/actions/", "uses: ./.github/actions/")
-      )
+      write_vendored_action("setup-node-cache", "name: Downstream action\n")
 
       inside_dir(playground) do
         result = run_cpflow_command("update-github-actions")
 
         expect(result[:status]).to eq(0)
-        expect(result[:stderr]).to include(
-          "Kept .github/actions/cpflow-setup-environment, .github/actions/cpflow-wait-for-health",
-          "- .github/workflows/cpflow-promote-staging-to-production.yml",
-          "--workflows FILE..."
-        )
+        expect(result[:stderr]).not_to include("setup-node-cache")
       end
+
       expect(generated_action_path("cpflow-setup-environment").read).to eq("name: cpflow 6.0.0 action\n")
-
-      inside_dir(playground) do
-        run_cpflow_command!("update-github-actions", "--workflows", "cpflow-promote-staging-to-production.yml")
-      end
-      expect(playground.join(".github/actions")).not_to exist
-    end
-
-    {
-      "a quoted uses key" => %(- "uses": ./.github/actions/cpflow-setup-environment),
-      "an escaped YAML string" => %(- uses: "\\x2e/.github/actions/cpflow-setup-environment"),
-      "an unparsable workflow" => %(- uses: [unbalanced)
-    }.each do |description, step|
-      it "keeps local action copies referenced through #{description}" do
-        write_vendored_action("cpflow-setup-environment", "name: cpflow 6.0.0 action\n")
-        playground.join(".github/workflows/custom.yml").write(<<~YAML)
-          jobs:
-            test:
-              runs-on: ubuntu-latest
-              steps:
-                #{step}
-        YAML
-
-        inside_dir(playground) do
-          result = run_cpflow_command("update-github-actions")
-
-          expect(result[:stderr]).to include("- .github/workflows/custom.yml")
-        end
-        expect(generated_action_path("cpflow-setup-environment")).to exist
-      end
-    end
-
-    it "leaves unrelated local actions in place when removing cpflow copies" do
-      write_vendored_action("cpflow-setup-environment", "name: cpflow 6.0.0 action\n")
-      write_vendored_action("setup-node-cache", "name: Downstream action\n")
-
-      inside_dir(playground) { run_cpflow_command!("update-github-actions") }
-
-      expect(generated_action_path("cpflow-setup-environment").dirname).not_to exist
       expect(generated_action_path("setup-node-cache").read).to eq("name: Downstream action\n")
+    end
+
+    it "says nothing about local action copies when none exist" do
+      inside_dir(playground) do
+        result = run_cpflow_command("update-github-actions")
+
+        expect(result[:stderr]).not_to include("local action copies")
+      end
     end
 
     it "preserves an existing custom staging branch while updating generated wrappers" do
@@ -634,7 +602,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       workflows.each { |path, contents| expect(File.read(path)).to eq(contents) }
       expect(staging_workflow_path).not_to exist
       expect(promote_workflow_path).not_to exist
-      expect(playground.join(".github/actions")).not_to exist
+      expect(generated_action_path("cpflow-setup-environment").read).to eq("name: Legacy 5.3 action\n")
 
       with_stubbed_actionlint do |env|
         stdout, stderr, status = Open3.capture3(env, test_cpflow_flow_path.to_s, "/usr/bin/true",
@@ -2336,14 +2304,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       write_vendored_action("cpflow-setup-environment", "name: Stale generated action\n")
     end
 
-    it "removes the local action copy without opting into deployment workflows" do
+    it "refreshes helpers without touching the copy or opting into deployment workflows" do
       inside_dir(playground) do
         result = run_cpflow_command("update-github-actions")
 
         expect(result[:status]).to eq(0)
       end
 
-      expect(playground.join(".github/actions")).not_to exist
+      expect(generated_action_path("cpflow-setup-environment").read).to eq("name: Stale generated action\n")
       expect(review_app_workflow_path).not_to exist
       expect(test_cpflow_flow_path).to be_executable
     end

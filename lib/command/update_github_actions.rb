@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "fileutils"
 require "yaml"
 
 require_relative "staging_branch_validation"
@@ -19,10 +18,10 @@ module Command
     }].freeze
     DESCRIPTION = "Regenerates GitHub Actions files for the installed cpflow version"
     LONG_DESCRIPTION = <<~DESC.freeze
-      Refreshes helper files from the installed gem and removes the
-      `.github/actions/cpflow-*` copies that cpflow 6.0.0 generated, once no
-      workflow references them. Workflows load those actions from the pinned
-      cpflow ref instead.
+      Refreshes helper files from the installed gem. Workflows load cpflow's
+      composite actions from the pinned cpflow ref, so the command reports any
+      `.github/actions/cpflow-*` copies left by cpflow 6.0.0 for you to delete
+      once no workflow is pinned to 6.0.0. It never deletes them itself.
       All top-level workflows are preserved by default, including their refs,
       triggers, permissions, and deployment ownership. Use --workflows FILE...
       to explicitly add or replace named generated workflows. Replacement resets
@@ -41,7 +40,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Refresh helpers and drop unused action copies while preserving downstream workflows
+      # Refresh helpers while preserving downstream workflows
       cpflow update-github-actions
 
       # When running cpflow through Bundler
@@ -60,7 +59,6 @@ module Command
 
     DEFAULT_STAGING_BRANCHES = %w[main master].freeze
     STAGING_WORKFLOW_PATH = Pathname.new(".github/workflows/cpflow-deploy-staging.yml")
-    VENDORED_ACTION_REFERENCE = "./.github/actions/cpflow-"
 
     def call
       GenerateGithubActions.ensure_template_root!
@@ -69,7 +67,7 @@ module Command
       branch = selected_staging_branch(workflows)
       abort_if_custom_validator!
       GithubActionsGenerator.new([branch].compact, workflows: workflows).invoke_all
-      remove_vendored_actions
+      report_vendored_actions
 
       print_post_update_message
     end
@@ -121,50 +119,19 @@ module Command
       GenerateGithubActions.vendored_action_directories.select { |path| File.directory?(path) }
     end
 
-    def remove_vendored_actions
+    # Whether a copy is still needed depends on the cpflow release each wrapper pins, which a
+    # full-SHA pin does not reveal, so deletion stays a reviewed human step.
+    def report_vendored_actions
       directories = vendored_action_directories
       return if directories.empty?
 
-      referencing = files_referencing_vendored_actions(directories)
-      return warn_vendored_actions_kept(directories, referencing) if referencing.any?
-
-      directories.each { |path| FileUtils.rm_rf(path) }
-      Dir.rmdir(".github/actions") if Dir.empty?(".github/actions")
-      Shell.info("Removed unused local action copies: #{directories.join(', ')}.")
-    end
-
-    def warn_vendored_actions_kept(directories, referencing)
       Shell.warn(<<~MESSAGE)
-        Kept #{directories.join(', ')} because these files still reference them:
-        #{referencing.map { |path| "- #{path}" }.join("\n")}
-        Replace generated workflows with `cpflow #{NAME} --workflows FILE...`, or change each
-        `uses: ./.github/actions/cpflow-*` to `uses: ./.cpflow/.github/actions/cpflow-*`, then rerun.
+        cpflow no longer generates or updates these local action copies:
+        #{directories.map { |path| "- #{path}" }.join("\n")}
+        Workflows pinned to cpflow 6.0.0 still run them. Delete them once every cpflow workflow
+        in this repository is pinned to a later release and none has a
+        `uses: ./.github/actions/cpflow-*` line. See docs/ci-automation.md.
       MESSAGE
-    end
-
-    def files_referencing_vendored_actions(directories)
-      Dir.glob(".github/{workflows,actions}/**/*.{yml,yaml}").select do |path|
-        directories.none? { |directory| path.start_with?("#{directory}/") } && references_vendored_action?(path)
-      end
-    end
-
-    # Deleting a copy that is still used breaks a deployment, so this errs toward keeping:
-    # the raw text, every decoded YAML string, and an unreadable file all count as a reference.
-    def references_vendored_action?(path)
-      return true if File.read(path).include?(VENDORED_ACTION_REFERENCE)
-
-      yaml_strings(YAML.load_file(path, aliases: true)).any? { |value| value.include?(VENDORED_ACTION_REFERENCE) }
-    rescue Psych::Exception
-      true
-    end
-
-    def yaml_strings(node, seen = {}.compare_by_identity)
-      return [node] if node.is_a?(String)
-      return [] unless node.is_a?(Hash) || node.is_a?(Array)
-      return [] if seen.key?(node)
-
-      seen[node] = true
-      (node.is_a?(Hash) ? node.to_a.flatten(1) : node).flat_map { |child| yaml_strings(child, seen) }
     end
 
     def print_post_update_message
