@@ -145,15 +145,6 @@ module Command
       end.sort.to_h.freeze
     end
 
-    # cpflow 6.0.0 copied these directories into caller repositories. Workflows now load
-    # them from the pinned `.cpflow` checkout, so `update-github-actions` reports the copies.
-    def self.vendored_action_directories
-      Dir.glob(ACTIONS_ROOT.join("cpflow-*").to_s)
-         .select { |path| File.directory?(path) }
-         .map { |path| Pathname.new(path).relative_path_from(REPOSITORY_ROOT).to_s }
-         .sort
-    end
-
     def self.generated_files
       generated_file_sources.keys.freeze
     end

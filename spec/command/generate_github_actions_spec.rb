@@ -481,12 +481,14 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
     # updater cannot prove a copy is unused and never deletes one.
     it "leaves local action copies in place when no workflow names them" do
       write_vendored_action("cpflow-setup-environment", "name: cpflow 6.0.0 action\n")
+      write_vendored_action("cpflow-renamed-since", "name: cpflow 6.0.0 action\n")
       write_vendored_action("setup-node-cache", "name: Downstream action\n")
 
       inside_dir(playground) do
         result = run_cpflow_command("update-github-actions")
 
         expect(result[:status]).to eq(0)
+        expect(result[:stderr]).to include("- .github/actions/cpflow-renamed-since\n")
         expect(result[:stderr]).not_to include("setup-node-cache")
       end
 

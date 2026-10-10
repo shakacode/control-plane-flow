@@ -115,8 +115,10 @@ module Command
       MESSAGE
     end
 
+    # cpflow 6.0.0 copied its composite actions here. Scan the caller's tree rather than this
+    # gem's action names, so a copy is still found after an action is renamed or removed.
     def vendored_action_directories
-      GenerateGithubActions.vendored_action_directories.select { |path| File.directory?(path) }
+      Dir.glob(".github/actions/cpflow-*").select { |path| File.directory?(path) }.sort
     end
 
     # Whether a copy is still needed depends on the cpflow release each wrapper pins, which a
