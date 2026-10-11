@@ -14,6 +14,8 @@ describe Command::AiGithubFlowPrompt, :enable_validations, :without_config_file 
   it "prints the AI rollout prompt with the inferred repo-name app prefix" do
     inside_dir(playground.join("sample-project").tap(&:mkpath)) do
       result = run_cpflow_command(described_class::NAME)
+      # The prompt wraps long bullets, so compare phrases against unwrapped text.
+      result[:stdout] = result[:stdout].gsub(/\s+/, " ")
 
       expect(result[:status]).to eq(0)
       expect(result[:stdout]).to include("use the repo's existing `bundle exec cpflow`")
@@ -44,6 +46,31 @@ describe Command::AiGithubFlowPrompt, :enable_validations, :without_config_file 
       expect(result[:stdout]).to include("Only stop early for a real external blocker")
       expect(result[:stderr]).to be_empty
     end
+  end
+
+  it "prints one instruction per bullet under titled sections" do
+    lines = described_class.text.lines(chomp: true)
+
+    expect(lines.grep(/:\z/).reject { |line| line.start_with?("-", " ") }).to eq(
+      [
+        "Before generating anything:",
+        "Generate the flow:",
+        "Keep the Control Plane Flow source pins together:",
+        "When bumping the `cpflow` gem in a downstream repo:",
+        "Review apps and workload sizing:",
+        "Staging and production:",
+        "Docker image and runtime:",
+        "Validate and finish:"
+      ]
+    )
+    expect(lines.map(&:length).max).to be <= 100
+    expect(lines.grep(/\A- /).length).to eq(39)
+  end
+
+  it "keeps the documented prompt identical to the command's prompt" do
+    documentation = File.read(File.expand_path("../../docs/ai-github-flow-prompt.md", __dir__))
+
+    expect(documentation[/```text\n(.*?)```/m, 1]).to eq(described_class.text)
   end
 
   it "skips startup checks for the local-only prompt command" do
