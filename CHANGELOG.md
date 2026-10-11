@@ -12,6 +12,8 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+## [6.0.1] - 2026-10-10
+
 ### Changed
 
 - **`cpflow ai-github-flow-prompt` prints its rollout prompt as titled sections with one instruction per bullet instead of four long paragraphs.** The instructions are unchanged. [PR 512](https://github.com/shakacode/control-plane-flow/pull/512) by [Justin Gordon](https://github.com/justin808).
@@ -516,7 +518,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.1...HEAD
+[6.0.1]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0...v6.0.1
 [6.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0
 [5.3.0]: https://github.com/shakacode/control-plane-flow/compare/v5.2.0...v5.3.0
 [5.2.0]: https://github.com/shakacode/control-plane-flow/compare/v5.1.1...v5.2.0
