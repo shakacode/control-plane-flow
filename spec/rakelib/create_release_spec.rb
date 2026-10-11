@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "open3"
 require "tmpdir"
 require "rake"
@@ -111,6 +112,51 @@ RSpec.describe Release do
           version_input: "major"
         )
       ).to eq("7.0.0")
+    end
+  end
+
+  describe ".verify_release_push_allowed!" do
+    let(:protection_args) { ["api", "repos/shakacode/control-plane-flow/branches/main/protection"] }
+
+    def stub_protection(output, success:)
+      allow(described_class).to receive(:github_repo_slug).and_return("shakacode/control-plane-flow")
+      status = instance_double(Process::Status, success?: success)
+      allow(described_class).to receive(:capture_gh_output).with(*protection_args).and_return([output, status])
+    end
+
+    def protection_json(enforce_admins:)
+      JSON.generate(
+        "required_pull_request_reviews" => { "required_approving_review_count" => 0 },
+        "required_status_checks" => { "contexts" => ["Command Docs"] },
+        "enforce_admins" => { "enabled" => enforce_admins }
+      )
+    end
+
+    it "aborts before any change when admins cannot bypass the protection" do
+      stub_protection(protection_json(enforce_admins: true), success: true)
+
+      expect { described_class.verify_release_push_allowed!(gem_root: "/repo", branch: "main") }
+        .to raise_error(SystemExit, %r{pull request required, required status checks.*protection/enforce_admins}m)
+    end
+
+    it "passes when admins may bypass the protection" do
+      stub_protection(protection_json(enforce_admins: false), success: true)
+
+      expect { described_class.verify_release_push_allowed!(gem_root: "/repo", branch: "main") }.not_to raise_error
+    end
+
+    it "passes when the branch is not protected" do
+      stub_protection('{"message":"Branch not protected","status":"404"}', success: false)
+
+      expect { described_class.verify_release_push_allowed!(gem_root: "/repo", branch: "main") }
+        .not_to output.to_stdout
+    end
+
+    it "continues with a notice when the protection cannot be read" do
+      stub_protection('{"message":"Not Found","status":"404"}', success: false)
+
+      expect { described_class.verify_release_push_allowed!(gem_root: "/repo", branch: "main") }
+        .to output(/Could not read branch protection for main/).to_stdout
     end
   end
 

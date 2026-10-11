@@ -98,6 +98,9 @@ GEM_RELEASE_MAX_RETRIES=<n>
 1. Requires a clean working tree.
 2. Verifies `gem-release` is available through Bundler.
 3. For real releases, verifies GitHub CLI authentication and write access.
+   It also reads branch protection for the release branch and stops, before
+   changing anything, when the protection would reject the version bump push.
+   Only classic branch protection is read, not repository rulesets.
 4. Pulls the latest changes with `git pull --rebase`.
 5. Resolves the target version from the changelog or explicit argument.
 6. Requires stable releases to run from `main`; prereleases may run from another

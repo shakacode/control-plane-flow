@@ -6,6 +6,7 @@
 require "bundler"
 require "English"
 require "fileutils"
+require "json"
 require "open3"
 require "rubygems/version"
 require "shellwords"
@@ -53,7 +54,7 @@ task :release, %i[version dry_run override_version_policy] do |_t, args|
   released_gem_version = nil
 
   Release.ensure_there_is_nothing_to_commit(gem_root)
-  Release.run_release_preflight_checks!(gem_root: gem_root, dry_run: is_dry_run)
+  Release.run_release_preflight_checks!(gem_root: gem_root, dry_run: is_dry_run, branch: current_branch)
 
   Release.with_release_checkout(gem_root: gem_root, dry_run: is_dry_run) do |release_root|
     Release.update_the_local_project(release_root) unless is_dry_run
@@ -504,11 +505,50 @@ module Release
       puts "GitHub CLI authenticated with write access to #{repo_slug}."
     end
 
-    def run_release_preflight_checks!(gem_root:, dry_run:)
+    # Stops before anything is bumped when branch protection would reject the version bump push.
+    # Only classic branch protection is read; repository rulesets are not.
+    def verify_release_push_allowed!(gem_root:, branch:)
+      repo_slug = github_repo_slug(gem_root)
+      output, status = capture_gh_output("api", "repos/#{repo_slug}/branches/#{branch}/protection")
+
+      unless status.success?
+        return if output.include?("Branch not protected")
+
+        puts "Could not read branch protection for #{branch}; continuing without the push preflight.\n\n#{output}"
+        return
+      end
+
+      blockers = release_push_blockers(JSON.parse(output))
+      return if blockers.empty?
+
+      abort <<~ERROR
+        Branch protection on #{branch} would reject the version bump push (#{blockers.join(', ')}),
+        and "Do not allow bypassing the above settings" is enabled.
+
+        Nothing was changed. A maintainer can let admins bypass these requirements with:
+
+          gh api -X DELETE repos/#{repo_slug}/branches/#{branch}/protection/enforce_admins
+
+        Then rerun the release.
+      ERROR
+    end
+
+    def release_push_blockers(protection)
+      return [] unless protection.dig("enforce_admins", "enabled")
+
+      blockers = []
+      blockers << "pull request required" if protection["required_pull_request_reviews"]
+      blockers << "required status checks" if protection["required_status_checks"]
+      blockers << "branch locked" if protection.dig("lock_branch", "enabled")
+      blockers
+    end
+
+    def run_release_preflight_checks!(gem_root:, dry_run:, branch:)
       verify_gem_release_available!
       return if dry_run
 
       verify_gh_auth(gem_root: gem_root)
+      verify_release_push_allowed!(gem_root: gem_root, branch: branch)
     end
 
     def sh_in_dir(dir, *shell_commands)
