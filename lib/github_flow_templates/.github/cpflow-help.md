@@ -152,8 +152,8 @@ validator, first preserve its downstream checks in executable
 `bin/test-cpflow-github-flow-custom`, then remove or rename the old generated
 validator before retrying the update.
 
-After updating the `cpflow` gem in this repo, refresh the generated local
-actions and validation helpers in the same PR. The default command
+After updating the `cpflow` gem in this repo, refresh the generated
+validation helpers in the same PR. The default command
 preserves every top-level workflow, including its refs, triggers, permissions, and
 downstream customizations:
 

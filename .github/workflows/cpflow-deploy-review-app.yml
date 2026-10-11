@@ -617,13 +617,6 @@ jobs:
               }
             }
 
-      # No explicit ref: checkout's default resolves to this event's recorded commit
-      # (GITHUB_SHA), which is trusted base-repository code and is exempt from checkout v7's fork-PR guard.
-      - name: Checkout generated cpflow actions
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: Checkout control-plane-flow actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -634,7 +627,7 @@ jobs:
 
       - name: Validate required secrets and variables
         id: config
-        uses: ./.github/actions/cpflow-validate-config
+        uses: ./.cpflow/.github/actions/cpflow-validate-config
         env:
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
         with:
@@ -748,7 +741,7 @@ jobs:
       - name: Resolve review app config
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
         id: review-config
-        uses: ./.github/actions/cpflow-resolve-review-config
+        uses: ./.cpflow/.github/actions/cpflow-resolve-review-config
         with:
           working_directory: app
           configured_cpln_org_staging: ${{ vars.CPLN_ORG_STAGING }}
@@ -757,7 +750,7 @@ jobs:
 
       - name: Setup environment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
-        uses: ./.github/actions/cpflow-setup-environment
+        uses: ./.cpflow/.github/actions/cpflow-setup-environment
         with:
           token: ${{ secrets.CPLN_TOKEN_STAGING }}
           org: ${{ steps.review-config.outputs.cpln_org }}
@@ -769,7 +762,7 @@ jobs:
       - name: Detect release phase support
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
         id: release-phase
-        uses: ./.github/actions/cpflow-detect-release-phase
+        uses: ./.cpflow/.github/actions/cpflow-detect-release-phase
         with:
           app_name: ${{ steps.review-config.outputs.app_name }}
           working_directory: app
@@ -931,7 +924,7 @@ jobs:
       - name: Build Docker image
         id: build-image
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
-        uses: ./.github/actions/cpflow-build-docker-image
+        uses: ./.cpflow/.github/actions/cpflow-build-docker-image
         with:
           app_name: ${{ steps.review-config.outputs.app_name }}
           org: ${{ steps.review-config.outputs.cpln_org }}
@@ -1019,7 +1012,7 @@ jobs:
       - name: Wait for deployment health
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
         id: health-check
-        uses: ./.github/actions/cpflow-wait-for-health
+        uses: ./.cpflow/.github/actions/cpflow-wait-for-health
         with:
           workload_name: ${{ env.PRIMARY_WORKLOAD || 'rails' }}
           app_name: ${{ steps.review-config.outputs.app_name }}

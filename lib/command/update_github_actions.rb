@@ -18,7 +18,10 @@ module Command
     }].freeze
     DESCRIPTION = "Regenerates GitHub Actions files for the installed cpflow version"
     LONG_DESCRIPTION = <<~DESC.freeze
-      Refreshes local composite actions and helper files from the installed gem.
+      Refreshes helper files from the installed gem. Workflows load cpflow's
+      composite actions from the pinned cpflow ref, so the command reports any
+      `.github/actions/cpflow-*` copies left by cpflow 6.0.0 for you to delete
+      once no workflow is pinned to 6.0.0. It never deletes them itself.
       All top-level workflows are preserved by default, including their refs,
       triggers, permissions, and deployment ownership. Use --workflows FILE...
       to explicitly add or replace named generated workflows. Replacement resets
@@ -37,7 +40,7 @@ module Command
     DESC
     EXAMPLES = <<~EX
       ```sh
-      # Refresh actions/helpers while preserving downstream workflows
+      # Refresh helpers while preserving downstream workflows
       cpflow update-github-actions
 
       # When running cpflow through Bundler
@@ -64,6 +67,7 @@ module Command
       branch = selected_staging_branch(workflows)
       abort_if_custom_validator!
       GithubActionsGenerator.new([branch].compact, workflows: workflows).invoke_all
+      report_vendored_actions
 
       print_post_update_message
     end
@@ -102,11 +106,33 @@ module Command
 
     def abort_if_no_generated_files!
       return if GenerateGithubActions.generated_files.any? { |path| File.exist?(path) }
+      return if vendored_action_directories.any?
 
       Shell.abort(<<~MESSAGE)
         No generated cpflow GitHub Actions files found in this repository.
         Run `cpflow generate-github-actions` first to create the wrappers,
         then use `cpflow update-github-actions` after future gem upgrades.
+      MESSAGE
+    end
+
+    # cpflow 6.0.0 copied its composite actions here. Scan the caller's tree rather than this
+    # gem's action names, so a copy is still found after an action is renamed or removed.
+    def vendored_action_directories
+      Dir.glob(".github/actions/cpflow-*").select { |path| File.directory?(path) }.sort
+    end
+
+    # Whether a copy is still needed depends on the cpflow release each wrapper pins, which a
+    # full-SHA pin does not reveal, so deletion stays a reviewed human step.
+    def report_vendored_actions
+      directories = vendored_action_directories
+      return if directories.empty?
+
+      Shell.warn(<<~MESSAGE)
+        cpflow no longer generates or updates these local action copies:
+        #{directories.map { |path| "- #{path}" }.join("\n")}
+        A workflow pinned to cpflow 6.0.0 still runs them. Delete them once every cpflow workflow
+        in this repository is pinned to a later release and none has a
+        `uses: ./.github/actions/cpflow-*` line. See docs/ci-automation.md.
       MESSAGE
     end
 

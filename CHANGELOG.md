@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Changed
+
+- **Generated GitHub Actions workflows load cpflow's composite actions from the pinned `shakacode/control-plane-flow` ref again, so downstream repositories no longer check in `.github/actions/cpflow-*`.** A repository carries the wrappers and one pinned ref, and action fixes arrive with the next ref bump. The actions that receive `CPLN_TOKEN_STAGING` come from that pinned commit, not from the triggering pull request's revision. `cpflow generate-github-actions` stops writing the copies. Migrating from 6.0.0: replace the wrappers and the production promotion workflow with `cpflow update-github-actions --workflows FILE...`, then delete the copies yourself; the command lists them and never deletes them, because a wrapper still pinned to 6.0.0 runs them. See [Removing cpflow 6.0.0 action copies](docs/ci-automation.md#removing-cpflow-600-action-copies). [PR 511](https://github.com/shakacode/control-plane-flow/pull/511) by [Justin Gordon](https://github.com/justin808). Fixes [issue 510](https://github.com/shakacode/control-plane-flow/issues/510).
+
 ## [6.0.0] - 2026-10-08
 
 ### Breaking Changes

@@ -16,7 +16,7 @@ RSpec.describe "CI automation documentation" do # rubocop:disable RSpec/Describe
     expect(normalized_documentation).to include(
       "`issue_comment` always loads the workflow definition from the default branch"
     )
-    expect(normalized_documentation).to include("cannot validate unmerged wrappers or local actions")
+    expect(normalized_documentation).to include("cannot validate unmerged wrappers.")
     expect(normalized_documentation).to include("For a first installation")
     expect(normalized_documentation).to include("run the local contract before merging")
     expect(normalized_documentation).to include("dispatch the merged workflow immediately afterward")
@@ -29,11 +29,15 @@ RSpec.describe "CI automation documentation" do # rubocop:disable RSpec/Describe
     expect(normalized_documentation).to include("exact release tag such as `v5.0.0`")
   end
 
-  it "documents both canonical sources for generated GitHub flow files" do
+  it "documents the canonical sources for generated wrappers and upstream actions" do
     expect(normalized_contributing).to include(
-      "workflow templates in `lib/github_flow_templates/` and canonical composite actions in " \
-      "`.github/actions/cpflow-*`"
+      "copies workflow templates in `lib/github_flow_templates/` into a target repo"
     )
+    expect(normalized_documentation).to include(
+      "The actions that receive `CPLN_TOKEN_STAGING` come from `shakacode/control-plane-flow` at the commit " \
+      "the calling wrapper pins."
+    )
+    expect(normalized_documentation).to include("### Removing cpflow 6.0.0 action copies")
     expect(normalized_contributing).to include(
       "Edit composite actions in the root `.github/actions/cpflow-*` directories"
     )

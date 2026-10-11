@@ -185,7 +185,7 @@ describe Command::UpdateGithubActions do
   end
 
   context "when the staging workflow is missing but other generated files exist" do
-    it "regenerates when only a generated local action exists" do
+    it "regenerates when only a cpflow 6.0.0 local action copy exists" do
       options[:workflows] = []
       write_generated_file(".github/actions/cpflow-setup-environment/action.yml", "name: Existing action\n")
 
