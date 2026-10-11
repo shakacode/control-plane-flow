@@ -131,11 +131,9 @@ module Command
     VALIDATIONS = [].freeze
     REQUIRES_STARTUP_CHECKS = false
 
-    # Resolve source roots from __dir__ rather than Cpflow.root_path because this file is
+    # Resolve the source root from __dir__ rather than Cpflow.root_path because this file is
     # loaded before `module Cpflow` finishes defining its class methods.
-    REPOSITORY_ROOT = Pathname.new(File.expand_path("../..", __dir__))
     TEMPLATE_ROOT = Pathname.new(File.expand_path("../github_flow_templates", __dir__))
-    ACTIONS_ROOT = REPOSITORY_ROOT.join(".github/actions")
 
     def self.generated_file_sources
       ensure_template_root!
@@ -155,7 +153,6 @@ module Command
 
     def self.ensure_template_root!
       raise "cpflow template directory not found: #{TEMPLATE_ROOT}" unless TEMPLATE_ROOT.directory?
-      raise "cpflow action directory not found: #{ACTIONS_ROOT}" unless ACTIONS_ROOT.directory?
     end
 
     def self.files_beneath(root)

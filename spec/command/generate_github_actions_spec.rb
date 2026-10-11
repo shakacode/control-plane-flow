@@ -467,7 +467,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
         expect(result[:stderr]).to include(
           "cpflow no longer generates or updates these local action copies:\n" \
           "- .github/actions/cpflow-setup-environment\n" \
-          "Workflows pinned to cpflow 6.0.0 still run them."
+          "A workflow pinned to cpflow 6.0.0 still runs them."
         )
       end
 
@@ -711,6 +711,20 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect("#{stdout}\n#{stderr}").to include(
         ".github/workflows/cpflow-promote-staging-to-production.yml references missing local action " \
         ".github/actions/cpflow-setup-environment"
+      )
+    end
+
+    it "rejects a job that uses a cpflow action before checking out .cpflow" do
+      promote_workflow_path.write(
+        promote_workflow_path.read.sub("          path: .cpflow\n", "          path: .cpflow-moved\n")
+      )
+
+      stdout, stderr, status = Open3.capture3(test_cpflow_flow_path.to_s, "/usr/bin/true")
+
+      expect(status).not_to be_success
+      expect("#{stdout}\n#{stderr}").to include(
+        ".github/workflows/cpflow-promote-staging-to-production.yml:preview-promotion must check out a pinned ref " \
+        "into .cpflow before its first cpflow action"
       )
     end
 

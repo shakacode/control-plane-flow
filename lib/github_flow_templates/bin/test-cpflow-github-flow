@@ -65,6 +65,24 @@ documents.each { |path, document| walk.call(document, path) }
 
 abort invalid_local_action_references.uniq.join("\n") unless invalid_local_action_references.empty?
 
+# `.cpflow` exists only after a job checks it out, so each job must do that before its first cpflow action.
+missing_checkouts = documents.flat_map do |path, document|
+  jobs = document.is_a?(Hash) && document["jobs"].is_a?(Hash) ? document["jobs"] : {}
+  jobs.filter_map do |job_name, job|
+    steps = job.is_a?(Hash) && job["steps"].is_a?(Array) ? job["steps"].grep(Hash) : []
+    first_action = steps.index { |step| step["uses"].to_s.start_with?("./.cpflow/") }
+    next unless first_action
+
+    checked_out = steps.take(first_action).any? do |step|
+      step["uses"].to_s.start_with?("actions/checkout@") &&
+        step["with"].is_a?(Hash) && step["with"]["path"] == ".cpflow" && !step["with"]["ref"].to_s.strip.empty?
+    end
+    "#{path}:#{job_name} must check out a pinned ref into .cpflow before its first cpflow action" unless checked_out
+  end
+end
+
+abort missing_checkouts.join("\n") unless missing_checkouts.empty?
+
 missing_actions = local_action_references.uniq.filter_map do |source_path, action_directory|
   directory_is_local = begin
     File.lstat(action_directory).directory?

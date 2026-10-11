@@ -130,7 +130,7 @@ module Command
       Shell.warn(<<~MESSAGE)
         cpflow no longer generates or updates these local action copies:
         #{directories.map { |path| "- #{path}" }.join("\n")}
-        Workflows pinned to cpflow 6.0.0 still run them. Delete them once every cpflow workflow
+        A workflow pinned to cpflow 6.0.0 still runs them. Delete them once every cpflow workflow
         in this repository is pinned to a later release and none has a
         `uses: ./.github/actions/cpflow-*` line. See docs/ci-automation.md.
       MESSAGE
