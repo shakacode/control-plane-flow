@@ -116,6 +116,24 @@ RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/Describe
     it "leaves queue ownership to its callers" do
       expect(job).not_to have_key("concurrency")
     end
+
+    it "falls back to the credential-free suite when no Control Plane token is available" do
+      setup_step = job.fetch("steps").find { |step| step["name"] == "Setup Control Plane tools" }
+      test_step = job.fetch("steps").find { |step| step["name"] == "Run tests" }
+      test_command = test_step.fetch("run")
+
+      expect(job.fetch("env")).to include("HAS_CPLN_TOKEN" => "${{ secrets.CPLN_TOKEN != '' }}")
+      expect(setup_step.fetch("if")).to eq("${{ env.HAS_CPLN_TOKEN == 'true' }}")
+      expect(test_step.fetch("env")).to include(
+        "CPLN_ORG" => "${{ env.HAS_CPLN_TOKEN == 'true' && vars.CPLN_ORG || '' }}"
+      )
+      expect(test_command).to include('if [[ "${HAS_CPLN_TOKEN}" != "true" ]]; then')
+      expect(test_command).to include(
+        "spec/cpflow_spec.rb",
+        "spec/github_workflows_spec.rb",
+        "spec/command/version_spec.rb"
+      )
+    end
   end
 
   describe "RSpec workflow callers" do
