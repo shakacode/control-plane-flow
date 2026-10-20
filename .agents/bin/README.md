@@ -1,7 +1,8 @@
 # Agent Workflow Scripts
 
 Thin, repo-owned command wrappers. Shaka's typed contract uses `setup`,
-`validate`, and `test`; the remaining scripts are additional repository helpers.
+`validate`, and `test`, which live in [`../shaka/bin/`](../shaka/bin/); the
+scripts here are additional repository helpers.
 A script that is **absent** means that capability is n/a here.
 
 | Script | Purpose | This repo runs |
@@ -25,6 +26,6 @@ suffix for automatic inclusion. Declared paths must remain tracked and readable.
 Unlisted extensionless files and non-shell files are outside this check.
 
 Canonical typed Shaka policy lives in
-[`../agent-workflow.yml`](../agent-workflow.yml). The GitHub Actions dependency allowlist lives in
+[`../shaka/config.yml`](../shaka/config.yml). The GitHub Actions dependency allowlist lives in
 [`../trusted-actions.yml`](../trusted-actions.yml). Additional agent-binding repository policy,
 including the release-QA runbook reference, lives in [`../../AGENTS.md`](../../AGENTS.md).

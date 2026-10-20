@@ -13,9 +13,9 @@ fi
 extensionless_shell_files=(
   .agents/bin/docs
   .agents/bin/lint
-  .agents/bin/setup
-  .agents/bin/test
-  .agents/bin/validate
+  .agents/shaka/bin/setup
+  .agents/shaka/bin/test
+  .agents/shaka/bin/validate
   lib/github_flow_templates/bin/test-cpflow-github-flow
   script/check_command_docs
   script/check_cpln_links
