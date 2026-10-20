@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Pre-push gate: full local validation (run before pushing).
 set -euo pipefail
-cd "$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
+root=$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_PREFIX -u GIT_CEILING_DIRECTORIES git -C "$(dirname -- "$0")" rev-parse --show-toplevel) || exit $?
+cd "$root"
 ./script/check_shell_scripts
 exec bundle exec rake
