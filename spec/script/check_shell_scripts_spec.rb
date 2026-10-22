@@ -9,7 +9,7 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
   let(:source_script) { File.expand_path("../../script/check_shell_scripts", __dir__) }
   let(:declared_scripts) do
     %w[
-      .agents/bin/docs .agents/bin/lint .agents/bin/setup .agents/bin/test .agents/bin/validate
+      .agents/bin/docs .agents/bin/lint .agents/shaka/bin/setup .agents/shaka/bin/test .agents/shaka/bin/validate
       lib/github_flow_templates/bin/test-cpflow-github-flow
       script/check_command_docs script/check_cpln_links script/check_shell_scripts
       script/precommit/check_command_docs script/precommit/check_cpln_links
@@ -50,8 +50,8 @@ RSpec.describe "script/check_shell_scripts" do # rubocop:disable RSpec/DescribeC
     shell_paths.each { |path| write_fixture(path, "#!/bin/sh\n", executable: false) }
     write_fixture(".agents/bin/docs", "#!/usr/bin/env -S -u FOO bash\n")
     write_fixture(".agents/bin/lint", "#!/usr/bin/env -S -C /tmp bash\n")
-    write_fixture(".agents/bin/setup", "#!/usr/bin/env FOO=bar sh\n")
-    write_fixture(".agents/bin/test", "#!/usr/bin/env -S -S \"bash -e\"\n")
+    write_fixture(".agents/shaka/bin/setup", "#!/usr/bin/env FOO=bar sh\n")
+    write_fixture(".agents/shaka/bin/test", "#!/usr/bin/env -S -S \"bash -e\"\n")
     write_fixture("README.md", "```sh\necho documentation\n```\n")
     write_fixture("directory.sh/non-shell.rb", "#!/usr/bin/env ruby\n")
     write_fixture("binary", "\0" * 65_536)

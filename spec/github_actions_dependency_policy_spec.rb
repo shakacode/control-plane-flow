@@ -470,7 +470,9 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
       "Docker actions must use a sha256 digest:\n#{violations.join("\n")}"
     )
 
-    action_policy = YAML.safe_load_file(File.expand_path("../.agents/trusted-actions.yml", __dir__), aliases: false)
+    action_policy = YAML.safe_load_file(
+      File.expand_path("../.agents/trusted-actions.yml", __dir__), aliases: false
+    )
     external_repositories = action_files.flat_map do |path|
       external_action_references(path).filter_map do |reference|
         reference[:trusted_repository] if reference[:kind] == :repository
