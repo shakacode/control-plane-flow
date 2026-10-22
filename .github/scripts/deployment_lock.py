@@ -25,7 +25,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 class DeploymentLock:
     def __init__(self, org, app, owner, receipt):
         for value in (org, app):
-            if not re.fullmatch(r"[a-z][a-z0-9-]{0,62}[a-z0-9]|[a-z]", value):
+            if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", value):
                 raise LockError("The org and app must be valid Control Plane names.")
         if not owner or len(owner) > 200 or not owner.isprintable():
             raise LockError("A printable deployment owner of at most 200 characters is required.")
