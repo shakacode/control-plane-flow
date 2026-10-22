@@ -788,6 +788,41 @@ or clones that copy the workflow before configuring Control Plane can remove
 wrapper-level `if:` guard shown in that file, for example
 `vars.REVIEW_APP_PREFIX != '' || vars.CPLN_ORG_STAGING != ''`.
 
+## Coordinate review-app deployments across CI providers
+
+Set the reusable deploy workflow's `deployment_lock` input to `true` when
+another CI provider can deploy the same review app. Every participating provider
+must acquire the same Control Plane lock before provisioning, refreshing
+templates, building the app image, or deploying it. Existing consumers keep their
+current behavior until they opt in.
+
+The standalone `.github/scripts/deployment_lock.py` helper accepts `acquire`,
+`release`, and `run`. Use the same immutable upstream revision in every provider.
+Pass the exact `--org`, `--app`, a distinct `--owner` for each job attempt, and a
+job-private `--receipt` path. `run` additionally accepts the deployment command
+after `--`; it releases ownership when that command exits normally, preserving
+its exit status. GitHub acquires and releases inside its deploy job so rerunning
+that job also reacquires ownership.
+
+Provide the existing deployment token through `CPLN_TOKEN`. It must already have
+permission to create, read, and delete the lock secret in the review-app org.
+The helper creates an opaque secret containing no credentials, with the app and
+owner recorded in its tags. Acquisition failures stop deployment; they never
+overwrite or remove an existing lock. Cleanup verifies both the owner and the
+resource identity before deleting it.
+
+Canceled or forcibly terminated runners retain their locks. An uncertain API
+result also fails closed. There is no age-based expiry: an old timestamp does
+not prove a deployment stopped. Before manually removing a stranded lock,
+confirm that its recorded owner and any deployment children have stopped, inspect
+the app's deployment state, and obtain operator approval to delete that exact
+lock secret. Do not recover a lock while its owner could still run cleanup.
+
+The guard coordinates deployments only. Review-app deletion and scheduled
+cleanup need their own coordination when they can overlap an external deploy.
+Validate token permissions and contention in an approved disposable environment
+before enabling this option in a consumer.
+
 ## Upstream Workflows And Actions
 
 Most generated workflows are intentionally small wrappers. The deployment

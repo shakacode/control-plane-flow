@@ -5,6 +5,11 @@ run-name: "Deploy Review App - PR #${{ github.event.pull_request.number || githu
 on:
   workflow_call:
     inputs:
+      deployment_lock:
+        description: Coordinate review-app deploys with other CI providers using a Control Plane lock.
+        required: false
+        type: boolean
+        default: false
       docker_build_extra_args:
         description: Optional newline-delimited extra docker build tokens, appended to the repository variable.
         required: false
@@ -767,6 +772,19 @@ jobs:
           app_name: ${{ steps.review-config.outputs.app_name }}
           working_directory: app
 
+      - name: Acquire shared deployment lock
+        id: deploy-lock
+        if: inputs.deployment_lock && steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
+        shell: bash
+        env:
+          CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
+          DEPLOY_OWNER: github:${{ github.repository }}:${{ github.run_id }}:${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          python3 .cpflow/.github/scripts/deployment_lock.py acquire \
+            --org "$CPLN_ORG" --app "$APP_NAME" --owner "$DEPLOY_OWNER" \
+            --receipt "$RUNNER_TEMP/cpflow-deploy-lock.json"
+
       - name: Check if review app exists
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
         id: check-app
@@ -1158,3 +1176,15 @@ jobs:
               comment_id: commentId,
               body: success ? successBody : failureBody
             });
+
+      - name: Release shared deployment lock
+        if: always() && !cancelled() && steps.deploy-lock.outcome == 'success'
+        shell: bash
+        env:
+          CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}
+          DEPLOY_OWNER: github:${{ github.repository }}:${{ github.run_id }}:${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          python3 .cpflow/.github/scripts/deployment_lock.py release \
+            --org "$CPLN_ORG" --app "$APP_NAME" --owner "$DEPLOY_OWNER" \
+            --receipt "$RUNNER_TEMP/cpflow-deploy-lock.json"
