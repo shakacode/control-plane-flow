@@ -145,6 +145,15 @@ class LockTests(unittest.TestCase):
             lock.release()
         self.assertFalse(self.calls)
 
+    def test_digit_prefixed_resource_names_acquire_and_release(self):
+        for org, app in (("1", "2"), ("1-org", "2-review-42")):
+            with self.subTest(org=org, app=app):
+                lock = MODULE.DeploymentLock(org, app, "github:one", Path(self.directory.name) / app)
+                lock.acquire()
+                lock.release()
+                self.assertFalse(self.resources)
+                self.assertFalse(lock.receipt.exists())
+
 
 class TransportTests(unittest.TestCase):
     def test_token_is_passed_only_in_header_and_api_error_bodies_are_suppressed(self):
