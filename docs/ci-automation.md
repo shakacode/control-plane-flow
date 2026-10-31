@@ -1224,9 +1224,12 @@ records an explicitly requested target commit, PR number, workflow run, and tran
 deployment before installing Ruby or provisioning the app. The PR comment
 includes the final failure or cancellation outcome even when provisioning never
 started. Automatic pushes to an uncreated app leave no deployment or PR comment.
-Automatic updates of existing apps publish their final outcome. Before app detection,
-automatic failures publish only when a previous GitHub deployment still tracks
-the review app; unrelated PRs receive no deployment comment or environment. Ready status requires
+Automatic updates check the live Control Plane GVC before Ruby setup and record
+an in-progress deployment when the app exists, including apps without earlier GitHub
+deployment records. Stale GitHub metadata cannot activate a deleted app. If an app
+disappears between that lookup and later detection, the attempt becomes inactive.
+If the early Control Plane lookup fails, the workflow fails without guessing that
+an app exists; its run logs remain the diagnostic source. Ready status requires
 a successful job and a detected preview URL.
 
 Consumers can build a review queue from environments named `review/<app-name>`,
