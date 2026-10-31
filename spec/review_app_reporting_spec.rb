@@ -12,6 +12,10 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
 
   it "uses a runner with binaries for application Ruby versions" do
     expect(workflow.dig("jobs", "deploy", "runs-on")).to eq("ubuntu-24.04")
+    %w[cpflow-delete-review-app.yml cpflow-cleanup-stale-review-apps.yml].each do |filename|
+      lifecycle = YAML.safe_load_file(Cpflow.root_path.join(".github/workflows", filename), aliases: true)
+      expect(lifecycle.fetch("jobs").values.first.fetch("runs-on")).to eq("ubuntu-24.04")
+    end
   end
 
   it "records the attempt before environment setup can fail" do
@@ -71,19 +75,26 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
     expect(result.fetch("comments").last).not_to include("Console", "]()")
   end
 
+  it "does not report an early automatic failure on an unrelated PR" do
+    result = report(status: "failure", exists: false, event: "pull_request", tracked: false)
+
+    expect(result.fetch("statuses")).to be_empty
+    expect(result.fetch("comments")).to be_empty
+  end
+
   it "does not label a missing preview URL as ready" do
     result = report(status: "success", exists: true)
 
     expect(result.fetch("statuses").last).to include("state" => "failure")
   end
 
-  def report(status:, exists:, url: "", event: "issue_comment", configured: true)
+  def report(status:, exists:, url: "", event: "issue_comment", configured: true, tracked: true)
     selected = steps.select do |step|
-      ["Create initial PR comment", "Set deployment links", "Initialize GitHub deployment",
+      ["Find tracked review deployment", "Create initial PR comment", "Set deployment links", "Initialize GitHub deployment",
        "Finalize deployment status"].include?(step["name"])
     end
     selected.select! { |step| step["name"] == "Finalize deployment status" } unless configured
-    input = { steps: selected, status:, exists:, url:, event:, configured: }
+    input = { steps: selected, status:, exists:, url:, event:, configured:, tracked: }
     stdout, stderr, process = Open3.capture3("node", "-e", node_runner, stdin_data: JSON.generate(input))
     expect(process).to be_success, stderr
     JSON.parse(stdout)
@@ -112,6 +123,8 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
         createComment: async data => {comments.push(data.body); return {data: {id: 1}};},
         updateComment: async data => {comments.push(data.body);}
       }, repos: {
+        listDeployments: async () => ({data: input.tracked ? [{id: 11}] : []}),
+        listDeploymentStatuses: async () => ({data: [{state: 'success'}]}),
         createDeployment: async () => ({data: {id: 2}}),
         createDeploymentStatus: async data => {statuses.push(data);}
       }}};
@@ -119,6 +132,7 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
         for (const step of input.steps) {
           const expression = (step.if || 'true').replace(/steps\.([\w-]+)/g, (_, key) => `steps[${JSON.stringify(key)}]`);
           if (!Function('steps', 'always', `return ${expression}`)(steps, () => true)) continue;
+          process.env.REVIEW_APP_TRACKED = outputs.tracked || '';
           process.env.COMMENT_ID = outputs['comment-id'] || '';
           process.env.DEPLOYMENT_ID = outputs.result || '';
           const result = await new Function('github', 'context', 'core', `return (async () => {${step.with.script}})()`)(github, context, core);

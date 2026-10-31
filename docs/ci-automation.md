@@ -1214,7 +1214,7 @@ When the agent applies this to a project, it should avoid hardcoding app names o
 
 ### Review-app deployment reporting
 
-The reusable review deployment job pins Ubuntu 24.04 rather than following
+The reusable review deployment, deletion, and stale cleanup jobs pin Ubuntu 24.04 rather than following
 `ubuntu-latest`, because an application Ruby patch release may not have a
 prebuilt binary for a newly introduced runner image. This does not change the
 application's declared Ruby version.
@@ -1224,8 +1224,9 @@ records an explicitly requested target commit, PR number, workflow run, and tran
 deployment before installing Ruby or provisioning the app. The PR comment
 includes the final failure or cancellation outcome even when provisioning never
 started. Automatic pushes to an uncreated app leave no deployment or PR comment.
-Automatic updates of existing apps publish their final outcome; early failures also
-publish failure evidence even when app detection could not run. Ready status requires
+Automatic updates of existing apps publish their final outcome. Before app detection,
+automatic failures publish only when a previous GitHub deployment still tracks
+the review app; unrelated PRs receive no deployment comment or environment. Ready status requires
 a successful job and a detected preview URL.
 
 Consumers can build a review queue from environments named `review/<app-name>`,

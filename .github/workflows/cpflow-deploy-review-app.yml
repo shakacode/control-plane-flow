@@ -748,6 +748,30 @@ jobs:
           configured_review_app_prefix: ${{ vars.REVIEW_APP_PREFIX }}
           pr_number: ${{ env.PR_NUMBER }}
 
+      - name: Find tracked review deployment
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.intent.outputs.event == 'pull_request'
+        id: tracked-deployment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const {data: deployments} = await github.rest.repos.listDeployments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              environment: `review/${process.env.APP_NAME}`,
+              per_page: 1
+            });
+            if (deployments.length === 0) {
+              core.setOutput("tracked", "false");
+              return;
+            }
+            const {data: statuses} = await github.rest.repos.listDeploymentStatuses({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployments[0].id,
+              per_page: 1
+            });
+            core.setOutput("tracked", statuses[0]?.state === "inactive" ? "false" : "true");
+
       - name: Create initial PR comment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.intent.outputs.event != 'pull_request'
         id: create-comment
@@ -1112,6 +1136,7 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           CHECK_APP_EXISTS: ${{ steps.check-app.outputs.exists }}
           INTENT_EVENT: ${{ steps.intent.outputs.event }}
+          REVIEW_APP_TRACKED: ${{ steps.tracked-deployment.outputs.tracked }}
         with:
           script: |
             const commentId = Number(process.env.COMMENT_ID);
@@ -1128,6 +1153,8 @@ jobs:
               success ? "Review app ready" : "Review App Deployment Failed";
 
             if (skipped) return;
+            if (process.env.INTENT_EVENT === "pull_request" &&
+                process.env.CHECK_APP_EXISTS !== "true" && process.env.REVIEW_APP_TRACKED !== "true") return;
 
             // Automatic pushes only publish an attempt when an app was updated or the job failed.
             if (!deploymentId && process.env.APP_NAME) {
