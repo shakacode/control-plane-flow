@@ -88,9 +88,12 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
     expect(result.fetch("statuses").last).to include("state" => "failure")
   end
 
-  def report(status:, exists:, url: "", event: "issue_comment", configured: true, tracked: true)
+  def report(status:, exists:, url: "", event: "issue_comment", **scenario)
+    configured = scenario.fetch(:configured, true)
+    tracked = scenario.fetch(:tracked, true)
     selected = steps.select do |step|
-      ["Find tracked review deployment", "Create initial PR comment", "Set deployment links", "Initialize GitHub deployment",
+      ["Find tracked review deployment", "Create initial PR comment", "Set deployment links",
+       "Initialize GitHub deployment",
        "Finalize deployment status"].include?(step["name"])
     end
     selected.select! { |step| step["name"] == "Finalize deployment status" } unless configured
