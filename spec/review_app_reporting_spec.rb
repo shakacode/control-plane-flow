@@ -46,7 +46,7 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
     result = report(status: "success", exists: false, event: "pull_request")
 
     expect(result.fetch("statuses").last).to include("state" => "inactive")
-    expect(result.fetch("comments").last).to include("not created")
+    expect(result.fetch("comments")).to be_empty
   end
 
   it "retains success for an automatic update of an existing review app" do
