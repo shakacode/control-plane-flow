@@ -1211,3 +1211,33 @@ Expand that prompt with app-specific requirements before editing files:
 - keep workflow files generic and put app names, org names, branch names, and Docker build knobs in repository `vars` and `secrets`
 
 When the agent applies this to a project, it should avoid hardcoding app names or org names into the workflow files. Those belong in repository `vars` and `secrets`.
+
+### Review-app deployment reporting
+
+The reusable review deployment, deletion, and stale cleanup jobs pin Ubuntu 24.04 rather than following
+`ubuntu-latest`, because an application Ruby patch release may not have a
+prebuilt binary for a newly introduced runner image. This does not change the
+application's declared Ruby version.
+
+After source authorization and review configuration resolution, the workflow
+records an explicitly requested target commit, PR number, workflow run, and transient GitHub
+deployment before installing Ruby or provisioning the app. The PR comment
+includes the final failure or cancellation outcome even when provisioning never
+started. Automatic pushes to an uncreated app leave no deployment or PR comment.
+Automatic updates check the live Control Plane GVC before Ruby setup and record
+an in-progress deployment when the app exists, including apps without earlier GitHub
+deployment records. Stale GitHub metadata cannot activate a deleted app. If an app
+disappears between that lookup and later detection, the attempt becomes inactive.
+If the early Control Plane lookup fails, the workflow fails without guessing that
+an app exists; its run logs remain the diagnostic source. Ready status requires
+a successful job and a detected preview URL.
+
+Consumers can build a review queue from environments named `review/<app-name>`,
+deployment payload `pr_number` and `run_id`, the deployment SHA, and its latest
+status and URLs. A successful deployment establishes preview availability, not
+product approval or merge readiness. Feedback should identify the reviewed commit.
+
+Reporting still depends on GitHub accepting the final API writes. A terminated
+runner or API outage can leave an in-progress record; consumers should reconcile
+it with the linked workflow run's terminal status and display missing evidence
+as unavailable, rather than assuming success.

@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- Review-app deployment, deletion, and cleanup jobs use Ubuntu 24.04 so application Ruby patch versions with prebuilt binaries remain available. Deployment attempts and log links are recorded before environment setup; setup and provisioning failures now update the PR and GitHub deployment even when no app exists. Canceled attempts are reported as failures. Automatic pushes that skip an uncreated app leave no deployment or PR comment.
+
 ## [6.0.1] - 2026-10-10
 
 ### Changed
