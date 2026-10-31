@@ -1,10 +1,15 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/cpflow-setup-environment"
     schedule:
       interval: weekly
-  - package-ecosystem: github-actions
-    directory: "/.github/actions/cpflow-setup-environment"
-    schedule:
-      interval: weekly
+    # Disable routine version updates while retaining advisory-triggered fixes.
+    open-pull-requests-limit: 0
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"

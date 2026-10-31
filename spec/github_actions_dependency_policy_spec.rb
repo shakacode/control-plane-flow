@@ -488,8 +488,11 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     job = workflow.fetch("jobs").fetch("rspec")
     steps = job.fetch("steps")
     install_step = steps.find { |step| step["name"] == "Install Control Plane tools" }
+    setup_step = steps.find { |step| step["name"] == "Setup Control Plane tools" }
+    test_step = steps.find { |step| step["name"] == "Run tests" }
 
     expect(job.fetch("env", {})).not_to have_key("CPLN_TOKEN_CI")
+    expect(job.fetch("env")).to include("HAS_CPLN_TOKEN" => "${{ secrets.CPLN_TOKEN != '' }}")
     expect(install_step.fetch("run")).to include("sudo npm install -g @controlplane/cli@3.11.0")
 
     token_step_names = steps.filter_map do |step|
@@ -499,15 +502,28 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     expect(steps.filter { |step| token_step_names.include?(step["name"]) }).to(
       all(include("env" => include("CPLN_TOKEN_CI" => "${{ secrets.CPLN_TOKEN }}")))
     )
+    expect(setup_step).to include(
+      "if" => "${{ env.HAS_CPLN_TOKEN == 'true' }}",
+      "env" => include("CPLN_ORG" => "${{ vars.CPLN_ORG }}")
+    )
+    expect(test_step.fetch("env")).to include(
+      "CPLN_ORG" => "${{ env.HAS_CPLN_TOKEN == 'true' && vars.CPLN_ORG || '' }}"
+    )
   end
 
-  it "lets Dependabot propose reviewed GitHub Actions updates" do
+  it "groups only security updates across every GitHub Actions directory" do
     config = YAML.safe_load_file(File.expand_path("../.github/dependabot.yml", __dir__), aliases: false)
     expected_directories = action_files.filter_map { |path| dependabot_action_directory(path, workflow_files) }
     actions_updates = config.fetch("updates").select { |update| update["package-ecosystem"] == "github-actions" }
 
-    expect(actions_updates.map { |update| update["directory"] }.sort).to eq(expected_directories.uniq.sort)
-    expect(actions_updates).to all(include("schedule" => { "interval" => "weekly" }))
+    expect(actions_updates.flat_map { |update| update.fetch("directories") }.sort).to eq(expected_directories.uniq.sort)
+    expect(actions_updates).to contain_exactly(include(
+                                                 "schedule" => { "interval" => "weekly" },
+                                                 "open-pull-requests-limit" => 0,
+                                                 "groups" => { "security-updates" => {
+                                                   "applies-to" => "security-updates", "patterns" => ["*"]
+                                                 } }
+                                               ))
   end
 
   it "keeps expressions out of shell scripts and passes only named reusable-workflow secrets" do
