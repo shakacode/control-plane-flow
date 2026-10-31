@@ -1117,6 +1117,8 @@ jobs:
             const commentId = Number(process.env.COMMENT_ID);
             let deploymentId = process.env.DEPLOYMENT_ID;
             const appUrl = process.env.APP_URL;
+            const workflowUrl = process.env.WORKFLOW_URL ||
+              `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const cancelled = process.env.JOB_STATUS === "cancelled";
             const skipped = process.env.JOB_STATUS === "success" &&
               process.env.INTENT_EVENT === "pull_request" && process.env.CHECK_APP_EXISTS !== "true";
@@ -1128,7 +1130,7 @@ jobs:
             if (skipped) return;
 
             // Automatic pushes only publish an attempt when an app was updated or the job failed.
-            if (!deploymentId) {
+            if (!deploymentId && process.env.APP_NAME) {
               const deployment = await github.rest.repos.createDeployment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -1152,7 +1154,7 @@ jobs:
                 state,
                 environment: `review/${process.env.APP_NAME}`,
                 environment_url: success && appUrl ? appUrl : undefined,
-                log_url: process.env.WORKFLOW_URL,
+                log_url: workflowUrl,
                 description: outcome
               });
             }
@@ -1164,18 +1166,18 @@ jobs:
               "",
               `_Deployment successful for PR #${process.env.PR_NUMBER}, commit ${process.env.PR_SHA}_`,
               "",
-              `🎮 [Control Plane Console](${process.env.CONSOLE_URL})`,
-              `📋 [View Completed Action Build and Deploy Logs](${process.env.WORKFLOW_URL})`
-            ].join("\n");
+              process.env.CONSOLE_URL ? `🎮 [Control Plane Console](${process.env.CONSOLE_URL})` : null,
+              `📋 [View Completed Action Build and Deploy Logs](${workflowUrl})`
+            ].filter(line => line !== null).join("\n");
 
             const failureBody = [
               `## ${outcome}`,
               "",
               `_PR #${process.env.PR_NUMBER}, commit ${process.env.PR_SHA}_`,
               "",
-              `🎮 [Control Plane Console](${process.env.CONSOLE_URL})`,
-              `📋 [View Failed Action Build and Deploy Logs](${process.env.WORKFLOW_URL})`
-            ].join("\n");
+              process.env.CONSOLE_URL ? `🎮 [Control Plane Console](${process.env.CONSOLE_URL})` : null,
+              `📋 [View Failed Action Build and Deploy Logs](${workflowUrl})`
+            ].filter(line => line !== null).join("\n");
 
             if (!Number.isFinite(commentId) || commentId <= 0) {
               await github.rest.issues.createComment({

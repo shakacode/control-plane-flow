@@ -63,18 +63,27 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
     expect(result.fetch("comments").last).to include("Failed")
   end
 
+  it "links config-resolution failures without publishing an unnamed deployment" do
+    result = report(status: "failure", exists: false, configured: false)
+
+    expect(result.fetch("statuses")).to be_empty
+    expect(result.fetch("comments").last).to include("Failed", "https://github.com/example/app/actions/runs/123")
+    expect(result.fetch("comments").last).not_to include("Console", "]()")
+  end
+
   it "does not label a missing preview URL as ready" do
     result = report(status: "success", exists: true)
 
     expect(result.fetch("statuses").last).to include("state" => "failure")
   end
 
-  def report(status:, exists:, url: "", event: "issue_comment")
+  def report(status:, exists:, url: "", event: "issue_comment", configured: true)
     selected = steps.select do |step|
       ["Create initial PR comment", "Set deployment links", "Initialize GitHub deployment",
        "Finalize deployment status"].include?(step["name"])
     end
-    input = { steps: selected, status:, exists:, url:, event: }
+    selected.select! { |step| step["name"] == "Finalize deployment status" } unless configured
+    input = { steps: selected, status:, exists:, url:, event:, configured: }
     stdout, stderr, process = Open3.capture3("node", "-e", node_runner, stdin_data: JSON.generate(input))
     expect(process).to be_success, stderr
     JSON.parse(stdout)
@@ -91,6 +100,7 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
       const env = {PR_NUMBER: '427', PR_SHA: 'abc123', APP_NAME: 'app-review-427',
         CPLN_ORG: 'staging', GITHUB_SERVER_URL: 'https://github.com', JOB_STATUS: input.status,
         APP_URL: input.url, INTENT_EVENT: input.event, CHECK_APP_EXISTS: String(input.exists)};
+      if (!input.configured) {env.APP_NAME = ''; env.CPLN_ORG = ''; env.WORKFLOW_URL = ''; env.CONSOLE_URL = '';}
       Object.assign(process.env, env);
       const steps = {config: {outputs: {ready: 'true'}}, source: {outputs: {allowed: 'true'}},
         'check-app': {outputs: {exists: String(input.exists)}},
