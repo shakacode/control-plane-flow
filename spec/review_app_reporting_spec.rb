@@ -45,7 +45,7 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
   it "does not advertise a ready preview when automatic deployment was skipped" do
     result = report(status: "success", exists: false, event: "pull_request")
 
-    expect(result.fetch("statuses").last).to include("state" => "inactive")
+    expect(result.fetch("statuses")).to be_empty
     expect(result.fetch("comments")).to be_empty
   end
 
@@ -53,6 +53,14 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
     result = report(status: "success", exists: true, event: "pull_request", url: "https://preview.example.test")
 
     expect(result.fetch("statuses").last).to include("state" => "success")
+    expect(result.fetch("comments").last).to include("Deploy Complete!")
+  end
+
+  it "reports an automatic update failure on the PR even before app detection" do
+    result = report(status: "failure", exists: false, event: "pull_request")
+
+    expect(result.fetch("statuses").last).to include("state" => "failure")
+    expect(result.fetch("comments").last).to include("Failed")
   end
 
   it "does not label a missing preview URL as ready" do

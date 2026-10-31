@@ -1220,11 +1220,12 @@ prebuilt binary for a newly introduced runner image. This does not change the
 application's declared Ruby version.
 
 After source authorization and review configuration resolution, the workflow
-records the target commit, PR number, workflow run, and transient GitHub
+records an explicitly requested target commit, PR number, workflow run, and transient GitHub
 deployment before installing Ruby or provisioning the app. The PR comment
 includes the final failure or cancellation outcome even when provisioning never
-started. An automatic push that leaves an uncreated app alone records an
-inactive attempt, rather than advertising a ready preview. Ready status requires
+started. Automatic pushes to an uncreated app leave no deployment or PR comment.
+Automatic updates of existing apps publish their final outcome; early failures also
+publish failure evidence even when app detection could not run. Ready status requires
 a successful job and a detected preview URL.
 
 Consumers can build a review queue from environments named `review/<app-name>`,

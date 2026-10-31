@@ -782,7 +782,7 @@ jobs:
             );
 
       - name: Initialize GitHub deployment
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true'
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.intent.outputs.event != 'pull_request'
         id: init-deployment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
@@ -1115,7 +1115,7 @@ jobs:
         with:
           script: |
             const commentId = Number(process.env.COMMENT_ID);
-            const deploymentId = process.env.DEPLOYMENT_ID;
+            let deploymentId = process.env.DEPLOYMENT_ID;
             const appUrl = process.env.APP_URL;
             const cancelled = process.env.JOB_STATUS === "cancelled";
             const skipped = process.env.JOB_STATUS === "success" &&
@@ -1124,6 +1124,25 @@ jobs:
             const state = skipped ? "inactive" : success ? "success" : "failure";
             const outcome = skipped ? "Review app not created" : cancelled ? "Review App Deployment Cancelled" :
               success ? "Review app ready" : "Review App Deployment Failed";
+
+            if (skipped) return;
+
+            // Automatic pushes only publish an attempt when an app was updated or the job failed.
+            if (!deploymentId) {
+              const deployment = await github.rest.repos.createDeployment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: process.env.PR_SHA,
+                environment: `review/${process.env.APP_NAME}`,
+                transient_environment: true,
+                production_environment: false,
+                auto_merge: false,
+                required_contexts: [],
+                payload: {pr_number: Number(process.env.PR_NUMBER), run_id: context.runId},
+                description: `Control Plane review app for PR #${process.env.PR_NUMBER}`
+              });
+              deploymentId = deployment.data.id;
+            }
 
             if (deploymentId) {
               await github.rest.repos.createDeploymentStatus({
@@ -1159,7 +1178,12 @@ jobs:
             ].join("\n");
 
             if (!Number.isFinite(commentId) || commentId <= 0) {
-              core.warning("Skipping PR comment update because no comment id was created.");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: Number(process.env.PR_NUMBER),
+                body: success ? successBody : failureBody
+              });
               return;
             }
 
