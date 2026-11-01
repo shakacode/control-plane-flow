@@ -1228,7 +1228,10 @@ Automatic updates check the live Control Plane GVC before Ruby setup and record
 an in-progress deployment when the app exists, including apps without earlier GitHub
 deployment records. Stale GitHub metadata cannot activate a deleted app. If an app
 disappears between that lookup and later detection, the attempt becomes inactive.
-If the early Control Plane lookup fails, the workflow fails without guessing that
+The early read uses curl's bounded transient/transport retries with per-request
+and retry-window deadlines. Authorization is supplied through stdin, and redirects
+are not followed. The reusable workflow targets the standard Control Plane API.
+If the early Control Plane lookup still fails, the workflow fails without guessing that
 an app exists; its run logs remain the diagnostic source. Ready status requires
 a successful job and a detected preview URL.
 

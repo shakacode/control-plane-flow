@@ -761,16 +761,24 @@ jobs:
             const authorization = /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`;
             const org = encodeURIComponent(process.env.CPLN_ORG);
             const app = encodeURIComponent(process.env.APP_NAME);
-            const LOOKUP_TIMEOUT_MS = 10000;
-            const response = await fetch(`https://api.cpln.io/org/${org}/gvc/${app}`, {
-              headers: {Authorization: authorization},
-              signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
-              redirect: "error"
-            });
-            if (response.status !== 200 && response.status !== 404) {
-              throw new Error(`Review app lookup failed (HTTP ${response.status}).`);
+            if (/[\r\n]/.test(token)) throw new Error("Invalid Control Plane token format.");
+            const LOOKUP_TIMEOUT_SECONDS = "10";
+            const LOOKUP_CONNECT_TIMEOUT_SECONDS = "5";
+            const LOOKUP_RETRIES = "2";
+            const LOOKUP_RETRY_WINDOW_SECONDS = "30";
+            const result = await exec.getExecOutput("curl", [
+              "--disable", "--silent", "--show-error", "--output", "/dev/null", "--write-out", "%{http_code}",
+              "--header", "@-", "--connect-timeout", LOOKUP_CONNECT_TIMEOUT_SECONDS,
+              "--max-time", LOOKUP_TIMEOUT_SECONDS, "--retry", LOOKUP_RETRIES,
+              "--retry-max-time", LOOKUP_RETRY_WINDOW_SECONDS, "--retry-all-errors",
+              `https://api.cpln.io/org/${org}/gvc/${app}`
+            ], {input: Buffer.from(`Authorization: ${authorization}\n`), silent: true, ignoreReturnCode: true});
+            if (result.exitCode !== 0) throw new Error("Review app lookup failed after bounded retries.");
+            const status = Number(result.stdout.trim());
+            if (status !== 200 && status !== 404) {
+              throw new Error(`Review app lookup failed (HTTP ${status}).`);
             }
-            core.setOutput("tracked", response.status === 200 ? "true" : "false");
+            core.setOutput("tracked", status === 200 ? "true" : "false");
 
       - name: Create initial PR comment
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.intent.outputs.event != 'pull_request'

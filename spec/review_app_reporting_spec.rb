@@ -156,11 +156,12 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
         createDeployment: async () => ({data: {id: 2}}),
         createDeploymentStatus: async data => {statuses.push(data);}
       }}};
-      const fetch = async (url, options) => {
-        if (url !== 'https://api.cpln.io/org/staging/gvc/app-review-427' ||
-            options.headers.Authorization !== 'Bearer fixture-token') throw new Error('Unexpected lookup request');
-        return {status: (input.live ?? input.tracked) ? 200 : 404};
-      };
+      const exec = {getExecOutput: async (command, args, options) => {
+        if (command !== 'curl' || !args.includes('https://api.cpln.io/org/staging/gvc/app-review-427') ||
+            options.input.toString() !== 'Authorization: Bearer fixture-token\n' ||
+            args.some(arg => arg.includes('fixture-token'))) throw new Error('Unexpected lookup request');
+        return {exitCode: 0, stdout: (input.live ?? input.tracked) ? '200' : '404'};
+      }};
       (async () => {
         for (const step of input.steps) {
           const expression = (step.if || 'true').replace(/steps\.([\w-]+)/g, (_, key) => `steps[${JSON.stringify(key)}]`);
@@ -169,7 +170,7 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
           process.env.REVIEW_APP_TRACKED = outputs.tracked || '';
           process.env.COMMENT_ID = outputs['comment-id'] || '';
           process.env.DEPLOYMENT_ID = outputs.result || '';
-          const result = await new Function('github', 'context', 'core', 'fetch', `return (async () => {${step.with.script}})()`)(github, context, core, fetch);
+          const result = await new Function('github', 'context', 'core', 'exec', `return (async () => {${step.with.script}})()`)(github, context, core, exec);
           if (step.id === 'init-deployment') outputs.result = String(result);
         }
         process.stdout.write(JSON.stringify({comments, statuses}));
