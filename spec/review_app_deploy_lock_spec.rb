@@ -14,7 +14,7 @@ RSpec.describe "Review app deploy lock" do # rubocop:disable RSpec/DescribeClass
     expect(acquire).not_to be_nil
     expect(release).not_to be_nil
     expect(steps.index(acquire)).to be < steps.index { |step| step["name"] == "Check if review app exists" }
-    expect(release.fetch("if")).to include("always()", "!cancelled()", "steps.deploy-lock.outcome == 'success'")
+    expect(release.fetch("if")).to eq("success() && steps.deploy-lock.outcome == 'success'")
     expect(acquire.fetch("if")).to include("inputs.deployment_lock")
     expect(acquire.fetch("env").fetch("DEPLOY_OWNER")).to include("github.run_id", "github.run_attempt")
     expect(workflow.fetch("on", workflow[true]).fetch("workflow_call").fetch("inputs").fetch("deployment_lock")).to(

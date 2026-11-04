@@ -1178,7 +1178,7 @@ jobs:
             });
 
       - name: Release shared deployment lock
-        if: always() && !cancelled() && steps.deploy-lock.outcome == 'success'
+        if: success() && steps.deploy-lock.outcome == 'success'
         shell: bash
         env:
           CPLN_TOKEN: ${{ secrets.CPLN_TOKEN_STAGING }}

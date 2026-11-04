@@ -800,9 +800,10 @@ The standalone `.github/scripts/deployment_lock.py` helper accepts `acquire`,
 `release`, and `run`. Use the same immutable upstream revision in every provider.
 Pass the exact `--org`, `--app`, a distinct `--owner` for each job attempt, and a
 job-private `--receipt` path. `run` additionally accepts the deployment command
-after `--`; it releases ownership when that command exits normally, preserving
-its exit status. GitHub acquires and releases inside its deploy job so rerunning
-that job also reacquires ownership.
+after `--`; it releases ownership only when that command succeeds, preserving
+its exit status. The command must wait for any remote deployment work to finish;
+do not use a detached command. GitHub acquires and releases inside its deploy job
+so rerunning that job also reacquires ownership, and releases only after success.
 
 Provide the existing deployment token through `CPLN_TOKEN`. It must already have
 permission to create, read, and delete the lock secret in the review-app org.
@@ -811,8 +812,10 @@ owner recorded in its tags. Acquisition failures stop deployment; they never
 overwrite or remove an existing lock. Cleanup verifies both the owner and the
 resource identity before deleting it.
 
-Canceled or forcibly terminated runners retain their locks. An uncertain API
-result also fails closed. There is no age-based expiry: an old timestamp does
+Failed, canceled, or forcibly terminated runners retain their locks. A nonzero
+deployment exit can leave remote release jobs running, including after a local
+observation timeout. An uncertain API result also fails closed. There is no
+age-based expiry: an old timestamp does
 not prove a deployment stopped. Before manually removing a stranded lock,
 confirm that its recorded owner and any deployment children have stopped, inspect
 the app's deployment state, and obtain operator approval to delete that exact

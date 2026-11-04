@@ -101,9 +101,17 @@ class LockTests(unittest.TestCase):
                 patch.object(MODULE.subprocess, "run", side_effect=result):
             return MODULE.main(), lock
 
-    def test_normal_command_failure_releases_and_preserves_exit_status(self):
+    def test_failed_command_retains_ownership_and_preserves_exit_status(self):
         result, lock = self.run_command(lambda *args, **kwargs: subprocess.CompletedProcess(args, 7))
         self.assertEqual(result, 7)
+        self.assertIn(lock.path, self.resources)
+        self.assertTrue(lock.receipt.exists())
+        with self.assertRaises(MODULE.LockError):
+            self.lock("github:two").acquire()
+
+    def test_successful_command_releases_ownership(self):
+        result, lock = self.run_command(lambda *args, **kwargs: subprocess.CompletedProcess(args, 0))
+        self.assertEqual(result, 0)
         self.assertFalse(self.resources)
         self.assertFalse(lock.receipt.exists())
 

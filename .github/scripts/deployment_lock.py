@@ -123,6 +123,10 @@ def main():
         raise
     if result.returncode < 0:
         raise LockError("Deployment terminated by signal; retaining its lock for operator inspection.")
+    if result.returncode != 0:
+        print("Deployment failed; remote work may still be running. Retaining its lock for operator inspection.",
+              file=sys.stderr)
+        return result.returncode
     lock.release()
     return result.returncode
 
