@@ -45,9 +45,11 @@ review the registry, image, and digest because Docker references are outside the
 Generated downstream calls to Control Plane Flow's cross-repository reusable workflows are the deliberate exception:
 they use an exact `vX.Y.Z` release tag so the workflow source stays aligned with the released `cpflow` gem.
 
-Dependabot proposes grouped security fixes across the configured GitHub Actions directories; routine version updates
-are disabled. For each proposed update, verify that the release tag resolves to the proposed commit, review the upstream
-release and diff, and keep the version comment synchronized with the pin.
+Routine Dependabot version updates are disabled. GitHub does not create Dependabot alerts for SHA-pinned actions,
+so security-only grouping cannot propose fixes for these references. Maintainers must check upstream action advisories
+and releases manually. See [GitHub’s action vulnerability monitoring limitations](https://docs.github.com/en/actions/reference/security/secure-use#monitoring-the-actions-in-your-workflows).
+For each pin update, verify that the release tag resolves to the proposed commit, review the upstream release and diff,
+and keep the version comment synchronized with the pin.
 Dependabot-authored runs receive no repository secrets, so `RSpec (Fast)` fails at `Setup Control Plane tools`. The
 credential-free `Ruby 3.3 compatibility` and `Ruby 3.4 compatibility` jobs do run
 `spec/github_actions_dependency_policy_spec.rb`, so a bump that leaves the generated templates or the
