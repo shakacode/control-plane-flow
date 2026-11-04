@@ -14,4 +14,4 @@ merge:
 branches:
   name: "{login}-{host}/{issue}-{description}"
 wip:
-  include_locations: false
+  include_checkout_path: false
