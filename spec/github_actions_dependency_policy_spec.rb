@@ -501,13 +501,19 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     )
   end
 
-  it "lets Dependabot propose reviewed GitHub Actions updates" do
+  it "groups weekly version updates across every GitHub Actions directory" do
     config = YAML.safe_load_file(File.expand_path("../.github/dependabot.yml", __dir__), aliases: false)
     expected_directories = action_files.filter_map { |path| dependabot_action_directory(path, workflow_files) }
     actions_updates = config.fetch("updates").select { |update| update["package-ecosystem"] == "github-actions" }
 
-    expect(actions_updates.map { |update| update["directory"] }.sort).to eq(expected_directories.uniq.sort)
-    expect(actions_updates).to all(include("schedule" => { "interval" => "weekly" }))
+    expect(actions_updates.flat_map { |update| update.fetch("directories") }.sort).to eq(expected_directories.uniq.sort)
+    expect(actions_updates).to contain_exactly(include(
+                                                 "schedule" => { "interval" => "weekly" },
+                                                 "open-pull-requests-limit" => 1,
+                                                 "groups" => { "action-updates" => {
+                                                   "applies-to" => "version-updates", "patterns" => ["*"]
+                                                 } }
+                                               ))
   end
 
   it "keeps expressions out of shell scripts and passes only named reusable-workflow secrets" do
