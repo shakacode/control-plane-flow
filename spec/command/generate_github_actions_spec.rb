@@ -1940,7 +1940,7 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       expect(contents).to include("copy_image_attempts=$((copy_image_retries + 1))")
       expect(contents).to include("Staging image '${STAGING_IMAGE}' was not found")
       expect(contents).to include(
-        "uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e"
+        "uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069"
       )
       expect(contents).to include("id: copy-image")
       expect(contents).to include('staging_image="${STAGING_IMAGE}"')
