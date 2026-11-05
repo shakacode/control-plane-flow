@@ -65,6 +65,9 @@ group :development do
 end
 
 group :test do
+  # Rails 7.1 test runners require the Minitest 5 interface.
+  gem "minitest", "< 6"
+
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
