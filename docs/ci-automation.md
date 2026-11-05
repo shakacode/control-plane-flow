@@ -1224,6 +1224,8 @@ records an explicitly requested target commit, PR number, workflow run, and tran
 deployment before installing Ruby or provisioning the app. The PR comment
 includes the final failure or cancellation outcome even when provisioning never
 started. Automatic pushes to an uncreated app leave no deployment or PR comment.
+Automatic updates of an existing app post only the final outcome comment, without a
+starting comment or progress edits.
 Automatic updates check the live Control Plane GVC before Ruby setup and record
 an in-progress deployment when the app exists, including apps without earlier GitHub
 deployment records. Stale GitHub metadata cannot activate a deleted app. If an app

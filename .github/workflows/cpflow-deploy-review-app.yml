@@ -1161,10 +1161,11 @@ jobs:
               success ? "Review app ready" : "Review App Deployment Failed";
 
             if (skipped && !deploymentId) return;
+            // A failed early lookup cannot establish whether an automatic app exists.
             if (process.env.INTENT_EVENT === "pull_request" &&
                 process.env.CHECK_APP_EXISTS !== "true" && process.env.REVIEW_APP_TRACKED !== "true") return;
 
-            // A failed early lookup cannot establish whether an automatic app exists.
+            // Record attempts that began without a deployment, such as an app found only after setup.
             if (!deploymentId && process.env.APP_NAME) {
               const deployment = await github.rest.repos.createDeployment({
                 owner: context.repo.owner,
