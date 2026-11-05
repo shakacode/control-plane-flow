@@ -501,7 +501,7 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     )
   end
 
-  it "groups only security updates across every GitHub Actions directory" do
+  it "groups weekly version updates across every GitHub Actions directory" do
     config = YAML.safe_load_file(File.expand_path("../.github/dependabot.yml", __dir__), aliases: false)
     expected_directories = action_files.filter_map { |path| dependabot_action_directory(path, workflow_files) }
     actions_updates = config.fetch("updates").select { |update| update["package-ecosystem"] == "github-actions" }
@@ -509,9 +509,9 @@ RSpec.describe "GitHub Actions dependency policy" do # rubocop:disable RSpec/Des
     expect(actions_updates.flat_map { |update| update.fetch("directories") }.sort).to eq(expected_directories.uniq.sort)
     expect(actions_updates).to contain_exactly(include(
                                                  "schedule" => { "interval" => "weekly" },
-                                                 "open-pull-requests-limit" => 0,
-                                                 "groups" => { "security-updates" => {
-                                                   "applies-to" => "security-updates", "patterns" => ["*"]
+                                                 "open-pull-requests-limit" => 1,
+                                                 "groups" => { "action-updates" => {
+                                                   "applies-to" => "version-updates", "patterns" => ["*"]
                                                  } }
                                                ))
   end

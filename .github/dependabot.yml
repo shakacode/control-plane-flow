@@ -6,10 +6,10 @@ updates:
       - "/.github/actions/cpflow-setup-environment"
     schedule:
       interval: weekly
-    # Disable version PRs; SHA-pinned actions require manual security checks.
-    open-pull-requests-limit: 0
+    # Keep SHA-pinned actions current in one grouped weekly version PR.
+    open-pull-requests-limit: 1
     groups:
-      security-updates:
-        applies-to: security-updates
+      action-updates:
+        applies-to: version-updates
         patterns:
           - "*"
