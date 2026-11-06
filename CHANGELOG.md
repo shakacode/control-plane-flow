@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- Review-app deployments can opt into a shared Control Plane lock for coordination with other CI providers. Each job attempt acquires ownership before provisioning and releases it only after success; failed or interrupted runners retain their lock for operator recovery because remote work may still be running.
+
 ## [6.0.1] - 2026-10-10
 
 ### Changed

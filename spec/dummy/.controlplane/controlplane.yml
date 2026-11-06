@@ -242,7 +242,8 @@ apps:
     secrets_name: dummy-test-secrets
     secrets_policy_name: dummy-test-secrets-policy
     hooks:
-      post_creation: bundle exec rake db:prepare
+      # The Rails entrypoint creates the database; concurrent db:prepare calls can race.
+      post_creation: echo post-creation-hook-complete
     setup_app_templates:
       - app
       - rails
