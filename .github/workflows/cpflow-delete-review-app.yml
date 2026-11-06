@@ -19,7 +19,7 @@ env:
 
 jobs:
   authorize-comment-command:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: read
@@ -278,7 +278,7 @@ jobs:
         contains(fromJson('["+review-app-delete","+review-app-delete\n","+review-app-delete\r\n"]'), github.event.comment.body)) ||
        (github.event_name == 'pull_request_target' && github.event.action == 'closed') ||
        github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
       group: cpflow-review-app-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
