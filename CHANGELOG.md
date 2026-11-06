@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Added
+
+- Review-app deployments can opt into a shared Control Plane lock for coordination with other CI providers. Each job attempt acquires ownership before provisioning and releases it only after success; failed or interrupted runners retain their lock for operator recovery because remote work may still be running.
+
 ### Fixed
 
 - Review-app deployment, deletion, and cleanup jobs use Ubuntu 24.04 so application Ruby patch versions with prebuilt binaries remain available. Deployment attempts and log links are recorded before environment setup; setup and provisioning failures now update the PR and GitHub deployment even when no app exists. Canceled attempts are reported as failures. Automatic pushes that skip an uncreated app leave no deployment or PR comment. Automatic updates of an existing app no longer post a starting comment or progress edits; the PR receives only the final outcome comment.
