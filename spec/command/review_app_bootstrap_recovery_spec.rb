@@ -96,7 +96,7 @@ RSpec.describe "Credentialed review app bootstrap recovery", :slow, retry: 1 do 
       next false unless endpoint
 
       served_revision?(endpoint)
-    rescue IOError, SystemCallError, Timeout::Error
+    rescue IOError, SystemCallError, Net::OpenTimeout, Net::ReadTimeout
       false
     end
   end
