@@ -11,6 +11,17 @@ aliases:
       - postgres
 
 apps:
+  dummy-test-bootstrap-{GLOBAL_IDENTIFIER}:
+    <<: *common
+
+    match_if_app_name_starts_with: true
+    dockerfile: ../bootstrap-image/Dockerfile
+    setup_app_templates:
+      - app
+      - rails
+      - postgres
+      - bootstrap-secret
+
   dummy-test-{GLOBAL_IDENTIFIER}:
     <<: *common
 

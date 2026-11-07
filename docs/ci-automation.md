@@ -388,20 +388,28 @@ the run early instead of deploying an image that cannot boot.
 
 Review apps are different: the generated `+review-app-deploy` workflow creates
 temporary PR apps as needed, including the identity and secret policy binding.
-For an existing review app, each deployment runs
-`cpflow setup-app --refresh-templates` before building and deploying the new
-image. Refresh mode reapplies the configured `setup_app_templates` without
+Each eligible deployment first builds the full PR head and verifies that the
+registry image tag belongs to that review app and contains the exact full PR SHA.
+A failed build or mismatched image stops before app setup or template refresh.
+For an existing review app, the workflow then runs
+`cpflow setup-app --refresh-templates --bootstrap-image APP:NUMBER_FULL_COMMIT_SHA`.
+Refresh mode reapplies the configured `setup_app_templates` without
 deleting the GVC or running `hooks.post_creation`, answers template replacement
 prompts noninteractively, preserves each matching workload container's exact
 configured app-image reference even when the app is unhealthy or workloads use
 different image versions, and repairs the configured app and shared-secret
-policy bindings. A missing or invalid workload image uses only an unambiguous
-app image from ready workloads; refresh fails closed rather than selecting the
-registry's newest image. Preserving image references keeps release-phase and
-ordered-deploy gates in control of image rollout; a template failure stops the
-workflow before the image build or deployment. Existing secret templates are skipped
+policy bindings. The explicit bootstrap image must exist in the same org's
+registry and match the app and full-commit tag format. It initializes only missing
+images or that app's `NO_IMAGE_AVAILABLE` placeholders; foreign configured images
+fail closed. Without this option, missing or invalid images still require an
+unambiguous app image from ready workloads. Refresh never implicitly selects the
+registry's newest image as a fallback. Preserving valid image references keeps
+release-phase and ordered-deploy gates in control of their rollout; initializing
+placeholders can start previously unbootstrapped workloads during refresh.
+A template failure stops before the deployment phase. Existing secret templates are skipped
 as whole resources, so refresh neither changes existing values nor adds newly templated
 keys; provision required new keys separately before deployment.
+An automatic PR update still skips an app that has not been explicitly created.
 You still need the shared review-app runtime secret values described by your
 templates, and the staging token must have access to create and update
 review-app GVCs, workloads, images, identities, policies, and secrets in the
