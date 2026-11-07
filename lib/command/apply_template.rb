@@ -13,6 +13,7 @@ module Command
       skip_confirm_option,
       add_app_identity_option,
       preserve_existing_runtime_option,
+      bootstrap_image_option,
       exclude_secret_template_option,
       exclude_policy_template_option
     ].freeze
@@ -25,6 +26,7 @@ module Command
       - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
       - Use `--exclude-secret-template NAME` and `--exclude-policy-template NAME` to exclude exact named templates without changing workload image handling
       - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
+      - With `--preserve-existing-runtime`, use `--bootstrap-image APP:NUMBER_FULL_COMMIT_SHA` to initialize missing or own-app placeholder images from an explicitly verified registry image; valid configured images remain unchanged and foreign images are rejected
 
       **Preprocessed template variables:**
 
@@ -54,6 +56,7 @@ module Command
     VALIDATIONS = %w[config templates].freeze
 
     def call # rubocop:disable Metrics/MethodLength
+      @bootstrap_image = BootstrapImage.resolve(config, cp, preserving: config.options[:preserve_existing_runtime])
       @template_parser = TemplateParser.new(self)
       @names_to_filenames = config.args.to_h do |name|
         [name, @template_parser.template_filename(name)]
@@ -179,7 +182,7 @@ module Command
 
     def preserve_existing_runtime(templates)
       cache_existing_workloads(templates)
-      ready_fallback_image = unambiguous_ready_app_image
+      ready_fallback_image = @bootstrap_image || unambiguous_ready_app_image
 
       skip_existing_secret_resources(templates).each do |template|
         preserve_workload_images(template, ready_fallback_image) if template["kind"] == "workload"
@@ -257,7 +260,15 @@ module Command
     def preserved_image(existing_image, ready_fallback_image)
       return existing_image if deployable_app_image?(existing_image)
 
+      raise "Cannot bootstrap a foreign workload image." if @bootstrap_image && !bootstrap_placeholder?(existing_image)
+
       ready_fallback_image
+    end
+
+    def bootstrap_placeholder?(image)
+      return true if image.to_s.empty?
+
+      image.delete_prefix("/org/#{config.org}/image/") == "#{config.app}:#{Controlplane::NO_IMAGE_AVAILABLE}"
     end
 
     def workload_ready?(workload)

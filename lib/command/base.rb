@@ -483,6 +483,16 @@ module Command
       }
     end
 
+    def self.bootstrap_image_option
+      {
+        name: :bootstrap_image,
+        params: {
+          desc: "Verified own-app image with a full commit SHA, used only for missing images during refresh",
+          type: :string
+        }
+      }
+    end
+
     def self.exclude_secret_template_option(required: false)
       {
         name: :exclude_secret_template,

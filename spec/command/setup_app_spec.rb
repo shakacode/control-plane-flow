@@ -356,6 +356,29 @@ describe Command::SetupApp do
         expect { command.call }.to raise_error(SystemExit) { |error| expect(error.status).to eq(64) }
         expect(cp).not_to have_received(:bind_identity_to_policy)
       end
+
+      it "forwards a verified bootstrap image to template preservation" do
+        image = "test-review-123:10_#{'a' * 40}"
+        allow(config).to receive(:options).and_return(refresh_templates: true, bootstrap_image: image)
+        allow(cp).to receive(:fetch_image_details).with(image).and_return("name" => image)
+
+        command.call
+
+        expect(command).to have_received(:run_cpflow_command).with(
+          "apply-template", "-a", config.app, "--add-app-identity", "--yes", "--preserve-existing-runtime",
+          "--bootstrap-image", image, "app", "rails"
+        )
+      end
+
+      it "rejects an unverified image before creating secrets or applying templates" do
+        image = "test-review-123:10_#{'a' * 40}"
+        allow(config).to receive(:options).and_return(refresh_templates: true, bootstrap_image: image)
+        allow(cp).to receive(:fetch_image_details).with(image).and_return(nil)
+
+        expect { command.call }.to raise_error(/Bootstrap image does not exist/)
+        expect(command).not_to have_received(:create_secret_and_policy_if_not_exist)
+        expect(command).not_to have_received(:run_cpflow_command)
+      end
     end
 
     context "when refreshing templates for a missing app" do
