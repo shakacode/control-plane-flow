@@ -40,6 +40,15 @@ Slow specs are a subset of the credentialed suite. Run them separately with:
 CPLN_ORG=your-org-for-tests bundle exec rspec --tag slow
 ```
 
+The slow `spec/command/review_app_bootstrap_recovery_spec.rb` exercises partial
+bootstrap recovery and build-before-setup against a disposable test org. It
+builds only the committed `spec/dummy/bootstrap-image` context, tags each own-app
+image with the checked-out full commit SHA, verifies registry digests and the
+served revision, and checks resource and secret preservation. Each example runs
+once with the standard ten-minute deadline. Cleanup verifies that its GVC,
+images, and marked synthetic dictionary are absent. The uploaded spec log retains
+`BOOTSTRAP_QA` receipts without secret values.
+
 ## Test app cleanup and recovery
 
 Credentialed runs provision `dummy-test-*` apps in `CPLN_ORG`. The org has a GVC
