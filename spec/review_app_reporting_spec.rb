@@ -37,6 +37,14 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
     expect(result.fetch("comments").last).to include("Cancelled", "427")
   end
 
+  it "finalizes the original deployment when its initial status update fails" do
+    result = report(status: "failure", exists: false, fail_initial_status: true)
+
+    expect(result.fetch("deployments")).to eq([2])
+    expect(result.fetch("statuses").last).to include("deployment_id" => 2, "state" => "failure")
+    expect(result.fetch("comments").last).to include("Failed")
+  end
+
   it "links the healthy preview on successful deployment" do
     result = report(status: "success", exists: true, url: "https://preview.example.test")
 
@@ -137,6 +145,7 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
       const outputs = {};
       const comments = [];
       const statuses = [];
+      const deployments = [];
       const context = {repo: {owner: 'example', repo: 'app'}, runId: 123};
       const env = {CPLN_TOKEN: input.token || 'fixture-token', PR_NUMBER: '427', PR_SHA: 'abc123', APP_NAME: 'app-review-427',
         CPLN_ORG: 'staging', GITHUB_SERVER_URL: 'https://github.com', JOB_STATUS: input.status,
@@ -153,8 +162,15 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
         createComment: async data => {comments.push(data.body); return {data: {id: 1}};},
         updateComment: async data => {comments.push(data.body);}
       }, repos: {
-        createDeployment: async () => ({data: {id: 2}}),
-        createDeploymentStatus: async data => {statuses.push(data);}
+        createDeployment: async () => {
+          const id = deployments.length + 2;
+          deployments.push(id);
+          return {data: {id}};
+        },
+        createDeploymentStatus: async data => {
+          if (input.fail_initial_status && data.state === 'in_progress') throw new Error('Initial status unavailable');
+          statuses.push(data);
+        }
       }}};
       const exec = {getExecOutput: async (command, args, options) => {
         if (command !== 'curl' || !args.includes('https://api.cpln.io/org/staging/gvc/app-review-427') ||
@@ -169,11 +185,16 @@ describe "Review app deployment reporting" do # rubocop:disable RSpec/DescribeCl
           steps["tracked-deployment"] = {outputs: {tracked: outputs.tracked || ""}};
           process.env.REVIEW_APP_TRACKED = outputs.tracked || '';
           process.env.COMMENT_ID = outputs['comment-id'] || '';
-          process.env.DEPLOYMENT_ID = outputs.result || '';
-          const result = await new Function('github', 'context', 'core', 'exec', `return (async () => {${step.with.script}})()`)(github, context, core, exec);
-          if (step.id === 'init-deployment') outputs.result = String(result);
+          const outputKey = step.env?.DEPLOYMENT_ID?.match(/^\$\{\{ steps\.init-deployment\.outputs\.([\w-]+) \}\}$/)?.[1] || 'result';
+          process.env.DEPLOYMENT_ID = outputs[outputKey] || '';
+          try {
+            const result = await new Function('github', 'context', 'core', 'exec', `return (async () => {${step.with.script}})()`)(github, context, core, exec);
+            if (step.id === 'init-deployment') outputs.result = String(result);
+          } catch (error) {
+            if (step.id !== 'init-deployment' || !input.fail_initial_status || error.message !== 'Initial status unavailable') throw error;
+          }
         }
-        process.stdout.write(JSON.stringify({comments, statuses}));
+        process.stdout.write(JSON.stringify({comments, statuses, deployments}));
       })().catch(error => {console.error(error); process.exit(1);});
     JS
   end

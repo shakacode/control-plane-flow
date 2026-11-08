@@ -837,6 +837,8 @@ jobs:
               description: `Control Plane review app for PR #${process.env.PR_NUMBER}`
             });
 
+            core.setOutput("deployment-id", deployment.data.id);
+
             await github.rest.repos.createDeploymentStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -1174,7 +1176,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
-          DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}
+          DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.deployment-id }}
           APP_URL: ${{ steps.workload.outputs.app_url }}
           JOB_STATUS: ${{ job.status }}
           CHECK_APP_EXISTS: ${{ steps.check-app.outputs.exists }}
