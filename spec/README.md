@@ -119,3 +119,35 @@ objects, which is a materially wider destructive surface than this sweep takes o
 
 Org-level images are likewise out of scope: they do not consume GVC quota, and
 the `after(:suite)` path removes them on any normally-exiting run.
+
+## Full local validation prerequisites
+
+The local pre-push gate is `.agents/shaka/bin/validate`: ShellCheck followed by
+all RSpec examples and RuboCop. The offline smoke suite above does not replace
+that gate.
+
+Before running it, obtain a maintainer-approved non-production test org. Repository
+CI selects its test org through the `CPLN_ORG` Actions variable; that name is not
+an access credential. Authenticate a `cpln` profile and verify read access to the
+selected org before starting. The test identity also needs the resource and
+registry permissions exercised by the suite. Never substitute a production org.
+
+Docker must be running, `docker` and `cpln` must be on PATH, and Docker must be
+logged into the selected org's registry (`cpln image docker-login --org <test-org>`).
+The CLI writes its credential-helper entry to `~/.docker/config.json`, even when
+`DOCKER_CONFIG` is set. For an isolated Docker configuration, add the equivalent
+`credHelpers` entry for the selected registry there and keep `docker-credential-cpln`
+on PATH. Preserve access to the intended Docker daemon when using it.
+
+Coordinate with the org owner before running the full suite alongside CI. Slow
+examples can mutate shared test-domain fixtures; the hosted slow/specific workflows
+serialize those operations. Run the unchanged gate with the selected org:
+
+```sh
+CPLN_ORG=maintainer-approved-test-org .agents/shaka/bin/validate
+```
+
+The suite creates and deletes managed `dummy-test-*` resources. Check the cleanup
+summary afterward, including after interruption. Inspect any remaining resources
+against the pre-run inventory; do not delete permanent fixtures or another run's
+apps. See the cleanup and recovery procedure above for interrupted runs.

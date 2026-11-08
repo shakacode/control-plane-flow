@@ -1415,11 +1415,11 @@ describe Command::GenerateGithubActions, :enable_validations, :without_config_fi
       review_contents = reusable_review_app_workflow_path.read
 
       expect(review_contents).not_to include('Number("${{ steps.create-comment.outputs.comment-id }}")')
-      expect(review_contents).not_to include('"${{ steps.init-deployment.outputs.result }}"')
+      expect(review_contents).not_to include('"${{ steps.init-deployment.outputs.deployment-id }}"')
       expect(review_contents).not_to include('"${{ steps.workload.outputs.workload_url }}"')
       expect(review_contents).not_to include('"${{ job.status }}"')
       expect(review_contents).to include("COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}")
-      expect(review_contents).to include("DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.result }}")
+      expect(review_contents).to include("DEPLOYMENT_ID: ${{ steps.init-deployment.outputs.deployment-id }}")
       expect(review_contents).to include("APP_URL: ${{ steps.workload.outputs.app_url }}")
       expect(review_contents).to include("JOB_STATUS: ${{ job.status }}")
 
