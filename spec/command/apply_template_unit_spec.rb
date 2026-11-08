@@ -276,6 +276,81 @@ describe Command::ApplyTemplate do
       end
     end
 
+    context "with an explicit freshly built bootstrap image" do
+      let(:bootstrap_image) { "test-review-123:10_#{'a' * 40}" }
+      let(:options) { { yes: true, preserve_existing_runtime: true, bootstrap_image: bootstrap_image } }
+      let(:existing_workloads) do
+        %w[rails worker].map do |name|
+          workload_template(name).tap do |workload|
+            workload["status"] = { "readyLatest" => false }
+            workload.dig("spec", "containers", 0)["image"] = "test-review-123:NO_IMAGE_AVAILABLE"
+          end
+        end
+      end
+
+      before do
+        allow(cp).to receive(:fetch_image_details).with(bootstrap_image).and_return({ "name" => bootstrap_image })
+      end
+
+      it "repairs placeholders without a ready workload or applying secret resources" do
+        command.call
+
+        expect(applied_templates.map { |template| template["name"] }).to eq(%w[rails worker])
+        expect(applied_templates.map { |template| template.dig("spec", "containers", 0, "image") })
+          .to eq([bootstrap_image, bootstrap_image])
+      end
+
+      it "preserves a valid unready image while repairing the other placeholder" do
+        existing_workloads.first.dig("spec", "containers", 0)["image"] = deployed_image
+        command.call
+
+        expect(applied_templates.map { |template| template.dig("spec", "containers", 0, "image") })
+          .to eq([deployed_image, bootstrap_image])
+      end
+
+      it "repairs a missing workload and a linked placeholder" do
+        existing_workloads.shift
+        existing_workloads.first.dig("spec", "containers", 0)["image"] =
+          "/org/test-org/image/test-review-123:NO_IMAGE_AVAILABLE"
+
+        command.call
+
+        expect(applied_templates.map { |template| template.dig("spec", "containers", 0, "image") })
+          .to eq([bootstrap_image, bootstrap_image])
+      end
+
+      it "repairs an empty configured image" do
+        existing_workloads.first.dig("spec", "containers", 0).delete("image")
+
+        command.call
+
+        expect(applied_templates.first.dig("spec", "containers", 0, "image")).to eq(bootstrap_image)
+      end
+
+      it "refuses a registry miss before applying anything" do
+        allow(cp).to receive(:fetch_image_details).with(bootstrap_image).and_return(nil)
+
+        expect { command.call }.to raise_error(/Bootstrap image does not exist/)
+        expect(applied_templates).to be_empty
+      end
+
+      it "refuses a foreign existing image instead of overwriting it" do
+        existing_workloads.first.dig("spec", "containers", 0)["image"] = "other-app:8_#{'a' * 40}"
+
+        expect { command.call }.to raise_error(/Cannot bootstrap a foreign workload image/)
+        expect(applied_templates).to be_empty
+      end
+
+      context "with a foreign bootstrap image" do
+        let(:bootstrap_image) { "other-app:10_#{'a' * 40}" }
+
+        it "refuses it before applying anything" do
+          expect { command.call }.to raise_error(/Bootstrap image must belong/)
+          expect(applied_templates).to be_empty
+        end
+      end
+    end
+
     context "without a deployed app image" do
       let(:existing_rails) { nil }
 

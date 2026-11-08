@@ -8,7 +8,8 @@ module Command
       skip_secret_access_binding_option,
       skip_secrets_setup_option,
       skip_post_creation_hook_option,
-      refresh_templates_option
+      refresh_templates_option,
+      bootstrap_image_option
     ].freeze
     DESCRIPTION = "Creates an app and all its workloads"
     LONG_DESCRIPTION = <<~DESC
@@ -26,6 +27,7 @@ module Command
       - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
       - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
       - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret templates (but filling missing opt-in generated review keys), repairing secrets access bindings, and skipping the post-creation hook
+      - With `--refresh-templates`, use `--bootstrap-image APP:NUMBER_FULL_COMMIT_SHA` to repair a partial bootstrap from a freshly built own-app registry image; valid workload images are preserved
     DESC
     VALIDATIONS = %w[config templates].freeze
 
@@ -41,6 +43,8 @@ module Command
       end
       raise "App '#{config.app}' does not exist, so its templates cannot be refreshed." if !app && refresh_templates
 
+      bootstrap_image = BootstrapImage.resolve(config, cp, preserving: refresh_templates)
+
       skip_secrets_setup = skip_secrets_setup?
 
       # Validate shared grants before app resource creation so config/policy
@@ -52,6 +56,7 @@ module Command
       args.push("--add-app-identity") unless skip_secrets_setup
       args.push("--yes") if refresh_templates
       args.push("--preserve-existing-runtime") if refresh_templates
+      args.push("--bootstrap-image", bootstrap_image) if bootstrap_image
       if !skip_secrets_setup && config.generated_review_secret_keys.any?
         args.push("--exclude-policy-template", config.secrets_policy)
         args.push("--exclude-secret-template", config.secrets) unless refresh_templates

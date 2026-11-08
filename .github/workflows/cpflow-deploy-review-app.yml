@@ -930,25 +930,9 @@ jobs:
             echo "Create it with +review-app-deploy as the PR comment body."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Setup review app if it does not exist yet
-        id: setup-review-app
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && steps.intent.outputs.event != 'pull_request'
-        working-directory: app
-        shell: bash
-        run: |
-          set -euo pipefail
-          cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}"
-
-      - name: Refresh existing review app templates
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists == 'true'
-        working-directory: app
-        shell: bash
-        run: |
-          set -euo pipefail
-          cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}" --refresh-templates
 
       - name: Update PR comment with build status
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.intent.outputs.event != 'pull_request')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COMMENT_ID: ${{ steps.create-comment.outputs.comment-id }}
@@ -976,7 +960,7 @@ jobs:
 
       - name: Build Docker image
         id: build-image
-        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.intent.outputs.event != 'pull_request')
         uses: ./.cpflow/.github/actions/cpflow-build-docker-image
         with:
           app_name: ${{ steps.review-config.outputs.app_name }}
@@ -990,6 +974,39 @@ jobs:
           docker_build_ssh_key: ${{ secrets.DOCKER_BUILD_SSH_KEY }}
           docker_build_ssh_known_hosts: ${{ vars.DOCKER_BUILD_SSH_KNOWN_HOSTS }}
           working_directory: app
+
+      - name: Verify built PR image
+        id: built-image
+        if: steps.build-image.outcome == 'success'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="$(cpflow latest-image -a "${APP_NAME}" --org "${CPLN_ORG}")"
+          if [[ ! "${PR_SHA}" =~ ^[a-f0-9]{40}$ || ! "${image}" =~ ^"${APP_NAME}":[0-9]+_"${PR_SHA}"$ ]]; then
+            echo "::error::Registry image does not match this app and the full PR head." >&2
+            exit 1
+          fi
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup review app if it does not exist yet
+        id: setup-review-app
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists != 'true' && steps.intent.outputs.event != 'pull_request'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}"
+
+      - name: Refresh existing review app templates
+        env:
+          BUILT_IMAGE: ${{ steps.built-image.outputs.image }}
+        if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && steps.check-app.outputs.exists == 'true'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          cpflow setup-app -a "${APP_NAME}" --org "${CPLN_ORG}" --refresh-templates --bootstrap-image "${BUILT_IMAGE}"
 
       - name: Update PR comment with deploy status
         if: steps.config.outputs.ready == 'true' && steps.source.outputs.allowed == 'true' && (steps.check-app.outputs.exists == 'true' || steps.setup-review-app.outcome == 'success')

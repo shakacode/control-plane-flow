@@ -32,6 +32,7 @@ cpflow ai-github-flow-prompt
 - Use `--preserve-existing-runtime` to retain each workload container's configured app image, even when the workload is unready, and skip existing secret resources entirely while applying other template changes
 - Use `--exclude-secret-template NAME` and `--exclude-policy-template NAME` to exclude exact named templates without changing workload image handling
 - Missing or invalid workload images use only an unambiguous app image from ready workloads; refresh fails before applying templates when no safe fallback exists
+- With `--preserve-existing-runtime`, use `--bootstrap-image APP:NUMBER_FULL_COMMIT_SHA` to initialize missing or own-app placeholder images from an explicitly verified registry image; valid configured images remain unchanged and foreign images are rejected
 
 **Preprocessed template variables:**
 
@@ -568,6 +569,7 @@ cpflow run -a $APP_NAME --entrypoint /app/alternative-entrypoint.sh -- rails db:
 - If the hook exits with a non-zero code, the command will stop executing and also exit with a non-zero code
 - Use `--skip-post-creation-hook` to skip the hook if specified in `controlplane.yml`
 - Use `--refresh-templates` to apply configured templates noninteractively to an existing app while preserving each workload's configured app image even when workloads are unready or use mixed image versions, skipping existing secret templates (but filling missing opt-in generated review keys), repairing secrets access bindings, and skipping the post-creation hook
+- With `--refresh-templates`, use `--bootstrap-image APP:NUMBER_FULL_COMMIT_SHA` to repair a partial bootstrap from a freshly built own-app registry image; valid workload images are preserved
 
 ```sh
 cpflow setup-app -a $APP_NAME

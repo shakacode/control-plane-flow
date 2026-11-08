@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Fixed
+
+- Review-app deployments build and verify the exact PR image before setup or template refresh. An explicit registry-verified bootstrap image repairs missing own-app images in partially created apps while preserving valid workload images and existing secrets.
+
 ### Added
 
 - Review-app deployments can opt into a shared Control Plane lock for coordination with other CI providers. Each job attempt acquires ownership before provisioning and releases it only after success; failed or interrupted runners retain their lock for operator recovery because remote work may still be running.
