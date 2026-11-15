@@ -14,6 +14,8 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Fixed
 
+- `cpflow run` polls its job by ID, so long runner histories no longer produce repeated pagination notices or hide the current job.
+
 - Review-app deployments build and verify the exact PR image before setup or template refresh. An explicit registry-verified bootstrap image repairs missing own-app images in partially created apps while preserving valid workload images and existing secrets.
 
 - Review-app deployment, deletion, and cleanup jobs use Ubuntu 24.04 so application Ruby patch versions with prebuilt binaries remain available. Deployment attempts and log links are recorded before environment setup; setup and provisioning failures now update the PR and GitHub deployment even when no app exists. Canceled attempts are reported as failures. Automatic pushes that skip an uncreated app leave no deployment or PR comment. Automatic updates of an existing app no longer post a starting comment or progress edits; the PR receives only the final outcome comment.

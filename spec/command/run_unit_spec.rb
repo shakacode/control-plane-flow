@@ -205,12 +205,12 @@ describe Command::Run do
 
     it "does not let one status request outlive the remaining reconciliation deadline" do
       allow(command).to receive(:monotonic_time).and_return(100.0, 1_250.0, 1_300.0)
-      allow(cp).to receive(:fetch_cron_workload).and_raise(Shell::CommandTimeout)
+      allow(cp).to receive(:fetch_workload_command).and_raise(Shell::CommandTimeout)
 
       expect(command.send(:show_logs_waiting)).to eq(ExitCode::ERROR_DEFAULT)
-      expect(cp).to have_received(:fetch_cron_workload).with(
+      expect(cp).to have_received(:fetch_workload_command).with(
         "rails-runner",
-        location: "aws-us-east-2",
+        "job-123",
         timeout_seconds: 30
       )
     end
@@ -231,21 +231,21 @@ describe Command::Run do
 
     it "bounds and retries status requests without a reconciliation deadline" do
       status_reads = 0
-      allow(cp).to receive(:fetch_cron_workload).with(
+      allow(cp).to receive(:fetch_workload_command).with(
         "rails-runner",
-        location: "aws-us-east-2",
+        "job-123",
         timeout_seconds: 30
       ) do
         status_reads += 1
         raise Shell::CommandTimeout if status_reads == 1
 
-        { "items" => [{ "id" => "job-123", "status" => "successful" }] }
+        { "lifecycleStage" => "completed" }
       end
 
       expect(command.send(:resolve_job_status)).to eq(ExitCode::SUCCESS)
-      expect(cp).to have_received(:fetch_cron_workload).with(
+      expect(cp).to have_received(:fetch_workload_command).with(
         "rails-runner",
-        location: "aws-us-east-2",
+        "job-123",
         timeout_seconds: 30
       ).twice
     end
@@ -1309,13 +1309,13 @@ describe Command::Run do
       allow(cp).to receive(:fetch_workload_replicas)
         .with("rails-runner", location: "aws-us-east-2")
         .and_return({ "items" => ["rails-runner-job-123-replica"] })
-      allow(cp).to receive(:fetch_cron_workload)
+      allow(cp).to receive(:fetch_workload_command)
 
       result = command.send(:wait_for_replica_for_job)
 
       expect(result).to eq("rails-runner-job-123-replica")
       expect(command.instance_variable_get(:@replica)).to eq("rails-runner-job-123-replica")
-      expect(cp).not_to have_received(:fetch_cron_workload)
+      expect(cp).not_to have_received(:fetch_workload_command)
     end
 
     it "prints one progress dot for each unsuccessful observation" do
@@ -1335,9 +1335,9 @@ describe Command::Run do
       allow(cp).to receive(:fetch_workload_replicas)
         .with("rails-runner", location: "aws-us-east-2")
         .and_return(*replica_responses)
-      allow(cp).to receive(:fetch_cron_workload)
-        .with("rails-runner", location: "aws-us-east-2")
-        .and_return({ "items" => [{ "id" => "job-123", "status" => "active" }] })
+      allow(cp).to receive(:fetch_workload_command)
+        .with("rails-runner", "job-123", timeout_seconds: nil)
+        .and_return({ "lifecycleStage" => "running" })
 
       command.send(:wait_for_replica_for_job)
 
@@ -1352,9 +1352,9 @@ describe Command::Run do
       allow(cp).to receive(:fetch_workload_replicas)
         .with("rails-runner", location: "aws-us-east-2")
         .and_return({ "items" => [] })
-      allow(cp).to receive(:fetch_cron_workload)
-        .with("rails-runner", location: "aws-us-east-2")
-        .and_return({ "items" => [{ "id" => "job-123", "status" => "failed" }] })
+      allow(cp).to receive(:fetch_workload_command)
+        .with("rails-runner", "job-123", timeout_seconds: nil)
+        .and_return({ "lifecycleStage" => "failed" })
 
       expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
         expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
@@ -1362,7 +1362,7 @@ describe Command::Run do
 
       expect(progress.string).to include("status: failed")
       expect(cp).to have_received(:fetch_workload_replicas).once
-      expect(cp).to have_received(:fetch_cron_workload).once
+      expect(cp).to have_received(:fetch_workload_command).once
     end
 
     it "replaces an unsafe terminal cron status instead of printing it" do
@@ -1373,9 +1373,9 @@ describe Command::Run do
       allow(cp).to receive(:fetch_workload_replicas)
         .with("rails-runner", location: "aws-us-east-2")
         .and_return({ "items" => [] })
-      allow(cp).to receive(:fetch_cron_workload)
-        .with("rails-runner", location: "aws-us-east-2")
-        .and_return({ "items" => [{ "id" => "job-123", "status" => unsafe_status }] })
+      allow(cp).to receive(:fetch_workload_command)
+        .with("rails-runner", "job-123", timeout_seconds: nil)
+        .and_return({ "lifecycleStage" => unsafe_status })
 
       expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
         expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
@@ -1398,16 +1398,16 @@ describe Command::Run do
           now = 0.3
           { "items" => [] }
         end
-      allow(cp).to receive(:fetch_cron_workload)
-        .with("rails-runner", location: "aws-us-east-2")
-        .and_return({ "items" => [{ "id" => "job-123", "status" => "active" }] })
+      allow(cp).to receive(:fetch_workload_command)
+        .with("rails-runner", "job-123", timeout_seconds: nil)
+        .and_return({ "lifecycleStage" => "running" })
 
       expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
         expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
       end
 
       expect(progress.string).to include("observation limit: 0.25 seconds", "status: unavailable")
-      expect(cp).not_to have_received(:fetch_cron_workload)
+      expect(cp).not_to have_received(:fetch_workload_command)
       expect(Kernel).not_to have_received(:sleep)
     end
 
@@ -1423,14 +1423,14 @@ describe Command::Run do
           now = 1_001.0
           { "items" => [] }
         end
-      allow(cp).to receive(:fetch_cron_workload)
+      allow(cp).to receive(:fetch_workload_command)
 
       expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
         expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
       end
 
       expect(progress.string).to include("observation limit: 1000 seconds", "status: unavailable")
-      expect(cp).not_to have_received(:fetch_cron_workload)
+      expect(cp).not_to have_received(:fetch_workload_command)
     end
 
     [nil, "active", "pending"].each do |status|
@@ -1438,7 +1438,7 @@ describe Command::Run do
         now = 0.0
         sleeps = []
         expected_status = status || "unavailable"
-        job_items = status ? [{ "id" => "job-123", "status" => status }] : []
+        stage = status == "active" ? "running" : status
 
         command.instance_variable_set(:@job_timeout, 0.25)
         allow(command).to receive(:step).and_call_original
@@ -1451,9 +1451,9 @@ describe Command::Run do
         allow(cp).to receive(:fetch_workload_replicas)
           .with("rails-runner", location: "aws-us-east-2")
           .and_return({ "items" => [] })
-        allow(cp).to receive(:fetch_cron_workload)
-          .with("rails-runner", location: "aws-us-east-2")
-          .and_return({ "items" => job_items })
+        allow(cp).to receive(:fetch_workload_command)
+          .with("rails-runner", "job-123", timeout_seconds: nil)
+          .and_return(stage && { "lifecycleStage" => stage })
 
         expect { command.send(:wait_for_replica_for_job) }.to raise_error(SystemExit) do |error|
           expect(error.status).to eq(ExitCode::ERROR_DEFAULT)
@@ -1462,7 +1462,7 @@ describe Command::Run do
         expect(progress.string).to include("observation limit: 0.25 seconds", "status: #{expected_status}")
         expect(sleeps).to eq([0.25])
         expect(cp).to have_received(:fetch_workload_replicas).once
-        expect(cp).to have_received(:fetch_cron_workload).once
+        expect(cp).to have_received(:fetch_workload_command).once
       end
     end
 
@@ -1470,9 +1470,9 @@ describe Command::Run do
       allow(cp).to receive(:fetch_workload_replicas)
         .with("rails-runner", location: "aws-us-east-2")
         .and_return({ "items" => [] })
-      allow(cp).to receive(:fetch_cron_workload)
-        .with("rails-runner", location: "aws-us-east-2")
-        .and_return({ "items" => [{ "id" => "job-123", "status" => "successful" }] })
+      allow(cp).to receive(:fetch_workload_command)
+        .with("rails-runner", "job-123", timeout_seconds: nil)
+        .and_return({ "lifecycleStage" => "completed" })
 
       result = command.send(:wait_for_replica_for_job)
 

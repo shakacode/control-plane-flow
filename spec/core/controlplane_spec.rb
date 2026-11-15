@@ -369,7 +369,7 @@ describe Controlplane do
         "rails; id", location: "location $(id)", container: "web`id`", shell: "/bin/sh; id"
       )
       described_instance.start_cron_workload("worker; id", "kind: cron", location: "location $(id)")
-      described_instance.fetch_cron_workload("worker`id`", location: "location; id")
+      described_instance.fetch_workload_command("worker`id`", "job/123", timeout_seconds: 7)
       described_instance.logs(
         workload: "rails; id", replica: "replica $(id)", limit: "10; id", since: "5m $(id)"
       )
@@ -414,11 +414,11 @@ describe Controlplane do
       )
       expect(described_instance).to have_received(:perform_yaml).with(
         [
-          "cpln", "workload", "cron", "get", "worker`id`",
-          "--gvc", "my app $(id)", "--org", "my org; id",
-          "--location", "location; id", "-o", "yaml"
+          "cpln", "rest", "get",
+          "/org/my%20org%3B%20id/gvc/my%20app%20%24%28id%29/workload/worker%60id%60/-command/job%2F123",
+          "-o", "yaml"
         ],
-        timeout_seconds: nil
+        timeout_seconds: 7
       )
       expect(described_instance).to have_received(:perform!).with(
         [

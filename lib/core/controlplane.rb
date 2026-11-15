@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "cgi"
 require "shellwords"
 
 class Controlplane # rubocop:disable Metrics/ClassLength
@@ -340,12 +341,12 @@ class Controlplane # rubocop:disable Metrics/ClassLength
     end
   end
 
-  def fetch_cron_workload(workload, location:, timeout_seconds: nil)
-    cmd = [
-      "cpln", "workload", "cron", "get", workload,
-      *gvc_org_args, "--location", location, "-o", "yaml"
-    ]
-    perform_yaml(cmd, timeout_seconds: timeout_seconds)
+  def fetch_workload_command(workload, job_id, timeout_seconds: nil)
+    org_name, gvc_name, workload_name, command_id = [org, gvc, workload, job_id].map do |segment|
+      CGI.escapeURIComponent(segment)
+    end
+    path = "/org/#{org_name}/gvc/#{gvc_name}/workload/#{workload_name}/-command/#{command_id}"
+    perform_yaml(["cpln", "rest", "get", path, "-o", "yaml"], timeout_seconds: timeout_seconds)
   end
 
   def cron_workload_deployed_version(workload)
