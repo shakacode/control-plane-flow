@@ -736,13 +736,13 @@ module Command
     # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
     def current_job_status(timeout_seconds: nil)
-      result = if timeout_seconds
-                 cp.fetch_cron_workload(runner_workload, location: location, timeout_seconds: timeout_seconds)
-               else
-                 cp.fetch_cron_workload(runner_workload, location: location)
-               end
-      job_details = result&.dig("items")&.find { |item| item["id"] == job }
-      job_details&.dig("status")
+      command = cp.fetch_workload_command(runner_workload, job, timeout_seconds: timeout_seconds)
+      stage = command&.dig("lifecycleStage")
+      case stage
+      when "running" then "active"
+      when "completed" then "successful"
+      else stage
+      end
     end
 
     def job_status_reconciliation_deadline
