@@ -24,6 +24,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 - Review-app deployments can opt into a shared Control Plane lock for coordination with other CI providers. Each job attempt acquires ownership before provisioning and releases it only after success; failed or interrupted runners retain their lock for operator recovery because remote work may still be running.
 
+### Security
+
+- cpflow now requires JWT 3.2 or newer within the 3.x series to pick up the upstream security fix. If your app pins JWT to 3.1.x, update that pin before upgrading cpflow.
+
 ## [6.0.1] - 2026-10-10
 
 ### Changed
