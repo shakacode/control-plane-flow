@@ -12,21 +12,21 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
-### Fixed
-
-- `cpflow run` polls its job by ID, so long runner histories no longer produce repeated pagination notices or hide the current job.
-
-- Review-app deployments build and verify the exact PR image before setup or template refresh. An explicit registry-verified bootstrap image repairs missing own-app images in partially created apps while preserving valid workload images and existing secrets.
-
-- Review-app deployment, deletion, and cleanup jobs use Ubuntu 24.04 so application Ruby patch versions with prebuilt binaries remain available. Deployment attempts and log links are recorded before environment setup; setup and provisioning failures now update the PR and GitHub deployment even when no app exists. Canceled attempts are reported as failures. Automatic pushes that skip an uncreated app leave no deployment or PR comment. Automatic updates of an existing app no longer post a starting comment or progress edits; the PR receives only the final outcome comment.
+## [6.1.0] - 2026-11-15
 
 ### Added
 
-- Review-app deployments can opt into a shared Control Plane lock for coordination with other CI providers. Each job attempt acquires ownership before provisioning and releases it only after success; failed or interrupted runners retain their lock for operator recovery because remote work may still be running.
+- **Review-app deployments can opt into a shared Control Plane lock to coordinate with other CI providers.** Each job attempt acquires the lock before provisioning and releases it after success. Failed or interrupted runs retain it for operator recovery because remote work may still be running. [PR 522](https://github.com/shakacode/control-plane-flow/pull/522) by [Justin Gordon](https://github.com/justin808).
+
+### Fixed
+
+- **`cpflow run` polls its job by ID.** Long runner histories can no longer hide the current job or flood the terminal with pagination notices. [PR 541](https://github.com/shakacode/control-plane-flow/pull/541) by [Sergey Tarasov](https://github.com/dzirtusss).
+- **Review-app deployments build and verify the exact PR image before setup or template refresh.** An explicit registry-verified bootstrap image repairs missing own-app images in partially created apps while preserving valid workload images and existing secrets. [PR 538](https://github.com/shakacode/control-plane-flow/pull/538) by [Justin Gordon](https://github.com/justin808).
+- **Review-app deployment, deletion, and cleanup now run on Ubuntu 24.04 for compatibility with prebuilt Ruby versions.** The workflow records the deployment attempt and its log link before setup. Setup and provisioning failures update the PR and GitHub deployment even if no app exists. Canceled attempts are reported as failures. Automatic updates of existing apps post only the final outcome. Automatic pushes that skip an uncreated app leave no deployment or PR comment. [PR 529](https://github.com/shakacode/control-plane-flow/pull/529) by [Justin Gordon](https://github.com/justin808).
 
 ### Security
 
-- cpflow now requires JWT 3.2 or newer within the 3.x series to pick up the upstream security fix. If your app pins JWT to 3.1.x, update that pin before upgrading cpflow.
+- **cpflow now requires JWT 3.2 or later within the 3.x series to pick up the upstream security fix.** Update any JWT 3.1.x pin in your app before upgrading cpflow. [PR 542](https://github.com/shakacode/control-plane-flow/pull/542) by [Justin Gordon](https://github.com/justin808).
 
 ## [6.0.1] - 2026-10-10
 
@@ -534,7 +534,8 @@ Deprecated `cpl` gem. New gem is `cpflow`.
 
 First release.
 
-[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.0.1...HEAD
+[Unreleased]: https://github.com/shakacode/control-plane-flow/compare/v6.1.0...HEAD
+[6.1.0]: https://github.com/shakacode/control-plane-flow/compare/v6.0.1...v6.1.0
 [6.0.1]: https://github.com/shakacode/control-plane-flow/compare/v6.0.0...v6.0.1
 [6.0.0]: https://github.com/shakacode/control-plane-flow/compare/v5.3.0...v6.0.0
 [5.3.0]: https://github.com/shakacode/control-plane-flow/compare/v5.2.0...v5.3.0
