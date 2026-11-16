@@ -16,13 +16,13 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ### Added
 
-- **Review-app deployments can opt into a shared Control Plane lock to coordinate with other CI providers.** A successful run releases its lock. Failed or interrupted runs retain it for operator recovery because remote work may still be running. [PR 522](https://github.com/shakacode/control-plane-flow/pull/522) by [Justin Gordon](https://github.com/justin808).
+- **Review-app deployments can opt into a shared Control Plane lock to coordinate with other CI providers.** Each job attempt acquires the lock before provisioning and releases it after success. Failed or interrupted runs retain it for operator recovery because remote work may still be running. [PR 522](https://github.com/shakacode/control-plane-flow/pull/522) by [Justin Gordon](https://github.com/justin808).
 
 ### Fixed
 
 - **`cpflow run` polls its job by ID.** Long runner histories can no longer hide the current job or flood the terminal with pagination notices. [PR 541](https://github.com/shakacode/control-plane-flow/pull/541) by [Sergey Tarasov](https://github.com/dzirtusss).
-- **Review-app deployments build and verify the exact PR image before setup or template refresh.** Partially created apps can recover missing workload images while preserving valid images and existing secrets. [PR 538](https://github.com/shakacode/control-plane-flow/pull/538) by [Justin Gordon](https://github.com/justin808).
-- **Review-app deployment, deletion, and cleanup now run on Ubuntu 24.04 for compatibility with prebuilt Ruby versions.** Setup failures and canceled attempts update the PR and GitHub deployment even if the app was never created. Automatic updates of existing apps post only the final outcome. Automatic pushes that skip an uncreated app leave no deployment or PR comment. [PR 529](https://github.com/shakacode/control-plane-flow/pull/529) by [Justin Gordon](https://github.com/justin808).
+- **Review-app deployments build and verify the exact PR image before setup or template refresh.** An explicit registry-verified bootstrap image repairs missing own-app images in partially created apps while preserving valid workload images and existing secrets. [PR 538](https://github.com/shakacode/control-plane-flow/pull/538) by [Justin Gordon](https://github.com/justin808).
+- **Review-app deployment, deletion, and cleanup now run on Ubuntu 24.04 for compatibility with prebuilt Ruby versions.** The workflow records the deployment attempt and its log link before setup. Setup and provisioning failures update the PR and GitHub deployment even if no app exists. Canceled attempts are reported as failures. Automatic updates of existing apps post only the final outcome. Automatic pushes that skip an uncreated app leave no deployment or PR comment. [PR 529](https://github.com/shakacode/control-plane-flow/pull/529) by [Justin Gordon](https://github.com/justin808).
 
 ### Security
 
