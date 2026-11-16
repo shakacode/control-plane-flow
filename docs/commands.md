@@ -600,7 +600,7 @@ once no workflow is pinned to 6.0.0. It never deletes them itself.
 All top-level workflows are preserved by default, including their refs,
 triggers, permissions, and deployment ownership. Use --workflows FILE...
 to explicitly add or replace named generated workflows. Replacement resets
-each selected workflow to its template and matching v6.0.1 ref;
+each selected workflow to its template and matching v6.1.0 ref;
 review and reapply any downstream customizations in the same PR.
 
 Selecting cpflow-deploy-staging.yml preserves a single existing push branch
