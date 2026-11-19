@@ -219,11 +219,13 @@ For production promotion, also configure:
 - `CPLN_TOKEN_PRODUCTION` as an environment secret on `production`, not as a repository or organization secret
 - `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
-- Optional `ENV_PARITY_CHECK` as a repository variable or a variable on the
-  production job's GitHub Environment. It defaults to `false`. Set it to `true`
-  to compare staging and production GVC and app workload container environment
-  variable names. Use lowercase `true` or `false`. The check compares names only.
-  Validate values and app-specific requirements separately.
+- Optional `ENV_PARITY_CHECK` as a variable in the repository running the
+  workflow or on the production job's GitHub Environment. Set it in one scope
+  to avoid conflicting values under [GitHub's variable precedence rules](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#configuration-variable-precedence).
+  It defaults to `false`. Set it to `true` to compare staging and production
+  GVC and app workload container environment variable names. Use lowercase
+  `true` or `false`. The check compares names only. Validate values and
+  app-specific requirements separately.
 
 Enter GitHub variables such as `CPLN_ORG_STAGING`,
 `CPLN_ORG_PRODUCTION`, `STAGING_APP_NAME`, and `PRODUCTION_APP_NAME`
