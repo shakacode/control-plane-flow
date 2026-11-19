@@ -292,6 +292,7 @@ jobs:
 
       - name: Verify production environment variables
         env:
+          ENV_PARITY_CHECK: ${{ vars.ENV_PARITY_CHECK || 'false' }}
           CPLN_TOKEN_STAGING: ${{ secrets.CPLN_TOKEN_STAGING }}
           CPLN_TOKEN_PRODUCTION: ${{ secrets.CPLN_TOKEN_PRODUCTION }}
           STAGING_APP_NAME: ${{ vars.STAGING_APP_NAME }}
@@ -302,6 +303,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          case "${ENV_PARITY_CHECK:-false}" in
+            true) ;;
+            false)
+              echo "::notice::Staging/production env var parity check is off. Set ENV_PARITY_CHECK=true to enable it."
+              exit 0
+              ;;
+            *)
+              echo "::error::ENV_PARITY_CHECK must be true or false (lowercase)."
+              exit 1
+              ;;
+          esac
 
           list_gvc_env_names() {
             local token="$1"

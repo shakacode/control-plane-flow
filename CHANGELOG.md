@@ -12,6 +12,10 @@ In addition to the standard keepachangelog.com categories, this project uses a l
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Production promotion skips staging and production environment variable name checks by default.** Set `ENV_PARITY_CHECK=true` before updating the promotion workflow to keep the previous check.
+
 ## [6.1.0] - 2026-11-15
 
 ### Added

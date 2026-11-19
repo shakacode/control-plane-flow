@@ -219,6 +219,13 @@ For production promotion, also configure:
 - `CPLN_TOKEN_PRODUCTION` as an environment secret on `production`, not as a repository or organization secret
 - `CPLN_ORG_PRODUCTION` as a production environment variable, for example `company-production`
 - `PRODUCTION_APP_NAME` as a production environment variable, for example `my-app-production`
+- Optional `ENV_PARITY_CHECK` as a variable in the repository running the
+  workflow or on the production job's GitHub Environment. Set it in one scope
+  to avoid conflicting values under [GitHub's variable precedence rules](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#configuration-variable-precedence).
+  It defaults to `false`. Set it to `true` to compare staging and production
+  GVC and app workload container environment variable names. Use lowercase
+  `true` or `false`. The check compares names only. Validate values and
+  app-specific requirements separately.
 
 Enter GitHub variables such as `CPLN_ORG_STAGING`,
 `CPLN_ORG_PRODUCTION`, `STAGING_APP_NAME`, and `PRODUCTION_APP_NAME`
@@ -458,7 +465,9 @@ The standard path is:
    deployment, copy, health-check, or rollback steps run.
 9. Bootstrap or re-apply the persistent production app templates before first
    promotion so app workload container env references and Control Plane secret
-   dictionaries exist in production.
+   dictionaries exist in production. If you rely on the parity check, set
+   `ENV_PARITY_CHECK=true` before replacing the promotion workflow with a version
+   that defaults to `false`.
 10. Expect promotion to preserve the selected staging image reference. Digest
    references are copied by digest, commit-suffixed tags keep the commit suffix,
    and plain numeric tags remain valid.
@@ -761,7 +770,9 @@ forged, missing, or permission-revoked newest intents fail closed and never fall
 
 - Manually promotes the staging artifact to production with a confirmation input.
 - Runs the production job in the `production` GitHub Environment, so configured reviewers approve the job before production environment secrets are available.
-- Verifies that production has the GVC and app workload container env var names staging expects.
+- With `ENV_PARITY_CHECK=true`, fails if production lacks a GVC or app workload
+  container env var name found in staging. Warns about production-only names in
+  scopes where staging has env vars.
 - Runs a health check against `PRIMARY_WORKLOAD` only after Control Plane reports the latest workload version ready.
 - Attempts a rollback of every configured application workload if the new production image does not come up healthy.
 - Creates a GitHub release after a successful promotion.
