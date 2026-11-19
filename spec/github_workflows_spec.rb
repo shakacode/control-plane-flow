@@ -6,6 +6,19 @@ require "open3"
 require "yaml"
 
 RSpec.describe "GitHub workflow definitions" do # rubocop:disable RSpec/DescribeClass
+  describe "Production promotion environment parity configuration" do
+    %w[. lib/github_flow_templates].each do |root|
+      it "defaults to false in the parity step for #{root}" do
+        path = File.expand_path("../#{root}/.github/workflows/cpflow-promote-staging-to-production.yml", __dir__)
+        workflow = YAML.safe_load_file(path, aliases: true)
+        steps = workflow.fetch("jobs").fetch("promote-to-production").fetch("steps")
+        step = steps.find { |item| item["name"] == "Verify production environment variables" }
+
+        expect(step.fetch("env").fetch("ENV_PARITY_CHECK")).to eq("${{ vars.ENV_PARITY_CHECK || 'false' }}")
+      end
+    end
+  end
+
   describe "Review app comment authorization" do
     def workflow_file(name)
       YAML.safe_load_file(File.expand_path("../.github/workflows/#{name}", __dir__), aliases: true)
